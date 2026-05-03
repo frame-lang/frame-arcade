@@ -570,6 +570,161 @@
 
 
 # ------------------------------------------------------------
+# BackpackLimit (aspect)
+# ------------------------------------------------------------
+# Consumes "take" verbs when the player is already carrying
+# `LIMIT` items. Returns the canonical CCA "you can't carry
+# that many things" message.
+#
+# Why this is an aspect, not a check inside the take handler:
+# the limit is a cross-cutting policy that applies *before*
+# any item-specific logic. Putting it in the take handler
+# means every take-related verb ("take", "get", "pickup",
+# "grab" once we accept synonyms) duplicates the check.
+# The aspect intercepts at the boundary instead.
+# ------------------------------------------------------------
+@@[persist]
+@@system BackpackLimit : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        try_handle(event: Dictionary): Dictionary
+
+    machine:
+
+        $Active {
+            try_handle(event: Dictionary): Dictionary {
+                var verb: String = event.get("verb", "")
+                var carrying: int = event.get("carrying_count", 0)
+                if verb == "take" and carrying >= self.LIMIT:
+                    self.consumed_count = self.consumed_count + 1
+                    @@:return({
+                        "verdict": "consume",
+                        "event": event,
+                        "message": "You can't carry that many things at once.",
+                    })
+                @@:({"verdict": "pass", "event": event})
+            }
+        }
+
+    domain:
+        LIMIT: int = 7              # canonical CCA carry limit
+        consumed_count: int = 0
+}
+
+
+# ------------------------------------------------------------
+# MagicWordTeleport (aspect)
+# ------------------------------------------------------------
+# Transforms the magic-word verbs (XYZZY, PLUGH, PLOVER) into
+# "move" commands with the appropriate destination room when
+# the player is in a recognized source room. In a wrong
+# location, the word passes through to the base handler,
+# which returns "Nothing happens."
+#
+# This is the canonical "transform" verdict in action: the
+# event leaves the aspect with a different `verb` and `noun`,
+# and downstream aspects + the base handler see the
+# transformed event.
+#
+# Why this is an aspect, not first-class verb dispatch:
+# magic words are *cross-cutting* — they're not part of the
+# normal verb grammar (TAKE/DROP/LOOK/etc.). Adding them as
+# regular verbs would require the base handler to know the
+# room-pair table, which is exactly the cross-cutting concern
+# we extracted. Aspects own this kind of input rewriting.
+# ------------------------------------------------------------
+@@[persist]
+@@system MagicWordTeleport : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        try_handle(event: Dictionary): Dictionary
+
+    machine:
+
+        $Active {
+            try_handle(event: Dictionary): Dictionary {
+                var verb: String = event.get("verb", "")
+                var room: int = event.get("room", -1)
+
+                # framec note (TODO file as bug): the nested-call
+                # form `@@:return(self._teleport(event, N))` drops
+                # the closing paren in generated GDScript at the
+                # _teleport call site. Reformulating with a local
+                # var avoids the codegen bug. When framec is
+                # patched, fold these back into single-line
+                # @@:return(self._teleport(...)) calls.
+
+                # XYZZY: pairs room 0 ↔ room 2 (cave ↔ debris).
+                if verb == "xyzzy":
+                    if room == 0:
+                        var r: Dictionary = self._teleport(event, 2)
+                        @@:return(r)
+                    elif room == 2:
+                        var r: Dictionary = self._teleport(event, 0)
+                        @@:return(r)
+
+                # PLUGH: pairs room 0 ↔ room 4 (cave ↔ Y2).
+                if verb == "plugh":
+                    if room == 0:
+                        var r: Dictionary = self._teleport(event, 4)
+                        @@:return(r)
+                    elif room == 4:
+                        var r: Dictionary = self._teleport(event, 0)
+                        @@:return(r)
+
+                # PLOVER: pairs room 4 ↔ room 6 (Y2 ↔ Plover).
+                if verb == "plover":
+                    if room == 4:
+                        var r: Dictionary = self._teleport(event, 6)
+                        @@:return(r)
+                    elif room == 6:
+                        var r: Dictionary = self._teleport(event, 4)
+                        @@:return(r)
+
+                # Unrecognized or wrong-room: pass through.
+                # Base handler returns "Nothing happens."
+                @@:({"verdict": "pass", "event": event})
+            }
+        }
+
+    actions:
+
+        # Builds the transformed event: verb becomes "move" and
+        # the noun becomes the destination room as a string
+        # (the base handler's _verb_move parses it). Bumps the
+        # internal counter for observability.
+        _teleport(event: Dictionary, dest_room: int): Dictionary {
+            self.transforms_count = self.transforms_count + 1
+            var transformed: Dictionary = event.duplicate()
+            transformed["verb"] = "move"
+            transformed["noun"] = str(dest_room)
+            transformed["magic_dest"] = dest_room
+            return {
+                "verdict": "transform",
+                "event": transformed,
+            }
+        }
+
+    domain:
+        transforms_count: int = 0
+}
+
+
+# ------------------------------------------------------------
 # Adventure (top-level orchestrator)
 # ------------------------------------------------------------
 # Holds the world: bus + aspects + player + lamp (so far).
@@ -628,13 +783,32 @@
         player_state(): String
         room_is_dark_now(): bool
         darkness_consumed_count(): int
+        backpack_blocked_count(): int
+        magic_transforms_count(): int
 
     machine:
 
         $Playing {
 
             setup_default_aspects() {
+                # Priority order matters. Higher fires first.
+                #
+                #   darkness (700) — gates info verbs first; if
+                #     consumed, downstream aspects don't run
+                #     (no need to evaluate magic words in a
+                #     dark room when the player can't see).
+                #   backpack (400) — gates take when full,
+                #     before any per-item logic.
+                #   magic    (500) — transforms magic-word
+                #     verbs into MOVE; placed above backpack
+                #     so a transformed event still runs through
+                #     the lower-priority aspects on the way to
+                #     base, but below darkness (you don't want
+                #     XYZZY to silently teleport you while
+                #     you're literally unable to see).
                 self.bus.register("darkness", 700)
+                self.bus.register("magic",    500)
+                self.bus.register("backpack", 400)
             }
 
             do_command(verb: String, noun: String): String {
@@ -647,6 +821,7 @@
                     "room": self.player.get_room(),
                     "is_dark": self._room_is_dark(self.player.get_room()),
                     "lamp_lit": self.lamp.is_lit(),
+                    "carrying_count": self.player.inventory_size(),
                 }
 
                 self.bus.begin_dispatch()
@@ -689,6 +864,8 @@
             player_state(): String            { @@:(self.player.get_state()) }
             room_is_dark_now(): bool          { @@:(self._room_is_dark(self.player.get_room())) }
             darkness_consumed_count(): int    { @@:(self.darkness.consumed_count) }
+            backpack_blocked_count(): int     { @@:(self.backpack.consumed_count) }
+            magic_transforms_count(): int     { @@:(self.magic.transforms_count) }
         }
 
     actions:
@@ -700,6 +877,10 @@
         _dispatch_to(name: String, event: Dictionary): Dictionary {
             if name == "darkness":
                 return self.darkness.try_handle(event)
+            elif name == "backpack":
+                return self.backpack.try_handle(event)
+            elif name == "magic":
+                return self.magic.try_handle(event)
             return {"verdict": "pass", "event": event}
         }
 
@@ -721,30 +902,56 @@
                 return "Your lamp is now off."
             elif verb == "move":
                 return self._verb_move(noun)
+            elif verb == "take":
+                # BackpackLimit has already gated full-inventory.
+                # Item id from noun (stub: parse to int).
+                var item_id: int = noun.to_int()
+                self.player.take(item_id)
+                return "Taken."
+            elif verb == "drop":
+                var did: int = noun.to_int()
+                self.player.drop(did)
+                return "Dropped."
+            elif verb == "xyzzy" or verb == "plugh" or verb == "plover":
+                # MagicWordTeleport didn't transform — wrong room.
+                # Canon CCA response.
+                return "Nothing happens."
             elif verb == "noop":
                 return ""
             return "I don't know how to '" + verb + "'."
         }
 
         _verb_look(): String {
-            # Stub — real CCA returns the room description here.
-            # We wire to a room-data table once we add rooms.
+            # Stub — real CCA returns the room description from
+            # a per-room data table. For now, a few hardcoded
+            # rooms so we can exercise magic-word teleports.
             var r: int = self.player.get_room()
             if r == 0:
                 return "You are at the entrance to a cave."
+            elif r == 2:
+                return "You are in a debris room filled with stuff."
+            elif r == 4:
+                return "You are at the Y2 marker."
+            elif r == 6:
+                return "You are in the Plover Room."
             return "You are deep in the cave."
         }
 
         _verb_move(noun: String): String {
-            # Stub — toggle between room 0 and 1 to exercise
-            # the dark/lit distinction. Real CCA reads exits
-            # from a per-room data table.
-            var r: int = self.player.get_room()
-            var next_r: int = 1 if r == 0 else 0
-            self.player.move_to(next_r)
-            if self._room_is_dark(next_r) and not self.lamp.is_lit():
+            # If MagicWordTeleport already transformed our event,
+            # noun will be a string room ID like "2" or "4".
+            # Otherwise fall back to the toggle behavior so
+            # bare "move" still does something during testing.
+            var dest: int = noun.to_int()
+            if dest > 0:
+                self.player.move_to(dest)
+            else:
+                var r: int = self.player.get_room()
+                self.player.move_to(1 if r == 0 else 0)
+            var nr: int = self.player.get_room()
+            if self._room_is_dark(nr) and not self.lamp.is_lit():
                 return "You move into darkness."
-            return "You move to a new area."
+            return "You are " + self._verb_look().substr(7)  # strip "You are"
         }
 
         # World inspection: is the player's current room dark?
@@ -765,6 +972,8 @@
         lamp = @@Lamp()
         player = @@Player()
         darkness = @@DarknessGate()
+        backpack = @@BackpackLimit()
+        magic = @@MagicWordTeleport()
 
         # Tick counter (advances every tick(), not every
         # do_command). Some commands are free; others tick.
