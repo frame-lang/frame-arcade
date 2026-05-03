@@ -25,11 +25,15 @@ mkdir -p "$ARCADE_DIR/godot/scripts"
 
 # Each chapter has frame/<name>.gd. We compile each one and
 # copy the result to arcade/godot/scripts/<name>.gd.
+#
+# ch04-asteroids is intentionally absent from this list: the
+# cabinet uses its own variant (arcade/frame/asteroids.fgd)
+# that adds @@[persist] save/resume on top of the chapter's
+# state machine. See the cabinet-only loop below.
 for entry in \
     "ch01-pong:pong" \
     "ch02-breakout:breakout" \
     "ch03-invaders:invaders" \
-    "ch04-asteroids:asteroids" \
     "ch05-pacman:pacman" \
     "ch06-platformer:platformer" \
     "ch07-shooter:shooter"
@@ -55,10 +59,19 @@ do
 done
 
 # ------------------------------------------------------------
-# Cabinet-only systems (not part of any book chapter).
-# Currently just `scoreboard.fgd` — demonstrates @@[persist].
+# Cabinet-only Frame sources.
+#
+#   scoreboard — high-score table (cabinet exclusive).
+#
+#   asteroids  — cabinet variant that overrides the chapter
+#                source. Adds @@[persist] to all three systems
+#                (Ship, AsteroidField, Asteroids) and switches
+#                $InGame.pause()/Paused.resume() to push$/pop$
+#                so save/resume preserves the actual paused
+#                sub-state. The chapter source stays untouched
+#                as a clean teaching artifact.
 # ------------------------------------------------------------
-for cabinet_name in scoreboard; do
+for cabinet_name in scoreboard asteroids; do
     src="$ARCADE_DIR/frame/$cabinet_name.fgd"
     out_dir="$ARCADE_DIR/generated"
     dst="$ARCADE_DIR/godot/scripts/$cabinet_name.gd"

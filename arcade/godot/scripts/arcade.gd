@@ -117,6 +117,40 @@ func record_score(name: String, score: int) -> bool:
 func get_high_score(name: String) -> int:
     return _scoreboard.get_high_score(name)
 
+# --- Per-game saved runs --------------------------------------
+#
+# Some games (currently just Asteroids) support save-and-resume
+# of an in-progress run. The save file lives at
+# `user://<game>.save` where <game> is the entry's `name` field.
+# Each game owns the bundle format inside that file; arcade.gd
+# only knows how to construct the path, check existence, and
+# delete on the user's behalf.
+#
+# These helpers are used by:
+#   - menu.gd           — to show a "Continue / New game" prompt
+#                         when the player picks a game with a
+#                         saved run, and to delete the save when
+#                         they choose "New game"
+#   - <game>_main.gd    — to derive the save path consistently
+#                         with the cabinet's expectation
+#
+# Games that don't support saves never write to their path, so
+# has_save() returns false for them and the menu skips the
+# prompt.
+
+func save_path(name: String) -> String:
+    return "user://" + name + ".save"
+
+func has_save(name: String) -> bool:
+    return FileAccess.file_exists(save_path(name))
+
+func delete_save(name: String) -> void:
+    var p := save_path(name)
+    if FileAccess.file_exists(p):
+        DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
+
+# --- Scoreboard internals (high-score persistence) -----------
+
 func _load_scoreboard() -> void:
     if not FileAccess.file_exists(SCOREBOARD_PATH):
         return

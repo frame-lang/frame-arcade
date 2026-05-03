@@ -29,6 +29,16 @@ generated GDScript into `godot/scripts/`. The cabinet's per-game
 driver scripts (e.g. `pong_main.gd`) preload these by their bare
 name.
 
+> **framec version note.** The cabinet-only sources
+> `frame/scoreboard.fgd` and `frame/asteroids.fgd` use the
+> `@@[save]` / `@@[load]` operation attributes that drive
+> `@@[persist]`. These were added after the framec 4.0.0
+> released on cargo (Apr 2026), so a `cargo install framec` of
+> that release fails to parse them. Use a current framepiler
+> build (`cargo build --release` in the framepiler repo) and
+> point `FRAMEC` at it. Once the cargo release catches up, this
+> override won't be needed.
+
 ## Controls
 
 **Menu:**

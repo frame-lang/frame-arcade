@@ -31,6 +31,21 @@ var score_labels: Array = []         # one Label per game (high-score)
 var label_blurb: Label
 var label_help: Label
 
+# --- Saved-run prompt ---------------------------------------
+#
+# When the player presses Enter on a game with a saved run,
+# the menu enters a "save prompt" sub-mode that asks
+# Continue / New game. The game list is hidden and a centered
+# prompt label takes over input. Esc cancels back to the list.
+const _SAVE_PROMPT_OPTIONS: Array = [
+    "Continue saved run",
+    "New game (deletes saved run)",
+]
+var _save_prompt_active: bool = false
+var _save_prompt_game_index: int = -1
+var _save_prompt_selection: int = 0
+var label_prompt: Label
+
 # Edge-detected input
 var _up_was_down: bool = false
 var _down_was_down: bool = false
@@ -118,29 +133,115 @@ func _build_ui() -> void:
     label_help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     canvas.add_child(label_help)
 
+    # Save-prompt overlay (hidden until activated). Same canvas
+    # so it draws on top of the game list naturally; we toggle
+    # visibility on the list rather than the overlay.
+    label_prompt = Label.new()
+    label_prompt.add_theme_font_size_override("font_size", 22)
+    label_prompt.position = Vector2(0, 200)
+    label_prompt.size = Vector2(COURT_SIZE.x, COURT_SIZE.y - 240)
+    label_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    label_prompt.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+    label_prompt.visible = false
+    canvas.add_child(label_prompt)
+
 # ============================================================
 func _process(_delta: float) -> void:
     var up: bool = Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W)
     var down: bool = Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S)
     var enter: bool = Input.is_key_pressed(KEY_ENTER) or Input.is_key_pressed(KEY_SPACE)
-
-    if up and not _up_was_down:
-        selected_index = (selected_index - 1 + game_labels.size()) % game_labels.size()
-        _refresh_selection()
-    if down and not _down_was_down:
-        selected_index = (selected_index + 1) % game_labels.size()
-        _refresh_selection()
-    if enter and not _enter_was_down:
-        Arcade.launch_game(selected_index)
-
     var escape: bool = Input.is_key_pressed(KEY_ESCAPE)
-    if escape and not _escape_was_down:
-        get_tree().quit()
+
+    if _save_prompt_active:
+        # Sub-mode: navigate Continue / New game.
+        if up and not _up_was_down:
+            _save_prompt_selection = (_save_prompt_selection - 1 + _SAVE_PROMPT_OPTIONS.size()) % _SAVE_PROMPT_OPTIONS.size()
+            _refresh_save_prompt()
+        if down and not _down_was_down:
+            _save_prompt_selection = (_save_prompt_selection + 1) % _SAVE_PROMPT_OPTIONS.size()
+            _refresh_save_prompt()
+        if enter and not _enter_was_down:
+            _confirm_save_prompt()
+        if escape and not _escape_was_down:
+            _hide_save_prompt()
+    else:
+        # Main game-list navigation.
+        if up and not _up_was_down:
+            selected_index = (selected_index - 1 + game_labels.size()) % game_labels.size()
+            _refresh_selection()
+        if down and not _down_was_down:
+            selected_index = (selected_index + 1) % game_labels.size()
+            _refresh_selection()
+        if enter and not _enter_was_down:
+            _on_game_selected(selected_index)
+        if escape and not _escape_was_down:
+            get_tree().quit()
 
     _up_was_down = up
     _down_was_down = down
     _enter_was_down = enter
     _escape_was_down = escape
+
+# Called when the player confirms a game from the list. If the
+# game has a saved run, switch to the Continue / New prompt;
+# otherwise launch directly. The branch keeps the menu silent
+# for the common no-save path — players who never save never
+# see the prompt.
+func _on_game_selected(index: int) -> void:
+    var entry: Dictionary = Arcade.GAMES[index]
+    if Arcade.has_save(entry.name):
+        _show_save_prompt(index)
+    else:
+        Arcade.launch_game(index)
+
+# --- Save-prompt sub-mode -----------------------------------
+
+func _show_save_prompt(game_index: int) -> void:
+    _save_prompt_active = true
+    _save_prompt_game_index = game_index
+    _save_prompt_selection = 0
+    _set_list_visible(false)
+    label_prompt.visible = true
+    _refresh_save_prompt()
+
+func _hide_save_prompt() -> void:
+    _save_prompt_active = false
+    _save_prompt_game_index = -1
+    label_prompt.visible = false
+    _set_list_visible(true)
+
+func _set_list_visible(visible: bool) -> void:
+    label_title.visible = visible
+    label_subtitle.visible = visible
+    for lbl in game_labels:
+        lbl.visible = visible
+    for lbl in score_labels:
+        lbl.visible = visible
+    label_blurb.visible = visible
+    label_help.visible = visible
+
+func _refresh_save_prompt() -> void:
+    var game: Dictionary = Arcade.GAMES[_save_prompt_game_index]
+    var lines := PackedStringArray()
+    lines.append(game.title.to_upper())
+    lines.append("")
+    lines.append("A saved run was found.")
+    lines.append("")
+    for i in range(_SAVE_PROMPT_OPTIONS.size()):
+        var prefix: String = "▸  " if i == _save_prompt_selection else "    "
+        lines.append(prefix + _SAVE_PROMPT_OPTIONS[i])
+    lines.append("")
+    lines.append("↑/↓ select    Enter confirm    Esc cancel")
+    label_prompt.text = "\n".join(lines)
+
+func _confirm_save_prompt() -> void:
+    var idx: int = _save_prompt_game_index
+    var entry: Dictionary = Arcade.GAMES[idx]
+    if _save_prompt_selection == 1:
+        # "New game" — delete the existing save before launching
+        # so the driver's _ready() sees no save and starts fresh.
+        Arcade.delete_save(entry.name)
+    Arcade.launch_game(idx)
 
 func _refresh_selection() -> void:
     for i in range(game_labels.size()):

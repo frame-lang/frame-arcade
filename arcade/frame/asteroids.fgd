@@ -1,0 +1,832 @@
+# ============================================================
+# Asteroids — Cabinet variant with @@[persist] save/resume
+# ============================================================
+# This is the cabinet's version of Asteroids, used in place of
+# the chapter 4 source when the unified arcade is built. It
+# extends the chapter version with two cabinet-only changes:
+#
+#   1. @@[persist] on all three systems (Ship, AsteroidField,
+#      Asteroids). Each system gets the auto-generated
+#      save_state() / restore_state() methods that round-trip
+#      the FSM tree (current state, pushed compartments, every
+#      domain variable) to a PackedByteArray.
+#
+#   2. push$ / -> pop$ on the pause/resume cycle (instead of
+#      the chapter's simpler -> $Paused / -> $Playing pair).
+#      Two reasons:
+#
+#      a) It's correct. The chapter version always resumes
+#         into $Playing — but a player can pause during
+#         $WaveClear or $ShipDying too. Resuming should land
+#         them back in the sub-state they paused from, not
+#         spirit them into $Playing. push$/pop$ does that.
+#
+#      b) It makes @@[persist] meaningful. Saving in $Paused
+#         while the pushed compartment is $WaveClear means the
+#         saved bytes carry both compartments. When the player
+#         resumes a saved run, the pushed $WaveClear comes
+#         back with its $.wave_timer intact — they re-enter the
+#         exact sub-state, not a freshly-initialized one. The
+#         state stack is what makes persistence interesting.
+#
+# WHY DUPLICATE THE CHAPTER SOURCE:
+#   ch04-asteroids/frame/asteroids.fgd is the canonical source
+#   for the book chapter, which deliberately defers @@[persist]
+#   to a later chapter (see "Still saving for later chapters"
+#   in that README). To preserve the chapter's teaching scope
+#   we keep that file untouched and provide this cabinet-
+#   specific variant. arcade/build.sh compiles this file in
+#   place of the chapter's. The chapter remains a clean
+#   teaching artifact; the cabinet shows what the same game
+#   looks like once persistence is layered on top.
+#
+# HOW THE DRIVER USES IT:
+#   @@[persist] auto-traverses composed sub-systems. Because
+#   Ship and AsteroidField are also marked @@[persist], the
+#   generated Asteroids.save_state() walks into them: it calls
+#   self.ship.save_state(), unwraps the bytes back to a
+#   Variant via bytes_to_var, and embeds the result in its own
+#   state dictionary. restore_state() does the symmetric thing
+#   — instantiates fresh Ship and AsteroidField objects and
+#   calls restore_state on each with its slice.
+#
+#   So the driver makes ONE call to save the FSM tree, and
+#   ONE call to restore it. It only has to bundle its own
+#   non-FSM state (ship physics, bullets) alongside:
+#
+#       var bundle := {
+#           "fsm":    fsm.save_state(),
+#           "driver": { ship_pos = ..., bullets = ..., ... },
+#       }
+#
+#   See arcade/godot/scripts/asteroids_main.gd. Note that
+#   after restore, fsm.ship and fsm.field are NEW instances
+#   (the parent's restore_state allocates them fresh) — the
+#   driver shouldn't cache references across a restore.
+#
+# Build with:
+#   framec compile arcade/frame/asteroids.fgd \
+#       --language gdscript -o arcade/generated/
+# ============================================================
+
+@@[target("gdscript")]
+
+
+# ------------------------------------------------------------
+# Ship
+# ------------------------------------------------------------
+# Modes of the player ship. Same FSM as chapter 4 — see
+# ch04-asteroids/README.md for the teaching prose. The only
+# change here is the @@[persist] header and the save/restore
+# operations.
+#
+# $Alive          — normal play, can shoot, rotate, thrust
+# $InHyperspace   — teleport animation; pushed from $Alive,
+#                   pops back after timer. The state stack
+#                   makes hyperspace a true subroutine.
+# $Exploding      — hit by asteroid; timer; → $Respawning
+# $Respawning     — brief invuln at spawn point; → $Alive
+# $Dead           — out of lives
+# ------------------------------------------------------------
+@@[persist]
+@@system Ship : RefCounted {
+
+    operations:
+        # @@[save] / @@[load] declare the persistence endpoints
+        # framec generates the bodies; the empty `{}` is the
+        # required syntactic placeholder. Same pattern as
+        # arcade/frame/scoreboard.fgd. Caller uses:
+        #
+        #     var ship = Ship.new()
+        #     ship.restore_state(saved_bytes)
+        #
+        # When restoring, framec rebuilds the entire compartment
+        # chain (current state plus any pushed parents from
+        # push$) and rehydrates every state variable. The enter
+        # handler of the restored leaf state does NOT fire —
+        # restoration is a resumption, not a fresh entry, the
+        # same semantics as -> pop$.
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        tick(dt: float)
+        hit()                       # asteroid collided with ship
+        hyperspace()                # player pressed hyperspace
+        respawn()                   # from $Dead to $Alive (new game)
+
+        can_fire(): bool
+        can_be_hit(): bool
+        is_visible(): bool
+        is_alive(): bool
+        get_state(): String
+        get_lives(): int
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Alive — normal play state. The ship can shoot, rotate,
+        # thrust, and be hit. Most of the game happens here.
+        # ------------------------------------------------------------
+        $Alive {
+            hit() {
+                # An asteroid touched the ship. Begin the death
+                # animation; the parent Asteroids system observes
+                # this transition (via Ship.get_state() == "exploding")
+                # and routes itself to $ShipDying.
+                -> $Exploding
+            }
+
+            hyperspace() {
+                # THE STATE STACK IN ACTION.
+                #
+                # push$ saves the current compartment — the entire
+                # runtime representation of $Alive, including every
+                # state variable's current value — onto the stack.
+                # -> $InHyperspace then transitions normally. When
+                # $InHyperspace finishes with -> pop$, we return
+                # HERE with state variables intact. (We don't have
+                # any state vars on $Alive, but the mechanism is the
+                # same as on $Paused below where pause-during-
+                # $WaveClear must remember the wave timer.)
+                push$
+                -> $InHyperspace
+            }
+
+            can_fire(): bool    { @@:(true) }
+            can_be_hit(): bool  { @@:(true) }
+            is_visible(): bool  { @@:(true) }
+            is_alive(): bool    { @@:(true) }
+            get_state(): String { @@:("alive") }
+            get_lives(): int    { @@:(self.lives_remaining) }
+        }
+
+        # ------------------------------------------------------------
+        # $InHyperspace — the subroutine. Timer counts down.
+        # When it expires, pop back to whatever called us (always
+        # $Alive in the current design, but the pop mechanism would
+        # keep working even if hyperspace could be triggered from
+        # $Respawning too).
+        # ------------------------------------------------------------
+        $InHyperspace {
+            $.timer: float = 0.0
+            $.duration: float = 0.4
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration:
+                    -> pop$
+            }
+
+            # Hyperspace is supposed to be dangerous — there's a
+            # small chance of reappearing inside an asteroid — but
+            # for pedagogical clarity we'll let it be safe here.
+            # The chapter's exercise section suggests adding the
+            # risk back via an exit handler that rolls a random
+            # number and conditionally transitions to $Exploding
+            # instead of popping.
+
+            can_fire(): bool    { @@:(false) }
+            can_be_hit(): bool  { @@:(false) }
+            is_visible(): bool  { @@:(false) }
+            is_alive(): bool    { @@:(true) }
+            get_state(): String { @@:("hyperspace") }
+            get_lives(): int    { @@:(self.lives_remaining) }
+        }
+
+        # ------------------------------------------------------------
+        # $Exploding — death animation. The ship is decremented
+        # one life when the timer expires; if any lives remain we
+        # transition to $Respawning, otherwise to $Dead.
+        # ------------------------------------------------------------
+        $Exploding {
+            $.timer: float = 0.0
+            $.duration: float = 1.0
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration:
+                    self.lives_remaining = self.lives_remaining - 1
+                    if self.lives_remaining <= 0:
+                        -> $Dead
+                    else:
+                        -> $Respawning
+            }
+
+            can_fire(): bool    { @@:(false) }
+            can_be_hit(): bool  { @@:(false) }
+            is_visible(): bool  { @@:(true) }   # show explosion
+            is_alive(): bool    { @@:(false) }
+            get_state(): String { @@:("exploding") }
+            get_lives(): int    { @@:(self.lives_remaining) }
+        }
+
+        # ------------------------------------------------------------
+        # $Respawning — brief invuln window at spawn point. The
+        # driver renders the ship as blinking during this state to
+        # signal invulnerability; collision detection skips it.
+        # ------------------------------------------------------------
+        $Respawning {
+            $.timer: float = 0.0
+            $.duration: float = 2.0
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration:
+                    -> $Alive
+            }
+
+            can_fire(): bool    { @@:(true) }
+            can_be_hit(): bool  { @@:(false) }
+            is_visible(): bool  { @@:(true) }
+            is_alive(): bool    { @@:(true) }
+            get_state(): String { @@:("respawning") }
+            get_lives(): int    { @@:(self.lives_remaining) }
+        }
+
+        # ------------------------------------------------------------
+        # $Dead — out of lives. Only respawn() (called when a new
+        # game starts) leaves this state.
+        # ------------------------------------------------------------
+        $Dead {
+            respawn() {
+                self.lives_remaining = self.starting_lives
+                -> $Alive
+            }
+
+            can_fire(): bool    { @@:(false) }
+            can_be_hit(): bool  { @@:(false) }
+            is_visible(): bool  { @@:(false) }
+            is_alive(): bool    { @@:(false) }
+            get_state(): String { @@:("dead") }
+            get_lives(): int    { @@:(0) }
+        }
+
+    domain:
+        # Lives remaining at any moment during a run. Decremented
+        # in $Exploding when the death timer expires. Reset to
+        # starting_lives by respawn() on a new game.
+        lives_remaining: int = 3
+
+        # Starting life count. Constant for now; would become a
+        # constructor parameter if the cabinet ever exposed
+        # "extra lives" as a difficulty knob.
+        starting_lives: int = 3
+}
+
+
+# ------------------------------------------------------------
+# AsteroidField
+# ------------------------------------------------------------
+# Manages the asteroid collection as data. Each asteroid is a
+# Dictionary entry in the `asteroids` array with keys:
+#   - pos   (Vector2)
+#   - vel   (Vector2)
+#   - size  (int: 1=small, 2=medium, 3=large)
+#   - alive (bool)
+#
+# Splitting rules: size 3 → 2× size 2, size 2 → 2× size 1,
+# size 1 → no children.
+#
+# Why this is a single-state system — and why individual
+# asteroids aren't their own systems — is covered in detail in
+# the chapter README ("Why Individual Asteroids Aren't Frame
+# Systems"). Short version: a Frame system pays off when
+# something has modes. An asteroid doesn't; it's data.
+#
+# @@[persist] is added here so the cabinet can save the entire
+# field — every asteroid's position, velocity, size, alive
+# flag — and restore it byte-identically. Without persist on
+# the field, save/resume would put the ship back where it was
+# but the asteroids would respawn freshly, ruining the run.
+# ------------------------------------------------------------
+@@[persist]
+@@system AsteroidField : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        spawn_wave(count: int, court_size: Vector2)
+        split(index: int): bool     # shoot asteroid i; spawn children
+        remove(index: int)          # remove without spawning children
+        clear()
+
+        # Per-frame
+        advance(dt: float, court_size: Vector2)
+
+        # Queries
+        count(): int                # total entries in the array
+        alive_count(): int          # count of alive asteroids
+        is_alive(index: int): bool
+        position(index: int): Vector2
+        velocity(index: int): Vector2
+        size_of(index: int): int
+        radius_of(index: int): float
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Active — the only state. AsteroidField has no modes; a
+        # single state is the right shape. We make it explicit (rather
+        # than a stateless action collection) because Frame requires a
+        # state machine for any @@system, and because $Active is the
+        # natural place to hang a future $Bonus or $Frozen mode.
+        # ------------------------------------------------------------
+        $Active {
+            spawn_wave(count: int, court_size: Vector2) {
+                self._clear()
+                var i: int = 0
+                while i < count:
+                    self._spawn_large(court_size)
+                    i = i + 1
+            }
+
+            split(index: int): bool {
+                # Returns true if the asteroid at `index` was alive
+                # and got split. Returns false if the bullet hit a
+                # stale entry (already destroyed but not yet
+                # compacted). Caller uses the return to decide
+                # whether to award points.
+                if index < 0 or index >= self.asteroids.size():
+                    @@:return(false)
+                var a: Dictionary = self.asteroids[index]
+                if not a.alive:
+                    @@:return(false)
+
+                a.alive = false
+                self.asteroids[index] = a
+
+                # Spawn two children if size > 1. Children inherit
+                # the parent's position; their velocity is randomized
+                # in _spawn_child so they fan out.
+                var sz: int = a.size
+                if sz > 1:
+                    self._spawn_child(a.pos, sz - 1)
+                    self._spawn_child(a.pos, sz - 1)
+                @@:(true)
+            }
+
+            remove(index: int) {
+                # Used by the driver in rare cases (e.g. asteroid
+                # crashed into ship; we want it gone but no children).
+                if index < 0 or index >= self.asteroids.size():
+                    return
+                var a: Dictionary = self.asteroids[index]
+                a.alive = false
+                self.asteroids[index] = a
+            }
+
+            clear() {
+                self._clear()
+            }
+
+            advance(dt: float, court_size: Vector2) {
+                # Per-frame physics integration with screen wrap.
+                # Dead asteroids are skipped (we don't compact the
+                # array — entries stay so indices remain stable for
+                # the duration of a frame; the next spawn_wave
+                # rebuilds it).
+                var i: int = 0
+                while i < self.asteroids.size():
+                    var a: Dictionary = self.asteroids[i]
+                    if a.alive:
+                        a.pos = a.pos + a.vel * dt
+                        if a.pos.x < 0.0:         a.pos.x = a.pos.x + court_size.x
+                        if a.pos.x > court_size.x: a.pos.x = a.pos.x - court_size.x
+                        if a.pos.y < 0.0:         a.pos.y = a.pos.y + court_size.y
+                        if a.pos.y > court_size.y: a.pos.y = a.pos.y - court_size.y
+                        self.asteroids[i] = a
+                    i = i + 1
+            }
+
+            count(): int { @@:(self.asteroids.size()) }
+
+            alive_count(): int {
+                var c: int = 0
+                var i: int = 0
+                while i < self.asteroids.size():
+                    if self.asteroids[i].alive:
+                        c = c + 1
+                    i = i + 1
+                @@:(c)
+            }
+
+            is_alive(index: int): bool {
+                if index < 0 or index >= self.asteroids.size():
+                    @@:return(false)
+                @@:(self.asteroids[index].alive)
+            }
+
+            position(index: int): Vector2 {
+                if index < 0 or index >= self.asteroids.size():
+                    @@:return(Vector2.ZERO)
+                @@:(self.asteroids[index].pos)
+            }
+
+            velocity(index: int): Vector2 {
+                if index < 0 or index >= self.asteroids.size():
+                    @@:return(Vector2.ZERO)
+                @@:(self.asteroids[index].vel)
+            }
+
+            size_of(index: int): int {
+                if index < 0 or index >= self.asteroids.size():
+                    @@:return(0)
+                @@:(self.asteroids[index].size)
+            }
+
+            radius_of(index: int): float {
+                if index < 0 or index >= self.asteroids.size():
+                    @@:return(0.0)
+                var sz: int = self.asteroids[index].size
+                if sz == 3: @@:return(32.0)
+                if sz == 2: @@:return(18.0)
+                @@:(10.0)
+            }
+        }
+
+    actions:
+
+        _clear() {
+            self.asteroids = []
+        }
+
+        _spawn_large(court_size: Vector2) {
+            # Spawn at a random screen edge, drift inward at a
+            # randomized angle and modest speed. Edge selection is
+            # uniform over {left, right, top, bottom}; angle is
+            # uniform over [0, TAU); speed is 40–70 px/s.
+            var edge: int = randi() % 4
+            var pos: Vector2 = Vector2.ZERO
+            if edge == 0:
+                pos = Vector2(0.0, randf() * court_size.y)
+            elif edge == 1:
+                pos = Vector2(court_size.x, randf() * court_size.y)
+            elif edge == 2:
+                pos = Vector2(randf() * court_size.x, 0.0)
+            else:
+                pos = Vector2(randf() * court_size.x, court_size.y)
+
+            var angle: float = randf() * TAU
+            var speed: float = 40.0 + randf() * 30.0
+            var vel: Vector2 = Vector2(cos(angle), sin(angle)) * speed
+
+            self.asteroids.append({
+                "pos": pos,
+                "vel": vel,
+                "size": 3,
+                "alive": true,
+            })
+        }
+
+        _spawn_child(pos: Vector2, size: int) {
+            # Children start at the parent's position with a fresh
+            # randomized velocity. Smaller children move faster so
+            # the late game gets twitchier (the (3 - size) * 20 term
+            # adds 20 to size 2 and 40 to size 1).
+            var angle: float = randf() * TAU
+            var speed: float = 60.0 + randf() * 40.0 + (3 - size) * 20.0
+            var vel: Vector2 = Vector2(cos(angle), sin(angle)) * speed
+            self.asteroids.append({
+                "pos": pos,
+                "vel": vel,
+                "size": size,
+                "alive": true,
+            })
+        }
+
+    domain:
+        # The asteroid collection. An Array of Dictionary entries —
+        # see the file header for the schema. Stored as a domain
+        # variable so @@[persist] picks it up automatically.
+        # var_to_bytes handles Array+Dictionary+Vector2 combinations
+        # natively, so the persist round-trip is byte-clean.
+        asteroids: Array = []
+}
+
+
+# ------------------------------------------------------------
+# Asteroids (top-level game)
+# ------------------------------------------------------------
+# Parameterized by difficulty: 1 = easy, 2 = normal, 3 = hard.
+# Difficulty controls:
+#   - starting asteroids per wave
+#   - asteroid spawn count growth per wave
+#   - score multiplier per hit
+#
+# Uses HSM like ch.3: $InGame is parent for $Playing,
+# $ShipDying, $WaveClear. $Attract, $Paused, $GameOver are
+# top-level siblings.
+#
+# CABINET CHANGES vs the chapter version:
+#
+#   - @@[persist] header + save/restore operations.
+#
+#   - $InGame.pause() does push$ -> $Paused (chapter does
+#     a plain transition). $Paused.resume() does -> pop$.
+#     This is correct (resume returns to the actual paused
+#     sub-state, not to $Playing) AND it's the feature that
+#     gives @@[persist] something interesting to demonstrate.
+# ------------------------------------------------------------
+@@[main]
+@@[persist]
+@@system Asteroids(difficulty: int = 2) : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        # Lifecycle
+        start()
+        restart()
+        pause()
+        resume()
+
+        # Per-frame
+        tick(dt: float, court_size: Vector2)
+
+        # Driver events
+        ship_hit_asteroid(index: int)
+        bullet_hit_asteroid(index: int)
+        ship_hyperspace()
+
+        # Queries
+        get_state(): String
+        get_score(): int
+        get_lives(): int
+        get_wave(): int
+        get_difficulty(): int
+        is_paused(): bool
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Attract — the title-screen mode the player sees before
+        # starting. Score and wave are reset to fresh values on entry
+        # so a "press R to restart" through $GameOver → $Attract →
+        # $Playing yields a clean slate.
+        # ------------------------------------------------------------
+        $Attract {
+            $>() {
+                self.score = 0
+                self.wave = 1
+            }
+
+            start() {
+                # The player pressed any key. Respawn the ship (the
+                # Ship system is in $Dead from a prior game over,
+                # or freshly constructed) and seed the first wave.
+                self.ship.respawn()
+                self.field.spawn_wave(self._asteroids_for_wave(1),
+                                      self.last_court_size)
+                -> $Playing
+            }
+
+            get_state(): String     { @@:("attract") }
+            get_score(): int        { @@:(self.score) }
+            get_lives(): int        { @@:(self.ship.get_lives()) }
+            get_wave(): int         { @@:(self.wave) }
+            get_difficulty(): int   { @@:(self.difficulty) }
+            is_paused(): bool       { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $InGame — HSM parent for active-gameplay sub-states. The
+        # pause() event is handled here so it works from any
+        # sub-state ($Playing, $ShipDying, $WaveClear).
+        # ------------------------------------------------------------
+        $InGame {
+            pause() {
+                # CABINET-SPECIFIC: push the current compartment
+                # before transitioning. With push$/pop$, $Paused
+                # remembers exactly which $InGame sub-state we
+                # paused from, including all its state variables
+                # ($.timer in $Exploding, $.wave_timer in
+                # $WaveClear, etc.). Resuming returns to that
+                # sub-state, not to $Playing.
+                #
+                # The chapter version uses a plain `-> $Paused`
+                # and always resumes into $Playing — simpler to
+                # explain in chapter prose, but technically wrong
+                # for pause-during-$WaveClear. The cabinet fixes
+                # this and the fix is what makes @@[persist]
+                # meaningful: the saved bytes carry the pushed
+                # compartment, so a saved-and-resumed run lands
+                # back in the same sub-state with the same timer
+                # values.
+                push$
+                -> $Paused
+            }
+
+            get_state(): String     { @@:("in_game") }
+            get_score(): int        { @@:(self.score) }
+            get_lives(): int        { @@:(self.ship.get_lives()) }
+            get_wave(): int         { @@:(self.wave) }
+            get_difficulty(): int   { @@:(self.difficulty) }
+            is_paused(): bool       { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $Playing — main gameplay
+        # ------------------------------------------------------------
+        $Playing => $InGame {
+            tick(dt: float, court_size: Vector2) {
+                self.last_court_size = court_size
+                self.ship.tick(dt)
+                self.field.advance(dt, court_size)
+            }
+
+            ship_hit_asteroid(index: int) {
+                # Ignore hits while the ship can't be hit (mid-
+                # explosion, mid-respawn, mid-hyperspace). The
+                # driver's collision detection already filters
+                # most of these via fsm.ship.can_be_hit(), but
+                # we double-check at the FSM boundary.
+                if not self.ship.can_be_hit():
+                    return
+                self.ship.hit()
+                -> $ShipDying
+            }
+
+            bullet_hit_asteroid(index: int) {
+                if self.field.split(index):
+                    var sz: int = self._size_points(index)
+                    self.score = self.score + sz * self.difficulty
+                    if self.field.alive_count() <= 0:
+                        -> $WaveClear
+            }
+
+            ship_hyperspace() {
+                self.ship.hyperspace()
+            }
+
+            get_state(): String { @@:("playing") }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $ShipDying — ship is exploding; asteroids keep drifting.
+        # Watches the Ship sub-system's state to decide when to
+        # leave: respawning means the player has lives left and
+        # we resume play; dead means game over.
+        # ------------------------------------------------------------
+        $ShipDying => $InGame {
+            tick(dt: float, court_size: Vector2) {
+                self.last_court_size = court_size
+                self.ship.tick(dt)
+                self.field.advance(dt, court_size)
+                if self.ship.get_state() == "respawning":
+                    -> $Playing
+                elif self.ship.get_state() == "dead":
+                    -> $GameOver
+            }
+
+            get_state(): String { @@:("ship_dying") }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $WaveClear — all asteroids destroyed; pause briefly,
+        # then spawn the next wave with one more rock.
+        # ------------------------------------------------------------
+        $WaveClear => $InGame {
+            $>() {
+                $.wave_timer = 0.0
+            }
+
+            tick(dt: float, court_size: Vector2) {
+                self.last_court_size = court_size
+                self.ship.tick(dt)
+                $.wave_timer = $.wave_timer + dt
+                if $.wave_timer >= self.wave_pause:
+                    self.wave = self.wave + 1
+                    self.field.spawn_wave(self._asteroids_for_wave(self.wave),
+                                          court_size)
+                    -> $Playing
+            }
+
+            get_state(): String { @@:("wave_clear") }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $Paused — the pause-menu state.
+        #
+        # Entered via push$ from $InGame, so the pushed compartment
+        # holds the actual sub-state ($Playing, $ShipDying, or
+        # $WaveClear) plus its state variables. resume() returns
+        # there via -> pop$.
+        #
+        # This state has no operations beyond resume() because the
+        # cabinet's pause-menu UI (Resume / Save & exit / Exit
+        # without saving) is rendered in the driver. The "save and
+        # exit" action is purely external — the driver calls
+        # save_state() on the FSM (capturing $Paused with its
+        # pushed compartment) and exits the scene. The "exit
+        # without saving" action also exits the scene without
+        # touching the FSM. Neither needs a Frame interface event
+        # because the FSM is destroyed when the scene unloads.
+        # ------------------------------------------------------------
+        $Paused {
+            resume() {
+                # Return to the sub-state we paused from, with
+                # every state variable restored to the value it
+                # held at pause time. This is the state-stack as
+                # subroutine return.
+                -> pop$
+            }
+
+            get_state(): String     { @@:("paused") }
+            get_score(): int        { @@:(self.score) }
+            get_lives(): int        { @@:(self.ship.get_lives()) }
+            get_wave(): int         { @@:(self.wave) }
+            get_difficulty(): int   { @@:(self.difficulty) }
+            is_paused(): bool       { @@:(true) }
+        }
+
+        # ------------------------------------------------------------
+        # $GameOver — out of lives. Player presses R to start over,
+        # which routes through $Attract (which resets score/wave).
+        # ------------------------------------------------------------
+        $GameOver {
+            restart() {
+                -> $Attract
+            }
+
+            get_state(): String     { @@:("game_over") }
+            get_score(): int        { @@:(self.score) }
+            get_lives(): int        { @@:(self.ship.get_lives()) }
+            get_wave(): int         { @@:(self.wave) }
+            get_difficulty(): int   { @@:(self.difficulty) }
+            is_paused(): bool       { @@:(false) }
+        }
+
+    actions:
+
+        _asteroids_for_wave(wave: int) {
+            # Base count depends on difficulty; grows each wave.
+            #   diff 1 (easy):   3, 4, 5, 6, ...
+            #   diff 2 (normal): 4, 5, 6, 7, ...
+            #   diff 3 (hard):   5, 6, 7, 8, ...
+            var base: int = 2 + self.difficulty
+            return base + wave - 1
+        }
+
+        _size_points(index: int) {
+            # Classic Asteroids scoring: small > medium > large.
+            # Smaller targets are harder to hit, so they pay more.
+            # The score multiplier from difficulty is applied by
+            # the caller in $Playing.bullet_hit_asteroid.
+            var sz: int = self.field.size_of(index)
+            if sz == 3: return 20   # large
+            if sz == 2: return 50   # medium
+            return 100              # small
+        }
+
+    domain:
+        # Config — initialized from the system parameter. Once
+        # @@[persist] is in play, this field is also serialized,
+        # which means a saved run preserves the difficulty it was
+        # played at regardless of what `difficulty` was passed to
+        # the constructor on restore.
+        difficulty: int = difficulty
+
+        # Game state
+        score: int = 0
+        wave: int = 1
+
+        # Timing for the wave-clear pause.
+        wave_pause: float = 2.0
+
+        # Last known court size, stashed by tick() so enter
+        # handlers ($Attract.start, $WaveClear.tick) that need to
+        # spawn a wave can pass the size into AsteroidField.
+        last_court_size: Vector2 = Vector2(640, 480)
+
+        # Owned sub-systems. These are RefCounted instances; the
+        # Asteroids system holds references and routes events
+        # through them. @@[persist] handles composition: because
+        # Ship and AsteroidField are themselves @@[persist],
+        # framec's generated save_state on Asteroids walks into
+        # them (calls sub.save_state(), unwraps the bytes via
+        # bytes_to_var, embeds the result), and restore_state
+        # does the symmetric thing — allocates new Ship/Field
+        # instances and dispatches their slice of the saved data.
+        # The driver therefore makes one save_state / one
+        # restore_state call; the entire tree round-trips as a
+        # unit.
+        ship = @@Ship()
+        field = @@AsteroidField()
+}
