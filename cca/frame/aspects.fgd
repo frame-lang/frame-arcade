@@ -1,0 +1,546 @@
+# ============================================================
+# Aspect Bus — proof-of-concept for the CCA architecture
+# ============================================================
+# Implements the priority-ordered FSM-interceptor pattern:
+# small dedicated state machines sit in front of a base
+# machine on a sorted bus, each returning a verdict per
+# event. First listener that says "consume" stops dispatch;
+# otherwise the event reaches the base.
+#
+# This file ships TWO things:
+#
+#   1. AspectBus — a small Frame system that holds a list of
+#      registered listener names + priorities and exposes
+#      register / unregister / dispatch lifecycle. The bus
+#      itself is a state machine ($Idle / $Dispatching) so it
+#      can defer mid-dispatch register/unregister calls and
+#      apply them safely when dispatch ends. This is the
+#      classic concurrent-modification footgun expressed as
+#      state.
+#
+#   2. A working demo: Conductor + three sample aspects
+#      (LoudAspect, MuteAspect, LogAspect). The conductor
+#      composes the aspects + the bus, drives publish through
+#      the verdict ladder, and falls through to a "base
+#      handler" when no aspect consumes. Together they're the
+#      smallest end-to-end thing you can save/restore via
+#      @@[persist] and verify the choreography survived.
+#
+# Why the bus holds NAMES, not @@system references:
+#   framec's @@[persist] auto-traverses named domain fields
+#   that are themselves @@system instances (it walks them
+#   recursively, calling save_state on each). It does NOT
+#   currently round-trip a generic Array<@@system> — Godot's
+#   var_to_bytes can't preserve Object references. So we keep
+#   each aspect as a *named* domain field on the parent
+#   (`loud = @@LoudAspect()`, etc.), and the bus stores only
+#   metadata (name + priority). The conductor's _dispatch_to
+#   action turns the name back into the right aspect call.
+#
+#   This also keeps the bus reusable across applications — it
+#   doesn't depend on knowing what aspects exist.
+#
+# Event shape:
+#   { "name": String, "data": Variant }
+#
+# Verdict shape (returned by an aspect's try_handle):
+#   { "verdict": "consume" | "transform" | "observe" | "pass",
+#     "event":   Dictionary  // the (possibly transformed) event
+#   }
+#
+# Build with:
+#   framec compile frame/aspects.fgd --language gdscript -o generated/
+# ============================================================
+
+@@[target("gdscript")]
+
+
+# ------------------------------------------------------------
+# AspectBus — registration + dispatch lifecycle.
+# ------------------------------------------------------------
+# Reusable across any aspect-machine application. Knows
+# nothing about specific aspects; just holds (name, priority)
+# tuples and tells callers the dispatch order.
+#
+# Registration during dispatch must defer to avoid the classic
+# concurrent-modification hazard ("an aspect's try_handle
+# registered another aspect, which now needs to fire on the
+# current event, but the listener list we're walking has just
+# been resized"). Modeling the dispatch lifecycle as states
+# makes the deferral explicit and impossible to forget.
+# ------------------------------------------------------------
+@@[persist]
+@@system AspectBus : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        # Registration. Higher priority fires earlier.
+        register(name: String, priority: int)
+        unregister(name: String)
+        is_registered(name: String): bool
+
+        # Dispatch lifecycle. begin_dispatch transitions the
+        # bus to $Dispatching so any register/unregister calls
+        # made by aspects' try_handle get queued. end_dispatch
+        # returns to $Idle and applies the queue.
+        begin_dispatch()
+        end_dispatch()
+
+        # Returns the listener names in dispatch order (highest
+        # priority first). The conductor walks this list,
+        # routing each name to the right aspect.
+        ordered_names(): Array
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Idle — accepting registrations directly. The default
+        # state when no dispatch is in progress.
+        # ------------------------------------------------------------
+        $Idle {
+            register(name: String, priority: int) {
+                self._add_or_replace(name, priority)
+            }
+
+            unregister(name: String) {
+                self._remove(name)
+            }
+
+            begin_dispatch() {
+                -> $Dispatching
+            }
+
+            end_dispatch() {
+                # No-op — we're not dispatching. Defensive
+                # against double-end_dispatch from a paranoid
+                # caller; cheaper than asserting.
+            }
+
+            is_registered(name: String): bool { @@:(self._has(name)) }
+            ordered_names(): Array            { @@:(self._names_sorted()) }
+        }
+
+        # ------------------------------------------------------------
+        # $Dispatching — the conductor is mid-publish. Any
+        # register/unregister calls from aspects get queued and
+        # applied on transition back to $Idle. ordered_names()
+        # still returns the snapshot taken at begin_dispatch
+        # (because we haven't mutated `listeners` yet).
+        # ------------------------------------------------------------
+        $Dispatching {
+            register(name: String, priority: int) {
+                self.pending_register.append({
+                    "name": name,
+                    "priority": priority,
+                })
+            }
+
+            unregister(name: String) {
+                self.pending_unregister.append(name)
+            }
+
+            begin_dispatch() {
+                # Re-entrant publish would be a bug. We could
+                # transition to a $Paused state here; for the
+                # prototype, silently ignore.
+            }
+
+            end_dispatch() {
+                self._apply_pending()
+                -> $Idle
+            }
+
+            is_registered(name: String): bool { @@:(self._has(name)) }
+            ordered_names(): Array            { @@:(self._names_sorted()) }
+        }
+
+    actions:
+
+        # Insert (or replace if name already present, taking the
+        # latest priority). Names are unique — a given aspect is
+        # registered once.
+        _add_or_replace(name: String, priority: int) {
+            var i: int = 0
+            while i < self.listeners.size():
+                if self.listeners[i].name == name:
+                    self.listeners[i].priority = priority
+                    return
+                i = i + 1
+            self.listeners.append({"name": name, "priority": priority})
+        }
+
+        _remove(name: String) {
+            var i: int = 0
+            while i < self.listeners.size():
+                if self.listeners[i].name == name:
+                    self.listeners.remove_at(i)
+                    return
+                i = i + 1
+        }
+
+        _has(name: String): bool {
+            var i: int = 0
+            while i < self.listeners.size():
+                if self.listeners[i].name == name:
+                    return true
+                i = i + 1
+            return false
+        }
+
+        # Returns names in priority order (highest first), as
+        # an Array of String. This is the per-publish snapshot
+        # the conductor walks. We re-sort each call rather than
+        # maintaining a sorted invariant — the listener count
+        # is small (<20 in CCA) so insertion-cost vs sort-cost
+        # is irrelevant; correctness > micro-optimization.
+        _names_sorted(): Array {
+            var pairs: Array = []
+            var i: int = 0
+            while i < self.listeners.size():
+                pairs.append([self.listeners[i].priority, self.listeners[i].name])
+                i = i + 1
+            pairs.sort_custom(func(a, b): return a[0] > b[0])
+            var names: Array = []
+            i = 0
+            while i < pairs.size():
+                names.append(pairs[i][1])
+                i = i + 1
+            return names
+        }
+
+        # Apply queued register/unregister calls accumulated
+        # during dispatch. Order: unregisters first (so a
+        # re-register-with-different-priority cleans up the old
+        # entry properly), then registers.
+        _apply_pending() {
+            var i: int = 0
+            while i < self.pending_unregister.size():
+                self._remove(self.pending_unregister[i])
+                i = i + 1
+            self.pending_unregister = []
+
+            i = 0
+            while i < self.pending_register.size():
+                var p: Dictionary = self.pending_register[i]
+                self._add_or_replace(p.name, p.priority)
+                i = i + 1
+            self.pending_register = []
+        }
+
+    domain:
+        # Listeners as plain Dictionaries — name + priority.
+        # No @@system references here; persistence-clean.
+        listeners: Array = []
+
+        # Mid-dispatch register/unregister queues. Drained on
+        # transition back to $Idle.
+        pending_register: Array = []
+        pending_unregister: Array = []
+}
+
+
+# ------------------------------------------------------------
+# LoudAspect — example "transform" aspect.
+# ------------------------------------------------------------
+# Uppercases the message text and appends "!". When toggled
+# off, passes events through unchanged. State proves the
+# aspect itself can be a real FSM — its own internal mode
+# changes how it responds to the same event.
+# ------------------------------------------------------------
+@@[persist]
+@@system LoudAspect : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        try_handle(event: Dictionary): Dictionary
+        toggle()
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $On — uppercase + ! transform.
+        # ------------------------------------------------------------
+        $On {
+            try_handle(event: Dictionary): Dictionary {
+                var data: String = event.get("data", "")
+                var transformed: Dictionary = {
+                    "name": event.name,
+                    "data": data.to_upper() + "!",
+                }
+                @@:({
+                    "verdict": "transform",
+                    "event": transformed,
+                })
+            }
+            toggle() { -> $Off }
+        }
+
+        # ------------------------------------------------------------
+        # $Off — pass-through.
+        # ------------------------------------------------------------
+        $Off {
+            try_handle(event: Dictionary): Dictionary {
+                @@:({
+                    "verdict": "pass",
+                    "event": event,
+                })
+            }
+            toggle() { -> $On }
+        }
+}
+
+
+# ------------------------------------------------------------
+# MuteAspect — example "consume" aspect.
+# ------------------------------------------------------------
+# Consumes any event whose name starts with "shh". Any other
+# event passes through. This is a one-state machine but
+# demonstrates the consume verdict — the base never sees
+# muted events.
+# ------------------------------------------------------------
+@@[persist]
+@@system MuteAspect : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        try_handle(event: Dictionary): Dictionary
+
+    machine:
+
+        $Active {
+            try_handle(event: Dictionary): Dictionary {
+                var name: String = event.get("name", "")
+                if name.begins_with("shh"):
+                    self.muted_count = self.muted_count + 1
+                    @@:return({
+                        "verdict": "consume",
+                        "event": event,
+                    })
+                @@:({
+                    "verdict": "pass",
+                    "event": event,
+                })
+            }
+        }
+
+    domain:
+        muted_count: int = 0
+}
+
+
+# ------------------------------------------------------------
+# LogAspect — example "observe" aspect.
+# ------------------------------------------------------------
+# Counts every event it sees and remembers the last one. Pure
+# observe: never modifies the event, never blocks dispatch.
+# Demonstrates the "I just want to know what's happening"
+# pattern (telemetry, audit log, replay capture).
+# ------------------------------------------------------------
+@@[persist]
+@@system LogAspect : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        try_handle(event: Dictionary): Dictionary
+        get_count(): int
+        get_last(): Dictionary
+
+    machine:
+
+        $Active {
+            try_handle(event: Dictionary): Dictionary {
+                self.events_seen = self.events_seen + 1
+                self.last_event = event
+                @@:({
+                    "verdict": "observe",
+                    "event": event,
+                })
+            }
+
+            get_count(): int          { @@:(self.events_seen) }
+            get_last(): Dictionary    { @@:(self.last_event) }
+        }
+
+    domain:
+        events_seen: int = 0
+        last_event: Dictionary = {}
+}
+
+
+# ------------------------------------------------------------
+# Conductor — orchestrator + base handler for the demo.
+# ------------------------------------------------------------
+# Holds the bus and the three aspect instances. Exposes a
+# single publish() entry point. publish() drives the bus
+# through begin_dispatch / walk listeners / end_dispatch, and
+# falls through to a "base handler" when no aspect consumed.
+#
+# In CCA, this becomes the Adventure system holding ~13
+# aspects + the world entities, and publish() takes the
+# parser's (verb, noun) instead of (name, data).
+# ------------------------------------------------------------
+@@[main]
+@@[persist]
+@@system Conductor : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        # Wire all aspects into the bus. Called once after
+        # construction. (We could put this in $>() but making
+        # it explicit lets a test register some-but-not-all
+        # aspects to isolate behavior.)
+        setup_default_aspects()
+
+        # The single dispatch entry point. Returns a String
+        # describing the outcome: "consumed:<name>" if an
+        # aspect consumed it, otherwise "handled:<final-data>"
+        # showing what the base saw after any transforms.
+        publish(name: String, data: String): String
+
+        # Toggle the loud aspect's internal mode. Demonstrates
+        # that an aspect's *own* state can change without
+        # touching the bus or the base.
+        toggle_loud()
+
+        # Mutate the bus mid-dispatch via a special aspect.
+        # Proves the queue-during-dispatch behavior — see
+        # smoke test "register-during-dispatch" case.
+        register_log_late()
+
+        # Queries
+        log_count(): int
+        muted_count(): int
+        loud_state(): String
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Active — the only state for this demo. CCA's
+        # Conductor would be richer ($Attract / $Playing / etc.)
+        # but the dispatch lifecycle is the same regardless.
+        # ------------------------------------------------------------
+        $Active {
+
+            setup_default_aspects() {
+                # Higher numbers fire first. Mute checks before
+                # Loud transforms so a muted message never gets
+                # uppercased pointlessly.
+                self.bus.register("mute", 700)
+                self.bus.register("loud", 500)
+                self.bus.register("log",  100)
+            }
+
+            publish(name: String, data: String): String {
+                var event: Dictionary = {"name": name, "data": data}
+
+                self.bus.begin_dispatch()
+                var names: Array = self.bus.ordered_names()
+                var i: int = 0
+                var consumed_by: String = ""
+                while i < names.size():
+                    var aname: String = names[i]
+                    var result: Dictionary = self._dispatch_to(aname, event)
+                    var verdict: String = result.verdict
+                    if verdict == "consume":
+                        consumed_by = aname
+                        i = names.size()       # break
+                    elif verdict == "transform":
+                        event = result.event
+                    # observe / pass — no event change, continue
+                    i = i + 1
+                self.bus.end_dispatch()
+
+                if consumed_by != "":
+                    @@:return("consumed:" + consumed_by)
+                @@:("handled:" + event.get("data", ""))
+            }
+
+            toggle_loud() {
+                self.loud.toggle()
+            }
+
+            register_log_late() {
+                # Re-register with a DIFFERENT priority. With
+                # the bus in $Idle this just replaces. We test
+                # the $Dispatching path separately by having an
+                # aspect call this from inside its try_handle.
+                self.bus.register("log", 50)
+            }
+
+            log_count(): int     { @@:(self.log_aspect.get_count()) }
+            muted_count(): int   { @@:(self.mute.muted_count) }
+            loud_state(): String {
+                # Surface the aspect's internal state for tests.
+                # In a real game, the player wouldn't query this
+                # directly — but it's exactly the kind of fact
+                # that *would* be hard to extract from a flag-on-
+                # the-base implementation, and trivial here.
+                if self.loud.try_handle({"name": "_probe", "data": "x"}).verdict == "transform":
+                    @@:return("on")
+                @@:("off")
+            }
+        }
+
+    actions:
+
+        # The name → aspect routing table. CCA's version will
+        # be longer (one branch per aspect) but the pattern is
+        # the same. The cost of the if-ladder is negligible
+        # (single-digit branches, called once per turn) and the
+        # payoff is that the bus stays reusable across apps —
+        # it doesn't have to know what aspects exist.
+        _dispatch_to(name: String, event: Dictionary): Dictionary {
+            if name == "mute":
+                return self.mute.try_handle(event)
+            elif name == "loud":
+                return self.loud.try_handle(event)
+            elif name == "log":
+                return self.log_aspect.try_handle(event)
+            # Unknown name — treat as pass-through. This makes
+            # the bus tolerant of stale entries (e.g. a save
+            # file from a build that had an aspect we since
+            # removed).
+            return {"verdict": "pass", "event": event}
+        }
+
+    domain:
+        bus = @@AspectBus()
+
+        # Aspects as named domain fields. @@[persist] traverses
+        # these by name, which is exactly the architectural
+        # constraint that drove the bus to hold name strings
+        # instead of system references.
+        loud = @@LoudAspect()
+        mute = @@MuteAspect()
+        log_aspect = @@LogAspect()
+}

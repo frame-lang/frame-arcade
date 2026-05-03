@@ -1,0 +1,10 @@
+; Engine configuration file.
+; CCA prototype — aspect-bus harness. No game scene; tests run
+; via `godot --headless --path godot --script ...`.
+
+config_version=5
+
+[application]
+
+config/name="CCA Aspect Prototype"
+config/features=PackedStringArray("4.2")
