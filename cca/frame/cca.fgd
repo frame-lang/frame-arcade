@@ -725,6 +725,152 @@
 
 
 # ------------------------------------------------------------
+# Bird
+# ------------------------------------------------------------
+# The canonical CCA bird. Lives in its starting room until
+# captured by the player, accompanies the player while caged,
+# and on release behaves differently depending on the room:
+#
+#   $Free → $Caged                via capture()
+#   $Caged → $Released            release at SNAKE_ROOM
+#   $Caged → $Dead                release at DRAGON_ROOM
+#   $Caged → $Free (somewhere)    release anywhere else
+#
+# The bird's location is tracked as a domain variable. While
+# $Caged, location is sentinel -1 (with the player); the
+# Adventure correlates that with the player's current room
+# when needed. After $Released or $Free-after-release, the
+# bird is wherever it was let go.
+#
+# Cross-FSM interaction with Snake is coordinated by the
+# Adventure orchestrator: when release() lands the bird in
+# $Released and the player was in the snake's room, the
+# Adventure tells the Snake. The Bird itself doesn't know
+# about the Snake — it just records "I was released at
+# room N." This keeps the systems independently testable.
+#
+# Why hardcoded SNAKE_ROOM / DRAGON_ROOM in the Bird's domain
+# rather than parameterizing: Frame supports `@@system Foo(p:int)`
+# parameters, but for two integer constants that map to the
+# fixed CCA geography, a domain default + a comment noting the
+# constant must match Adventure's is the simpler shape. If the
+# room layout ever becomes data-driven we'll parameterize.
+# ------------------------------------------------------------
+@@[persist]
+@@system Bird : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        capture()
+        release(at_room: int)
+
+        get_state(): String
+        get_location(): int      # current room, or -1 if carried/dead
+
+    machine:
+
+        $Free {
+            capture() {
+                self.location_room = -1
+                -> $Caged
+            }
+            get_state(): String  { @@:("free") }
+            get_location(): int  { @@:(self.location_room) }
+        }
+
+        $Caged {
+            release(at_room: int) {
+                self.location_room = at_room
+                if at_room == self.SNAKE_ROOM:
+                    -> $Released
+                elif at_room == self.DRAGON_ROOM:
+                    -> $Dead
+                else:
+                    -> $Free
+            }
+            get_state(): String  { @@:("caged") }
+            get_location(): int  { @@:(-1) }
+        }
+
+        $Released {
+            # Terminal: the bird drove off the snake and flew
+            # away. Could re-enter $Free with a different
+            # location later, but classic CCA leaves it gone.
+            get_state(): String  { @@:("released") }
+            get_location(): int  { @@:(self.location_room) }
+        }
+
+        $Dead {
+            # Terminal: the dragon ate the bird.
+            get_state(): String  { @@:("dead") }
+            get_location(): int  { @@:(-1) }
+        }
+
+    domain:
+        # Starting position — bird-chamber room. Must match
+        # Adventure.BIRD_HOME_ROOM.
+        location_room: int = 5
+
+        # Special rooms that change release outcomes. Must
+        # match Adventure.SNAKE_ROOM and Adventure.DRAGON_ROOM.
+        SNAKE_ROOM: int = 7
+        DRAGON_ROOM: int = 8
+}
+
+
+# ------------------------------------------------------------
+# Snake
+# ------------------------------------------------------------
+# Two-state NPC. Initial $Blocking; the bird-released-at-
+# snake-room event drives the transition to $Gone, opening
+# the east passage out of the Hall of Mists.
+#
+# This is the smallest meaningful FSM in CCA. Almost a single
+# bit. Modeling it as a state machine rather than a boolean
+# pays off only because every system in this file ends up
+# composed under the same persistence + dispatch envelope —
+# being a state machine makes Snake a first-class citizen
+# alongside Bird and Bear.
+# ------------------------------------------------------------
+@@[persist]
+@@system Snake : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        bird_released_here()
+        get_state(): String
+        is_blocking(): bool
+
+    machine:
+
+        $Blocking {
+            bird_released_here() {
+                -> $Gone
+            }
+            get_state(): String   { @@:("blocking") }
+            is_blocking(): bool   { @@:(true) }
+        }
+
+        $Gone {
+            get_state(): String   { @@:("gone") }
+            is_blocking(): bool   { @@:(false) }
+        }
+}
+
+
+# ------------------------------------------------------------
 # ScoreLedger (aspect)
 # ------------------------------------------------------------
 # Demonstrates the *observe* verdict. ScoreLedger watches
@@ -852,6 +998,11 @@
         score(): int
         commands_seen(): int
 
+        # NPC queries
+        bird_state(): String
+        bird_location(): int
+        snake_state(): String
+
     machine:
 
         $Playing {
@@ -942,6 +1093,9 @@
             magic_transforms_count(): int     { @@:(self.magic.transforms_count) }
             score(): int                      { @@:(self.score_ledger.get_score()) }
             commands_seen(): int              { @@:(self.score_ledger.commands_seen()) }
+            bird_state(): String              { @@:(self.bird.get_state()) }
+            bird_location(): int              { @@:(self.bird.get_location()) }
+            snake_state(): String             { @@:(self.snake.get_state()) }
         }
 
     actions:
@@ -982,14 +1136,11 @@
                 return self._verb_move(noun)
             elif verb == "take":
                 # BackpackLimit has already gated full-inventory.
-                # Item id from noun (stub: parse to int).
-                var item_id: int = noun.to_int()
-                self.player.take(item_id)
-                return "Taken."
+                return self._verb_take(noun)
             elif verb == "drop":
-                var did: int = noun.to_int()
-                self.player.drop(did)
-                return "Dropped."
+                return self._verb_drop(noun)
+            elif verb == "release":
+                return self._verb_release(noun)
             elif verb == "xyzzy" or verb == "plugh" or verb == "plover":
                 # MagicWordTeleport didn't transform — wrong room.
                 # Canon CCA response.
@@ -1002,17 +1153,81 @@
         _verb_look(): String {
             # Stub — real CCA returns the room description from
             # a per-room data table. For now, a few hardcoded
-            # rooms so we can exercise magic-word teleports.
+            # rooms with NPC-presence appended dynamically.
             var r: int = self.player.get_room()
+            var base: String = "You are deep in the cave."
             if r == 0:
-                return "You are at the entrance to a cave."
+                base = "You are at the entrance to a cave."
             elif r == 2:
-                return "You are in a debris room filled with stuff."
+                base = "You are in a debris room filled with stuff."
             elif r == 4:
-                return "You are at the Y2 marker."
+                base = "You are at the Y2 marker."
+            elif r == 5:
+                base = "You are in a chamber filled with the chirping of birds."
             elif r == 6:
-                return "You are in the Plover Room."
-            return "You are deep in the cave."
+                base = "You are in the Plover Room."
+            elif r == 7:
+                base = "You are at the end of a long passage."
+            elif r == 8:
+                base = "You are in a cavern dominated by a stone dragon."
+            # NPC presence is appended dynamically. The base
+            # description is room data; NPC overlays are world
+            # state and have to be queried each look.
+            if r == self.bird.get_location() and self.bird.get_state() == "free":
+                base = base + " A small bird flutters nearby."
+            if r == self.SNAKE_ROOM and self.snake.is_blocking():
+                base = base + " A huge green snake bars further passage."
+            return base
+        }
+
+        _verb_take(noun: String): String {
+            # Special-case the bird because capturing it has
+            # cross-FSM consequences (the Bird transitions). For
+            # everything else, plain take into the inventory.
+            if noun == "bird":
+                if self.bird.get_state() != "free":
+                    return "There is no bird here."
+                if self.player.get_room() != self.bird.get_location():
+                    return "There is no bird here."
+                self.bird.capture()
+                self.player.take(self.BIRD_ID)
+                return "You catch the bird in your hand."
+            var item_id: int = noun.to_int()
+            self.player.take(item_id)
+            return "Taken."
+        }
+
+        _verb_drop(noun: String): String {
+            # Drop is non-special — the bird gets its own
+            # `release` verb because the outcome depends on
+            # which room you're in.
+            var item_id: int = noun.to_int()
+            self.player.drop(item_id)
+            return "Dropped."
+        }
+
+        _verb_release(noun: String): String {
+            # The bird-shaped corner of the verb table. Coordinates
+            # the cross-FSM consequence: when the bird's release
+            # transition lands at $Released (i.e., the player was
+            # in the snake's room), notify the Snake too.
+            if noun != "bird":
+                return "I don't know how to release that."
+            if not self.player.carrying(self.BIRD_ID):
+                return "You aren't carrying the bird."
+            var room: int = self.player.get_room()
+            self.bird.release(room)
+            self.player.drop(self.BIRD_ID)
+            # Cross-FSM coordination. Bird's own state change is
+            # complete; we now reach across to Snake/Dragon and
+            # let them react.
+            var bs: String = self.bird.get_state()
+            if bs == "released" and self.snake.is_blocking():
+                self.snake.bird_released_here()
+                return "The little bird attacks the green snake furiously, and the snake slithers off in fear."
+            elif bs == "dead":
+                return "The dragon catches the little bird in midair and swallows it whole."
+            return "The bird flies off into the gloom."
         }
 
         _verb_move(noun: String): String {
@@ -1053,6 +1268,18 @@
         backpack = @@BackpackLimit()
         magic = @@MagicWordTeleport()
         score_ledger = @@ScoreLedger()
+        bird = @@Bird()
+        snake = @@Snake()
+
+        # World-layout constants. Must match Bird's domain
+        # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
+        # consistent. (The Bird's release transitions reference
+        # its own copies; the Adventure's _verb_release uses
+        # its copies for snake-notification routing.)
+        BIRD_ID: int = 100
+        BIRD_HOME_ROOM: int = 5
+        SNAKE_ROOM: int = 7
+        DRAGON_ROOM: int = 8
 
         # Tick counter (advances every tick(), not every
         # do_command). Some commands are free; others tick.
