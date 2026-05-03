@@ -725,6 +725,70 @@
 
 
 # ------------------------------------------------------------
+# ScoreLedger (aspect)
+# ------------------------------------------------------------
+# Demonstrates the *observe* verdict. ScoreLedger watches
+# every event that reaches it, records what happened, and
+# always returns "observe" — never blocking or transforming.
+# The purpose is telemetry / score: count commands, count
+# specific verbs, accumulate points.
+#
+# In real CCA, scoring has roughly seven components — treasures
+# deposited, rooms visited, hints used, deaths, endgame bonus,
+# etc. — each scoring rule turns out to be "observe a specific
+# event class and add a number." That's a natural fit for an
+# observe aspect: the rules are completely orthogonal to the
+# verb dispatch logic that already exists; scoring shouldn't
+# need to be threaded through it.
+#
+# This prototype version just counts. Per-rule scoring goes
+# in once we have treasures and a deposit room.
+# ------------------------------------------------------------
+@@[persist]
+@@system ScoreLedger : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        try_handle(event: Dictionary): Dictionary
+        get_score(): int
+        commands_seen(): int
+        takes_seen(): int
+
+    machine:
+
+        $Active {
+            try_handle(event: Dictionary): Dictionary {
+                self.commands = self.commands + 1
+                var verb: String = event.get("verb", "")
+                if verb == "take":
+                    self.takes = self.takes + 1
+                    # Placeholder per-take score. Real CCA
+                    # awards points based on which treasure
+                    # was just deposited (not taken); refine
+                    # when treasures land.
+                    self.score = self.score + 1
+                @@:({"verdict": "observe", "event": event})
+            }
+
+            get_score(): int      { @@:(self.score) }
+            commands_seen(): int  { @@:(self.commands) }
+            takes_seen(): int     { @@:(self.takes) }
+        }
+
+    domain:
+        score: int = 0
+        commands: int = 0
+        takes: int = 0
+}
+
+
+# ------------------------------------------------------------
 # Adventure (top-level orchestrator)
 # ------------------------------------------------------------
 # Holds the world: bus + aspects + player + lamp (so far).
@@ -785,6 +849,8 @@
         darkness_consumed_count(): int
         backpack_blocked_count(): int
         magic_transforms_count(): int
+        score(): int
+        commands_seen(): int
 
     machine:
 
@@ -809,6 +875,14 @@
                 self.bus.register("darkness", 700)
                 self.bus.register("magic",    500)
                 self.bus.register("backpack", 400)
+                # ScoreLedger sits at the bottom of the stack
+                # so it observes events AFTER any transforms
+                # higher up have applied. A magic-word
+                # teleport, by the time score sees it, looks
+                # like a "move" — that's intentional; the
+                # ledger should record "the player moved" not
+                # "the player typed XYZZY."
+                self.bus.register("score",    100)
             }
 
             do_command(verb: String, noun: String): String {
@@ -866,6 +940,8 @@
             darkness_consumed_count(): int    { @@:(self.darkness.consumed_count) }
             backpack_blocked_count(): int     { @@:(self.backpack.consumed_count) }
             magic_transforms_count(): int     { @@:(self.magic.transforms_count) }
+            score(): int                      { @@:(self.score_ledger.get_score()) }
+            commands_seen(): int              { @@:(self.score_ledger.commands_seen()) }
         }
 
     actions:
@@ -881,6 +957,8 @@
                 return self.backpack.try_handle(event)
             elif name == "magic":
                 return self.magic.try_handle(event)
+            elif name == "score":
+                return self.score_ledger.try_handle(event)
             return {"verdict": "pass", "event": event}
         }
 
@@ -974,6 +1052,7 @@
         darkness = @@DarknessGate()
         backpack = @@BackpackLimit()
         magic = @@MagicWordTeleport()
+        score_ledger = @@ScoreLedger()
 
         # Tick counter (advances every tick(), not every
         # do_command). Some commands are free; others tick.
