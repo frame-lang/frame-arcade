@@ -81,6 +81,13 @@ const GAMES: Array = [
         "scene": "res://scenes/games/shooter.tscn",
         "blurb": "Capstone — boss HSM, parameterized enemies",
     },
+    {
+        "title": "8. Stealth",
+        "name": "stealth",
+        "scored": false,
+        "scene": "res://scenes/games/stealth.tscn",
+        "blurb": "Agent AI — Frame as an alternative to behavior trees",
+    },
 ]
 
 # Live Scoreboard instance. Populated in _ready, persisted on

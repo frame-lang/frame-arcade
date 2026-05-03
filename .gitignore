@@ -19,6 +19,7 @@ arcade/godot/scripts/platformer.gd
 arcade/godot/scripts/pong.gd
 arcade/godot/scripts/scoreboard.gd
 arcade/godot/scripts/shooter.gd
+arcade/godot/scripts/stealth.gd
 ch01-pong/godot/scripts/pong.gd
 ch02-breakout/godot/scripts/breakout.gd
 ch03-invaders/godot/scripts/invaders.gd
