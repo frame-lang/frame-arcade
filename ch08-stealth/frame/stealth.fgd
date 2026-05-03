@@ -1,0 +1,592 @@
+# ============================================================
+# Stealth — Three guards in a maze
+# ============================================================
+# A 2D top-down stealth game. The player navigates a maze and
+# tries to reach an exit without being seen by any of three
+# patrolling guards. Each guard has its own patrol route, its
+# own vision cone, and its own state machine governing how it
+# reacts to noticing the player.
+#
+# This chapter is about Frame's expression of agent AI — the
+# kind of code that's commonly written with behavior trees in
+# mainstream game engines. Three Frame features carry the
+# load:
+#
+#   1. PARAMETERIZED SYSTEMS WITH MULTIPLE INSTANCES.
+#      Each guard is the same Guard system, instantiated three
+#      times by the top-level Stealth system. They differ only
+#      in which patrol route they're handed at init() time.
+#      No copy-paste, no inheritance, no class hierarchy.
+#
+#   2. THE STATE STACK (push$ / -> pop$) for interrupt-and-
+#      resume. A guard mid-patrol whose attention is briefly
+#      caught (by a sound, or by a glimpse) pushes the
+#      patrol state and transitions to $Investigating. When
+#      the investigation timer expires, -> pop$ returns to
+#      patrol with the next-waypoint cursor, the partial
+#      progress along the current segment, and any other
+#      $.X state variables intact. Compare to a behavior tree,
+#      where this requires either persistent local state on
+#      the leaf or a separately-managed "blackboard" entry.
+#
+#   3. HSM PARENT INHERITANCE for shared "I can see"
+#      behavior. The $Aware parent state defines how every
+#      child responds to a spot_player event — set the last-
+#      known position and transition to $Alerted. Children
+#      ($Patrolling, $Investigating, $Searching) get this
+#      for free. $Alerted itself overrides the handler to
+#      stay in $Alerted while refreshing last-known. Compare
+#      to a behavior tree, where this is typically a
+#      condition-decorator wrapped around every leaf, or the
+#      same condition node copy-pasted at every relevant
+#      point in the tree.
+#
+# WHY THREE GUARDS AND NOT ONE:
+#   One guard would have demonstrated the state machine and
+#   the BT comparison fine. Three guards demonstrate
+#   parameterized systems holding multiple instances of the
+#   same type — that's the lesson chapter 5 (Pac-Man ghosts)
+#   introduced and that this chapter scales. Each guard ticks
+#   independently, and the player has to track three vision
+#   cones at once instead of one.
+#
+# WHY A MAZE:
+#   Open rooms make stealth too easy (long sight lines). A
+#   maze gives the player real spatial choices — which
+#   corridor to use, when to wait at a corner, which guards
+#   to watch — and forces guards to lose line-of-sight when
+#   the player slips around a wall, which is what makes the
+#   $Alerted -> $Searching transition meaningful.
+#
+# WHAT FRAME OWNS vs WHAT THE DRIVER OWNS:
+#   The agent's MIND is in Frame: states, timers, last-known
+#   memory, patrol cursor, the target the guard is currently
+#   walking toward. The world's GEOMETRY is in the driver:
+#   actual positions of guards and player, vision-cone math,
+#   line-of-sight against the maze grid, collision. The
+#   driver perceives ("can guard 0 see the player?") and
+#   reports facts to Frame via spot_player events. The Frame
+#   side reacts.
+#
+#   This split mirrors the chapter 4 (Asteroids) split where
+#   ship physics live in the driver and ship modes live in
+#   Frame. It's the same lesson: state machines are about
+#   modes, not coordinates.
+#
+# Build with:
+#   framec compile frame/stealth.fgd --language gdscript -o generated/
+# ============================================================
+
+@@[target("gdscript")]
+
+
+# ------------------------------------------------------------
+# Guard
+# ------------------------------------------------------------
+# An autonomous agent. Doesn't know about the player or the
+# maze directly — those facts arrive as events (spot_player)
+# or as parameters on tick() (the current dt and the target
+# the driver wants the guard to walk toward, after collision).
+#
+# State diagram:
+#
+#   $Idle                                     # before init()
+#     │
+#     v init()
+#   $Patrolling ──hear_sound()──► push$ ──► $Investigating
+#         │  ▲                                  │ timer↑
+#         │  └──────────────── -> pop$ ◄────────┘
+#         │
+#         │ spot_player()  (inherited from $Aware)
+#         v
+#   $Alerted ──reached last_known and lost sight──► $Searching
+#         │                                              │
+#         │ touched_player()                              │ timer↑
+#         v                                              v
+#   $Engaged                                      $Patrolling
+#       (terminal)                          (resume from nearest waypoint)
+#
+# $Aware is the HSM parent of $Patrolling, $Investigating,
+# $Searching, and $Alerted. It defines the spot_player handler
+# once; children inherit. $Alerted overrides to stay-in-state
+# while refreshing memory.
+# ------------------------------------------------------------
+@@[persist]
+@@system Guard : RefCounted {
+
+    operations:
+        # @@[persist]'s save/load endpoints. The Guard's
+        # `patrol` Array, $.timer state vars, last_known,
+        # next_wp cursor, and current state all round-trip.
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        # Initialize the guard with a patrol route. Called
+        # once by Stealth.start() per guard. Each guard's
+        # personality is the route it walks; speed adjusts
+        # how fast it covers ground (slower guards are
+        # easier to dodge, faster ones harder).
+        init(patrol: Array, speed: float)
+
+        # Per-frame. dt is the delta since last tick. The
+        # driver passes the guard's CURRENT actual position
+        # (post-collision) so Frame can decide what to do
+        # next; the driver doesn't need to know the guard's
+        # mode to drive its movement, it just walks toward
+        # `get_target()`.
+        tick(dt: float, current_pos: Vector2)
+
+        # Perception events from the driver. The driver
+        # checks vision-cone + line-of-sight every frame and
+        # fires spot_player(at) while the player is visible.
+        # When the player slips out of sight, the events stop
+        # arriving (no explicit "lost" event needed — the
+        # guard's tick handles the absence by checking
+        # whether it's reached last_known).
+        spot_player(at: Vector2)
+
+        # A noise the guard heard. Pushes $Patrolling onto
+        # the stack and goes to $Investigating. Driver fires
+        # this (rarely) when the player runs while close.
+        hear_sound(at: Vector2)
+
+        # Driver discovered the guard touched the player.
+        # Terminal.
+        touched_player()
+
+        # Queries
+        get_state(): String
+        get_target(): Vector2          # where the guard wants to walk
+        get_last_known(): Vector2      # last seen player position
+        is_aware(): bool               # alerted or searching
+        is_alerted(): bool             # actively chasing
+        should_move(): bool            # driver should advance pos this frame
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Idle — pre-init state. The guard exists but has no
+        # patrol route yet, so tick() does nothing. init()
+        # transitions out and never comes back.
+        # ------------------------------------------------------------
+        $Idle {
+            init(patrol: Array, speed: float) {
+                self.patrol = patrol
+                self.speed = speed
+                self.next_wp = 0
+                if patrol.size() > 0:
+                    self.target = patrol[0]
+                -> $Patrolling
+            }
+
+            tick(dt: float, current_pos: Vector2) {
+                # No-op until initialized.
+            }
+
+            get_state(): String         { @@:("idle") }
+            get_target(): Vector2       { @@:(self.target) }
+            get_last_known(): Vector2   { @@:(self.last_known) }
+            is_aware(): bool            { @@:(false) }
+            is_alerted(): bool          { @@:(false) }
+            should_move(): bool         { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $Aware — HSM parent for "states in which the guard can
+        # notice the player." Defines the default spot_player
+        # response. Children ($Patrolling, $Investigating,
+        # $Searching) inherit. $Alerted overrides.
+        #
+        # This is the BT-decorator analogue: a single condition
+        # ("did I just see the player?") expressed once, applied
+        # to every relevant child state.
+        # ------------------------------------------------------------
+        $Aware {
+            spot_player(at: Vector2) {
+                self.last_known = at
+                -> $Alerted
+            }
+
+            touched_player() {
+                -> $Engaged
+            }
+
+            get_state(): String         { @@:("aware") }
+            get_target(): Vector2       { @@:(self.target) }
+            get_last_known(): Vector2   { @@:(self.last_known) }
+            is_aware(): bool            { @@:(true) }
+            is_alerted(): bool          { @@:(false) }
+            should_move(): bool         { @@:(true) }
+        }
+
+        # ------------------------------------------------------------
+        # $Patrolling — walk the patrol route. tick() advances
+        # the target along the route; the driver does the actual
+        # movement and writes back current_pos. When the guard
+        # reaches the current waypoint (within ARRIVAL_RADIUS),
+        # next_wp advances and target updates to the new waypoint.
+        # ------------------------------------------------------------
+        $Patrolling => $Aware {
+            tick(dt: float, current_pos: Vector2) {
+                if self.patrol.size() == 0:
+                    return
+                # The driver writes the post-collision position
+                # back via the tick parameter — we don't move
+                # the target, we move the guard's "where am I
+                # right now" snapshot.
+                if current_pos.distance_to(self.target) < self.ARRIVAL_RADIUS:
+                    self.next_wp = (self.next_wp + 1) % self.patrol.size()
+                    self.target = self.patrol[self.next_wp]
+            }
+
+            hear_sound(at: Vector2) {
+                # State-stack push — the lesson of the chapter.
+                # When -> pop$ fires from $Investigating, we
+                # come back HERE with self.next_wp and
+                # self.target intact. The guard resumes the
+                # exact patrol cycle, no bookkeeping needed.
+                push$
+                self.last_known = at
+                -> $Investigating
+            }
+
+            get_state(): String         { @@:("patrolling") }
+            is_aware(): bool            { @@:(false) }
+            should_move(): bool         { @@:(true) }
+            => $^   # inherit spot_player, touched_player, queries
+        }
+
+        # ------------------------------------------------------------
+        # $Investigating — stop and listen toward the noise.
+        # CRITICALLY: this state does NOT touch self.target.
+        # `target` is a domain variable (lifetime = the system),
+        # not a state variable, so any write here would persist
+        # across the upcoming -> pop$. Leaving it untouched
+        # means the patrol's target survives the round-trip,
+        # which is the whole point of the push$. The driver
+        # gates movement on should_move() (false here), so the
+        # guard doesn't *walk* toward the stale patrol target;
+        # the value just waits to be re-used after pop.
+        #
+        # If the player is spotted during investigation,
+        # $Aware's spot_player handler fires (-> $Alerted) and
+        # the push is silently discarded. That's intentional:
+        # an alert promotes the response, and we don't want to
+        # quietly resume patrol after seeing the player.
+        # ------------------------------------------------------------
+        $Investigating => $Aware {
+            $.timer: float = 0.0
+
+            tick(dt: float, current_pos: Vector2) {
+                $.timer = $.timer + dt
+                if $.timer >= self.INVESTIGATE_DURATION:
+                    -> pop$
+            }
+
+            get_state(): String { @@:("investigating") }
+            should_move(): bool { @@:(false) }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $Alerted — chase. target tracks last_known each frame
+        # the player is in sight. Two ways out:
+        #
+        #   1. Spatial: the guard's actual position reaches
+        #      last_known. The chase ended because we got there
+        #      — possibly without seeing the player at the
+        #      destination (they slipped behind cover during the
+        #      run). Transition to $Searching and look around.
+        #
+        #   2. Temporal: the chase timer hits CHASE_TIMEOUT
+        #      without reaching last_known. The guard's
+        #      straight-line pursuit is being blocked by maze
+        #      walls (the driver does only simple slide-against-
+        #      wall collision, no pathfinding) and we'd otherwise
+        #      get permanently wedged. Give up and go to
+        #      $Searching at the current position.
+        #
+        # Without case 2, a guard whose target sits behind a
+        # corner could be stuck against the wall forever, which
+        # reads as "broken AI" — a demo failure mode.
+        #
+        # Each fresh spot_player() call resets $.chase_timer so
+        # an actively-visible player keeps the chase alive.
+        # ------------------------------------------------------------
+        $Alerted => $Aware {
+            $.chase_timer: float = 0.0
+
+            spot_player(at: Vector2) {
+                # Override the parent handler — already alerted,
+                # don't re-transition; refresh memory and reset
+                # the timeout so a maintained sighting keeps the
+                # chase going indefinitely.
+                self.last_known = at
+                $.chase_timer = 0.0
+            }
+
+            tick(dt: float, current_pos: Vector2) {
+                self.target = self.last_known
+                $.chase_timer = $.chase_timer + dt
+                if current_pos.distance_to(self.last_known) < self.ARRIVAL_RADIUS:
+                    -> $Searching
+                elif $.chase_timer >= self.CHASE_TIMEOUT:
+                    -> $Searching
+            }
+
+            get_state(): String { @@:("alerted") }
+            is_alerted(): bool  { @@:(true) }
+            should_move(): bool { @@:(true) }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $Searching — at the last known position, scan briefly.
+        # If a fresh spot_player arrives, $Aware kicks back to
+        # $Alerted. Otherwise after the timer, give up and
+        # return to patrol from the nearest waypoint.
+        # ------------------------------------------------------------
+        $Searching => $Aware {
+            $.timer: float = 0.0
+
+            tick(dt: float, current_pos: Vector2) {
+                $.timer = $.timer + dt
+                if $.timer >= self.SEARCH_DURATION:
+                    self._resume_patrol(current_pos)
+                    -> $Patrolling
+            }
+
+            get_state(): String { @@:("searching") }
+            should_move(): bool { @@:(false) }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $Engaged — the guard has caught the player. Terminal;
+        # the top-level Stealth system handles the game-over
+        # transition. The guard stops moving (target stays put).
+        # ------------------------------------------------------------
+        $Engaged {
+            tick(dt: float, current_pos: Vector2) {
+                # Frozen mid-stride.
+            }
+
+            get_state(): String         { @@:("engaged") }
+            get_target(): Vector2       { @@:(self.target) }
+            get_last_known(): Vector2   { @@:(self.last_known) }
+            is_aware(): bool            { @@:(true) }
+            is_alerted(): bool          { @@:(true) }
+            should_move(): bool         { @@:(false) }
+        }
+
+    actions:
+
+        # When a search times out we want to rejoin the patrol
+        # at the most-sensible point — the nearest waypoint to
+        # where we ended up while searching. Sets next_wp and
+        # target. Without this, the guard would head back to
+        # whatever waypoint they were heading to before the
+        # alert, which may now be on the far side of the maze.
+        _resume_patrol(current_pos: Vector2) {
+            if self.patrol.size() == 0:
+                return
+            var best_i: int = 0
+            var best_d: float = current_pos.distance_to(self.patrol[0])
+            var i: int = 1
+            while i < self.patrol.size():
+                var d: float = current_pos.distance_to(self.patrol[i])
+                if d < best_d:
+                    best_d = d
+                    best_i = i
+                i = i + 1
+            self.next_wp = best_i
+            self.target = self.patrol[best_i]
+        }
+
+    domain:
+        # The patrol route as a list of Vector2 waypoints. Set
+        # at init(); never mutated afterward. The cursor
+        # `next_wp` indexes into this list. Persisted by
+        # @@[persist] so a saved game resumes with the same
+        # route.
+        patrol: Array = []
+        next_wp: int = 0
+
+        # Where the guard is currently trying to walk. The
+        # driver reads this each frame and moves the guard's
+        # actual position toward it (with maze collision).
+        # During $Patrolling this is the current waypoint;
+        # during $Alerted/$Investigating it tracks last_known.
+        target: Vector2 = Vector2.ZERO
+
+        # The most recent confirmed sighting (or noise source).
+        # Updated by spot_player() and hear_sound(). Used by
+        # $Alerted's tick to set target each frame and by
+        # $Searching as the spot to scan around.
+        last_known: Vector2 = Vector2.ZERO
+
+        # Movement speed in pixels/sec. Set at init; constant
+        # for the life of the guard. We could let alerts boost
+        # this (chase faster than patrol), but constant speed
+        # keeps the demo's behavior easier to read; the
+        # behavior tree contrast is the same point either way.
+        speed: float = 60.0
+
+        # Tunables. Constants in spirit; in domain because
+        # Frame doesn't have file-level constants and we want
+        # them readable from anywhere in the system.
+        ARRIVAL_RADIUS: float = 12.0       # "close enough" to a target
+        INVESTIGATE_DURATION: float = 1.5  # seconds spent investigating
+        SEARCH_DURATION: float = 3.0       # seconds spent searching
+        CHASE_TIMEOUT: float = 4.0         # max seconds in $Alerted before giving up
+}
+
+
+# ------------------------------------------------------------
+# Stealth (top-level game)
+# ------------------------------------------------------------
+# Holds three Guards, the game-level mode ($Attract /
+# $Playing / $Caught / $Escaped), and the elapsed clock.
+# Doesn't know about the maze — that's the driver's
+# concern — but does know which guard caught the player so
+# the chapter README can describe a "got caught by guard 2"
+# experience.
+# ------------------------------------------------------------
+@@[main]
+@@[persist]
+@@system Stealth : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        # Lifecycle. start() initializes all three guards with
+        # their patrol routes; the driver passes the routes in
+        # because it owns the maze layout and patrol design.
+        start(p1: Array, p2: Array, p3: Array)
+
+        restart()           # game over -> attract
+        give_up()           # caught/escaped -> attract (like restart)
+
+        # Per-frame; passes through to each guard's tick.
+        tick(dt: float, pos1: Vector2, pos2: Vector2, pos3: Vector2)
+
+        # Driver-fired events
+        guard_caught_player(i: int)
+        player_at_exit()
+
+        # Queries
+        get_state(): String
+        get_elapsed(): float
+        get_caught_by(): int          # which guard, -1 if none
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Attract — title screen. Player presses any key to
+        # start. Guards are inert (init() hasn't run); the
+        # driver still renders them at their starting positions
+        # so the attract screen looks right.
+        # ------------------------------------------------------------
+        $Attract {
+            $>() {
+                self.elapsed = 0.0
+                self.caught_by = -1
+            }
+
+            start(p1: Array, p2: Array, p3: Array) {
+                self.guard1.init(p1, self.PATROL_SPEED)
+                self.guard2.init(p2, self.PATROL_SPEED)
+                self.guard3.init(p3, self.PATROL_SPEED)
+                -> $Playing
+            }
+
+            get_state(): String     { @@:("attract") }
+            get_elapsed(): float    { @@:(0.0) }
+            get_caught_by(): int    { @@:(-1) }
+        }
+
+        # ------------------------------------------------------------
+        # $Playing — main game. Each tick, advance the elapsed
+        # clock and forward to each guard's tick.
+        # ------------------------------------------------------------
+        $Playing {
+            tick(dt: float, pos1: Vector2, pos2: Vector2, pos3: Vector2) {
+                self.elapsed = self.elapsed + dt
+                self.guard1.tick(dt, pos1)
+                self.guard2.tick(dt, pos2)
+                self.guard3.tick(dt, pos3)
+            }
+
+            guard_caught_player(i: int) {
+                self.caught_by = i
+                if i == 0:
+                    self.guard1.touched_player()
+                elif i == 1:
+                    self.guard2.touched_player()
+                elif i == 2:
+                    self.guard3.touched_player()
+                -> $Caught
+            }
+
+            player_at_exit() {
+                -> $Escaped
+            }
+
+            get_state(): String     { @@:("playing") }
+            get_elapsed(): float    { @@:(self.elapsed) }
+            get_caught_by(): int    { @@:(self.caught_by) }
+        }
+
+        # ------------------------------------------------------------
+        # $Caught — terminal until the player presses R.
+        # ------------------------------------------------------------
+        $Caught {
+            restart() {
+                -> $Attract
+            }
+
+            get_state(): String     { @@:("caught") }
+            get_elapsed(): float    { @@:(self.elapsed) }
+            get_caught_by(): int    { @@:(self.caught_by) }
+        }
+
+        # ------------------------------------------------------------
+        # $Escaped — player reached the exit. R restarts.
+        # ------------------------------------------------------------
+        $Escaped {
+            restart() {
+                -> $Attract
+            }
+
+            get_state(): String     { @@:("escaped") }
+            get_elapsed(): float    { @@:(self.elapsed) }
+            get_caught_by(): int    { @@:(-1) }
+        }
+
+    domain:
+        # Three guards. The chapter could have used an
+        # Array<Guard> for cleaner iteration, but explicit
+        # named fields keep the chapter prose easy to refer
+        # to ("look at guard2's patrol route") and the
+        # composition obvious — everything lives in the domain
+        # block, no factory pattern, no array bookkeeping.
+        guard1 = @@Guard()
+        guard2 = @@Guard()
+        guard3 = @@Guard()
+
+        # Game state
+        elapsed: float = 0.0
+        caught_by: int = -1     # which guard ended the run, -1 = none
+
+        # Tunables
+        PATROL_SPEED: float = 95.0
+}

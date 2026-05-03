@@ -26,6 +26,7 @@ ch04-asteroids/godot/scripts/asteroids.gd
 ch05-pacman/godot/scripts/pacman.gd
 ch06-platformer/godot/scripts/platformer.gd
 ch07-shooter/godot/scripts/shooter.gd
+ch08-stealth/godot/scripts/stealth.gd
 
 # end-user packaging — published on itch.io, not in repo
 arcade/Run Arcade.app/

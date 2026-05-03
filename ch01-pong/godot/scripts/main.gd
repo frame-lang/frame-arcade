@@ -119,9 +119,9 @@ func _handle_input() -> void:
 func _update_paddles(delta: float) -> void:
     # Left paddle: W/S keys
     var left_dir := 0.0
-    if Input.is_key_pressed(KEY_W):
+    if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W):
         left_dir -= 1.0
-    if Input.is_key_pressed(KEY_S):
+    if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
         left_dir += 1.0
     paddle_left_y += left_dir * paddle_speed * delta
 

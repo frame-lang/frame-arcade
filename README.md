@@ -30,7 +30,8 @@ gameplay.
 | 4 | [Asteroids](./ch04-asteroids/) | State stack (push$/pop$) for hyperspace, parameterized systems for difficulty | ✅ |
 | 5 | [Pac-Man Ghost AI](./ch05-pacman/) | HSM showcase, parameterized ghosts, two-stack coordination | ✅ |
 | 6 | [Platformer](./ch06-platformer/) | Orthogonal-state problem, HSM-vs-composition design choice, variable jump height | ✅ |
-| 7 | [Side-Scrolling Shooter](./ch07-shooter/) | Capstone — multi-phase boss HSM, parameterized enemies at scale, full toolkit | ✅ |
+| 7 | [Side-Scrolling Shooter](./ch07-shooter/) | Multi-phase boss HSM, parameterized enemies at scale, full toolkit | ✅ |
+| 8 | [Stealth](./ch08-stealth/) | Agent AI — Frame as an alternative to behavior trees; three guards in a maze | ✅ |
 
 Each chapter is a standalone Godot project. You can open `ch01-pong/godot/`
 in Godot 4 and run it immediately — no need to work through earlier chapters
