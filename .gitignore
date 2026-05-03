@@ -30,6 +30,7 @@ ch06-platformer/godot/scripts/platformer.gd
 ch07-shooter/godot/scripts/shooter.gd
 ch08-stealth/godot/scripts/stealth.gd
 cca/godot/scripts/aspects.gd
+cca/godot/scripts/cca.gd
 
 # end-user packaging — published on itch.io, not in repo
 arcade/Run Arcade.app/

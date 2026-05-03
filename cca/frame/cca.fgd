@@ -1,0 +1,451 @@
+# ============================================================
+# Colossal Cave Adventure — Frame source
+# ============================================================
+# This is the real-CCA compilation unit. It will grow as
+# systems land. The toy aspect-bus demo lives in a separate
+# file (aspects.fgd) — that's the smoke-test fixture, not the
+# game.
+#
+# Frame doesn't have an import mechanism, so a single .fgd
+# must contain every system that composes with another. CCA's
+# Adventure orchestrator composes the AspectBus, Lamp, and
+# eventually all the NPC/object/aspect systems. They all live
+# here.
+#
+# Currently in this file:
+#
+#   AspectBus  — priority-ordered interceptor registry. Same
+#                shape as in aspects.fgd; duplicated here
+#                because of the no-imports constraint. If
+#                Frame gains a `@@import` directive later,
+#                consolidate.
+#
+#   Lamp       — the canonical CCA object. Battery counter,
+#                dim-warning threshold, dark-room-makes-game-
+#                impossible interaction. Real HSM with
+#                sub-states.
+#
+#   Adventure  — top-level orchestrator. Currently just holds
+#                the bus and the lamp; will accumulate the
+#                world as we go.
+#
+# Build with:
+#   framec compile frame/cca.fgd --language gdscript -o generated/
+# ============================================================
+
+@@[target("gdscript")]
+
+
+# ------------------------------------------------------------
+# AspectBus
+# ------------------------------------------------------------
+# Same definition as aspects.fgd's bus. See that file's
+# header comment for the design rationale (priority-ordered
+# listener metadata, $Idle/$Dispatching states for queue-
+# during-dispatch, why we hold names not @@system refs).
+# ------------------------------------------------------------
+@@[persist]
+@@system AspectBus : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        register(name: String, priority: int)
+        unregister(name: String)
+        is_registered(name: String): bool
+        begin_dispatch()
+        end_dispatch()
+        ordered_names(): Array
+
+    machine:
+
+        $Idle {
+            register(name: String, priority: int) {
+                self._add_or_replace(name, priority)
+            }
+            unregister(name: String) {
+                self._remove(name)
+            }
+            begin_dispatch() {
+                -> $Dispatching
+            }
+            end_dispatch() {}
+            is_registered(name: String): bool { @@:(self._has(name)) }
+            ordered_names(): Array            { @@:(self._names_sorted()) }
+        }
+
+        $Dispatching {
+            register(name: String, priority: int) {
+                self.pending_register.append({
+                    "name": name,
+                    "priority": priority,
+                })
+            }
+            unregister(name: String) {
+                self.pending_unregister.append(name)
+            }
+            begin_dispatch() {}
+            end_dispatch() {
+                self._apply_pending()
+                -> $Idle
+            }
+            is_registered(name: String): bool { @@:(self._has(name)) }
+            ordered_names(): Array            { @@:(self._names_sorted()) }
+        }
+
+    actions:
+
+        _add_or_replace(name: String, priority: int) {
+            var i: int = 0
+            while i < self.listeners.size():
+                if self.listeners[i].name == name:
+                    self.listeners[i].priority = priority
+                    return
+                i = i + 1
+            self.listeners.append({"name": name, "priority": priority})
+        }
+
+        _remove(name: String) {
+            var i: int = 0
+            while i < self.listeners.size():
+                if self.listeners[i].name == name:
+                    self.listeners.remove_at(i)
+                    return
+                i = i + 1
+        }
+
+        _has(name: String): bool {
+            var i: int = 0
+            while i < self.listeners.size():
+                if self.listeners[i].name == name:
+                    return true
+                i = i + 1
+            return false
+        }
+
+        _names_sorted(): Array {
+            var pairs: Array = []
+            var i: int = 0
+            while i < self.listeners.size():
+                pairs.append([self.listeners[i].priority, self.listeners[i].name])
+                i = i + 1
+            pairs.sort_custom(func(a, b): return a[0] > b[0])
+            var names: Array = []
+            i = 0
+            while i < pairs.size():
+                names.append(pairs[i][1])
+                i = i + 1
+            return names
+        }
+
+        _apply_pending() {
+            var i: int = 0
+            while i < self.pending_unregister.size():
+                self._remove(self.pending_unregister[i])
+                i = i + 1
+            self.pending_unregister = []
+            i = 0
+            while i < self.pending_register.size():
+                var p: Dictionary = self.pending_register[i]
+                self._add_or_replace(p.name, p.priority)
+                i = i + 1
+            self.pending_register = []
+        }
+
+    domain:
+        listeners: Array = []
+        pending_register: Array = []
+        pending_unregister: Array = []
+}
+
+
+# ------------------------------------------------------------
+# Lamp
+# ------------------------------------------------------------
+# The canonical CCA object FSM. Crowther's lamp had a finite
+# battery; players who wandered too long ran out and got
+# stuck in the dark. This is the same behavior modeled as
+# states.
+#
+# State diagram:
+#
+#   $Off                          # default; no battery drain
+#     │ light()
+#     v
+#   $On                           # HSM parent — drains battery
+#     ├── $On.$Bright              # >= dim_threshold turns left
+#     ├── $On.$Dim                 # < dim_threshold; warning printed
+#     └── $On.$Out                 # 0 turns left; effectively off
+#                                    (extinguish() returns to $Off
+#                                    only after a fresh-batteries
+#                                    install — modeled as a
+#                                    refresh() event).
+#
+#   $Off ←─ extinguish() / refresh()
+#
+# tick() drains the battery once per turn while $On. The
+# threshold transitions ($Bright → $Dim, $Dim → $Out) fire from
+# inside tick() when battery crosses the boundary.
+#
+# Why HSM rather than parallel sub-states:
+#   $On's children share the "decrement battery" behavior;
+#   the only differences are the messages printed and whether
+#   the lamp actually emits light. Putting the decrement in
+#   the parent's tick handler and overriding queries
+#   (is_lit, message) in children is what HSM's parent
+#   inheritance gives you for free.
+# ------------------------------------------------------------
+@@[persist]
+@@system Lamp : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        # Lifecycle
+        light()                    # $Off → $On.$Bright (or $Out if drained)
+        extinguish()               # $On.* → $Off
+        refresh()                  # $Out → fully recharged $Off (then light)
+
+        # Per-turn
+        tick()                     # called once per command turn
+
+        # Queries
+        get_state(): String        # "off" | "bright" | "dim" | "out"
+        is_lit(): bool             # actually emitting useful light
+        battery_left(): int        # turns remaining before $Out
+        last_message(): String     # warning printed this tick, or ""
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Off — default. tick() does nothing (no battery drain).
+        # The lamp can be lit unless the battery is at zero, in
+        # which case light() routes directly to $On.$Out (so the
+        # player gets the "lamp is dead" feedback rather than a
+        # silently broken light).
+        # ------------------------------------------------------------
+        $Off {
+            light() {
+                if self.battery <= 0:
+                    -> $Out
+                else:
+                    -> $Bright
+            }
+
+            tick() {}
+
+            refresh() {
+                self.battery = self.MAX_BATTERY
+            }
+
+            get_state(): String   { @@:("off") }
+            is_lit(): bool        { @@:(false) }
+            battery_left(): int   { @@:(self.battery) }
+            last_message(): String { @@:("") }
+        }
+
+        # ------------------------------------------------------------
+        # $On — HSM parent. Defines the per-tick battery drain
+        # and the threshold-crossing transitions. Children
+        # ($Bright, $Dim, $Out) inherit tick(); they just
+        # override queries.
+        # ------------------------------------------------------------
+        $On {
+            extinguish() {
+                self.last_warning = ""
+                -> $Off
+            }
+
+            tick() {
+                # Drain one charge per turn. Transitions are
+                # threshold-driven: as battery crosses
+                # dim_threshold we go $Bright → $Dim, and as it
+                # hits zero we go $Dim → $Out.
+                if self.battery > 0:
+                    self.battery = self.battery - 1
+                # Defer to children for the actual transition
+                # via _check_threshold — we don't transition
+                # from the parent because we don't know which
+                # child we're in. Children call _check_threshold
+                # at the end of their own tick handlers.
+            }
+
+            get_state(): String    { @@:("on") }
+            is_lit(): bool         { @@:(true) }
+            battery_left(): int    { @@:(self.battery) }
+            last_message(): String { @@:(self.last_warning) }
+        }
+
+        # ------------------------------------------------------------
+        # $Bright — full-strength light. Transitions to $Dim
+        # when battery drops below the dim threshold.
+        # ------------------------------------------------------------
+        $Bright => $On {
+            tick() {
+                # Inherit parent's decrement logic via $^, then
+                # check our own threshold. (Frame's $^ on tick
+                # routes the event upward; the parent decrements
+                # battery, then control returns here for the
+                # post-decrement check.)
+                self.last_warning = ""
+                if self.battery > 0:
+                    self.battery = self.battery - 1
+                if self.battery <= 0:
+                    -> $Out
+                elif self.battery <= self.DIM_THRESHOLD:
+                    self.last_warning = "Your lamp is getting dim."
+                    -> $Dim
+            }
+
+            get_state(): String { @@:("bright") }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $Dim — battery low. Same drain rate; warning is
+        # surfaced once on entry (not every tick) by clearing
+        # last_warning each tick after the first. Transitions
+        # to $Out at zero.
+        # ------------------------------------------------------------
+        $Dim => $On {
+            $>() {
+                # Surface the dim warning once on entry so the
+                # driver can pick it up and print "Your lamp is
+                # getting dim." then clear it next tick.
+                self.last_warning = "Your lamp is getting dim."
+            }
+
+            tick() {
+                # Clear warning after one tick so it doesn't
+                # repeat every turn. The driver reads
+                # last_message() each turn; an empty string
+                # means "nothing to print."
+                self.last_warning = ""
+                if self.battery > 0:
+                    self.battery = self.battery - 1
+                if self.battery <= 0:
+                    -> $Out
+            }
+
+            get_state(): String { @@:("dim") }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $Out — battery depleted. Lamp is on but emitting no
+        # light (mechanically, this gates dark-room navigation).
+        # extinguish() returns to $Off; refresh() puts a new
+        # battery in and re-routes through $Off.light(). The
+        # driver typically prompts the player to extinguish or
+        # refresh on entry.
+        # ------------------------------------------------------------
+        $Out => $On {
+            $>() {
+                self.last_warning = "Your lamp has run out of power."
+            }
+
+            tick() {
+                self.last_warning = ""
+                # No drain; we're already at zero.
+            }
+
+            refresh() {
+                self.battery = self.MAX_BATTERY
+                self.last_warning = ""
+                -> $Bright
+            }
+
+            is_lit(): bool      { @@:(false) }   # override parent
+            get_state(): String { @@:("out") }
+            => $^
+        }
+
+    domain:
+        # Tunables. The original CCA had a 330-turn battery
+        # with a dim warning around turn 300 (last 30 turns).
+        # We use the same shape but keep the names parametric
+        # so they can be tweaked per-game-balance without
+        # changing logic.
+        MAX_BATTERY: int = 330
+        DIM_THRESHOLD: int = 30
+
+        # Mutable state.
+        battery: int = 330
+        last_warning: String = ""
+}
+
+
+# ------------------------------------------------------------
+# Adventure (top-level orchestrator) — STUB
+# ------------------------------------------------------------
+# Placeholder. As real systems land (Player, Bird, Snake,
+# Dragon, dwarves, treasures, aspects), they go here. For now
+# the orchestrator just holds the bus and the lamp so we have
+# something to compose against.
+#
+# Once we have aspects, the publish() entry point will route
+# events through the bus before any per-system dispatch.
+# ------------------------------------------------------------
+@@[main]
+@@[persist]
+@@system Adventure : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        # Per-turn entry. The driver calls this after parsing
+        # input. For now it just advances the lamp's tick.
+        turn()
+
+        # Queries that the driver needs to render the world.
+        get_lamp_state(): String
+        get_lamp_message(): String
+        is_lit(): bool
+        battery_left(): int
+        turn_count(): int
+
+        # Lamp control — surfaced through Adventure so the
+        # driver doesn't have to know the internal composition.
+        light_lamp()
+        extinguish_lamp()
+        refresh_lamp()
+
+    machine:
+
+        $Playing {
+            turn() {
+                self.lamp.tick()
+                self.turns = self.turns + 1
+            }
+
+            light_lamp()      { self.lamp.light() }
+            extinguish_lamp() { self.lamp.extinguish() }
+            refresh_lamp()    { self.lamp.refresh() }
+
+            get_lamp_state(): String   { @@:(self.lamp.get_state()) }
+            get_lamp_message(): String { @@:(self.lamp.last_message()) }
+            is_lit(): bool             { @@:(self.lamp.is_lit()) }
+            battery_left(): int        { @@:(self.lamp.battery_left()) }
+            turn_count(): int          { @@:(self.turns) }
+        }
+
+    domain:
+        bus = @@AspectBus()
+        lamp = @@Lamp()
+        turns: int = 0
+}

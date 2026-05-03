@@ -21,7 +21,7 @@ fi
 
 mkdir -p generated godot/scripts
 
-for name in aspects; do
+for name in aspects cca; do
     echo "==> $FRAMEC compile frame/$name.fgd"
     "$FRAMEC" compile "frame/$name.fgd" --language gdscript -o generated/
 

@@ -15,12 +15,24 @@ teleports, hint tracking, endgame countdown, etc.).
 
 ```
 frame/aspects.fgd         AspectBus + sample aspects + Conductor demo
-generated/aspects.gd      framec output (gitignored)
+                          (the smoke-test fixture, not the game)
+frame/cca.fgd             real CCA — currently AspectBus + Lamp +
+                          Adventure orchestrator stub
+generated/                framec output (gitignored)
 godot/                    minimal harness (no scene; tests run headless)
 ```
 
-The `aspects.fgd` file contains a working end-to-end demo of the
-pattern:
+`cca.fgd` is where real CCA grows. As of this writing it has the
+`AspectBus` (duplicated from `aspects.fgd` — Frame doesn't have an
+import mechanism yet, so each compilation unit has its own copy),
+the canonical CCA `Lamp` (an HSM with battery countdown + dim
+warning + run-out states), and an `Adventure` top-level stub that
+composes them. Smoke test in [`/tmp/test_cca_lamp.gd`](/tmp/test_cca_lamp.gd)
+exercises battery decay, threshold transitions, refresh from
+either $Off or $Out, and `@@[persist]` round-trip across the whole
+tree.
+
+The aspects.fgd toy demo:
 
 - **`AspectBus`** — reusable. `$Idle` / `$Dispatching` states, holds
   `(name, priority)` metadata, queues mid-dispatch register/unregister
