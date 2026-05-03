@@ -871,6 +871,136 @@
 
 
 # ------------------------------------------------------------
+# Bear
+# ------------------------------------------------------------
+# CCA's most behavior-rich NPC. The bear has five states; the
+# transitions form a near-linear progression interrupted by
+# one branching hazard.
+#
+# State diagram:
+#
+#   $Hungry  ── feed() ─►  $Tame
+#       │
+#       └── take_chain() ─►  $Attacking   (player took chain
+#                                          without feeding —
+#                                          bear is hostile)
+#
+#   $Tame    ── take_chain() ─►  $Following
+#   $Following ── drop_chain() ─►  $Released
+#
+#   $Attacking and $Released are terminal: Adventure inspects
+#   bear.get_state() each turn and triggers consequences
+#   (player.die() on $Attacking; troll-scaring on $Released
+#   in the troll's room — hooked up when Troll lands).
+#
+# Why no HSM parent for $Tame/$Following/$Released:
+#   They share `is_friendly() = true` but defining a
+#   $Friendly parent would buy us 3 lines saved at the cost
+#   of explaining the hierarchy. With only one shared query,
+#   flat states read more directly.
+#
+# Cross-FSM coordination:
+#   Adventure observes bear.get_state() each turn.
+#   - $Attacking: adventure calls player.die() and resets
+#     bear to $Hungry (in real CCA the bear gives up after
+#     killing once — game over for the player either way).
+#   - $Released in the troll's room: adventure tells the
+#     Troll, transitioning Troll → $Vanished.
+#
+# Same orchestration shape as Bird/Snake. The bear doesn't
+# know about the troll; Adventure brokers.
+# ------------------------------------------------------------
+@@[persist]
+@@system Bear : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        feed()
+        take_chain()
+        drop_chain()
+        get_state(): String
+        is_friendly(): bool
+        is_dangerous(): bool
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Hungry — initial. Bear is on its chain, looking at
+        # the player as a snack. Feeding it transitions to
+        # $Tame; trying to take the chain without feeding first
+        # is a bad day for the player.
+        # ------------------------------------------------------------
+        $Hungry {
+            feed() {
+                -> $Tame
+            }
+            take_chain() {
+                -> $Attacking
+            }
+            get_state(): String   { @@:("hungry") }
+            is_friendly(): bool   { @@:(false) }
+            is_dangerous(): bool  { @@:(true) }
+        }
+
+        # ------------------------------------------------------------
+        # $Tame — fed, no longer hostile. Still chained.
+        # take_chain() now safely transitions to $Following.
+        # ------------------------------------------------------------
+        $Tame {
+            take_chain() {
+                -> $Following
+            }
+            get_state(): String   { @@:("tame") }
+            is_friendly(): bool   { @@:(true) }
+            is_dangerous(): bool  { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $Following — player holds the chain; bear walks
+        # alongside. Drop the chain to release the bear in
+        # whatever room you're in.
+        # ------------------------------------------------------------
+        $Following {
+            drop_chain() {
+                -> $Released
+            }
+            get_state(): String   { @@:("following") }
+            is_friendly(): bool   { @@:(true) }
+            is_dangerous(): bool  { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $Released — terminal. The bear stays put, friendly
+        # but not following. Used to scare the troll off the
+        # bridge when released in the troll's room.
+        # ------------------------------------------------------------
+        $Released {
+            get_state(): String   { @@:("released") }
+            is_friendly(): bool   { @@:(true) }
+            is_dangerous(): bool  { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $Attacking — terminal-ish. The Adventure detects this
+        # state on the next turn boundary and triggers
+        # player.die(). Real CCA can't recover from this so we
+        # treat it as a dead-end here too.
+        # ------------------------------------------------------------
+        $Attacking {
+            get_state(): String   { @@:("attacking") }
+            is_friendly(): bool   { @@:(false) }
+            is_dangerous(): bool  { @@:(true) }
+        }
+}
+
+
+# ------------------------------------------------------------
 # ScoreLedger (aspect)
 # ------------------------------------------------------------
 # Demonstrates the *observe* verdict. ScoreLedger watches
@@ -1002,6 +1132,8 @@
         bird_state(): String
         bird_location(): int
         snake_state(): String
+        bear_state(): String
+        bear_dangerous(): bool
 
     machine:
 
@@ -1096,6 +1228,8 @@
             bird_state(): String              { @@:(self.bird.get_state()) }
             bird_location(): int              { @@:(self.bird.get_location()) }
             snake_state(): String             { @@:(self.snake.get_state()) }
+            bear_state(): String              { @@:(self.bear.get_state()) }
+            bear_dangerous(): bool            { @@:(self.bear.is_dangerous()) }
         }
 
     actions:
@@ -1270,6 +1404,7 @@
         score_ledger = @@ScoreLedger()
         bird = @@Bird()
         snake = @@Snake()
+        bear = @@Bear()
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
