@@ -44,6 +44,20 @@ var alien_bullets: Array = []        # each: Vector2 position
 var rng := RandomNumberGenerator.new()
 var _p_was_down: bool = false
 
+# --- Visual state ---
+# Starfield: pre-generated points with varying brightness. Dim
+# layer drifts slowly downward to suggest depth without needing
+# parallax math. Bright layer is static (foreground stars).
+var _stars_dim: Array = []        # each: Vector2
+var _stars_bright: Array = []     # each: Vector2
+const STAR_DRIFT_SPEED: float = 12.0   # px/sec for the dim layer
+
+# Alien animation: phase 0 or 1, toggles every ~0.45s. Used to
+# render alternating "feet" so the fleet visibly marches.
+var _alien_anim_phase: int = 0
+var _alien_anim_timer: float = 0.0
+const ALIEN_FRAME_DURATION: float = 0.45
+
 # Cabinet integration: post final score to Scoreboard once per
 # session on the rising edge of game_over.
 var _last_top_state: String = ""
@@ -58,6 +72,7 @@ func _ready() -> void:
     fsm = InvadersFSM.new()
     fsm.fleet_rows = fleet_rows
     fsm.fleet_cols = fleet_cols
+    _seed_starfield()
 
     _build_ui()
     _reset_player()
@@ -102,6 +117,14 @@ func _physics_process(delta: float) -> void:
         _update_bullets(delta)
         _maybe_alien_fire(delta)
         _check_collisions()
+
+    # Alien march animation phase — toggle on a fixed cadence,
+    # independent of the fleet's speed-up. This is purely visual;
+    # the FSM has no concept of marching frames.
+    _alien_anim_timer += delta
+    if _alien_anim_timer >= ALIEN_FRAME_DURATION:
+        _alien_anim_timer = 0.0
+        _alien_anim_phase = 1 - _alien_anim_phase
 
     _update_labels()
     queue_redraw()
@@ -333,6 +356,9 @@ func _draw() -> void:
     var cyan := Color(0.4, 0.9, 1.0)
     var state: String = fsm.get_state()
 
+    # Starfield first — dim drifters then bright statics.
+    _draw_starfield()
+
     # Invaders
     if state != "attract" and state != "game_over":
         var total: int = fleet_rows * fleet_cols
@@ -343,41 +369,103 @@ func _draw() -> void:
                 var row: int = i / fleet_cols
                 # Top rows more valuable → differentiate with colour
                 var col_top: Color = cyan if row == 0 else (white if row < 3 else green)
-                draw_rect(r, col_top)
-                # A little chunky-pixel detail
-                draw_rect(Rect2(r.position + Vector2(4, 4),
-                                r.size - Vector2(8, 8)),
-                          col_top.darkened(0.4))
+                _draw_invader(r, col_top)
             i += 1
 
-    # Player bullets
+    # Player bullets — bright core with a soft trailing glow.
     for b in player_bullets:
-        draw_rect(Rect2(b - player_bullet_size * 0.5, player_bullet_size), white)
+        var p: Vector2 = b
+        draw_rect(Rect2(p - player_bullet_size * 0.5 + Vector2(0, 4),
+                        Vector2(player_bullet_size.x, player_bullet_size.y)),
+                  Color(1, 1, 0.6, 0.35))
+        draw_rect(Rect2(p - player_bullet_size * 0.5, player_bullet_size), white)
 
-    # Alien bullets
+    # Alien bullets — slight zigzag silhouette via two stacked rects.
     for b in alien_bullets:
-        draw_rect(Rect2(b - alien_bullet_size * 0.5, alien_bullet_size), Color(1.0, 0.5, 0.5))
+        var p: Vector2 = b
+        var col := Color(1.0, 0.55, 0.55)
+        draw_rect(Rect2(p - alien_bullet_size * 0.5, alien_bullet_size), col)
+        draw_rect(Rect2(p - Vector2(2, 2), Vector2(2, 2)), col.lightened(0.3))
 
     # Player ship
     if state != "attract" and state != "game_over":
         var player_state: String = fsm.get_state()
-        # We need to know if the player is exploding / invulnerable.
-        # Ideally Invaders would expose player's FSM state. For now,
-        # game-state "player_dying" is our signal for the explosion.
         if player_state == "player_dying":
-            # Jagged explosion look
+            # Radiating particle explosion centered on the ship.
+            var center: Vector2 = Vector2(player_x, player_y) + player_size * 0.5
             var ex := Color(1.0, 0.8, 0.3)
-            draw_rect(Rect2(Vector2(player_x, player_y), player_size), ex)
-            draw_rect(Rect2(
-                Vector2(player_x - 4, player_y - 4),
-                player_size + Vector2(8, 8)),
-                ex.darkened(0.3), false, 2.0)
+            for k in range(10):
+                var t: float = float(k) / 10.0 * TAU
+                var p1: Vector2 = center + Vector2(cos(t), sin(t)) * 6.0
+                var p2: Vector2 = center + Vector2(cos(t), sin(t)) * 22.0
+                draw_line(p1, p2, ex, 2.0)
+            draw_circle(center, 4.0, ex.lightened(0.4))
         else:
-            draw_rect(Rect2(Vector2(player_x, player_y), player_size), green)
-            # Barrel
+            # Triangular cannon body — base + cockpit notch + barrel.
+            draw_rect(Rect2(Vector2(player_x, player_y + 4),
+                            Vector2(player_size.x, player_size.y - 4)), green)
+            draw_rect(Rect2(Vector2(player_x + 6, player_y),
+                            Vector2(player_size.x - 12, 8)), green)
             draw_rect(Rect2(
-                Vector2(player_x + player_size.x * 0.5 - 2, player_y - 6),
-                Vector2(4, 6)), green)
+                Vector2(player_x + player_size.x * 0.5 - 1.5, player_y - 6),
+                Vector2(3, 6)), green.lightened(0.2))
+
+# ------------------------------------------------------------
+# Visual helpers
+# ------------------------------------------------------------
+func _seed_starfield() -> void:
+    # ~110 stars total; dim layer drifts and is denser, bright
+    # layer is sparser with a few "twinkle"-able anchors.
+    _stars_dim.clear()
+    _stars_bright.clear()
+    for i in range(80):
+        _stars_dim.append(Vector2(rng.randf() * court_size.x, rng.randf() * court_size.y))
+    for i in range(30):
+        _stars_bright.append(Vector2(rng.randf() * court_size.x, rng.randf() * court_size.y))
+
+func _draw_starfield() -> void:
+    var dim := Color(0.4, 0.45, 0.6, 0.55)
+    var bright := Color(0.9, 0.95, 1.0)
+    var t_ms: int = Time.get_ticks_msec()
+    # Drift the dim layer downward; wrap when off-screen so we
+    # don't have to ever re-seed.
+    var drift: float = fmod((t_ms / 1000.0) * STAR_DRIFT_SPEED, court_size.y)
+    for s in _stars_dim:
+        var y: float = fmod(s.y + drift, court_size.y)
+        draw_rect(Rect2(s.x, y, 1, 1), dim)
+    # Bright stars twinkle on a per-star phase so they don't all
+    # blink in lockstep.
+    var i: int = 0
+    for s in _stars_bright:
+        var twinkle: float = 0.7 + 0.3 * sin((t_ms / 200.0) + float(i) * 1.3)
+        draw_rect(Rect2(s.x, s.y, 2, 2), bright * twinkle)
+        i += 1
+
+func _draw_invader(r: Rect2, base: Color) -> void:
+    # Body (slightly inset top so legs stick out from a "torso").
+    var body_rect := Rect2(r.position + Vector2(2, 2), r.size - Vector2(4, 6))
+    draw_rect(body_rect, base)
+    # Eyes — two small dark dots in upper third of the body.
+    var eye_y: float = body_rect.position.y + body_rect.size.y * 0.3
+    var eye_dx: float = body_rect.size.x * 0.25
+    var eye_size := Vector2(3, 3)
+    draw_rect(Rect2(Vector2(body_rect.position.x + eye_dx, eye_y), eye_size),
+              base.darkened(0.6))
+    draw_rect(Rect2(Vector2(body_rect.position.x + body_rect.size.x - eye_dx - eye_size.x, eye_y), eye_size),
+              base.darkened(0.6))
+    # Legs — two pairs that toggle "in" vs "out" each frame so
+    # the fleet visibly marches. Phase 0: legs vertical. Phase 1:
+    # legs flared outward.
+    var leg_y: float = r.position.y + r.size.y - 4
+    var leg_h: float = 4.0
+    if _alien_anim_phase == 0:
+        draw_rect(Rect2(r.position.x + 4, leg_y, 3, leg_h), base)
+        draw_rect(Rect2(r.position.x + r.size.x - 7, leg_y, 3, leg_h), base)
+    else:
+        draw_rect(Rect2(r.position.x + 1, leg_y, 3, leg_h), base)
+        draw_rect(Rect2(r.position.x + r.size.x - 4, leg_y, 3, leg_h), base)
+    # A small "antenna" notch on top for personality.
+    draw_rect(Rect2(r.position.x + r.size.x * 0.5 - 1, r.position.y, 2, 3), base)
 
 # ------------------------------------------------------------
 # Cabinet integration: Esc returns to the menu.

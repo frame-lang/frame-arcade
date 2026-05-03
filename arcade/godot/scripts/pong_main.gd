@@ -30,6 +30,8 @@ var ball_vel: Vector2
 var paddle_left_y: float
 var paddle_right_y: float
 var ball_speed_current: float
+var ball_trail: Array = []                    # recent ball positions for the motion trail
+const BALL_TRAIL_LEN: int = 10
 var flash_timer: float = 0.0
 var _serve_armed: bool = false                # becomes true one frame after
                                                # entering Serving, so the keypress
@@ -83,6 +85,15 @@ func _physics_process(delta: float) -> void:
     if state == "serving":
         _park_ball_on_serve()
 
+    # Update the ball trail. We sample once per physics tick so
+    # the trail length is constant regardless of frame rate.
+    if state == "in_play":
+        ball_trail.append(ball_pos)
+        if ball_trail.size() > BALL_TRAIL_LEN:
+            ball_trail.pop_front()
+    else:
+        ball_trail.clear()
+
     flash_timer += delta
     queue_redraw()
     _update_labels()
@@ -117,11 +128,11 @@ func _handle_input() -> void:
 
 # ------------------------------------------------------------
 func _update_paddles(delta: float) -> void:
-    # Left paddle: W/S keys
+    # Left paddle: ↑/↓ or W/S
     var left_dir := 0.0
-    if Input.is_key_pressed(KEY_W):
+    if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W):
         left_dir -= 1.0
-    if Input.is_key_pressed(KEY_S):
+    if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
         left_dir += 1.0
     paddle_left_y += left_dir * paddle_speed * delta
 
@@ -217,26 +228,42 @@ func _update_labels() -> void:
 # ------------------------------------------------------------
 func _draw() -> void:
     var white := Color(1, 1, 1)
+    var dim := Color(0.55, 0.6, 0.7)
+
+    # Court borders — top and bottom thin lines so the play area
+    # reads as a contained court, not just a black void.
+    draw_rect(Rect2(0, 0, court_size.x, 2), dim)
+    draw_rect(Rect2(0, court_size.y - 2, court_size.x, 2), dim)
 
     # Center dashed line
     var dash_h: float = 10.0
     var y: float = 0.0
     while y < court_size.y:
-        draw_rect(Rect2(court_size.x * 0.5 - 1.0, y, 2.0, dash_h), white)
+        draw_rect(Rect2(court_size.x * 0.5 - 1.0, y, 2.0, dash_h), dim)
         y += dash_h * 2.0
 
-    # Paddles
-    draw_rect(Rect2(Vector2(20.0, paddle_left_y), paddle_size), white)
-    draw_rect(Rect2(
-        Vector2(court_size.x - 20.0 - paddle_size.x, paddle_right_y),
-        paddle_size), white)
+    # Paddles — draw a slightly darker outer rim around the
+    # white core for visual heft.
+    var rim := Color(0.7, 0.75, 0.85)
+    var pad_l_pos := Vector2(20.0, paddle_left_y)
+    var pad_r_pos := Vector2(court_size.x - 20.0 - paddle_size.x, paddle_right_y)
+    draw_rect(Rect2(pad_l_pos - Vector2(1, 1), paddle_size + Vector2(2, 2)), rim)
+    draw_rect(Rect2(pad_l_pos, paddle_size), white)
+    draw_rect(Rect2(pad_r_pos - Vector2(1, 1), paddle_size + Vector2(2, 2)), rim)
+    draw_rect(Rect2(pad_r_pos, paddle_size), white)
 
-    # Ball (draw only when it's on the court)
+    # Ball + trail (draw only when it's on the court). Trail
+    # renders first, oldest dimmest, so the ball is on top.
     var state: String = fsm.get_state()
     var show_ball: bool = state == "in_play" or state == "serving"
     if show_ball:
-        draw_rect(Rect2(ball_pos - Vector2(ball_size, ball_size) * 0.5,
-                        Vector2(ball_size, ball_size)), white)
+        var n: int = ball_trail.size()
+        for i in range(n):
+            var t: Vector2 = ball_trail[i]
+            var alpha: float = (float(i + 1) / float(n + 1)) * 0.5
+            var rad: float = ball_size * 0.5 * (0.4 + 0.6 * float(i + 1) / float(n + 1))
+            draw_circle(t, rad, Color(1, 1, 1, alpha))
+        draw_circle(ball_pos, ball_size * 0.5, white)
 
 # ------------------------------------------------------------
 # Cabinet integration: Esc returns to the menu.

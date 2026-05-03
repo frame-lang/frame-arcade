@@ -30,6 +30,8 @@ var fsm
 var paddle_x: float
 var ball_pos: Vector2
 var ball_speed_current: float
+var ball_trail: Array = []                    # recent ball positions for the motion trail
+const BALL_TRAIL_LEN: int = 10
 
 # Cabinet integration: track top-level state transitions so we
 # can post the final score to the persisted Scoreboard exactly
@@ -89,6 +91,15 @@ func _physics_process(delta: float) -> void:
         # Let player move paddle during pause
         _update_paddle(delta)
         _park_ball_on_paddle()
+
+    # Ball motion trail. Sampled per physics tick so length is
+    # frame-rate-independent.
+    if state == "playing" and fsm.ball_state() != "attached" and fsm.ball_state() != "lost":
+        ball_trail.append(ball_pos)
+        if ball_trail.size() > BALL_TRAIL_LEN:
+            ball_trail.pop_front()
+    else:
+        ball_trail.clear()
 
     queue_redraw()
     _update_labels()
@@ -243,7 +254,8 @@ func _draw() -> void:
     var white := Color(1, 1, 1)
     var state: String = fsm.get_state()
 
-    # Bricks
+    # Bricks — top-edge highlight + bottom-edge shadow gives a
+    # cheap chunky 3D look without sprites.
     var i: int = 0
     var total: int = brick_cols * brick_rows
     while i < total:
@@ -252,21 +264,32 @@ func _draw() -> void:
             var row: int = i / brick_cols
             var col: Color = brick_colors[row % brick_colors.size()]
             draw_rect(rect, col)
-            # A subtle inner highlight for that chunky arcade look
-            draw_rect(Rect2(rect.position + Vector2(1, 1),
-                            rect.size - Vector2(2, 2)),
-                      col.lightened(0.15), false, 1.0)
+            # Top highlight (1px brighter line) and bottom
+            # shadow (1px darker) for depth.
+            draw_rect(Rect2(rect.position, Vector2(rect.size.x, 2)),
+                      col.lightened(0.35))
+            draw_rect(Rect2(rect.position + Vector2(0, rect.size.y - 2),
+                            Vector2(rect.size.x, 2)),
+                      col.darkened(0.45))
         i += 1
 
-    # Paddle
+    # Paddle — white core with a slightly cool-tinted rim.
     if state != "attract":
+        var rim := Color(0.7, 0.8, 1.0)
+        draw_rect(Rect2(Vector2(paddle_x - 1, paddle_y - 1), paddle_size + Vector2(2, 2)), rim)
         draw_rect(Rect2(Vector2(paddle_x, paddle_y), paddle_size), white)
 
-    # Ball
+    # Ball + trail. Trail renders first (oldest dimmest); ball
+    # is a circle on top.
     var show_ball: bool = state == "playing" or state == "level_clear"
     if show_ball and fsm.ball_state() != "lost":
-        draw_rect(Rect2(ball_pos - Vector2(ball_size, ball_size) * 0.5,
-                        Vector2(ball_size, ball_size)), white)
+        var n: int = ball_trail.size()
+        for ti in range(n):
+            var p: Vector2 = ball_trail[ti]
+            var alpha: float = (float(ti + 1) / float(n + 1)) * 0.55
+            var rad: float = ball_size * 0.5 * (0.4 + 0.6 * float(ti + 1) / float(n + 1))
+            draw_circle(p, rad, Color(1, 1, 1, alpha))
+        draw_circle(ball_pos, ball_size * 0.5, white)
 
 # ------------------------------------------------------------
 # Cabinet integration: Esc returns to the menu.
