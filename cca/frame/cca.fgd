@@ -1001,6 +1001,61 @@
 
 
 # ------------------------------------------------------------
+# Troll
+# ------------------------------------------------------------
+# Stands at the troll bridge demanding tribute. Three states:
+#
+#   $Demanding ── pay_toll() ──► $TollPaid
+#              ── scared_off() ─► $Vanished
+#
+# The bear connection is the canonical CCA payoff: release a
+# friendly bear in the troll's room and the troll flees. The
+# Adventure orchestrates that — Troll itself doesn't know the
+# Bear exists, just like Snake doesn't know about the Bird.
+#
+# is_blocking_bridge() is what callers use to decide whether
+# the east passage out of the troll's room is open. Both
+# $TollPaid and $Vanished open the bridge; the difference is
+# whether the player forfeited a treasure to do it.
+# ------------------------------------------------------------
+@@[persist]
+@@system Troll : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        pay_toll()
+        scared_off()
+        get_state(): String
+        is_blocking_bridge(): bool
+
+    machine:
+
+        $Demanding {
+            pay_toll()    { -> $TollPaid }
+            scared_off()  { -> $Vanished }
+            get_state(): String         { @@:("demanding") }
+            is_blocking_bridge(): bool  { @@:(true) }
+        }
+
+        $TollPaid {
+            get_state(): String         { @@:("toll_paid") }
+            is_blocking_bridge(): bool  { @@:(false) }
+        }
+
+        $Vanished {
+            get_state(): String         { @@:("vanished") }
+            is_blocking_bridge(): bool  { @@:(false) }
+        }
+}
+
+
+# ------------------------------------------------------------
 # ScoreLedger (aspect)
 # ------------------------------------------------------------
 # Demonstrates the *observe* verdict. ScoreLedger watches
@@ -1134,6 +1189,8 @@
         snake_state(): String
         bear_state(): String
         bear_dangerous(): bool
+        troll_state(): String
+        troll_blocking(): bool
 
     machine:
 
@@ -1230,6 +1287,8 @@
             snake_state(): String             { @@:(self.snake.get_state()) }
             bear_state(): String              { @@:(self.bear.get_state()) }
             bear_dangerous(): bool            { @@:(self.bear.is_dangerous()) }
+            troll_state(): String             { @@:(self.troll.get_state()) }
+            troll_blocking(): bool            { @@:(self.troll.is_blocking_bridge()) }
         }
 
     actions:
@@ -1275,6 +1334,8 @@
                 return self._verb_drop(noun)
             elif verb == "release":
                 return self._verb_release(noun)
+            elif verb == "feed":
+                return self._verb_feed(noun)
             elif verb == "xyzzy" or verb == "plugh" or verb == "plover":
                 # MagicWordTeleport didn't transform — wrong room.
                 # Canon CCA response.
@@ -1311,13 +1372,24 @@
                 base = base + " A small bird flutters nearby."
             if r == self.SNAKE_ROOM and self.snake.is_blocking():
                 base = base + " A huge green snake bars further passage."
+            if r == self.BEAR_HOME_ROOM:
+                var bs: String = self.bear.get_state()
+                if bs == "hungry":
+                    base = base + " A large bear is chained to the wall, glaring hungrily."
+                elif bs == "tame":
+                    base = base + " A friendly-looking bear sits chained, its tongue lolling."
+            if r == self.TROLL_ROOM and self.troll.is_blocking_bridge():
+                base = base + " A burly troll stands guard at the bridge, demanding tribute."
             return base
         }
 
         _verb_take(noun: String): String {
-            # Special-case the bird because capturing it has
-            # cross-FSM consequences (the Bird transitions). For
-            # everything else, plain take into the inventory.
+            # Special-case the bird and chain because both
+            # have cross-FSM consequences (Bird transitions on
+            # capture; Bear transitions on take_chain — and
+            # transitions to $Attacking if the bear is still
+            # $Hungry, which Adventure surfaces as a death-
+            # adjacent message).
             if noun == "bird":
                 if self.bird.get_state() != "free":
                     return "There is no bird here."
@@ -1326,18 +1398,54 @@
                 self.bird.capture()
                 self.player.take(self.BIRD_ID)
                 return "You catch the bird in your hand."
+            if noun == "chain":
+                if self.player.get_room() != self.BEAR_HOME_ROOM:
+                    return "There is no chain here."
+                var bs: String = self.bear.get_state()
+                if bs == "hungry":
+                    self.bear.take_chain()
+                    return "With a roar the bear lunges at you. You should have fed it first."
+                elif bs == "tame":
+                    self.bear.take_chain()
+                    self.player.take(self.CHAIN_ID)
+                    return "The bear lumbers along behind you on its chain."
+                return "The chain has already been taken."
             var item_id: int = noun.to_int()
             self.player.take(item_id)
             return "Taken."
         }
 
         _verb_drop(noun: String): String {
-            # Drop is non-special — the bird gets its own
-            # `release` verb because the outcome depends on
-            # which room you're in.
+            # Drop is non-special for most items — the bird
+            # gets its own `release` verb because the outcome
+            # depends on the room. The chain is the cross-FSM
+            # case here: dropping the chain releases the bear
+            # in the current room, and Adventure brokers the
+            # bear→troll consequence chain.
+            if noun == "chain":
+                if self.bear.get_state() != "following":
+                    return "You aren't holding the bear's chain."
+                self.bear.drop_chain()
+                self.player.drop(self.CHAIN_ID)
+                var room: int = self.player.get_room()
+                if room == self.TROLL_ROOM and self.troll.is_blocking_bridge():
+                    self.troll.scared_off()
+                    return "The bear lumbers up to the troll. The troll, taken aback, flees over the bridge with a shriek."
+                return "The bear settles down at your side, glaring."
             var item_id: int = noun.to_int()
             self.player.drop(item_id)
             return "Dropped."
+        }
+
+        _verb_feed(noun: String): String {
+            if noun != "bear":
+                return "I don't know how to feed that."
+            if self.player.get_room() != self.BEAR_HOME_ROOM:
+                return "There is no bear here."
+            if self.bear.get_state() != "hungry":
+                return "The bear isn't interested."
+            self.bear.feed()
+            return "The bear eats the food eagerly and looks much friendlier."
         }
 
         _verb_release(noun: String): String {
@@ -1405,6 +1513,7 @@
         bird = @@Bird()
         snake = @@Snake()
         bear = @@Bear()
+        troll = @@Troll()
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
@@ -1412,9 +1521,12 @@
         # its own copies; the Adventure's _verb_release uses
         # its copies for snake-notification routing.)
         BIRD_ID: int = 100
+        CHAIN_ID: int = 101
         BIRD_HOME_ROOM: int = 5
         SNAKE_ROOM: int = 7
         DRAGON_ROOM: int = 8
+        BEAR_HOME_ROOM: int = 9
+        TROLL_ROOM: int = 10
 
         # Tick counter (advances every tick(), not every
         # do_command). Some commands are free; others tick.
