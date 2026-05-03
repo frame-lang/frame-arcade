@@ -1,0 +1,810 @@
+# ============================================================
+# Side-Scrolling Shooter — Frame source
+# ============================================================
+# The capstone chapter. Everything you've learned, composed:
+#
+#   Player  — ship with alive/hit/invuln/dead states
+#   Enemy   — parameterized (kind, hp, fire_rate). Multiple
+#             instances with different behaviors from one
+#             system definition. Finally, Frame systems for
+#             individual game entities — because enemies
+#             genuinely have modes.
+#   Boss    — three-phase HSM. Each phase is a parent state
+#             with child attack patterns. HP thresholds
+#             trigger phase changes. THIS is the showcase.
+#   Shooter — orchestrator. Owns player, boss, an array of
+#             enemies. Spawns waves on a timer.
+#
+# No new Frame features in this chapter. Everything you see
+# was introduced in chapters 1-6. The point is seeing them
+# compose at scale.
+#
+# Build with:
+#   framec compile frame/shooter.gd --language gdscript -o generated/
+# ============================================================
+
+@@[target("gdscript")]
+
+
+# ------------------------------------------------------------
+# Player
+# ------------------------------------------------------------
+# Standard player ship pattern from ch.3/4.
+# ------------------------------------------------------------
+@@system Player : RefCounted {
+
+    interface:
+        tick(dt: float)
+        hit()
+        respawn()
+        can_fire(): bool
+        can_be_hit(): bool
+        is_visible(): bool
+        get_state(): String
+        get_lives(): int
+
+    machine:
+
+        $Alive {
+            hit() { -> $Exploding }
+
+            can_fire(): bool    { @@:(true) }
+            can_be_hit(): bool  { @@:(true) }
+            is_visible(): bool  { @@:(true) }
+            get_state(): String { @@:("alive") }
+            get_lives(): int    { @@:(self.lives) }
+        }
+
+        $Exploding {
+            $.timer: float = 0.0
+            $.duration: float = 1.0
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration:
+                    self.lives = self.lives - 1
+                    if self.lives <= 0:
+                        -> $Dead
+                    else:
+                        -> $Invulnerable
+            }
+
+            can_fire(): bool    { @@:(false) }
+            can_be_hit(): bool  { @@:(false) }
+            is_visible(): bool  { @@:(true) }
+            get_state(): String { @@:("exploding") }
+            get_lives(): int    { @@:(self.lives) }
+        }
+
+        $Invulnerable {
+            $.timer: float = 0.0
+            $.duration: float = 2.0
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration:
+                    -> $Alive
+            }
+
+            can_fire(): bool    { @@:(true) }
+            can_be_hit(): bool  { @@:(false) }
+            is_visible(): bool  { @@:(true) }
+            get_state(): String { @@:("invulnerable") }
+            get_lives(): int    { @@:(self.lives) }
+        }
+
+        $Dead {
+            respawn() {
+                self.lives = self.starting_lives
+                -> $Alive
+            }
+
+            can_fire(): bool    { @@:(false) }
+            can_be_hit(): bool  { @@:(false) }
+            is_visible(): bool  { @@:(false) }
+            get_state(): String { @@:("dead") }
+            get_lives(): int    { @@:(0) }
+        }
+
+    domain:
+        lives: int = 3
+        starting_lives: int = 3
+}
+
+
+# ------------------------------------------------------------
+# Enemy (parameterized)
+# ------------------------------------------------------------
+# One system definition. Multiple instances with different
+# parameters:
+#
+#   kind:       0 = straight (flies left, simple)
+#               1 = sine    (flies left, oscillating y)
+#               2 = swoop   (dives down then comes back up)
+#   hp:         hit points
+#   fire_rate:  seconds between shots (0 = never shoots)
+#   points:     score awarded when killed
+#
+# States:
+#   $Spawning  — briefly invulnerable while entering
+#   $Active    — normal behavior
+#   $Dying     — death animation
+#   $Gone      — marker for orchestrator cleanup
+# ------------------------------------------------------------
+@@system Enemy(kind: int, hp: int, fire_rate: float, points: int) : RefCounted {
+
+    interface:
+        tick(dt: float)
+        hit(damage: int)
+        get_state(): String
+        get_kind(): int
+        get_hp(): int
+        get_points(): int
+        wants_to_fire(): bool
+        consume_fire()
+        is_alive(): bool
+        is_cleanup(): bool
+
+    machine:
+
+        $Spawning {
+            $.timer: float = 0.0
+            $.duration: float = 0.5
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration:
+                    -> $Active
+            }
+
+            hit(damage: int) {
+                # Invulnerable during spawn
+            }
+
+            get_state(): String { @@:("spawning") }
+            get_kind(): int     { @@:(self.ekind) }
+            get_hp(): int       { @@:(self.hp_remaining) }
+            get_points(): int   { @@:(self.pts) }
+            wants_to_fire(): bool { @@:(false) }
+            consume_fire()      { }
+            is_alive(): bool    { @@:(true) }
+            is_cleanup(): bool  { @@:(false) }
+        }
+
+        $Active {
+            $.fire_timer: float = 0.0
+
+            tick(dt: float) {
+                if self.rate > 0.0:
+                    $.fire_timer = $.fire_timer + dt
+            }
+
+            hit(damage: int) {
+                self.hp_remaining = self.hp_remaining - damage
+                if self.hp_remaining <= 0:
+                    -> $Dying
+            }
+
+            get_state(): String { @@:("active") }
+            get_kind(): int     { @@:(self.ekind) }
+            get_hp(): int       { @@:(self.hp_remaining) }
+            get_points(): int   { @@:(self.pts) }
+            wants_to_fire(): bool {
+                if self.rate <= 0.0:
+                    @@:return(false)
+                @@:($.fire_timer >= self.rate)
+            }
+            consume_fire()      { $.fire_timer = 0.0 }
+            is_alive(): bool    { @@:(true) }
+            is_cleanup(): bool  { @@:(false) }
+        }
+
+        $Dying {
+            $.timer: float = 0.0
+            $.duration: float = 0.4
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration:
+                    -> $Gone
+            }
+
+            hit(damage: int) {
+                # Already dying
+            }
+
+            get_state(): String { @@:("dying") }
+            get_kind(): int     { @@:(self.ekind) }
+            get_hp(): int       { @@:(0) }
+            get_points(): int   { @@:(self.pts) }
+            wants_to_fire(): bool { @@:(false) }
+            consume_fire()      { }
+            is_alive(): bool    { @@:(false) }
+            is_cleanup(): bool  { @@:(false) }
+        }
+
+        $Gone {
+            get_state(): String { @@:("gone") }
+            get_kind(): int     { @@:(self.ekind) }
+            get_hp(): int       { @@:(0) }
+            get_points(): int   { @@:(self.pts) }
+            wants_to_fire(): bool { @@:(false) }
+            consume_fire()      { }
+            is_alive(): bool    { @@:(false) }
+            is_cleanup(): bool  { @@:(true) }
+        }
+
+    domain:
+        ekind: int = kind
+        hp_remaining: int = hp
+        rate: float = fire_rate
+        pts: int = points
+}
+
+
+# ------------------------------------------------------------
+# Boss
+# ------------------------------------------------------------
+# Three-phase HSM. This is the chapter's showcase: HSM where
+# parent states have child states with their own transitions,
+# and HP thresholds drive phase transitions.
+#
+# Structure:
+#
+#   $PhaseOne (parent)
+#     $.timer, handles take_damage (checks HP, phase change)
+#     ├── $P1Idle       — moving sideways, charging
+#     └── $P1Firing     — volley, then back to idle
+#
+#   $PhaseTwo (parent)
+#     ├── $P2Idle
+#     └── $P2Spread     — triple shot
+#
+#   $PhaseThree (parent)
+#     ├── $P3Idle
+#     └── $P3Spray      — rapid random shots
+#
+#   $Dying — not a parent; single-phase death sequence
+# ------------------------------------------------------------
+@@system Boss : RefCounted {
+
+    interface:
+        tick(dt: float)
+        hit(damage: int)
+
+        # Queries
+        get_phase(): int           # 1, 2, 3, or 0 (dead)
+        get_hp(): int
+        get_hp_fraction(): float
+        get_state(): String
+        is_alive(): bool
+        is_dying(): bool
+        is_gone(): bool
+
+        # Firing signals (the driver reads each frame to know
+        # whether to spawn boss bullets this tick)
+        wants_to_fire_single(): bool
+        wants_to_fire_spread(): bool
+        wants_to_fire_spray(): bool
+        consume_fire()
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $P1Idle — phase-one idle / charge state.
+        #
+        # Lexically first state = system start state. The HSM cascade
+        # enters $PhaseOne (parent) first, then $P1Idle (this leaf),
+        # so shared phase-1 behavior is initialized before idle ticks.
+        # Phases 2 and 3 are entered the same way: parent's hit()
+        # transitions directly to the next phase's idle leaf.
+        # ------------------------------------------------------------
+        $P1Idle => $PhaseOne {
+            $.timer: float = 0.0
+            $.idle_duration: float = 1.8
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.idle_duration:
+                    -> $P1Firing
+            }
+
+            get_state(): String { @@:("p1_idle") }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $PhaseOne — parent state for full-HP phase. Holds the shared
+        # damage/query behavior; both phase-one leaves forward to it.
+        # ------------------------------------------------------------
+        $PhaseOne {
+            hit(damage: int) {
+                self.hp = self.hp - damage
+                if self.hp <= self.hp_start * 0.66:
+                    -> $P2Idle
+                elif self.hp <= 0:
+                    -> $Dying
+            }
+
+            get_phase(): int        { @@:(1) }
+            get_hp(): int           { @@:(self.hp) }
+            get_hp_fraction(): float { @@:(float(self.hp) / float(self.hp_start)) }
+            get_state(): String     { @@:("phase_one") }
+            is_alive(): bool        { @@:(true) }
+            is_dying(): bool        { @@:(false) }
+            is_gone(): bool         { @@:(false) }
+            wants_to_fire_single(): bool  { @@:(false) }
+            wants_to_fire_spread(): bool  { @@:(false) }
+            wants_to_fire_spray(): bool   { @@:(false) }
+            consume_fire()          { }
+        }
+
+        # ------------------------------------------------------------
+        # $P1Firing — phase-one firing state
+        # ------------------------------------------------------------
+        $P1Firing => $PhaseOne {
+            $.timer: float = 0.0
+            $.duration: float = 0.4
+            $.fired: bool = false
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration:
+                    -> $P1Idle
+            }
+
+            wants_to_fire_single(): bool {
+                if $.fired:
+                    @@:return(false)
+                @@:(true)
+            }
+            consume_fire() { $.fired = true }
+
+            get_state(): String { @@:("p1_firing") }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $PhaseTwo — parent state for mid-HP phase
+        # ------------------------------------------------------------
+        $PhaseTwo {
+            hit(damage: int) {
+                self.hp = self.hp - damage
+                if self.hp <= self.hp_start * 0.33:
+                    -> $P3Idle
+                elif self.hp <= 0:
+                    -> $Dying
+            }
+
+            get_phase(): int        { @@:(2) }
+            get_hp(): int           { @@:(self.hp) }
+            get_hp_fraction(): float { @@:(float(self.hp) / float(self.hp_start)) }
+            get_state(): String     { @@:("phase_two") }
+            is_alive(): bool        { @@:(true) }
+            is_dying(): bool        { @@:(false) }
+            is_gone(): bool         { @@:(false) }
+            wants_to_fire_single(): bool  { @@:(false) }
+            wants_to_fire_spread(): bool  { @@:(false) }
+            wants_to_fire_spray(): bool   { @@:(false) }
+            consume_fire()          { }
+        }
+
+        # ------------------------------------------------------------
+        # $P2Idle — phase-two idle
+        # ------------------------------------------------------------
+        $P2Idle => $PhaseTwo {
+            $.timer: float = 0.0
+            $.idle_duration: float = 1.3
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.idle_duration:
+                    -> $P2Spread
+            }
+
+            get_state(): String { @@:("p2_idle") }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $P2Spread — triple-shot spread
+        # ------------------------------------------------------------
+        $P2Spread => $PhaseTwo {
+            $.timer: float = 0.0
+            $.duration: float = 0.5
+            $.fired: bool = false
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration:
+                    -> $P2Idle
+            }
+
+            wants_to_fire_spread(): bool {
+                if $.fired:
+                    @@:return(false)
+                @@:(true)
+            }
+            consume_fire() { $.fired = true }
+
+            get_state(): String { @@:("p2_spread") }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $PhaseThree — parent state for low-HP enraged phase
+        # ------------------------------------------------------------
+        $PhaseThree {
+            hit(damage: int) {
+                self.hp = self.hp - damage
+                if self.hp <= 0:
+                    -> $Dying
+            }
+
+            get_phase(): int        { @@:(3) }
+            get_hp(): int           { @@:(self.hp) }
+            get_hp_fraction(): float { @@:(float(self.hp) / float(self.hp_start)) }
+            get_state(): String     { @@:("phase_three") }
+            is_alive(): bool        { @@:(true) }
+            is_dying(): bool        { @@:(false) }
+            is_gone(): bool         { @@:(false) }
+            wants_to_fire_single(): bool  { @@:(false) }
+            wants_to_fire_spread(): bool  { @@:(false) }
+            wants_to_fire_spray(): bool   { @@:(false) }
+            consume_fire()          { }
+        }
+
+        # ------------------------------------------------------------
+        # $P3Idle — phase-three brief idle between sprays
+        # ------------------------------------------------------------
+        $P3Idle => $PhaseThree {
+            $.timer: float = 0.0
+            $.idle_duration: float = 0.6
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.idle_duration:
+                    -> $P3Spray
+            }
+
+            get_state(): String { @@:("p3_idle") }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $P3Spray — rapid sprays
+        # ------------------------------------------------------------
+        $P3Spray => $PhaseThree {
+            $.timer: float = 0.0
+            $.duration: float = 0.8
+            $.fire_accumulator: float = 0.0
+            $.fire_ready: bool = false
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                $.fire_accumulator = $.fire_accumulator + dt
+                if $.fire_accumulator >= 0.12:
+                    $.fire_accumulator = 0.0
+                    $.fire_ready = true
+                if $.timer >= $.duration:
+                    -> $P3Idle
+            }
+
+            wants_to_fire_spray(): bool {
+                @@:($.fire_ready)
+            }
+            consume_fire() { $.fire_ready = false }
+
+            get_state(): String { @@:("p3_spray") }
+            => $^
+        }
+
+        # ------------------------------------------------------------
+        # $Dying — death sequence
+        # ------------------------------------------------------------
+        $Dying {
+            $.timer: float = 0.0
+            $.duration: float = 2.5
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration:
+                    -> $Gone
+            }
+
+            hit(damage: int) { }
+
+            get_phase(): int        { @@:(0) }
+            get_hp(): int           { @@:(0) }
+            get_hp_fraction(): float { @@:(0.0) }
+            get_state(): String     { @@:("dying") }
+            is_alive(): bool        { @@:(false) }
+            is_dying(): bool        { @@:(true) }
+            is_gone(): bool         { @@:(false) }
+            wants_to_fire_single(): bool  { @@:(false) }
+            wants_to_fire_spread(): bool  { @@:(false) }
+            wants_to_fire_spray(): bool   { @@:(false) }
+            consume_fire()          { }
+        }
+
+        # ------------------------------------------------------------
+        # $Gone — boss defeated, orchestrator advances
+        # ------------------------------------------------------------
+        $Gone {
+            get_phase(): int        { @@:(0) }
+            get_hp(): int           { @@:(0) }
+            get_hp_fraction(): float { @@:(0.0) }
+            get_state(): String     { @@:("gone") }
+            is_alive(): bool        { @@:(false) }
+            is_dying(): bool        { @@:(false) }
+            is_gone(): bool         { @@:(true) }
+            wants_to_fire_single(): bool  { @@:(false) }
+            wants_to_fire_spread(): bool  { @@:(false) }
+            wants_to_fire_spray(): bool   { @@:(false) }
+            consume_fire()          { }
+        }
+
+    domain:
+        hp: int = 90
+        hp_start: int = 90
+}
+
+
+# ------------------------------------------------------------
+# Shooter (orchestrator)
+# ------------------------------------------------------------
+# Top-level game. Owns the player, the boss, and an array of
+# enemies. Drives a wave spawn timer. Responds to the Godot
+# driver's events (collisions, player killed, etc.).
+# ------------------------------------------------------------
+@@[main]
+@@system Shooter : RefCounted {
+
+    interface:
+        start()
+        restart()
+        tick(dt: float)
+
+        add_enemy(e)                      # driver constructs and hands in
+        clear_dead_enemies()               # driver calls after gone check
+
+        player_hit()
+        enemy_hit(index: int, damage: int): bool    # returns true if killed
+        boss_hit(damage: int): bool                  # returns true if killed
+
+        # Queries
+        get_state(): String
+        get_score(): int
+        get_lives(): int
+        enemy_count(): int
+        should_spawn_wave(): bool
+        consume_wave()
+        should_spawn_boss(): bool
+        consume_boss_spawn()
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Attract
+        # ------------------------------------------------------------
+        $Attract {
+            $>() {
+                self.score = 0
+                self.waves_spawned = 0
+                self.wave_timer = 0.0
+                self.boss_spawned = false
+            }
+
+            start() {
+                self.player.respawn()
+                -> $Playing
+            }
+
+            get_state(): String         { @@:("attract") }
+            get_score(): int            { @@:(self.score) }
+            get_lives(): int            { @@:(self.player.get_lives()) }
+            enemy_count(): int          { @@:(self.enemies.size()) }
+            should_spawn_wave(): bool   { @@:(false) }
+            consume_wave()              { }
+            should_spawn_boss(): bool   { @@:(false) }
+            consume_boss_spawn()        { }
+        }
+
+        # ------------------------------------------------------------
+        # $Playing — normal waves
+        # ------------------------------------------------------------
+        $Playing {
+            tick(dt: float) {
+                self.player.tick(dt)
+                self._tick_enemies(dt)
+                self.wave_timer = self.wave_timer + dt
+
+                # Player ran out of lives?
+                if self.player.get_state() == "dead":
+                    -> $GameOver
+
+                # After N waves, time for the boss.
+                if self.waves_spawned >= self.waves_before_boss:
+                    -> $BossFight
+            }
+
+            add_enemy(e) {
+                self.enemies.append(e)
+            }
+
+            clear_dead_enemies() {
+                self._cleanup_enemies()
+            }
+
+            player_hit() {
+                if self.player.can_be_hit():
+                    self.player.hit()
+            }
+
+            enemy_hit(index: int, damage: int): bool {
+                if index < 0 or index >= self.enemies.size():
+                    @@:return(false)
+                var e = self.enemies[index]
+                e.hit(damage)
+                if not e.is_alive():
+                    self.score = self.score + e.get_points()
+                    @@:return(true)
+                @@:(false)
+            }
+
+            boss_hit(damage: int): bool {
+                @@:(false)    # no boss yet
+            }
+
+            should_spawn_wave(): bool {
+                @@:(self.wave_timer >= self.wave_interval)
+            }
+
+            consume_wave() {
+                self.wave_timer = 0.0
+                self.waves_spawned = self.waves_spawned + 1
+            }
+
+            should_spawn_boss(): bool { @@:(false) }
+            consume_boss_spawn()      { }
+
+            get_state(): String { @@:("playing") }
+            get_score(): int    { @@:(self.score) }
+            get_lives(): int    { @@:(self.player.get_lives()) }
+            enemy_count(): int  { @@:(self.enemies.size()) }
+        }
+
+        # ------------------------------------------------------------
+        # $BossFight — boss is onscreen; no more regular waves
+        # ------------------------------------------------------------
+        $BossFight {
+            $>() {
+                self.boss_spawn_pending = true
+            }
+
+            tick(dt: float) {
+                self.player.tick(dt)
+                self._tick_enemies(dt)
+                self.boss.tick(dt)
+
+                if self.player.get_state() == "dead":
+                    -> $GameOver
+
+                if self.boss.is_gone():
+                    -> $Victory
+            }
+
+            add_enemy(e) {
+                self.enemies.append(e)
+            }
+
+            clear_dead_enemies() {
+                self._cleanup_enemies()
+            }
+
+            player_hit() {
+                if self.player.can_be_hit():
+                    self.player.hit()
+            }
+
+            enemy_hit(index: int, damage: int): bool {
+                if index < 0 or index >= self.enemies.size():
+                    @@:return(false)
+                var e = self.enemies[index]
+                e.hit(damage)
+                if not e.is_alive():
+                    self.score = self.score + e.get_points()
+                    @@:return(true)
+                @@:(false)
+            }
+
+            boss_hit(damage: int): bool {
+                self.boss.hit(damage)
+                if self.boss.is_dying() or self.boss.is_gone():
+                    @@:(true)
+                else:
+                    @@:(false)
+            }
+
+            should_spawn_wave(): bool   { @@:(false) }
+            consume_wave()              { }
+
+            should_spawn_boss(): bool   { @@:(self.boss_spawn_pending) }
+            consume_boss_spawn()        { self.boss_spawn_pending = false }
+
+            get_state(): String { @@:("boss_fight") }
+            get_score(): int    { @@:(self.score) }
+            get_lives(): int    { @@:(self.player.get_lives()) }
+            enemy_count(): int  { @@:(self.enemies.size()) }
+        }
+
+        # ------------------------------------------------------------
+        # $Victory — boss defeated
+        # ------------------------------------------------------------
+        $Victory {
+            restart() {
+                -> $Attract
+            }
+
+            get_state(): String         { @@:("victory") }
+            get_score(): int            { @@:(self.score) }
+            get_lives(): int            { @@:(self.player.get_lives()) }
+            enemy_count(): int          { @@:(self.enemies.size()) }
+            should_spawn_wave(): bool   { @@:(false) }
+            consume_wave()              { }
+            should_spawn_boss(): bool   { @@:(false) }
+            consume_boss_spawn()        { }
+        }
+
+        # ------------------------------------------------------------
+        # $GameOver
+        # ------------------------------------------------------------
+        $GameOver {
+            restart() {
+                -> $Attract
+            }
+
+            get_state(): String         { @@:("game_over") }
+            get_score(): int            { @@:(self.score) }
+            get_lives(): int            { @@:(self.player.get_lives()) }
+            enemy_count(): int          { @@:(self.enemies.size()) }
+            should_spawn_wave(): bool   { @@:(false) }
+            consume_wave()              { }
+            should_spawn_boss(): bool   { @@:(false) }
+            consume_boss_spawn()        { }
+        }
+
+    actions:
+
+        _tick_enemies(dt: float) {
+            var i: int = 0
+            while i < self.enemies.size():
+                self.enemies[i].tick(dt)
+                i = i + 1
+        }
+
+        _cleanup_enemies() {
+            # Remove any $Gone enemies from the array.
+            var i: int = self.enemies.size() - 1
+            while i >= 0:
+                if self.enemies[i].is_cleanup():
+                    self.enemies.remove_at(i)
+                i = i - 1
+        }
+
+    domain:
+        # Game
+        score: int = 0
+
+        # Wave system
+        wave_timer: float = 0.0
+        wave_interval: float = 2.0
+        waves_spawned: int = 0
+        waves_before_boss: int = 10
+        boss_spawn_pending: bool = false
+
+        # Sub-systems
+        player = @@Player()
+        boss = @@Boss()
+        enemies: Array = []
+}

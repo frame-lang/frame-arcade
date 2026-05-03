@@ -1,0 +1,159 @@
+# ============================================================
+# Pong — Frame source
+# ============================================================
+# The GAME STATE MACHINE for Pong.
+#
+# This file defines the modes the game can be in (attract screen,
+# serving, in play, etc.) and how events move between them. It does
+# NOT do physics, rendering, or input reading — that's the job of the
+# Godot driver in scripts/main.gd.
+#
+# Build with:
+#   framec compile frame/pong.gd --language gdscript -o generated/
+# ============================================================
+
+@@[target("gdscript")]
+
+@@system Pong : RefCounted {
+
+    interface:
+        # --- Lifecycle events ---
+        start()         # attract mode -> first serve
+        restart()       # game over -> attract mode
+        launch()        # serving -> in play
+
+        # --- Per-frame tick (unused in Pong but shown for consistency) ---
+        tick()
+
+        # --- Scoring events fired by the driver when the ball exits ---
+        ball_out_left()         # right player scored
+        ball_out_right()        # left player scored
+
+        # --- Queries the driver reads each frame ---
+        get_state(): String
+        get_score_left(): int
+        get_score_right(): int
+        get_serve_direction(): int      # +1 = serve right, -1 = serve left
+        get_winner(): String
+        is_playing(): bool
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $AttractMode — title screen. "Press Start" flashes.
+        # ------------------------------------------------------------
+        $AttractMode {
+            $>() {
+                self.score_left = 0
+                self.score_right = 0
+                self.winner = ""
+            }
+
+            start() {
+                -> $Serving
+            }
+
+            get_state(): String             { @@:("attract") }
+            get_score_left(): int           { @@:(self.score_left) }
+            get_score_right(): int          { @@:(self.score_right) }
+            get_serve_direction(): int      { @@:(self.serving_to) }
+            get_winner(): String            { @@:(self.winner) }
+            is_playing(): bool              { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $Serving — ball parked on the serving paddle, waiting for
+        # the player to press launch. serving_to tells the driver
+        # which direction the serve goes.
+        # ------------------------------------------------------------
+        $Serving {
+            launch() {
+                -> $InPlay
+            }
+
+            get_state(): String             { @@:("serving") }
+            get_score_left(): int           { @@:(self.score_left) }
+            get_score_right(): int          { @@:(self.score_right) }
+            get_serve_direction(): int      { @@:(self.serving_to) }
+            get_winner(): String            { @@:(self.winner) }
+            is_playing(): bool              { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $InPlay — ball is moving, paddles can hit it. The only
+        # state where ball physics in main.gd integrates.
+        # ------------------------------------------------------------
+        $InPlay {
+            ball_out_left() {
+                self.score_right = self.score_right + 1
+                self.last_scorer = "right"
+                -> $PointScored
+            }
+
+            ball_out_right() {
+                self.score_left = self.score_left + 1
+                self.last_scorer = "left"
+                -> $PointScored
+            }
+
+            get_state(): String             { @@:("in_play") }
+            get_score_left(): int           { @@:(self.score_left) }
+            get_score_right(): int          { @@:(self.score_right) }
+            get_serve_direction(): int      { @@:(self.serving_to) }
+            get_winner(): String            { @@:(self.winner) }
+            is_playing(): bool              { @@:(true) }
+        }
+
+        # ------------------------------------------------------------
+        # $PointScored — enter handler decides: game over or serve?
+        # Serve goes toward whoever lost the point (classic Pong rule).
+        # ------------------------------------------------------------
+        $PointScored {
+            $>() {
+                if self.last_scorer == "left":
+                    self.serving_to = 1
+                else:
+                    self.serving_to = -1
+
+                if self.score_left >= self.winning_score:
+                    self.winner = "left"
+                    -> $GameOver
+                elif self.score_right >= self.winning_score:
+                    self.winner = "right"
+                    -> $GameOver
+                else:
+                    -> $Serving
+            }
+
+            get_state(): String             { @@:("point_scored") }
+            get_score_left(): int           { @@:(self.score_left) }
+            get_score_right(): int          { @@:(self.score_right) }
+            get_serve_direction(): int      { @@:(self.serving_to) }
+            get_winner(): String            { @@:(self.winner) }
+            is_playing(): bool              { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $GameOver — someone hit the winning score. Wait for restart.
+        # ------------------------------------------------------------
+        $GameOver {
+            restart() {
+                -> $AttractMode
+            }
+
+            get_state(): String             { @@:("game_over") }
+            get_score_left(): int           { @@:(self.score_left) }
+            get_score_right(): int          { @@:(self.score_right) }
+            get_serve_direction(): int      { @@:(self.serving_to) }
+            get_winner(): String            { @@:(self.winner) }
+            is_playing(): bool              { @@:(false) }
+        }
+
+    domain:
+        score_left: int = 0
+        score_right: int = 0
+        winning_score: int = 11
+        serving_to: int = 1
+        last_scorer: String = ""
+        winner: String = ""
+}

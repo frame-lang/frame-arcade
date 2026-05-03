@@ -1,0 +1,27 @@
+; Frame Arcade — unified cabinet
+;
+; Single Godot project that hosts all seven games behind a menu.
+; Each chapter's per-project source still lives under ch01../ch07..
+; this is just a wrapper that re-uses the Frame-generated state
+; machines plus lightly-adapted driver scripts.
+
+config_version=5
+
+[application]
+
+config/name="Frame Arcade"
+run/main_scene="res://scenes/menu.tscn"
+config/features=PackedStringArray("4.2")
+
+[autoload]
+
+Arcade="*res://scripts/arcade.gd"
+
+[display]
+
+window/size/viewport_width=800
+window/size/viewport_height=600
+window/size/window_width_override=1280
+window/size/window_height_override=960
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"

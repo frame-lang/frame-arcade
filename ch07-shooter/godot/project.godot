@@ -1,0 +1,20 @@
+; Engine configuration file.
+;
+; Frame Arcade — Chapter 7: Side-Scrolling Shooter
+
+config_version=5
+
+[application]
+
+config/name="Shooter (Frame Arcade)"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.2")
+
+[display]
+
+window/size/viewport_width=800
+window/size/viewport_height=480
+window/size/window_width_override=1280
+window/size/window_height_override=768
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"

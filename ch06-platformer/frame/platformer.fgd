@@ -1,0 +1,502 @@
+# ============================================================
+# Platformer — Frame source
+# ============================================================
+# A Mario-style character controller. Three systems:
+#
+#   Locomotion — how the character is moving: idle, walking,
+#                running, jumping, falling, landing. THIS is
+#                the meaty FSM; it's what physical motion
+#                decisions depend on.
+#
+#   PowerUp    — what form the character is in: small, big,
+#                fiery. Changes rarely (only on pickup/hit)
+#                and independently of motion.
+#
+#   Player     — orchestrator. Owns both FSMs. Translates
+#                events from the Godot driver ("mushroom
+#                picked up", "hit enemy") into the appropriate
+#                calls on each sub-system.
+#
+# The architectural point of this chapter: Locomotion and
+# PowerUp are ORTHOGONAL state dimensions. A single HSM
+# combining them (like $SmallJumping, $BigJumping, etc.) has
+# exponential state count. Two independent FSMs have additive
+# state count. Always prefer composition over matrix HSM.
+#
+# Build with:
+#   framec compile frame/platformer.gd --language gdscript -o generated/
+# ============================================================
+
+@@[target("gdscript")]
+
+
+# ------------------------------------------------------------
+# Locomotion
+# ------------------------------------------------------------
+# $Idle       — on ground, not moving
+# $Walking    — on ground, moving at walk speed
+# $Running    — on ground, moving at run speed (sprint held)
+# $Jumping    — rising through the air; hold button = higher
+# $Falling    — descending through the air
+# $Landing    — brief squish just after touchdown
+#
+# Events from the driver:
+#   press_left / press_right    — ongoing input
+#   release_horizontal          — no horizontal input
+#   press_sprint / release_sprint
+#   press_jump / release_jump   — jump button down / up
+#   tick(dt)                    — per-frame update
+#   ground_contact()            — driver detected ground hit
+#   left_ground()               — driver detected no-ground
+#
+# Queries:
+#   wants_velocity_x()  — the driver reads this each frame
+#                         to apply horizontal velocity
+#   wants_jump_impulse() / consume_jump_impulse()
+#                       — driver reads and clears a one-shot
+#                         "apply upward velocity" flag
+#   is_grounded() / is_in_air()
+# ------------------------------------------------------------
+@@system Locomotion : RefCounted {
+
+    interface:
+        tick(dt: float)
+
+        # Input events
+        press_left()
+        press_right()
+        release_horizontal()
+        press_sprint()
+        release_sprint()
+        press_jump()
+        release_jump()
+
+        # Physics events from driver
+        ground_contact()
+        left_ground()
+
+        # Queries
+        get_state(): String
+        wants_velocity_x(): float
+        wants_jump_impulse(): bool
+        consume_jump_impulse()
+        facing(): int               # +1 right, -1 left
+        is_grounded(): bool
+        is_in_air(): bool
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Idle — standing still on the ground
+        # ------------------------------------------------------------
+        $Idle {
+            press_left() {
+                self.input_x = -1
+                -> $Walking
+            }
+            press_right() {
+                self.input_x = 1
+                -> $Walking
+            }
+            press_jump() {
+                self.pending_jump = true
+                -> $Jumping
+            }
+            left_ground() {
+                -> $Falling
+            }
+
+            get_state(): String         { @@:("idle") }
+            wants_velocity_x(): float   { @@:(0.0) }
+            wants_jump_impulse(): bool  { @@:(self.pending_jump) }
+            consume_jump_impulse()      { self.pending_jump = false }
+            facing(): int               { @@:(self.face) }
+            is_grounded(): bool         { @@:(true) }
+            is_in_air(): bool           { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $Walking — moving on ground at walk speed
+        # ------------------------------------------------------------
+        $Walking {
+            press_left() {
+                self.input_x = -1
+                self.face = -1
+            }
+            press_right() {
+                self.input_x = 1
+                self.face = 1
+            }
+            release_horizontal() {
+                self.input_x = 0
+                -> $Idle
+            }
+            press_sprint() {
+                -> $Running
+            }
+            press_jump() {
+                self.pending_jump = true
+                -> $Jumping
+            }
+            left_ground() {
+                -> $Falling
+            }
+
+            get_state(): String         { @@:("walking") }
+            wants_velocity_x(): float   { @@:(self.input_x * self.walk_speed) }
+            wants_jump_impulse(): bool  { @@:(self.pending_jump) }
+            consume_jump_impulse()      { self.pending_jump = false }
+            facing(): int               { @@:(self.face) }
+            is_grounded(): bool         { @@:(true) }
+            is_in_air(): bool           { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $Running — sprint on ground
+        # ------------------------------------------------------------
+        $Running {
+            press_left() {
+                self.input_x = -1
+                self.face = -1
+            }
+            press_right() {
+                self.input_x = 1
+                self.face = 1
+            }
+            release_horizontal() {
+                self.input_x = 0
+                -> $Walking
+            }
+            release_sprint() {
+                -> $Walking
+            }
+            press_jump() {
+                self.pending_jump = true
+                -> $Jumping
+            }
+            left_ground() {
+                -> $Falling
+            }
+
+            get_state(): String         { @@:("running") }
+            wants_velocity_x(): float   { @@:(self.input_x * self.run_speed) }
+            wants_jump_impulse(): bool  { @@:(self.pending_jump) }
+            consume_jump_impulse()      { self.pending_jump = false }
+            facing(): int               { @@:(self.face) }
+            is_grounded(): bool         { @@:(true) }
+            is_in_air(): bool           { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $Jumping — rising through the air
+        #
+        # State variable $.jump_held_time allows for variable jump
+        # height — releasing the button early means the driver cuts
+        # vertical velocity.
+        # ------------------------------------------------------------
+        $Jumping {
+            $.jump_held_time: float = 0.0
+            $.jump_released: bool = false
+
+            tick(dt: float) {
+                if not $.jump_released:
+                    $.jump_held_time = $.jump_held_time + dt
+
+                # The driver tells us when we've peaked by checking
+                # velocity. We transition to $Falling then. For now
+                # a max held time also forces the transition.
+                if $.jump_held_time >= 0.35:
+                    -> $Falling
+            }
+
+            press_left() {
+                self.input_x = -1
+                self.face = -1
+            }
+            press_right() {
+                self.input_x = 1
+                self.face = 1
+            }
+            release_horizontal() {
+                self.input_x = 0
+            }
+            release_jump() {
+                $.jump_released = true
+            }
+            ground_contact() {
+                -> $Landing
+            }
+
+            get_state(): String         { @@:("jumping") }
+            wants_velocity_x(): float   { @@:(self.input_x * self.air_speed) }
+            wants_jump_impulse(): bool  { @@:(self.pending_jump) }
+            consume_jump_impulse()      { self.pending_jump = false }
+            facing(): int               { @@:(self.face) }
+            is_grounded(): bool         { @@:(false) }
+            is_in_air(): bool           { @@:(true) }
+        }
+
+        # ------------------------------------------------------------
+        # $Falling — descending through the air
+        # ------------------------------------------------------------
+        $Falling {
+            press_left() {
+                self.input_x = -1
+                self.face = -1
+            }
+            press_right() {
+                self.input_x = 1
+                self.face = 1
+            }
+            release_horizontal() {
+                self.input_x = 0
+            }
+            ground_contact() {
+                -> $Landing
+            }
+
+            get_state(): String         { @@:("falling") }
+            wants_velocity_x(): float   { @@:(self.input_x * self.air_speed) }
+            wants_jump_impulse(): bool  { @@:(false) }
+            consume_jump_impulse()      { self.pending_jump = false }
+            facing(): int               { @@:(self.face) }
+            is_grounded(): bool         { @@:(false) }
+            is_in_air(): bool           { @@:(true) }
+        }
+
+        # ------------------------------------------------------------
+        # $Landing — brief squish after touchdown
+        # ------------------------------------------------------------
+        $Landing {
+            $.timer: float = 0.0
+            $.duration: float = 0.08
+
+            $>() {
+                # Consume any stale jump input so we don't instantly
+                # re-jump on landing.
+                self.pending_jump = false
+            }
+
+            tick(dt: float) {
+                $.timer = $.timer + dt
+                if $.timer >= $.duration:
+                    if self.input_x != 0:
+                        -> $Walking
+                    else:
+                        -> $Idle
+            }
+
+            press_left() {
+                self.input_x = -1
+                self.face = -1
+            }
+            press_right() {
+                self.input_x = 1
+                self.face = 1
+            }
+            release_horizontal() {
+                self.input_x = 0
+            }
+            press_jump() {
+                self.pending_jump = true
+                -> $Jumping
+            }
+            left_ground() {
+                -> $Falling
+            }
+
+            get_state(): String         { @@:("landing") }
+            wants_velocity_x(): float   { @@:(self.input_x * self.walk_speed * 0.6) }
+            wants_jump_impulse(): bool  { @@:(self.pending_jump) }
+            consume_jump_impulse()      { self.pending_jump = false }
+            facing(): int               { @@:(self.face) }
+            is_grounded(): bool         { @@:(true) }
+            is_in_air(): bool           { @@:(false) }
+        }
+
+    domain:
+        input_x: int = 0
+        face: int = 1
+        pending_jump: bool = false
+        walk_speed: float = 140.0
+        run_speed: float = 260.0
+        air_speed: float = 180.0
+}
+
+
+# ------------------------------------------------------------
+# PowerUp
+# ------------------------------------------------------------
+# A tiny FSM that tracks what "form" the character is in.
+# Independent of Locomotion.
+#
+# $Small — starting form
+# $Big   — after mushroom
+# $Fiery — after fire flower (highest tier)
+#
+# Rules for taking damage:
+#   Fiery  -> Big
+#   Big    -> Small
+#   Small  -> Dead (via callback to the driver/game)
+# ------------------------------------------------------------
+@@system PowerUp : RefCounted {
+
+    interface:
+        pickup_mushroom()
+        pickup_flower()
+        take_damage(): bool         # returns true if still alive
+        reset()
+
+        get_form(): String
+        hit_box_height(): int       # driver reads for collision shape
+        can_shoot(): bool
+
+    machine:
+
+        $Small {
+            pickup_mushroom() {
+                -> $Big
+            }
+            pickup_flower() {
+                -> $Fiery
+            }
+            take_damage(): bool {
+                @@:(false)          # died
+            }
+            reset() {
+                # already here
+            }
+
+            get_form(): String      { @@:("small") }
+            hit_box_height(): int   { @@:(24) }
+            can_shoot(): bool       { @@:(false) }
+        }
+
+        $Big {
+            pickup_mushroom() {
+                # already big; could score a bonus. No transition.
+            }
+            pickup_flower() {
+                -> $Fiery
+            }
+            take_damage(): bool {
+                @@:(true)
+                -> $Small
+            }
+            reset() {
+                -> $Small
+            }
+
+            get_form(): String      { @@:("big") }
+            hit_box_height(): int   { @@:(48) }
+            can_shoot(): bool       { @@:(false) }
+        }
+
+        $Fiery {
+            pickup_mushroom() {
+                # already powered up
+            }
+            pickup_flower() {
+                # already fiery
+            }
+            take_damage(): bool {
+                @@:(true)
+                -> $Big
+            }
+            reset() {
+                -> $Small
+            }
+
+            get_form(): String      { @@:("fiery") }
+            hit_box_height(): int   { @@:(48) }
+            can_shoot(): bool       { @@:(true) }
+        }
+}
+
+
+# ------------------------------------------------------------
+# Player
+# ------------------------------------------------------------
+# Owns both Locomotion and PowerUp. The driver talks only to
+# Player; Player routes events to whichever sub-system cares.
+#
+# Player is a single-state FSM — there's nothing in the
+# combined top-level state that's genuinely modal. The two
+# sub-FSMs ARE the state.
+# ------------------------------------------------------------
+@@[main]
+@@system Player : RefCounted {
+
+    interface:
+        tick(dt: float)
+
+        # Input forwarding
+        press_left()
+        press_right()
+        release_horizontal()
+        press_sprint()
+        release_sprint()
+        press_jump()
+        release_jump()
+
+        # Physics
+        ground_contact()
+        left_ground()
+
+        # Power-ups / damage
+        pickup_mushroom()
+        pickup_flower()
+        take_damage(): bool
+
+        # Queries (the driver reads these)
+        locomotion_state(): String
+        form(): String
+        wants_velocity_x(): float
+        wants_jump_impulse(): bool
+        consume_jump_impulse()
+        facing(): int
+        is_grounded(): bool
+        is_in_air(): bool
+        hit_box_height(): int
+        can_shoot(): bool
+
+    machine:
+
+        $Playing {
+            tick(dt: float) {
+                self.loco.tick(dt)
+            }
+
+            press_left()            { self.loco.press_left() }
+            press_right()           { self.loco.press_right() }
+            release_horizontal()    { self.loco.release_horizontal() }
+            press_sprint()          { self.loco.press_sprint() }
+            release_sprint()        { self.loco.release_sprint() }
+            press_jump()            { self.loco.press_jump() }
+            release_jump()          { self.loco.release_jump() }
+            ground_contact()        { self.loco.ground_contact() }
+            left_ground()           { self.loco.left_ground() }
+
+            pickup_mushroom()       { self.power.pickup_mushroom() }
+            pickup_flower()         { self.power.pickup_flower() }
+
+            take_damage(): bool {
+                @@:(self.power.take_damage())
+            }
+
+            locomotion_state(): String  { @@:(self.loco.get_state()) }
+            form(): String              { @@:(self.power.get_form()) }
+            wants_velocity_x(): float   { @@:(self.loco.wants_velocity_x()) }
+            wants_jump_impulse(): bool  { @@:(self.loco.wants_jump_impulse()) }
+            consume_jump_impulse()      { self.loco.consume_jump_impulse() }
+            facing(): int               { @@:(self.loco.facing()) }
+            is_grounded(): bool         { @@:(self.loco.is_grounded()) }
+            is_in_air(): bool           { @@:(self.loco.is_in_air()) }
+            hit_box_height(): int       { @@:(self.power.hit_box_height()) }
+            can_shoot(): bool           { @@:(self.power.can_shoot()) }
+        }
+
+    domain:
+        loco = @@Locomotion()
+        power = @@PowerUp()
+}

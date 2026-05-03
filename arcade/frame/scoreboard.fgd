@@ -1,0 +1,105 @@
+# ============================================================
+# Scoreboard — cabinet-level high-score tracker
+# ============================================================
+# This system exists only in the unified cabinet, not in any
+# book chapter. Its job is to show off ONE Frame feature the
+# chapters don't touch: @@[persist].
+#
+# @@[persist] generates `save_state()` and `restore_state()`
+# methods that round-trip the entire system — current state,
+# state stack, domain variables — to a PackedByteArray. The
+# cabinet's autoload writes that bytestream to
+# `user://scoreboard.dat` when scores change, and reads it
+# back at startup. Result: high scores persist across
+# sessions with no manual serialization code.
+#
+# The state machine itself is intentionally tiny: one state,
+# scoring lookup as actions, the persisted data lives in
+# `domain`. The lesson is "@@[persist] gives you durable
+# state for free" — not "look how complex this FSM is."
+#
+# Build with:
+#   framec compile frame/scoreboard.fgd --language gdscript -o generated/
+# ============================================================
+
+@@[target("gdscript")]
+
+@@[persist]
+@@system Scoreboard : RefCounted {
+
+    operations:
+        # @@[save] / @@[load] declare the persist endpoints under the
+        # RFC-0012 amendment 2026-05-02. Frame generates the bodies;
+        # the empty `{}` is the required syntactic placeholder. Caller
+        # uses the two-step pattern:
+        #
+        #     var sb = Scoreboard.new()
+        #     sb.restore_state(bytes)
+        #
+        # No static method, no `class_name` declaration — works
+        # cleanly inside Godot's script scoping.
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        # Records a score for `game`. Returns true if it's a new
+        # high score (the cabinet uses this to flag the menu).
+        record_score(game: String, score: int): bool
+
+        # Best recorded score for `game`. Returns 0 if no entry.
+        get_high_score(game: String): int
+
+        # Number of distinct games with at least one score.
+        game_count(): int
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Active — the only state. A scoreboard doesn't really need
+        # multiple modes; the @@[persist] feature operates on the
+        # whole system regardless of state count. Keeping this
+        # single-state makes the persistence demo easy to read.
+        # ------------------------------------------------------------
+        $Active {
+            record_score(game: String, score: int): bool {
+                if score > self._lookup(game):
+                    self.scores[game] = score
+                    @@:(true)
+                else:
+                    @@:(false)
+            }
+
+            get_high_score(game: String): int {
+                @@:(self._lookup(game))
+            }
+
+            game_count(): int {
+                @@:(self.scores.size())
+            }
+        }
+
+    actions:
+
+        # Single point of "lookup or default" so both the public
+        # query and the comparison in `record_score` agree on the
+        # missing-entry semantics (returns 0 rather than raising).
+        # Actions have no Frame dispatch context — use native
+        # `return`, not the `@@:()` sigil.
+        _lookup(game: String): int {
+            if self.scores.has(game):
+                return self.scores[game]
+            else:
+                return 0
+        }
+
+    domain:
+        # Dictionary keyed by game name → high-score int. This is
+        # the data @@[persist] serializes. Frame's GDScript
+        # backend maps Frame's `Dictionary` to GDScript's native
+        # Dictionary, which the persist runtime can round-trip
+        # via Godot's `var_to_bytes` / `bytes_to_var`.
+        scores: Dictionary = {}
+}

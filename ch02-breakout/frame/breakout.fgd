@@ -1,0 +1,341 @@
+# ============================================================
+# Breakout — Frame source
+# ============================================================
+# THREE state machines in one file:
+#
+#   Ball        — modes of the ball (attached, flying, lost)
+#   BrickField  — tracks remaining bricks, emits all_cleared
+#   Breakout    — the top-level game, owns a Ball and BrickField
+#
+# The Godot driver (scripts/main.gd) owns exactly one system:
+# a Breakout instance. It sends events in and reads queries out.
+# The Ball and BrickField are internal to Breakout — the driver
+# never touches them directly.
+#
+# Build with:
+#   framec compile frame/breakout.gd --language gdscript -o generated/
+# ============================================================
+
+@@[target("gdscript")]
+
+# ------------------------------------------------------------
+# Ball
+# ------------------------------------------------------------
+# The ball has three modes:
+#   $AttachedToPaddle  — stuck to the paddle, moves with it
+#   $InFlight          — flying around, may collide with things
+#   $Lost              — off the bottom of the screen, waiting
+#
+# The velocity lives in a STATE VARIABLE ($.vx, $.vy) on $InFlight.
+# That means it's created fresh each time we enter $InFlight and
+# discarded on exit. Classic arcade pattern: each launch is a
+# fresh serve with no stale velocity from the previous ball.
+# ------------------------------------------------------------
+@@system Ball : RefCounted {
+
+    interface:
+        launch(vx: float, vy: float)    # attached -> in flight
+        lose()                          # in flight -> lost (off bottom)
+        attach()                        # lost -> attached (respawn)
+        bounce_x()                      # flip horizontal velocity
+        bounce_y()                      # flip vertical velocity
+        set_velocity(vx: float, vy: float)   # override velocity (for paddle english)
+
+        get_state(): String
+        get_vx(): float
+        get_vy(): float
+        is_flying(): bool
+
+    machine:
+
+        $AttachedToPaddle {
+            launch(vx: float, vy: float) {
+                -> (vx, vy) $InFlight
+            }
+
+            get_state(): String     { @@:("attached") }
+            get_vx(): float         { @@:(0.0) }
+            get_vy(): float         { @@:(0.0) }
+            is_flying(): bool       { @@:(false) }
+        }
+
+        $InFlight {
+            # State variables: live only while in this state.
+            # Reset on every entry to $InFlight.
+            $.vx: float = 0.0
+            $.vy: float = 0.0
+
+            $>(vx: float, vy: float) {
+                $.vx = vx
+                $.vy = vy
+            }
+
+            bounce_x() {
+                $.vx = -$.vx
+            }
+
+            bounce_y() {
+                $.vy = -$.vy
+            }
+
+            set_velocity(vx: float, vy: float) {
+                $.vx = vx
+                $.vy = vy
+            }
+
+            lose() {
+                -> $Lost
+            }
+
+            get_state(): String     { @@:("in_flight") }
+            get_vx(): float         { @@:($.vx) }
+            get_vy(): float         { @@:($.vy) }
+            is_flying(): bool       { @@:(true) }
+        }
+
+        $Lost {
+            attach() {
+                -> $AttachedToPaddle
+            }
+
+            get_state(): String     { @@:("lost") }
+            get_vx(): float         { @@:(0.0) }
+            get_vy(): float         { @@:(0.0) }
+            is_flying(): bool       { @@:(false) }
+        }
+}
+
+
+# ------------------------------------------------------------
+# BrickField
+# ------------------------------------------------------------
+# Tracks the bricks as a simple list of booleans — true means
+# the brick is still present.
+#
+# This system looks almost trivial (one state!), and that's the
+# point. Multi-system composition isn't always about every
+# participant being a complex FSM. Sometimes a "system" exists
+# just to own a piece of state and expose a clean interface.
+# ------------------------------------------------------------
+@@system BrickField : RefCounted {
+
+    interface:
+        reset(count: int)               # reinitialize with N bricks standing
+        break_brick(index: int): bool   # break brick i; return true if it was there
+        is_broken(index: int): bool
+        remaining(): int
+        is_cleared(): bool
+
+    machine:
+
+        $Active {
+            reset(count: int) {
+                self.bricks = []
+                var _i: int = 0
+                while _i < count:
+                    self.bricks.append(true)
+                    _i = _i + 1
+                self.remaining_count = count
+            }
+
+            break_brick(index: int): bool {
+                if index < 0 or index >= self.bricks.size():
+                    @@:return(false)
+                if not self.bricks[index]:
+                    @@:return(false)
+                self.bricks[index] = false
+                self.remaining_count = self.remaining_count - 1
+                @@:(true)
+            }
+
+            is_broken(index: int): bool {
+                if index < 0 or index >= self.bricks.size():
+                    @@:return(true)
+                @@:(not self.bricks[index])
+            }
+
+            remaining(): int {
+                @@:(self.remaining_count)
+            }
+
+            is_cleared(): bool {
+                @@:(self.remaining_count <= 0)
+            }
+        }
+
+    domain:
+        bricks: Array = []
+        remaining_count: int = 0
+}
+
+
+# ------------------------------------------------------------
+# Breakout (the top-level game)
+# ------------------------------------------------------------
+# Orchestrates the Ball and BrickField. The Godot driver speaks
+# to Breakout only — never directly to the Ball or BrickField.
+#
+# This is the multi-system composition pattern: a parent system
+# holds children in its domain, and routes the events that
+# matter to them.
+# ------------------------------------------------------------
+@@[main]
+@@system Breakout : RefCounted {
+
+    interface:
+        start()
+        launch_ball(vx: float, vy: float)
+        brick_hit(index: int)           # driver detected ball-brick collision
+        paddle_hit(vx: float, vy: float) # driver detected ball-paddle collision
+        wall_bounce_x()                 # ball hit left/right wall
+        wall_bounce_y()                 # ball hit top wall
+        ball_fell_off()                 # ball went below paddle
+        restart()
+
+        get_state(): String
+        get_score(): int
+        get_lives(): int
+        get_level(): int
+        bricks_remaining(): int
+        is_brick_broken(index: int): bool
+        ball_state(): String
+        ball_vx(): float
+        ball_vy(): float
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Attract — title screen, waiting to start.
+        # ------------------------------------------------------------
+        $Attract {
+            $>() {
+                self.score = 0
+                self.lives = 3
+                self.level = 1
+            }
+
+            start() {
+                self.bricks.reset(self.brick_count)
+                self.ball.attach()
+                -> $Playing
+            }
+
+            get_state(): String         { @@:("attract") }
+            get_score(): int            { @@:(self.score) }
+            get_lives(): int            { @@:(self.lives) }
+            get_level(): int            { @@:(self.level) }
+            bricks_remaining(): int     { @@:(self.bricks.remaining()) }
+            is_brick_broken(index: int): bool { @@:(self.bricks.is_broken(index)) }
+            ball_state(): String        { @@:(self.ball.get_state()) }
+            ball_vx(): float            { @@:(self.ball.get_vx()) }
+            ball_vy(): float            { @@:(self.ball.get_vy()) }
+        }
+
+        # ------------------------------------------------------------
+        # $Playing — the round is in progress. This state routes
+        # collision events from the driver to the appropriate
+        # sub-system, updates score, and decides whether the level
+        # is cleared or the ball was lost.
+        # ------------------------------------------------------------
+        $Playing {
+            launch_ball(vx: float, vy: float) {
+                self.ball.launch(vx, vy)
+            }
+
+            brick_hit(index: int) {
+                if self.bricks.break_brick(index):
+                    self.score = self.score + self.points_per_brick
+                    self.ball.bounce_y()
+                    if self.bricks.is_cleared():
+                        -> $LevelClear
+            }
+
+            paddle_hit(vx: float, vy: float) {
+                self.ball.set_velocity(vx, vy)
+            }
+
+            wall_bounce_x() {
+                self.ball.bounce_x()
+            }
+
+            wall_bounce_y() {
+                self.ball.bounce_y()
+            }
+
+            ball_fell_off() {
+                self.lives = self.lives - 1
+                if self.lives <= 0:
+                    -> $GameOver
+                else:
+                    self.ball.attach()
+            }
+
+            get_state(): String         { @@:("playing") }
+            get_score(): int            { @@:(self.score) }
+            get_lives(): int            { @@:(self.lives) }
+            get_level(): int            { @@:(self.level) }
+            bricks_remaining(): int     { @@:(self.bricks.remaining()) }
+            is_brick_broken(index: int): bool { @@:(self.bricks.is_broken(index)) }
+            ball_state(): String        { @@:(self.ball.get_state()) }
+            ball_vx(): float            { @@:(self.ball.get_vx()) }
+            ball_vy(): float            { @@:(self.ball.get_vy()) }
+        }
+
+        # ------------------------------------------------------------
+        # $LevelClear — all bricks broken. Advance level.
+        # ------------------------------------------------------------
+        $LevelClear {
+            $>() {
+                self.level = self.level + 1
+            }
+
+            start() {
+                self.bricks.reset(self.brick_count)
+                self.ball.attach()
+                -> $Playing
+            }
+
+            get_state(): String         { @@:("level_clear") }
+            get_score(): int            { @@:(self.score) }
+            get_lives(): int            { @@:(self.lives) }
+            get_level(): int            { @@:(self.level) }
+            bricks_remaining(): int     { @@:(self.bricks.remaining()) }
+            is_brick_broken(index: int): bool { @@:(self.bricks.is_broken(index)) }
+            ball_state(): String        { @@:(self.ball.get_state()) }
+            ball_vx(): float            { @@:(self.ball.get_vx()) }
+            ball_vy(): float            { @@:(self.ball.get_vy()) }
+        }
+
+        # ------------------------------------------------------------
+        # $GameOver — out of lives. Waiting for restart.
+        # ------------------------------------------------------------
+        $GameOver {
+            restart() {
+                -> $Attract
+            }
+
+            get_state(): String         { @@:("game_over") }
+            get_score(): int            { @@:(self.score) }
+            get_lives(): int            { @@:(self.lives) }
+            get_level(): int            { @@:(self.level) }
+            bricks_remaining(): int     { @@:(self.bricks.remaining()) }
+            is_brick_broken(index: int): bool { @@:(self.bricks.is_broken(index)) }
+            ball_state(): String        { @@:(self.ball.get_state()) }
+            ball_vx(): float            { @@:(self.ball.get_vx()) }
+            ball_vy(): float            { @@:(self.ball.get_vy()) }
+        }
+
+    domain:
+        # --- Game state ---
+        score: int = 0
+        lives: int = 3
+        level: int = 1
+
+        # --- Config ---
+        brick_count: int = 40
+        points_per_brick: int = 10
+
+        # --- Owned sub-systems ---
+        ball = @@Ball()
+        bricks = @@BrickField()
+}
