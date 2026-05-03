@@ -386,15 +386,208 @@
 
 
 # ------------------------------------------------------------
-# Adventure (top-level orchestrator) — STUB
+# Player
 # ------------------------------------------------------------
-# Placeholder. As real systems land (Player, Bird, Snake,
-# Dragon, dwarves, treasures, aspects), they go here. For now
-# the orchestrator just holds the bus and the lamp so we have
-# something to compose against.
+# Tracks where the player is, what they're carrying, and how
+# many times they've died. CCA gives the player three free
+# resurrections (death numbers 1, 2, 3 are recoverable; the
+# fourth is permanent). The state machine encodes this:
 #
-# Once we have aspects, the publish() entry point will route
-# events through the bus before any per-system dispatch.
+#   $Alive  ── die()    ─► $Dead    (after 1st, 2nd, 3rd death)
+#                          revive() ─► $Alive
+#           ── die()    ─► $Permadead  (4th and beyond)
+#
+# Inventory and room are domain variables — they belong to the
+# player regardless of mode. Death drops everything (canon
+# CCA behavior); $Dead.revive() re-enters $Alive at the cave
+# entrance with empty inventory.
+# ------------------------------------------------------------
+@@[persist]
+@@system Player : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        move_to(room_id: int)
+        die()
+        revive()
+
+        # Inventory
+        take(item_id: int)
+        drop(item_id: int)
+        carrying(item_id: int): bool
+        inventory_size(): int
+
+        # Queries
+        get_state(): String
+        get_room(): int
+        get_deaths(): int
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Alive — the normal mode. move_to / take / drop all
+        # mutate domain. die() advances the death counter and
+        # routes to $Dead or $Permadead based on whether we
+        # still have free resurrections.
+        # ------------------------------------------------------------
+        $Alive {
+            move_to(room_id: int) {
+                self.room = room_id
+            }
+
+            take(item_id: int) {
+                if not self.inventory.has(item_id):
+                    self.inventory.append(item_id)
+            }
+
+            drop(item_id: int) {
+                self.inventory.erase(item_id)
+            }
+
+            die() {
+                self.deaths = self.deaths + 1
+                if self.deaths > self.MAX_RESURRECTIONS:
+                    -> $Permadead
+                else:
+                    -> $Dead
+            }
+
+            carrying(item_id: int): bool { @@:(self.inventory.has(item_id)) }
+            inventory_size(): int        { @@:(self.inventory.size()) }
+            get_state(): String          { @@:("alive") }
+            get_room(): int              { @@:(self.room) }
+            get_deaths(): int            { @@:(self.deaths) }
+        }
+
+        # ------------------------------------------------------------
+        # $Dead — recoverable. revive() resets to the cave
+        # entrance with empty inventory and goes back to $Alive.
+        # The driver/orchestrator decides when to call revive
+        # (in real CCA this is gated by a "OK?" prompt).
+        # ------------------------------------------------------------
+        $Dead {
+            revive() {
+                self.room = self.START_ROOM
+                self.inventory = []
+                -> $Alive
+            }
+
+            carrying(item_id: int): bool { @@:(false) }
+            inventory_size(): int        { @@:(0) }
+            get_state(): String          { @@:("dead") }
+            get_room(): int              { @@:(self.room) }
+            get_deaths(): int            { @@:(self.deaths) }
+        }
+
+        # ------------------------------------------------------------
+        # $Permadead — terminal. The 4th death.
+        # ------------------------------------------------------------
+        $Permadead {
+            carrying(item_id: int): bool { @@:(false) }
+            inventory_size(): int        { @@:(0) }
+            get_state(): String          { @@:("permadead") }
+            get_room(): int              { @@:(self.room) }
+            get_deaths(): int            { @@:(self.deaths) }
+        }
+
+    domain:
+        room: int = 0
+        inventory: Array = []
+        deaths: int = 0
+        START_ROOM: int = 0
+        MAX_RESURRECTIONS: int = 3
+}
+
+
+# ------------------------------------------------------------
+# DarknessGate (aspect)
+# ------------------------------------------------------------
+# The first real CCA aspect. Sits on the bus and intercepts
+# informational verbs ("look", "examine") when the player is
+# in a dark room and the lamp isn't providing light. Returns a
+# "consume" verdict with a "It is pitch dark." message; the
+# orchestrator picks up the message text from the verdict
+# event payload.
+#
+# Why this is an aspect, not a check inside the base handler:
+# the same condition gates many verbs ("look" today, plus
+# "examine X", "read X", "search X" later). Putting the gate
+# in each verb's handler is the flag-on-the-base-machine smell.
+# The aspect intercepts at the dispatch boundary, in front of
+# all of them.
+#
+# What about MOVE in the dark? Real CCA allows movement in
+# dark rooms — you might fall into a pit. So MOVE doesn't
+# belong to this aspect; that risk is handled elsewhere.
+# ------------------------------------------------------------
+@@[persist]
+@@system DarknessGate : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        try_handle(event: Dictionary): Dictionary
+
+    machine:
+
+        $Active {
+            try_handle(event: Dictionary): Dictionary {
+                # Read world facts from the event payload — the
+                # orchestrator built it with the relevant
+                # snapshot. The aspect doesn't reach into the
+                # world directly; that keeps it testable.
+                var dark: bool = event.get("is_dark", false)
+                var verb: String = event.get("verb", "")
+                var gated: bool = (verb == "look" or verb == "examine")
+                if dark and gated:
+                    self.consumed_count = self.consumed_count + 1
+                    @@:return({
+                        "verdict": "consume",
+                        "event": event,
+                        "message": "It is pitch dark. You can't see a thing.",
+                    })
+                @@:({"verdict": "pass", "event": event})
+            }
+        }
+
+    domain:
+        # Counter for tests / future telemetry. Not strictly
+        # needed but makes the aspect's behavior observable
+        # without reading dispatch logs.
+        consumed_count: int = 0
+}
+
+
+# ------------------------------------------------------------
+# Adventure (top-level orchestrator)
+# ------------------------------------------------------------
+# Holds the world: bus + aspects + player + lamp (so far).
+# Drives publish() through the verdict ladder, falling back to
+# a base verb dispatcher when no aspect consumes.
+#
+# Each command goes through:
+#   1. Build event Dictionary with verb/noun + world snapshot
+#      (the facts aspects need to make decisions)
+#   2. bus.begin_dispatch()
+#   3. Walk bus.ordered_names(), call _dispatch_to for each
+#   4. On consume: capture the message and stop
+#   5. On transform: continue with the new event
+#   6. bus.end_dispatch()
+#   7. If not consumed: route to the base verb handler
+#
+# The driver doesn't see this orchestration — it just calls
+# do_command(verb, noun) and reads back a String message.
 # ------------------------------------------------------------
 @@[main]
 @@[persist]
@@ -408,27 +601,77 @@
         restore_state(data: PackedByteArray) {}
 
     interface:
-        # Per-turn entry. The driver calls this after parsing
-        # input. For now it just advances the lamp's tick.
-        turn()
+        # Lifecycle
+        setup_default_aspects()
 
-        # Queries that the driver needs to render the world.
+        # Per-turn entry. Returns the message for the player.
+        do_command(verb: String, noun: String): String
+
+        # Tick (npc updates, lamp battery, etc). Called once
+        # per command turn, after do_command.
+        tick()
+
+        # Lamp control — surfaced for direct driver use during
+        # bootstrap / tests. Real flow goes through do_command
+        # with verb="light" / "extinguish".
+        light_lamp()
+        extinguish_lamp()
+        refresh_lamp()
+
+        # Queries — flat surface area for the driver to read.
         get_lamp_state(): String
         get_lamp_message(): String
         is_lit(): bool
         battery_left(): int
         turn_count(): int
-
-        # Lamp control — surfaced through Adventure so the
-        # driver doesn't have to know the internal composition.
-        light_lamp()
-        extinguish_lamp()
-        refresh_lamp()
+        player_room(): int
+        player_state(): String
+        room_is_dark_now(): bool
+        darkness_consumed_count(): int
 
     machine:
 
         $Playing {
-            turn() {
+
+            setup_default_aspects() {
+                self.bus.register("darkness", 700)
+            }
+
+            do_command(verb: String, noun: String): String {
+                # Build the per-event world snapshot. Aspects
+                # read what they need from this Dictionary; we
+                # don't pass them references to Adventure.
+                var event: Dictionary = {
+                    "verb": verb,
+                    "noun": noun,
+                    "room": self.player.get_room(),
+                    "is_dark": self._room_is_dark(self.player.get_room()),
+                    "lamp_lit": self.lamp.is_lit(),
+                }
+
+                self.bus.begin_dispatch()
+                var names: Array = self.bus.ordered_names()
+                var i: int = 0
+                var consume_message: String = ""
+                while i < names.size():
+                    var aname: String = names[i]
+                    var result: Dictionary = self._dispatch_to(aname, event)
+                    var verdict: String = result.verdict
+                    if verdict == "consume":
+                        consume_message = result.get("message", "")
+                        i = names.size()
+                    elif verdict == "transform":
+                        event = result.event
+                    i = i + 1
+                self.bus.end_dispatch()
+
+                if consume_message != "":
+                    @@:return(consume_message)
+
+                @@:(self._base_handle(event))
+            }
+
+            tick() {
                 self.lamp.tick()
                 self.turns = self.turns + 1
             }
@@ -437,15 +680,95 @@
             extinguish_lamp() { self.lamp.extinguish() }
             refresh_lamp()    { self.lamp.refresh() }
 
-            get_lamp_state(): String   { @@:(self.lamp.get_state()) }
-            get_lamp_message(): String { @@:(self.lamp.last_message()) }
-            is_lit(): bool             { @@:(self.lamp.is_lit()) }
-            battery_left(): int        { @@:(self.lamp.battery_left()) }
-            turn_count(): int          { @@:(self.turns) }
+            get_lamp_state(): String          { @@:(self.lamp.get_state()) }
+            get_lamp_message(): String        { @@:(self.lamp.last_message()) }
+            is_lit(): bool                    { @@:(self.lamp.is_lit()) }
+            battery_left(): int               { @@:(self.lamp.battery_left()) }
+            turn_count(): int                 { @@:(self.turns) }
+            player_room(): int                { @@:(self.player.get_room()) }
+            player_state(): String            { @@:(self.player.get_state()) }
+            room_is_dark_now(): bool          { @@:(self._room_is_dark(self.player.get_room())) }
+            darkness_consumed_count(): int    { @@:(self.darkness.consumed_count) }
+        }
+
+    actions:
+
+        # The bus holds names; this routes them to the actual
+        # @@system field. Add a branch per aspect as we grow.
+        # The ordering here doesn't matter — the bus already
+        # walked listeners in priority order.
+        _dispatch_to(name: String, event: Dictionary): Dictionary {
+            if name == "darkness":
+                return self.darkness.try_handle(event)
+            return {"verdict": "pass", "event": event}
+        }
+
+        # Base verb dispatch. Stub today — only knows a handful
+        # of verbs. The real CCA verb table is ~40 entries. As
+        # rooms and items land, this branches further.
+        _base_handle(event: Dictionary): String {
+            var verb: String = event.verb
+            var noun: String = event.noun
+            if verb == "look":
+                return self._verb_look()
+            elif verb == "light":
+                self.lamp.light()
+                if self.lamp.get_state() == "out":
+                    return "Your lamp won't light — the battery is dead."
+                return "Your lamp is now on."
+            elif verb == "extinguish":
+                self.lamp.extinguish()
+                return "Your lamp is now off."
+            elif verb == "move":
+                return self._verb_move(noun)
+            elif verb == "noop":
+                return ""
+            return "I don't know how to '" + verb + "'."
+        }
+
+        _verb_look(): String {
+            # Stub — real CCA returns the room description here.
+            # We wire to a room-data table once we add rooms.
+            var r: int = self.player.get_room()
+            if r == 0:
+                return "You are at the entrance to a cave."
+            return "You are deep in the cave."
+        }
+
+        _verb_move(noun: String): String {
+            # Stub — toggle between room 0 and 1 to exercise
+            # the dark/lit distinction. Real CCA reads exits
+            # from a per-room data table.
+            var r: int = self.player.get_room()
+            var next_r: int = 1 if r == 0 else 0
+            self.player.move_to(next_r)
+            if self._room_is_dark(next_r) and not self.lamp.is_lit():
+                return "You move into darkness."
+            return "You move to a new area."
+        }
+
+        # World inspection: is the player's current room dark?
+        # Real CCA has a per-room `is_dark` data flag; here we
+        # use a stub that says "everything except room 0 is
+        # dark when the lamp is off."
+        _room_is_dark(room: int): bool {
+            if room == 0:
+                return false
+            return not self.lamp.is_lit()
         }
 
     domain:
+        # Composition. Order doesn't matter for @@[persist]
+        # auto-traversal but reading top-to-bottom helps a
+        # reader follow the world.
         bus = @@AspectBus()
         lamp = @@Lamp()
+        player = @@Player()
+        darkness = @@DarknessGate()
+
+        # Tick counter (advances every tick(), not every
+        # do_command). Some commands are free; others tick.
+        # For now, tick() is called once per do_command via
+        # the driver.
         turns: int = 0
 }
