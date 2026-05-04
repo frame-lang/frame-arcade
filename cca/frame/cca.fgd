@@ -1562,6 +1562,97 @@
 
 
 # ------------------------------------------------------------
+# Pirate
+# ------------------------------------------------------------
+# Three-state probabilistic encounter, similar in shape to a
+# Dwarf but with one steal-and-vanish rather than a chain of
+# attacks. Activates when the player's treasure-carry count
+# crosses a threshold; once active, has a per-turn chance to
+# spawn into the player's room and steal one treasure. After
+# stealing, vanishes to the chest room (where the player can
+# eventually retrieve the stolen loot).
+#
+# State diagram:
+#
+#   $Dormant ── treasures_carried(n) ──► $Stalking
+#                  (when n >= ACTIVATION_THRESHOLD)
+#   $Stalking ── try_steal(seed_step) ──► $Vanished
+#                  (if probabilistic roll succeeds — stolen!)
+#   $Vanished      terminal
+#
+# Adventure observes player.inventory_size each turn and calls
+# treasures_carried; a successful steal reduces the player's
+# treasure count and the Adventure surfaces the "rrrgh!" message.
+# ------------------------------------------------------------
+@@[persist]
+@@system Pirate(seed: int = 42) : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        treasures_carried(n: int)
+        try_steal(): bool                # returns true if pirate stole
+        get_state(): String
+        is_stalking(): bool
+
+    machine:
+
+        $Dormant {
+            treasures_carried(n: int) {
+                if n >= self.ACTIVATION_THRESHOLD:
+                    -> $Stalking
+            }
+            try_steal(): bool {
+                @@:(false)
+            }
+            get_state(): String  { @@:("dormant") }
+            is_stalking(): bool  { @@:(false) }
+        }
+
+        $Stalking {
+            treasures_carried(n: int) {
+                # Already stalking; staying here is fine.
+                # No re-trigger.
+            }
+            try_steal(): bool {
+                # 25% chance per turn — same deterministic PRNG
+                # shape as Dwarf.attack().
+                self.step = self.step + 1
+                var x: int = self.seed * 1664525 + self.step * 1013904223
+                x = ((x >> 16) ^ x) * 22695477
+                x = x & 0xffffffff
+                var roll: int = x % 100
+                if roll < 25:
+                    -> $Vanished
+                    @@:return(true)
+                @@:(false)
+            }
+            get_state(): String  { @@:("stalking") }
+            is_stalking(): bool  { @@:(true) }
+        }
+
+        $Vanished {
+            treasures_carried(n: int) {}
+            try_steal(): bool {
+                @@:(false)
+            }
+            get_state(): String  { @@:("vanished") }
+            is_stalking(): bool  { @@:(false) }
+        }
+
+    domain:
+        seed: int = seed
+        step: int = 0
+        ACTIVATION_THRESHOLD: int = 3
+}
+
+
+# ------------------------------------------------------------
 # ScoreLedger (aspect)
 # ------------------------------------------------------------
 # Demonstrates the *observe* verdict. ScoreLedger watches
@@ -1719,6 +1810,10 @@
         dragon_state(): String
         dragon_alive(): bool
 
+        # Pirate (probabilistic encounter)
+        pirate_state(): String
+        pirate_try_steal(): bool
+
     machine:
 
         $Playing {
@@ -1802,6 +1897,11 @@
                 self.dark_hint.observe(self._room_is_dark(r))
                 self.snake_hint.observe(
                     r == self.SNAKE_ROOM and self.snake.is_blocking())
+                # Pirate observes treasure carry-count; activates
+                # at threshold, then has a per-turn chance to
+                # steal. The driver checks pirate_try_steal()
+                # results and applies the consequence.
+                self.pirate.treasures_carried(self.player.inventory_size())
                 self.turns = self.turns + 1
             }
 
@@ -1932,6 +2032,8 @@
 
             dragon_state(): String  { @@:(self.dragon.get_state()) }
             dragon_alive(): bool    { @@:(self.dragon.is_alive()) }
+            pirate_state(): String  { @@:(self.pirate.get_state()) }
+            pirate_try_steal(): bool { @@:(self.pirate.try_steal()) }
         }
 
     actions:
@@ -2222,6 +2324,10 @@
         # sequence stays consistent across turns because
         # $Asked is a real state.
         dragon = @@Dragon()
+
+        # Pirate — probabilistic encounter once player is
+        # carrying multiple treasures.
+        pirate = @@Pirate(99)
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
