@@ -149,31 +149,53 @@ chapter.
 
 ## Smoke tests
 
+The 19 smoke test files live in [`tests/`](./tests/) and are
+plain SceneTree scripts that run under headless Godot. Each
+prints `PASS` or `FAIL — N failure(s)` and exits with the
+failure count.
+
+The fastest path:
+
 ```bash
-# The aspect-bus prototype (toy demo)
-godot --headless --path godot/ --script /tmp/test_aspect_bus.gd
-
-# CCA Frame system tests
-godot --headless --path godot/ --script /tmp/test_cca_lamp.gd
-godot --headless --path godot/ --script /tmp/test_cca_dark.gd
-godot --headless --path godot/ --script /tmp/test_cca_aspects.gd
-godot --headless --path godot/ --script /tmp/test_cca_score.gd
-godot --headless --path godot/ --script /tmp/test_cca_bird_snake.gd
-godot --headless --path godot/ --script /tmp/test_cca_bear.gd
-godot --headless --path godot/ --script /tmp/test_cca_troll.gd
-godot --headless --path godot/ --script /tmp/test_cca_dwarves.gd
-godot --headless --path godot/ --script /tmp/test_cca_endgame.gd
-godot --headless --path godot/ --script /tmp/test_cca_hints.gd
-godot --headless --path godot/ --script /tmp/test_cca_dragon.gd
-godot --headless --path godot/ --script /tmp/test_cca_mechanics.gd
-godot --headless --path godot/ --script /tmp/test_cca_bridge.gd
-
-# End-to-end playthrough wiring
-godot --headless --path godot/ --script /tmp/test_cca_playthrough.gd
-godot --headless --path godot/ --script /tmp/test_cca_full.gd
+./build.sh           # transpile Frame → GDScript
+./run_tests.sh       # run every test in tests/, print summary
 ```
 
-The playthrough test exercises the canonical solve path
+`run_tests.sh` walks `tests/test_cca_*.gd` and runs each under
+headless Godot, surfacing a one-line PASS/FAIL per file plus a
+final tally. Exit code = number of failures (0 = all green).
+
+To run a single file:
+
+```bash
+./run_tests.sh tests/test_cca_plant.gd
+```
+
+### What each test covers
+
+| File | Focus |
+|------|-------|
+| `test_cca_lamp.gd` | Lamp HSM ($Off / $On.{$Bright/$Dim/$Out}), battery countdown, refresh |
+| `test_cca_dark.gd` | DarknessGate aspect (look/examine consumed in dark rooms) |
+| `test_cca_aspects.gd` | BackpackLimit + MagicWordTeleport aspects on the bus |
+| `test_cca_score.gd` | ScoreLedger observe verdict, save/restore round-trip |
+| `test_cca_bird_snake.gd` | Bird/Snake cross-FSM + bird-into-Plover canon-vanish |
+| `test_cca_bear.gd` | Bear's hazard branch, feed→tame→follow→released chain |
+| `test_cca_troll.gd` | Troll bridge gating, bear scares troll cross-FSM |
+| `test_cca_dwarves.gd` | Parameterized × 5 dwarves, deterministic PRNG, save/restore |
+| `test_cca_endgame.gd` | Multi-stage HSM with `$.timer` state-variable, save mid-$Closing |
+| `test_cca_hints.gd` | Parallel parameterized hints × 3, observe(true/false) streaks |
+| `test_cca_dragon.gd` | Multi-turn parser dialog as state ("attack with what?") |
+| `test_cca_mechanics.gd` | Vase fragility, eggs incantation, bear/dwarf player attacks, resurrection |
+| `test_cca_bridge.gd` | CrystalBridge + rod (wave at fissure) |
+| `test_cca_grate.gd` | Grate + keys puzzle |
+| `test_cca_pirate.gd` | Pirate stash + retrieval (canon CCA pirate hoard) |
+| `test_cca_vending.gd` | Vending machine: coins → batteries, lamp refresh |
+| `test_cca_plant.gd` | Bottle + water + plant beanstalk chain |
+| `test_cca_playthrough.gd` | End-to-end verb routing through the bus + base handler |
+| `test_cca_full.gd` | Full canonical 15-treasure playthrough → endgame → win |
+
+The playthrough + full tests exercise the canonical solve path
 through `Adventure.do_command`, confirming every verb routes
 through the bus + base handler correctly and that mid-game
 save/restore preserves NPC states.

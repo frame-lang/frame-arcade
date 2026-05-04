@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A single job: install framec + Godot, transpile every
+# chapter, then run CCA's smoke suite. CCA is the only
+# chapter with executable smoke tests right now (the eight
+# arcade games rely on visual / interactive verification);
+# build_all.sh confirms framec at least accepts every Frame
+# source file in the repo.
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Cache cargo registry + framec build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/framec
+          key: ${{ runner.os }}-framec-${{ hashFiles('**/build.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-framec-
+
+      - name: Install framec
+        run: |
+          if ! command -v framec >/dev/null 2>&1; then
+            cargo install framec --version 0.20.0 --locked
+          fi
+          framec --version
+
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot/godot
+          key: ${{ runner.os }}-godot-4.6.2-stable
+
+      - name: Install Godot 4.6.2 (headless)
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot
+          cd ~/godot
+          curl -L -o godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/4.6.2-stable/Godot_v4.6.2-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv Godot_v4.6.2-stable_linux.x86_64 godot
+          chmod +x godot
+
+      - name: Add Godot to PATH
+        run: echo "$HOME/godot" >> $GITHUB_PATH
+
+      - name: Verify toolchain
+        run: |
+          framec --version
+          godot --version
+
+      - name: Build all chapters (transpile every Frame source)
+        run: ./build_all.sh
+
+      - name: Run CCA smoke suite (19 files, ~370 checks)
+        run: |
+          cd cca
+          ./run_tests.sh
+
+      - name: Summarise
+        if: always()
+        run: |
+          echo "=== Summary ==="
+          echo "Chapters built: $(ls -d ch??-* cca | wc -l)"
+          echo "Smoke tests:    $(ls cca/tests/test_cca_*.gd | wc -l)"
