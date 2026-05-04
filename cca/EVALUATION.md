@@ -38,10 +38,11 @@ prose, when it gets written, can pitch Frame correctly.
 - `Hint` × 3 (parallel parameterized small FSMs)
 - `Dragon` (multi-turn parser dialog as state)
 
-**Total Frame source:** ~3600 lines including comments
-**Generated GDScript:** ~10000 lines
-**Smoke tests:** 16 files, ~300 checks across them, all PASS
+**Total Frame source:** ~3900 lines including comments
+**Generated GDScript:** ~10800 lines
+**Smoke tests:** 18 files, ~340 checks across them, all PASS
 **Map size:** 125 rooms with canonical Crowther+Woods 1977 numbering
+**FSM count:** 22 `@@system` declarations
 
 ---
 
@@ -362,7 +363,7 @@ fissure (build), wave-again (toggle off), wave-non-rod,
 save/restore mid-bridge-built, and rod-drop-stays-where-
 dropped.
 
-**Round 6 — full canonical room scope** (this commit):
+**Round 6 — full canonical room scope** (commit `90be493`):
 
 The room count goes from 25 (compressed, every CCA archetype
 present) to 125 (full canonical Crowther+Woods 1977 numbering).
@@ -397,15 +398,72 @@ text (all 8 rooms identical, plus 8 more "all different") but
 uses linear topology rather than the canon non-Euclidean
 maze-trap mechanic — that would be a sub-system of its own.
 
+**Round 7 — canon-completion patches** (commits `dfc6e09`,
+`4bd3a0e`, `8336dc1`):
+
+Three small follow-ups that finish the canon-puzzle list and
+restore one canonical movement nuance.
+
+- **7a — Grate + keys puzzle** (`dfc6e09`). New `Grate` 2-state
+  FSM ($Locked / $Unlocked) with a guarded `unlock(have_keys)`
+  transition; new `keys` non-treasure item (lives in well house);
+  new UNLOCK / OPEN / LOCK verbs. Architecturally identical in
+  shape to `CrystalBridge` — pure canon-completion, not new
+  Frame-pattern demonstration.
+- **7b — Bird-into-Plover refusal** (`4bd3a0e`). Pre-move guard
+  in `_verb_move`: if the destination is room 41 (Plover) and
+  the player is carrying the bird, the bird flutters free in
+  the player's current room before the move completes. Cross-
+  cutting context lives in Adventure (the MagicWordTeleport
+  aspect stays bird-unaware), same orchestrator pattern as
+  bird→snake / bear→troll.
+- **7c — Non-Euclidean maze rearrangement** (`8336dc1`). Pure
+  data change in `driver.gd` — the rooms 50-57 (twisty passages
+  all alike) now have non-uniform exit topology where going
+  "north" from two identical-looking rooms lands you in
+  different places, and some directions are missing entirely.
+  The canon CCA puzzle (drop items as breadcrumbs to map the
+  maze) is restored without any FSM changes.
+
+**Round 8 — Vending Machine** (commit `cd1fda2`):
+
+The Vending Machine Room (95) is now functional. Insert the
+rare-coins treasure to receive fresh lamp batteries — at the
+cost of the points the coins would score by depositing them
+at the well house. Genuine puzzle decision: trade points for
+a playthrough that fits inside the lamp's battery window.
+
+This round adds a new Frame demonstration pattern:
+**consume-an-item-as-side-effect**. The previous patterns
+were state-toggle (CrystalBridge / Grate), relocate
+(Pirate / Treasure), or transition-only. The Vending Machine
+*removes* the coins from play entirely while triggering a
+cross-FSM lamp refresh.
+
+- New `@@system VendingMachine` ($Loaded / $Empty) with
+  guarded `insert(have_coins)` transition.
+- New INSERT verb (and USE alias).
+- `_verb_insert`: snapshots before-state, defers to
+  `vending.insert(have_coins)`. On success: drops coins from
+  inventory, calls `coins.reappear(0)` to relocate them out of
+  bounds (no `_verb_look` overlay matches room 0;
+  `treasures_deposited()` doesn't count them), and calls
+  `lamp.refresh()`.
+- Lamp.$On now has a default `refresh()` handler — top up
+  battery, drop to $Bright. Previously refresh was only
+  defined on $Off and $Out, so refreshing a still-on lamp
+  was a silent no-op. The vending machine works while the
+  lamp is still on, so the inheritance fix matters.
+- New `/tmp/test_cca_vending.gd` (24 checks, PASS).
+
 What's still skipped vs canonical Crowther/Woods CCA:
 
-- The Grate-and-keys puzzle (currently grate is "swung open")
-- The non-Euclidean maze-trap mechanic (rooms exist with
-  canonical text, but exits are linear)
-- The vending machine actually dispensing batteries (it's a
-  flavor room only)
-- Some nuance in the bird/dragon edge cases (e.g. bird
-  refuses to be carried into Plover Room)
+(none of architectural significance — only the Plover-bird
+detail differs from canon: ours has the bird flutter free in
+Y2; canon CCA has the bird get "uncoordinated" / vanish, with
+the room itself becoming inaccessible if the bird is brought
+in. Functionally close enough that the puzzle plays the same
+way.)
 
 ## Final per-chapter takeaway
 

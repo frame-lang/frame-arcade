@@ -5,11 +5,14 @@
 > snake, dragon, bear, troll, pirate, plus 5 dwarves), 4 cross-
 > cutting aspects on the bus, full CCA scoring breakdown
 > (treasure / visits / hints / endgame), rod + crystal-bridge
-> fissure puzzle, FEE/FIE/FOE/FOO eggs incantation, fragile
-> vase, bear/dwarf player attacks, resurrection cycle with
-> permadeath, pirate stash + retrieval, both mazes, Witt's End,
-> the Vending Machine Room, and the canonical surface forest
-> grid with descent through the slit and grate. Save/restore
+> fissure puzzle, **keys + grate puzzle**, FEE/FIE/FOE/FOO eggs
+> incantation, fragile vase, bear/dwarf player attacks,
+> resurrection cycle with permadeath, pirate stash + retrieval,
+> both mazes (twisty passages all alike, with canon's confusing
+> non-Euclidean topology), Witt's End, **functional Vending
+> Machine** (trade rare coins for lamp batteries), bird-refuses-
+> Plover-Room nuance, and the canonical surface forest grid
+> with descent through the slit and grate. Save/restore
 > round-trips the entire world. See [EVALUATION.md](./EVALUATION.md)
 > for an honest per-system score on Frame's value-add.
 
@@ -107,10 +110,15 @@ EVALUATION.md             honest per-system Frame value-add scoring
   Adventure observes completion and summons eggs back
 - `CrystalBridge` — 2-state toggle FSM gating the fissure;
   `wave()` only fires from Adventure when player has the rod
+- `Grate` — 2-state guarded FSM gating the canonical cave
+  entrance; `unlock(have_keys)` only succeeds with keys
+- `VendingMachine` — 2-state consume-and-side-effect FSM;
+  inserting coins consumes them and refreshes the lamp,
+  trading deposit-points for batteries
 
-**Total**: 20 `@@system` declarations, ~3600 lines of Frame
-source, ~10000 lines of generated GDScript. Sixteen smoke
-test files, ~300 individual checks, all PASS.
+**Total**: 22 `@@system` declarations, ~3900 lines of Frame
+source, ~10800 lines of generated GDScript. Eighteen smoke
+test files, ~340 individual checks, all PASS.
 
 ## Driver layer
 
