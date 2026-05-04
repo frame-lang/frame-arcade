@@ -1,73 +1,158 @@
 # Colossal Cave Adventure (Frame port)
 
-> **Status:** prototype. The aspect-bus foundation is here and verified;
-> the actual CCA world (rooms, NPCs, parser, treasures) hasn't been built
-> yet.
+> **Status:** playable. Twelve rooms, five treasures, six NPCs,
+> four cross-cutting aspects on the bus. Save/restore round-trips
+> the entire world. See [EVALUATION.md](./EVALUATION.md) for an
+> honest per-system score on Frame's value-add.
 
-Frame port of Crowther/Woods *Colossal Cave Adventure*. Uses the
-[aspect machines](https://example.invalid/aspect-machines) pattern —
-small FSM interceptors on a priority-ordered bus in front of the world
-state machine — to decompose CCA's many cross-cutting concerns
-(darkness, inventory limits, dwarf harassment, pirate theft, magic-word
-teleports, hint tracking, endgame countdown, etc.).
+Frame port of Crowther/Woods *Colossal Cave Adventure*. Built on
+the **aspect machines** pattern — small FSM interceptors on a
+priority-ordered bus in front of the world state machine — to
+decompose CCA's cross-cutting concerns (darkness, inventory
+limits, magic-word teleports, score tracking) cleanly without
+the flag-on-the-base-machine smell.
 
-## What's currently in this directory
-
-```
-frame/aspects.fgd         AspectBus + sample aspects + Conductor demo
-                          (the smoke-test fixture, not the game)
-frame/cca.fgd             real CCA — currently AspectBus + Lamp +
-                          Adventure orchestrator stub
-generated/                framec output (gitignored)
-godot/                    minimal harness (no scene; tests run headless)
-```
-
-`cca.fgd` is where real CCA grows. As of this writing it has the
-`AspectBus` (duplicated from `aspects.fgd` — Frame doesn't have an
-import mechanism yet, so each compilation unit has its own copy),
-the canonical CCA `Lamp` (an HSM with battery countdown + dim
-warning + run-out states), and an `Adventure` top-level stub that
-composes them. Smoke test in [`/tmp/test_cca_lamp.gd`](/tmp/test_cca_lamp.gd)
-exercises battery decay, threshold transitions, refresh from
-either $Off or $Out, and `@@[persist]` round-trip across the whole
-tree.
-
-The aspects.fgd toy demo:
-
-- **`AspectBus`** — reusable. `$Idle` / `$Dispatching` states, holds
-  `(name, priority)` metadata, queues mid-dispatch register/unregister
-  calls.
-- **`LoudAspect`** — example transform aspect. Has its own `$On`/`$Off`
-  internal mode.
-- **`MuteAspect`** — example consume aspect. Counts what it muted.
-- **`LogAspect`** — example observe aspect. Counts and remembers events.
-- **`Conductor`** — orchestrator. Holds the bus + aspects, routes
-  `publish(name, data)` through the verdict ladder, falls through to a
-  base handler.
-
-The `try_handle(event) -> {verdict, event}` interface is the contract
-every aspect implements.
-
-## Running the smoke test
+## Playing
 
 ```bash
 cd cca
 FRAMEC=/path/to/framepiler/target/release/framec ./build.sh
-godot --headless --path godot/ --script /tmp/test_aspect_bus.gd
+godot --path godot/ scenes/main.tscn
 ```
 
-Verifies registration, dispatch order, the four verdicts, internal
-aspect state changes, and `@@[persist]` round-trip.
+Type `HELP` once you're in for the verb list. The canonical
+solve path:
 
-## What's next
+```
+LIGHT
+XYZZY              (teleports to debris room)
+TAKE GOLD
+XYZZY              (back to surface)
+NORTH              (well house)
+DROP GOLD          (deposits — score!)
+SOUTH              (back outside)
+PLUGH              (teleports to Y2)
+DOWN               (bird chamber)
+TAKE BIRD
+UP                 (back to Y2)
+EAST               (snake passage)
+RELEASE BIRD       (snake flees)
+EAST               (dragon cavern)
+ATTACK DRAGON      (game asks "with what?")
+YES                (dragon dies)
+TAKE DIAMONDS
+NORTH              (bear chamber)
+FEED BEAR          (food not actually required in this prototype)
+TAKE CHAIN         (bear follows)
+EAST               (troll bridge)
+DROP CHAIN         (bear scares troll)
+EAST               (beyond bridge)
+TAKE JEWELRY
+... and so on, depositing each treasure back at the well house.
+```
 
-1. Real CCA aspects (DarknessGate, BackpackLimit, DwarfHarass,
-   PirateSkulk, EndgameClosing, MagicWordTeleport, HintTracker,
-   ScoreLedger, AutoTimer, …).
-2. World composition: Player + Lamp + Bird + Snake + Dragon + Bear +
-   Troll + parameterized Dwarf×5 + Treasure×N + Endgame.
-3. Parser + room/object/vocabulary data tables (driver-side).
-4. Text I/O harness.
+`SAVE` and `LOAD` round-trip the entire game state. `SCORE`
+shows current treasure-deposit progress.
 
-See the project memory note `project_aspect_machines.md` for the
-architectural decision context.
+## What's in this directory
+
+```
+frame/aspects.fgd         AspectBus + sample aspects + Conductor demo
+                          (smoke-test fixture, not the game)
+frame/cca.fgd             real CCA — 17 @@system declarations
+generated/                framec output (gitignored)
+godot/scripts/driver.gd   text-adventure UI + parser + maze topology
+godot/scenes/main.tscn    Godot scene wiring driver to a Control node
+EVALUATION.md             honest per-system Frame value-add scoring
+```
+
+## Frame system catalog
+
+**Reusable infrastructure**
+
+- `AspectBus` — priority-ordered FSM-interceptor registry
+  (`$Idle` / `$Dispatching` for queue-during-dispatch)
+
+**Aspects on the bus** (4 verdict types covered)
+
+- `DarknessGate` (consume) — gates `look`/`examine` in dark rooms
+- `BackpackLimit` (consume) — blocks `take` at 7-item carry cap
+- `MagicWordTeleport` (transform) — XYZZY/PLUGH/PLOVER → MOVE
+- `ScoreLedger` (observe) — counts events; per-rule scoring stub
+
+**World entities** (composed under `Adventure`)
+
+- `Lamp` — `$Off` / `$On.{$Bright/$Dim/$Out}`, battery countdown
+- `Player` — `$Alive` / `$Dead` / `$Permadead`, inventory, deaths
+- `Bird` — 4 states; release-at-snake or release-at-dragon
+- `Snake` — 2 states; bird drives off
+- `Bear` — 5 states; feed→tame→follow→release; hazard branch
+- `Troll` — 3 states; bridge gate; bear scares
+- `Dragon` — multi-turn parser dialog as state
+- `Dwarf × 5` — parameterized probabilistic encounter
+- `Pirate` — probabilistic threshold-activated encounter
+- `Treasure × 5` — parameterized; deposit→endgame chain
+- `Endgame` — multi-stage HSM with state-variable timer
+- `Hint × 3` — parallel parameterized small FSMs
+
+**Total**: 17 `@@system` declarations, ~2900 lines of Frame
+source, ~7500 lines of generated GDScript. Eight smoke test
+files, ~230 individual checks, all PASS.
+
+## Driver layer
+
+The driver (`godot/scripts/driver.gd`) is one ~340-line file:
+
+- Maze topology (12 rooms, named exits, gated passages)
+- Verb-noun parser with synonym table + article stripping
+- UI verbs (HELP, SCORE, INVENTORY, HINT, SAVE, LOAD, QUIT)
+  routed driver-side
+- Game verbs routed to `Adventure.do_command(verb, noun)`
+- Per-turn upkeep: lamp warnings, endgame phase transitions,
+  pirate steal events, room re-print on movement
+
+The driver doesn't use Frame — it's deliberately plain GDScript
+that bridges the player to the FSM. The "Frame is the brain,
+the driver is the body" pattern from every other project
+chapter.
+
+## Smoke tests
+
+```bash
+# The aspect-bus prototype (toy demo)
+godot --headless --path godot/ --script /tmp/test_aspect_bus.gd
+
+# CCA Frame system tests
+godot --headless --path godot/ --script /tmp/test_cca_lamp.gd
+godot --headless --path godot/ --script /tmp/test_cca_dark.gd
+godot --headless --path godot/ --script /tmp/test_cca_aspects.gd
+godot --headless --path godot/ --script /tmp/test_cca_score.gd
+godot --headless --path godot/ --script /tmp/test_cca_bird_snake.gd
+godot --headless --path godot/ --script /tmp/test_cca_bear.gd
+godot --headless --path godot/ --script /tmp/test_cca_troll.gd
+godot --headless --path godot/ --script /tmp/test_cca_dwarves.gd
+godot --headless --path godot/ --script /tmp/test_cca_endgame.gd
+godot --headless --path godot/ --script /tmp/test_cca_hints.gd
+godot --headless --path godot/ --script /tmp/test_cca_dragon.gd
+
+# End-to-end playthrough wiring
+godot --headless --path godot/ --script /tmp/test_cca_playthrough.gd
+```
+
+The playthrough test exercises the canonical solve path
+through `Adventure.do_command`, confirming every verb routes
+through the bus + base handler correctly and that mid-game
+save/restore preserves NPC states.
+
+## Honest evaluation
+
+See [EVALUATION.md](./EVALUATION.md) for per-system Frame
+value scoring (5/5 for Bear/Endgame/Dragon down to 2/5 for
+single-state aspects), the comparison to hypothetical plain
+GDScript, and the "when to reach for Frame in adventure
+games" heuristic.
+
+Bottom line: Frame is a **measured win** for CCA — bigger
+than expected mid-build, smaller than for arcade games. The
+aspect-bus pattern layered over Frame is the genuine
+architectural payoff for IF specifically.

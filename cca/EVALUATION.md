@@ -254,36 +254,70 @@ genuinely a less Frame-shaped genre, but not unfit.
 
 ---
 
-## What's still left of CCA (post-evaluation)
+## Status: playable (as of commit `b1658c6`)
 
-Per the original roadmap, what remains:
+After the initial evaluation (drafted at commit `c274799`), the
+remaining wiring landed:
 
-- **Pirate** (probabilistic encounter, similar to Dwarves) —
-  small, ~30 min, would score 3/5 on the Frame value scale.
-  Skipping because it doesn't move the architecture story.
-- **Treasures × 15** (parameterized data) — large but mostly
-  data table. Frame would be a thin wrapper. Score 2/5.
-- **Maze data tables** — driver-side data, not Frame.
-- **Parser** — algorithm, not Frame.
-- **Driver/text I/O harness** — Godot scene + console-style
-  text widget, not Frame.
+- **Pirate** — small probabilistic-encounter FSM, scored 3/5,
+  added for canonical-roster completeness
+- **Treasures × 5** (subset of CCA's 15) — parameterized
+  composition with deposit→endgame chain
+- **Maze data tables** — 12 rooms with named exits in
+  `cca/godot/scripts/driver.gd`
+- **Parser** — verb-noun split + synonym table + article
+  stripping in the same file
+- **Driver/text I/O** — RichTextLabel scrolling log + LineEdit
+  input, single-file Godot Control scene
 
-The remaining work is "wire CCA into something actually
-playable" — substantial, but no further Frame
-demonstration value.
+CCA can be played end-to-end:
+
+```bash
+cd cca
+FRAMEC=…/framepiler/target/release/framec ./build.sh
+godot --path godot/ scenes/main.tscn
+```
+
+The canonical solve path is verified by an end-to-end smoke
+test (`/tmp/test_cca_playthrough.gd` — 33 checks, PASS):
+XYZZY into debris, light lamp, take gold, deposit; PLUGH to Y2,
+take bird; release at snake; attack dragon (yes); take diamonds;
+feed bear, take chain; drop at troll; take jewelry. Plus
+mid-game save/restore preserves NPC states.
+
+What's still skipped vs canonical CCA:
+- 10 of 15 treasures (we model 5; rest are mechanical to add)
+- The full Crowther/Woods 140-room map (we have 12)
+- Dwarf axe-throwing as an offensive mechanic
+- Some nuance in the bird/dragon edge cases
+- The closing-warning text crescendo (we print one message)
+
+## Final per-chapter takeaway
+
+For an article on "Frame for interactive fiction":
+
+- **Lead with Bear, Endgame, Dragon** — these are the three
+  systems where Frame is unambiguously the right tool.
+- **Show the parameterized × N pattern** with Dwarves and
+  Hints — same shape, different domain.
+- **Show the cross-FSM coordination** with Bird→Snake and
+  Bear→Troll — the orchestrator pattern that keeps each NPC
+  testable in isolation.
+- **Don't overclaim on the small NPCs** — Snake, Troll,
+  ScoreLedger, etc. would be roughly equivalent in plain
+  GDScript. Frame neither helps nor hurts there.
+- **Aspect bus is the architectural payoff** — it's the
+  pattern over Frame, and it's the one that scales as the
+  game accumulates cross-cutting concerns. Article-worthy on
+  its own.
+
+The framec maturity costs (Issues #1 and #2) were real and
+were fixed mid-session. Cargo release-skew (Issue #3) is the
+remaining friction.
 
 ## Recommendation
 
-**Stop adding Frame systems to CCA.** The architecture is
-proven, every composition pattern has been exercised, the
-evaluation above is the truth-in-advertising about what Frame
-gave us. Article-writing material (the user's stated reason
-for this project) is in good shape.
-
-**If shipping CCA is the goal**: the next ~4 hours of work is
-the parser + maze data + driver wiring, mostly non-Frame.
-That's a separate evaluation from this one.
-
-**If the goal is the chapter on Frame for adventure games**:
-the chapter writes itself from this document, the smoke tests,
-and the existing in-file comments.
+The chapter on CCA-in-Frame is now writeable from this
+document, the in-file comments, the eight smoke tests, and the
+playable demo. The architecture is honest, the wins are
+identified, the limits are acknowledged.
