@@ -1562,6 +1562,110 @@
 
 
 # ------------------------------------------------------------
+# Treasure (parameterized × 5 — composition data)
+# ------------------------------------------------------------
+# Each treasure is an instance of this 3-state system:
+#
+#   $InRoom     ── try_take(at_room) ──► $Carried
+#   $Carried    ── try_drop(at_room) ──► $InRoom        (anywhere
+#                                                         else)
+#               ── try_drop(DEPOSIT_ROOM) ──► $Deposited
+#
+# Five named treasures in Adventure's domain (gold, silver,
+# diamonds, jewelry, pearl) each parameterized with their home
+# room and point value. Adventure's _verb_take / _verb_drop
+# route the verb's noun to the right named treasure.
+#
+# When a treasure transitions to $Deposited, Adventure
+# notifies endgame.treasure_deposited(), which in turn drives
+# the $Active → $Closing transition once the threshold is
+# crossed. Cross-FSM coordination, same shape as bird→snake
+# and bear→troll.
+#
+# Real CCA has 15 treasures with various special handling
+# (eggs disappear and reappear via FEE FIE FOE FOO, the rug
+# is unreachable until the dragon dies, the pyramid only
+# reveals after climbing a vine, etc.). This prototype models
+# the canonical take/carry/deposit lifecycle on 5 treasures.
+# Adding more is mechanical — same Treasure system,
+# additional named instances, additional verb-noun branches.
+# ------------------------------------------------------------
+@@[persist]
+@@system Treasure(home_room: int = 0, value: int = 0) : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        try_take(at_room: int): bool       # true if successfully taken
+        try_drop(at_room: int): String     # "dropped" / "deposited" / error msg
+        get_state(): String
+        get_location(): int                # current room or -1 if carried
+        get_value(): int
+        is_deposited(): bool
+
+    machine:
+
+        $InRoom {
+            try_take(at_room: int): bool {
+                if at_room == self.location_room:
+                    -> $Carried
+                    @@:return(true)
+                @@:(false)
+            }
+            try_drop(at_room: int): String {
+                @@:("not carried")
+            }
+            get_state(): String      { @@:("in_room") }
+            get_location(): int      { @@:(self.location_room) }
+            get_value(): int         { @@:(self.value) }
+            is_deposited(): bool     { @@:(false) }
+        }
+
+        $Carried {
+            try_take(at_room: int): bool {
+                @@:(false)             # already carrying
+            }
+            try_drop(at_room: int): String {
+                self.location_room = at_room
+                if at_room == self.DEPOSIT_ROOM:
+                    -> $Deposited
+                    @@:return("deposited")
+                -> $InRoom
+                @@:("dropped")
+            }
+            get_state(): String      { @@:("carried") }
+            get_location(): int      { @@:(-1) }
+            get_value(): int         { @@:(self.value) }
+            is_deposited(): bool     { @@:(false) }
+        }
+
+        $Deposited {
+            try_take(at_room: int): bool {
+                @@:(false)             # treasure is locked in deposit room
+            }
+            try_drop(at_room: int): String {
+                @@:("already deposited")
+            }
+            get_state(): String      { @@:("deposited") }
+            get_location(): int      { @@:(self.DEPOSIT_ROOM) }
+            get_value(): int         { @@:(self.value) }
+            is_deposited(): bool     { @@:(true) }
+        }
+
+    domain:
+        home_room: int = home_room
+        value: int = value
+        location_room: int = home_room
+        DEPOSIT_ROOM: int = 1
+}
+
+
+# ------------------------------------------------------------
 # Pirate
 # ------------------------------------------------------------
 # Three-state probabilistic encounter, similar in shape to a
@@ -1814,6 +1918,10 @@
         pirate_state(): String
         pirate_try_steal(): bool
 
+        # Treasures
+        treasures_deposited(): int
+        total_score(): int
+
     machine:
 
         $Playing {
@@ -2034,6 +2142,26 @@
             dragon_alive(): bool    { @@:(self.dragon.is_alive()) }
             pirate_state(): String  { @@:(self.pirate.get_state()) }
             pirate_try_steal(): bool { @@:(self.pirate.try_steal()) }
+
+            treasures_deposited(): int {
+                var n: int = 0
+                if self.gold.is_deposited():     n = n + 1
+                if self.silver.is_deposited():   n = n + 1
+                if self.diamonds.is_deposited(): n = n + 1
+                if self.jewelry.is_deposited():  n = n + 1
+                if self.pearl.is_deposited():    n = n + 1
+                @@:(n)
+            }
+
+            total_score(): int {
+                var s: int = 0
+                if self.gold.is_deposited():     s = s + self.gold.get_value()
+                if self.silver.is_deposited():   s = s + self.silver.get_value()
+                if self.diamonds.is_deposited(): s = s + self.diamonds.get_value()
+                if self.jewelry.is_deposited():  s = s + self.jewelry.get_value()
+                if self.pearl.is_deposited():    s = s + self.pearl.get_value()
+                @@:(s)
+            }
         }
 
     actions:
@@ -2133,6 +2261,19 @@
                 base = base + " A burly troll stands guard at the bridge, demanding tribute."
             if r == self.DRAGON_ROOM and self.dragon.is_alive():
                 base = base + " A huge green dragon dozes on a Persian rug."
+            # Treasure overlays — for each treasure, if its
+            # current location matches the player's room and
+            # it's not in the player's inventory, mention it.
+            if self.gold.get_location() == r and self.gold.get_state() == "in_room":
+                base = base + " There's a gleam of gold here."
+            if self.silver.get_location() == r and self.silver.get_state() == "in_room":
+                base = base + " A pile of silver bars catches your eye."
+            if self.diamonds.get_location() == r and self.diamonds.get_state() == "in_room":
+                base = base + " Diamonds glitter in the dark."
+            if self.jewelry.get_location() == r and self.jewelry.get_state() == "in_room":
+                base = base + " Fine jewelry lies scattered."
+            if self.pearl.get_location() == r and self.pearl.get_state() == "in_room":
+                base = base + " A pearl as big as your fist rests here."
             return base
         }
 
@@ -2163,9 +2304,8 @@
                     self.player.take(self.CHAIN_ID)
                     return "The bear lumbers along behind you on its chain."
                 return "The chain has already been taken."
-            var item_id: int = noun.to_int()
-            self.player.take(item_id)
-            return "Taken."
+            # Treasures
+            return self._take_treasure_by_name(noun)
         }
 
         _verb_drop(noun: String): String {
@@ -2185,8 +2325,71 @@
                     self.troll.scared_off()
                     return "The bear lumbers up to the troll. The troll, taken aback, flees over the bridge with a shriek."
                 return "The bear settles down at your side, glaring."
-            var item_id: int = noun.to_int()
+            # Treasures
+            return self._drop_treasure_by_name(noun)
+        }
+
+        _take_treasure_by_name(name: String): String {
+            var room: int = self.player.get_room()
+            if name == "gold":
+                if self.gold.try_take(room):
+                    self.player.take(self.GOLD_ID)
+                    return "Taken."
+                return "There is no gold here."
+            elif name == "silver":
+                if self.silver.try_take(room):
+                    self.player.take(self.SILVER_ID)
+                    return "Taken."
+                return "There is no silver here."
+            elif name == "diamonds":
+                if self.diamonds.try_take(room):
+                    self.player.take(self.DIAMONDS_ID)
+                    return "Taken."
+                return "There are no diamonds here."
+            elif name == "jewelry":
+                if self.jewelry.try_take(room):
+                    self.player.take(self.JEWELRY_ID)
+                    return "Taken."
+                return "There is no jewelry here."
+            elif name == "pearl":
+                if self.pearl.try_take(room):
+                    self.player.take(self.PEARL_ID)
+                    return "Taken."
+                return "There is no pearl here."
+            return "I don't see that here."
+        }
+
+        _drop_treasure_by_name(name: String): String {
+            var room: int = self.player.get_room()
+            var outcome: String = ""
+            var item_id: int = -1
+            if name == "gold":
+                outcome = self.gold.try_drop(room)
+                item_id = self.GOLD_ID
+            elif name == "silver":
+                outcome = self.silver.try_drop(room)
+                item_id = self.SILVER_ID
+            elif name == "diamonds":
+                outcome = self.diamonds.try_drop(room)
+                item_id = self.DIAMONDS_ID
+            elif name == "jewelry":
+                outcome = self.jewelry.try_drop(room)
+                item_id = self.JEWELRY_ID
+            elif name == "pearl":
+                outcome = self.pearl.try_drop(room)
+                item_id = self.PEARL_ID
+            else:
+                return "You aren't carrying that."
+
+            if outcome == "not carried":
+                return "You aren't carrying " + name + "."
+            if outcome == "already deposited":
+                return "That treasure is already deposited."
             self.player.drop(item_id)
+            if outcome == "deposited":
+                # Cross-FSM: deposit drives the endgame timer.
+                self.endgame.treasure_deposited()
+                return "Safely stowed in the well house. A fine treasure indeed!"
             return "Dropped."
         }
 
@@ -2329,6 +2532,18 @@
         # carrying multiple treasures.
         pirate = @@Pirate(99)
 
+        # Five treasures, each in its home room with a value.
+        # Real CCA has 15; we model the canonical lifecycle on
+        # this subset to keep the maze manageable. Adding more
+        # is mechanical (one named instance + one branch in
+        # _take_treasure_by_name + _drop_treasure_by_name +
+        # treasures_deposited / total_score).
+        gold     = @@Treasure(12,  5)
+        silver   = @@Treasure(13,  5)
+        diamonds = @@Treasure(14, 10)
+        jewelry  = @@Treasure(15, 10)
+        pearl    = @@Treasure(6,  15)
+
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
         # consistent. (The Bird's release transitions reference
@@ -2336,11 +2551,17 @@
         # its copies for snake-notification routing.)
         BIRD_ID: int = 100
         CHAIN_ID: int = 101
+        GOLD_ID: int = 110
+        SILVER_ID: int = 111
+        DIAMONDS_ID: int = 112
+        JEWELRY_ID: int = 113
+        PEARL_ID: int = 114
         BIRD_HOME_ROOM: int = 5
         SNAKE_ROOM: int = 7
         DRAGON_ROOM: int = 8
         BEAR_HOME_ROOM: int = 9
         TROLL_ROOM: int = 10
+        DEPOSIT_ROOM: int = 1     # well house — must match Treasure.DEPOSIT_ROOM
 
         # Tick counter (advances every tick(), not every
         # do_command). Some commands are free; others tick.
