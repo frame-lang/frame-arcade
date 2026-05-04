@@ -65,8 +65,15 @@ const STATUETTE_ID := 124
 #
 # Mapping intent:
 #     1 End of road / outside building   (lit, surface)
+#     2 Hill in road                      (lit, surface)
 #     3 Inside well house                 (lit; DEPOSIT_ROOM)
-#    10 Cobble crawl                      (dark; transit to deep cave)
+#     4 Valley                            (lit, surface)
+#     5 Forest 1                          (lit, surface)
+#     6 Forest 2                          (lit, surface)
+#     7 Slit in streambed                 (lit, surface)
+#     8 Outside grate / depression        (lit, surface)
+#     9 Below the grate                   (dark; cave entry)
+#    10 Cobbles (canon surface entry)     (dark; transit)
 #    11 Debris room                       (dark; gold; rod)
 #    12 Awkward sloping E/W canyon        (dark; transit)
 #    13 Bird chamber                      (dark; bird)
@@ -98,10 +105,23 @@ const STATUETTE_ID := 124
 #   PLOVER pairs 33 ↔ 41
 # ------------------------------------------------------------
 var room_exits: Dictionary = {
-    1:   {"north": 3, "in": 3, "enter": 3, "down": 12, "east": 12},
-    3:   {"south": 1, "out": 1, "down": 12},
-    11:  {"out": 1, "up": 1},
-    12:  {"up": 1, "down": 33, "north": 33},
+    # Surface block — canon descent: road → slit/depression → grate.
+    # The grate is described but not currently gated (would need a
+    # Grate FSM + keys handling — same shape as CrystalBridge, so
+    # we don't add it just to demonstrate the same pattern again).
+    1:   {"north": 2, "up": 2, "south": 4, "down": 4, "east": 8,
+          "west": 5, "in": 3, "enter": 3},
+    2:   {"down": 1, "south": 1},                   # Hill in road
+    3:   {"south": 1, "out": 1, "down": 12},        # Well house
+    4:   {"north": 1, "up": 1, "south": 7, "down": 7, "east": 5, "west": 6},  # Valley
+    5:   {"east": 1, "west": 6},                    # Forest 1
+    6:   {"east": 5, "west": 1},                    # Forest 2
+    7:   {"north": 4, "up": 4},                     # Slit (too small to enter)
+    8:   {"north": 1, "up": 1, "down": 9, "in": 9}, # Depression / outside grate
+    9:   {"up": 8, "out": 8, "west": 10, "in": 10}, # Below grate
+    10:  {"east": 9, "west": 11},                   # Cobbles (canon surface entry)
+    11:  {"out": 1, "up": 1, "north": 12, "east": 12}, # Debris room
+    12:  {"up": 1, "down": 33, "north": 33, "south": 11, "west": 11}, # Awkward canyon
     33:  {"up": 12, "south": 12, "down": 13, "east": 47, "west": 70, "north": 14},
     13:  {"up": 33, "out": 33},
     41:  {},                                 # Plover Room — only magic exits
@@ -109,11 +129,11 @@ var room_exits: Dictionary = {
     71:  {"west": 47, "north": 70},
     70:  {"south": 71, "east": 117, "west": 33},
     117: {"west": 70, "east": 118},          # troll-east gated below
-    118: {"west": 117, "east": 10},
+    118: {"west": 117, "east": 120},
     # Deep cave loop — accessible after crossing troll bridge.
     # Linear chain east-west with each room hosting a treasure.
-    10:  {"west": 118, "east": 38},
-    38:  {"west": 10, "east": 28},
+    120: {"west": 118, "east": 38},
+    38:  {"west": 120, "east": 28},
     28:  {"west": 38, "east": 130},
     130: {"west": 28, "east": 131},
     131: {"west": 130, "east": 40},

@@ -2677,10 +2677,30 @@
             var r: int = self.player.get_room()
             var base: String = "You are deep in the cave."
             # --- Canonical CCA rooms (Crowther+Woods 1977 numbering) ---
+            # Surface block (1-9): the road, hill, well house, valley,
+            # forests, slit in the streambed, depression with grate,
+            # and the chamber below the grate. The grate itself is
+            # described but not gated — adding the keys-and-grate
+            # puzzle would mean another full FSM, and we already
+            # demonstrate the locked-door pattern with CrystalBridge.
             if r == 1:
                 base = "You are at the end of a road in front of a small brick building. Around you is a forest. A small stream flows out of the building and down a gully."
+            elif r == 2:
+                base = "You have walked up a hill, still in the forest. The road slopes back down the other side. A building is visible through the trees, far below."
             elif r == 3:
                 base = "You are inside a building, a well house for a large spring. There are some keys on the ground, and a bottle of water."
+            elif r == 4:
+                base = "You are in a valley in the forest beside a stream tumbling along a rocky bed."
+            elif r == 5:
+                base = "You are in open forest, with a deep valley to one side."
+            elif r == 6:
+                base = "You are in open forest near both a valley and a road. The trees thin out to the east."
+            elif r == 7:
+                base = "At your feet all the water of the stream splashes into a 2-inch slit in the rock. Downstream the streambed is bare rock."
+            elif r == 8:
+                base = "You are in a 20-foot depression floored with bare dirt. Set into the dirt is a strong steel grate mounted in concrete, currently swung open. A dry streambed leads into the depression from the north."
+            elif r == 9:
+                base = "You are in a small chamber beneath a 3x3 steel grate to the surface. A low crawl over cobbles leads inward to the west."
             elif r == 11:
                 base = "You are in a debris-filled room, with a low passage to the north. Old food cans and clutter line the floor."
             elif r == 12:
@@ -2702,7 +2722,9 @@
             elif r == 118:
                 base = "You are on a cliff with a narrow ledge, on the far side of the bridge."
             elif r == 10:
-                base = "You are in a cobble crawl, low and twisty. Something glitters here and there."
+                base = "You crawl over the cobbles. Stone arches lead to the east, while a low passage continues to the west toward a dimly-lit hole."
+            elif r == 120:
+                base = "You are in a long, narrow passage of polished stone, twisting east-west. This is one of many transit corridors in the deep cave."
             elif r == 38:
                 base = "You are in the Oriental Room. Strange Asian artifacts surround you."
             elif r == 28:
@@ -3242,13 +3264,17 @@
         }
 
         # World inspection: is the player's current room dark?
-        # Canonical CCA tags each room with a flag; we use a
-        # simple rule: outdoor / surface rooms (1=end-of-road,
-        # 3=well house) and the Plover Room (41, lit by an
-        # otherworldly glow) are lit. Everything else is dark
-        # when the lamp is off.
+        # Canonical CCA tags each room with a flag; we use the
+        # canonical surface-rooms-are-lit rule: rooms 1-8 (end
+        # of road, hill, well house, valley, forests, slit,
+        # depression) plus the Plover Room (41, lit by an
+        # otherworldly glow) are lit. Everything else — the
+        # cave proper, starting at the chamber below the grate
+        # (room 9) — is dark when the lamp is off.
         _room_is_dark(room: int): bool {
-            if room == 1 or room == 3 or room == 41:
+            if room >= 1 and room <= 8:
+                return false
+            if room == 41:
                 return false
             return not self.lamp.is_lit()
         }
