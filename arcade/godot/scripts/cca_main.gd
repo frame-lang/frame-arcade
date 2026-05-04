@@ -373,10 +373,13 @@ var _pirate_already_stole: bool = false
 var _awaiting_revive: bool = false
 
 # --- Exit dialog (Save / Quit) ---
-# Shown when the player presses Esc. Quit is default on Enter;
-# S (or save) writes the game and returns to menu; Esc cancels
-# back to the game.
-var _exit_dialog_active: bool = false
+# Frame state machine that owns the dialog's modal logic.
+# Defined in arcade/frame/dialog.fgd → arcade/godot/scripts/
+# dialog.gd. The driver opens it on Esc, calls one of
+# confirm_quit / confirm_save_quit / cancel based on the key
+# pressed, then reads last_action() to decide what to do.
+const ExitDialogScript = preload("res://scripts/dialog.gd")
+var exit_dialog                       # ExitDialog FSM instance
 var label_exit_dialog: Label
 
 # ============================================================
@@ -384,6 +387,7 @@ func _ready() -> void:
     fsm = CcaFSM.new()
     fsm.setup_default_aspects()
     fsm.wake_dwarves()
+    exit_dialog = ExitDialogScript.new()
     _build_ui()
     # If a save file is on disk, the cabinet menu's Continue/New
     # prompt has already routed us here with the player's choice
@@ -809,37 +813,50 @@ func _print_help() -> void:
 """)
 
 # ============================================================
-# Cabinet integration: Esc opens a Save/Quit dialog.
+# Cabinet integration: Esc opens the Save/Quit dialog FSM.
 #
-# First Esc: show the dialog (Save / Quit, default Quit).
-#   Enter  → discard progress, return to menu
-#   S      → save to disk, return to menu (cabinet menu's
-#            Continue/New prompt will offer Restore on next launch)
-#   Esc    → cancel back to game
+# The dialog FSM (ExitDialog in arcade/frame/dialog.fgd) owns
+# the modal logic. The driver:
+#   - opens it on Esc when no dialog is active
+#   - feeds key events as confirm_quit / confirm_save_quit /
+#     cancel based on which key was pressed
+#   - reads last_action() after each event and acts on it
+# Key bindings:
+#   Enter / Space  → confirm_quit (default)
+#   S              → confirm_save_quit
+#   Esc            → cancel back to game
 # ============================================================
 func _input(event: InputEvent) -> void:
     if not (event is InputEventKey and event.pressed):
         return
 
-    if _exit_dialog_active:
+    if exit_dialog.is_open():
         get_viewport().set_input_as_handled()
         if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER or event.keycode == KEY_SPACE:
-            # Default: discard and quit
-            Arcade.return_to_menu()
+            exit_dialog.confirm_quit()
         elif event.keycode == KEY_S:
-            _save_game()
-            Arcade.return_to_menu()
+            exit_dialog.confirm_save_quit()
         elif event.keycode == KEY_ESCAPE:
-            # Cancel — go back to the game
-            _hide_exit_dialog()
+            exit_dialog.cancel()
+        else:
+            return     # other keys: stay in dialog
+        # Resolve whichever action just landed.
+        match exit_dialog.last_action():
+            "quit":
+                Arcade.return_to_menu()
+            "save_quit":
+                _save_game()
+                Arcade.return_to_menu()
+            "cancel":
+                _hide_exit_dialog()
         return
 
     if event.keycode == KEY_ESCAPE:
         get_viewport().set_input_as_handled()
+        exit_dialog.open()
         _show_exit_dialog()
 
 func _show_exit_dialog() -> void:
-    _exit_dialog_active = true
     label_exit_dialog.visible = true
     # Take focus off the LineEdit so its keystrokes don't fight
     # the dialog handler. We restore on cancel.
@@ -847,7 +864,6 @@ func _show_exit_dialog() -> void:
         input.release_focus()
 
 func _hide_exit_dialog() -> void:
-    _exit_dialog_active = false
     label_exit_dialog.visible = false
     if input != null:
         input.grab_focus()

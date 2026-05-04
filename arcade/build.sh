@@ -74,7 +74,7 @@ done
 #                sub-state. The chapter source stays untouched
 #                as a clean teaching artifact.
 # ------------------------------------------------------------
-for cabinet_name in scoreboard asteroids; do
+for cabinet_name in scoreboard asteroids dialog; do
     src="$ARCADE_DIR/frame/$cabinet_name.fgd"
     out_dir="$ARCADE_DIR/generated"
     dst="$ARCADE_DIR/godot/scripts/$cabinet_name.gd"

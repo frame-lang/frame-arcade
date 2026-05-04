@@ -224,6 +224,13 @@ func _show_save_prompt(game_index: int) -> void:
     _set_list_visible(false)
     label_prompt.visible = true
     _refresh_save_prompt()
+    # Arm the edge detectors as if Enter / Esc are still down,
+    # so the player has to release and re-press to confirm or
+    # cancel. Otherwise the same Enter that opened the prompt
+    # (or an Enter held during a digit-key launch) instantly
+    # confirms "Continue" and the prompt vanishes in one frame.
+    _enter_was_down = true
+    _escape_was_down = true
 
 func _hide_save_prompt() -> void:
     _save_prompt_active = false

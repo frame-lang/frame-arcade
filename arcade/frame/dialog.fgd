@@ -1,0 +1,104 @@
+# ============================================================
+# dialog.fgd — cabinet UI dialogs as Frame state machines
+# ============================================================
+# Cabinet-side dialogs (Save/Quit on exit, Continue/New on
+# entry) belong in Frame, not as `bool` flags in GDScript. This
+# file defines the small FSMs that drive each.
+#
+# Pattern: "multi-turn parser dialog as state" — the same shape
+# as CCA's Dragon $Asked prompt. The dialog opens, accepts
+# discrete inputs, and resolves to one of a small set of
+# outcomes. Drivers stay flat; the dialog state lives here.
+#
+# Build with:
+#   framec compile frame/dialog.fgd --language gdscript -o generated/
+# ============================================================
+
+@@[target("gdscript")]
+
+
+# ------------------------------------------------------------
+# ExitDialog — Save/Quit prompt shown when the player presses
+# Esc inside CCA (and any other cabinet game that grows a save
+# system later).
+#
+# State diagram:
+#
+#   $Closed ── open() ──► $Open
+#   $Open   ── confirm_quit()      ──► $Closed (driver reads
+#                                              last_action and
+#                                              quits)
+#   $Open   ── confirm_save_quit() ──► $Closed (driver saves,
+#                                              then quits)
+#   $Open   ── cancel()            ──► $Closed (driver returns
+#                                              to game)
+#
+# The driver opens the dialog on Esc, reads `is_open()` to
+# decide whether to render the dialog overlay or the game,
+# and pumps key events into one of confirm_quit /
+# confirm_save_quit / cancel based on which key was pressed.
+# After any of those, the driver reads `last_action()` to
+# decide what to do next.
+# ------------------------------------------------------------
+@@system ExitDialog : RefCounted {
+
+    interface:
+        open()
+        confirm_quit()
+        confirm_save_quit()
+        cancel()
+
+        is_open(): bool
+        get_state(): String
+        # The action the player just confirmed, or "none" if
+        # nothing has been confirmed since the last open().
+        # The driver reads this after each transition and acts
+        # on it, then can call open() again for a new round.
+        last_action(): String
+
+    machine:
+
+        $Closed {
+            open() {
+                self.action = "none"
+                -> $Open
+            }
+            # While closed, no action keys do anything. We
+            # define them so the dispatcher doesn't crash; they
+            # leave state alone.
+            confirm_quit()      {}
+            confirm_save_quit() {}
+            cancel()            {}
+
+            is_open(): bool        { @@:(false) }
+            get_state(): String    { @@:("closed") }
+            last_action(): String  { @@:(self.action) }
+        }
+
+        $Open {
+            confirm_quit() {
+                self.action = "quit"
+                -> $Closed
+            }
+            confirm_save_quit() {
+                self.action = "save_quit"
+                -> $Closed
+            }
+            cancel() {
+                self.action = "cancel"
+                -> $Closed
+            }
+            # open() while already open is a no-op (defensive).
+            open() {}
+
+            is_open(): bool        { @@:(true) }
+            get_state(): String    { @@:("open") }
+            last_action(): String  { @@:(self.action) }
+        }
+
+    domain:
+        # Holds the most recent player choice. The driver reads
+        # this after a transition to decide what to do; it's
+        # cleared back to "none" each time the dialog re-opens.
+        action: String = "none"
+}
