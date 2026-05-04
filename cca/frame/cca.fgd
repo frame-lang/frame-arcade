@@ -1351,6 +1351,120 @@
 
 
 # ------------------------------------------------------------
+# Hint (parameterized × N — parallel small FSMs)
+# ------------------------------------------------------------
+# Each named hint is an instance of this 3-state machine.
+# Adventure observes per-turn conditions and calls each
+# hint's observe() with whether *its* trigger condition is
+# true this turn. After the player has been in the trigger
+# situation for `threshold` consecutive turns, the hint
+# becomes available; the player can request_hint() to see it.
+#
+# State diagram:
+#
+#   $Pending   ── observe(true) × threshold ──► $Eligible
+#              ── observe(false) ──► (streak resets)
+#
+#   $Eligible  ── request() ──► $Offered (returns hint text)
+#
+#   $Offered   (terminal — already given out)
+#
+# This is the canonical "many parallel small FSMs" pattern in
+# CCA. Three to five named hints, each watching a different
+# condition (bird room without taking, dark room, blocked at
+# snake passage, two-pit-room, etc.). Per-hint state stays
+# isolated; Adventure dispatches the same observe/request
+# protocol to all of them.
+#
+# Frame's @@[persist] auto-traverses each named hint domain
+# field, so save/restore preserves every hint's streak counter
+# and current state independently. Hand-rolling the same
+# behavior with a Dictionary of dictionaries would work, but
+# you'd lose the "each hint is a typed thing with a query
+# surface" structure.
+# ------------------------------------------------------------
+@@[persist]
+@@system Hint(threshold: int = 5) : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        # Driver tells us whether OUR trigger condition is true
+        # this turn. The hint counts consecutive trues; on
+        # crossing threshold, becomes available.
+        observe(condition_true: bool)
+
+        # Player asked for the hint. If eligible, returns text
+        # and transitions to $Offered. Otherwise returns the
+        # canon "no hint available."
+        request_hint(text_if_eligible: String): String
+
+        get_state(): String
+        is_eligible(): bool
+        is_offered(): bool
+        get_streak(): int
+
+    machine:
+
+        $Pending {
+            observe(condition_true: bool) {
+                if condition_true:
+                    self.streak = self.streak + 1
+                    if self.streak >= self.threshold:
+                        -> $Eligible
+                else:
+                    self.streak = 0
+            }
+            request_hint(text_if_eligible: String): String {
+                @@:("No hint available right now.")
+            }
+            get_state(): String     { @@:("pending") }
+            is_eligible(): bool     { @@:(false) }
+            is_offered(): bool      { @@:(false) }
+            get_streak(): int       { @@:(self.streak) }
+        }
+
+        $Eligible {
+            observe(condition_true: bool) {
+                # Once eligible we stay eligible regardless of
+                # streak — the player has the hint available
+                # until they request or until they leave the
+                # situation. (Real CCA actually re-arms; we
+                # keep it simple.)
+            }
+            request_hint(text_if_eligible: String): String {
+                -> $Offered
+                @@:(text_if_eligible)
+            }
+            get_state(): String     { @@:("eligible") }
+            is_eligible(): bool     { @@:(true) }
+            is_offered(): bool      { @@:(false) }
+            get_streak(): int       { @@:(self.streak) }
+        }
+
+        $Offered {
+            observe(condition_true: bool) {}
+            request_hint(text_if_eligible: String): String {
+                @@:("That hint has already been given.")
+            }
+            get_state(): String     { @@:("offered") }
+            is_eligible(): bool     { @@:(false) }
+            is_offered(): bool      { @@:(true) }
+            get_streak(): int       { @@:(self.streak) }
+        }
+
+    domain:
+        threshold: int = threshold
+        streak: int = 0
+}
+
+
+# ------------------------------------------------------------
 # ScoreLedger (aspect)
 # ------------------------------------------------------------
 # Demonstrates the *observe* verdict. ScoreLedger watches
@@ -1500,6 +1614,10 @@
         endgame_won(): bool
         endgame_timer(): float
 
+        # Hints (parameterized × 3 parallel)
+        request_hint(name: String): String
+        hint_state(name: String): String
+
     machine:
 
         $Playing {
@@ -1571,6 +1689,18 @@
             tick() {
                 self.lamp.tick()
                 self.endgame.tick()
+                # Per-turn hint observation. Each hint watches
+                # a different world condition; Adventure
+                # decides what each hint cares about and
+                # tells it whether the trigger is true this
+                # turn. Hints handle their own streak/timeout
+                # logic.
+                var r: int = self.player.get_room()
+                self.bird_hint.observe(
+                    r == self.BIRD_HOME_ROOM and self.bird.get_state() == "free")
+                self.dark_hint.observe(self._room_is_dark(r))
+                self.snake_hint.observe(
+                    r == self.SNAKE_ROOM and self.snake.is_blocking())
                 self.turns = self.turns + 1
             }
 
@@ -1671,6 +1801,33 @@
             endgame_closing(): bool   { @@:(self.endgame.is_closing()) }
             endgame_won(): bool       { @@:(self.endgame.is_won()) }
             endgame_timer(): float    { @@:(self.endgame.closing_timer()) }
+
+            request_hint(name: String): String {
+                # Each hint has different text. The Hint system
+                # itself doesn't know what its hint says — it
+                # just tracks eligibility. Adventure provides
+                # the message string at request time.
+                if name == "bird":
+                    @@:return(self.bird_hint.request_hint(
+                        "Try catching the bird before doing anything else with it."))
+                elif name == "dark":
+                    @@:return(self.dark_hint.request_hint(
+                        "You'll need a lamp to make any progress in this part of the cave."))
+                elif name == "snake":
+                    @@:return(self.snake_hint.request_hint(
+                        "The bird drives the snake away. Bring it here in its cage."))
+                @@:("No hint by that name.")
+            }
+
+            hint_state(name: String): String {
+                if name == "bird":
+                    @@:return(self.bird_hint.get_state())
+                elif name == "dark":
+                    @@:return(self.dark_hint.get_state())
+                elif name == "snake":
+                    @@:return(self.snake_hint.get_state())
+                @@:("unknown")
+            }
         }
 
     actions:
@@ -1911,6 +2068,14 @@
         # Endgame phase machine — multi-stage HSM with timer.
         # The genuine multi-state showpiece in CCA.
         endgame = @@Endgame()
+
+        # Three hints, all parameterized off the same Hint
+        # system but with the threshold parameter. The player
+        # has to be in the trigger condition for `threshold`
+        # consecutive turns before the hint becomes available.
+        bird_hint = @@Hint(3)
+        dark_hint = @@Hint(3)
+        snake_hint = @@Hint(3)
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
