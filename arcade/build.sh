@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# build.sh — compile all 7 chapter Frame sources for the cabinet
+# build.sh — compile all 8 chapter Frame sources for the cabinet
 # ============================================================
 # Walks each ch??-* directory and copies its compiled .gd into
 # our godot/scripts/ folder. The cabinet's per-game driver

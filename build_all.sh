@@ -25,6 +25,7 @@ CHAPTERS=(
     ch07-shooter
     ch08-stealth
     cca
+    arcade
 )
 
 FAILED=()
