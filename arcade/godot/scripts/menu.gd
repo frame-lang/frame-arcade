@@ -125,7 +125,7 @@ func _build_ui() -> void:
 
     # Help footer
     label_help = Label.new()
-    label_help.text = "↑/↓ select    Enter launch    Esc quit"
+    label_help.text = "↑/↓ select    Enter launch    1-9 jump    Esc quit"
     label_help.add_theme_font_size_override("font_size", 13)
     label_help.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
     label_help.position = Vector2(0, COURT_SIZE.y - 36)
@@ -176,11 +176,32 @@ func _process(_delta: float) -> void:
             _on_game_selected(selected_index)
         if escape and not _escape_was_down:
             get_tree().quit()
+        # Number-key shortcuts: 1-9 jump straight to the matching
+        # game (1-indexed in the menu, 0-indexed in GAMES). Edge-
+        # detected so a held key doesn't fire repeatedly. Goes
+        # through _on_game_selected so the Continue/New prompt
+        # still appears for games with a saved run.
+        _check_number_shortcuts()
 
     _up_was_down = up
     _down_was_down = down
     _enter_was_down = enter
     _escape_was_down = escape
+
+# Number-key shortcuts. We keep an edge-detector array parallel
+# to KEY_1..KEY_9 so each digit press fires once per push.
+var _digit_was_down: Array = [false, false, false, false, false, false, false, false, false]
+
+func _check_number_shortcuts() -> void:
+    var digit_keys := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9]
+    var max_index: int = min(digit_keys.size(), Arcade.GAMES.size())
+    for i in range(max_index):
+        var pressed: bool = Input.is_key_pressed(digit_keys[i])
+        if pressed and not _digit_was_down[i]:
+            selected_index = i
+            _refresh_selection()
+            _on_game_selected(i)
+        _digit_was_down[i] = pressed
 
 # Called when the player confirms a game from the list. If the
 # game has a saved run, switch to the Continue / New prompt;
