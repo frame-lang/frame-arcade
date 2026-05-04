@@ -1465,6 +1465,103 @@
 
 
 # ------------------------------------------------------------
+# Dragon
+# ------------------------------------------------------------
+# CCA's most parser-iconic NPC. The canonical "ATTACK DRAGON"
+# sequence requires a multi-turn interaction that's a perfect
+# fit for state encoding the parser context across turns:
+#
+#   Player: ATTACK DRAGON
+#   Game:   "With what, your bare hands?"
+#   Player: YES
+#   Game:   "You've defeated the dragon, congratulations."
+#
+# State diagram:
+#
+#   $Sleeping ── attack() ──► $Asked      (game prints prompt)
+#   $Asked    ── yes() ──► $Dead          (player kills dragon)
+#             ── no() ──► $Sleeping       (cancellation)
+#             ── any other verb ──► $Sleeping
+#                                        (also cancels — context is gone)
+#
+# The state machine here is doing real work: $Asked encodes
+# "the parser is in a clarifying-question subdialog." Without
+# the state, the driver would have to track this with a
+# boolean flag set during the attack handler and checked at
+# the start of the next command. Same flag-on-the-base smell
+# the aspect bus pattern was extracted to avoid; here Frame
+# keeps the context as part of the dragon's mode.
+#
+# After $Dead, the rug under the dragon and the eggs nearby
+# become takeable (real CCA: this matters for treasure
+# scoring). Adventure exposes is_alive() so the rest of the
+# world can gate on dragon-killed.
+# ------------------------------------------------------------
+@@[persist]
+@@system Dragon : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        attack()
+        yes()
+        no()
+        cancel()       # any other verb — driver fires this on
+                        #  unrelated input while $Asked
+        get_state(): String
+        is_alive(): bool
+        is_awaiting_confirmation(): bool
+
+    machine:
+
+        $Sleeping {
+            attack() {
+                -> $Asked
+            }
+            yes() {}       # ignored outside the prompt
+            no() {}
+            cancel() {}
+            get_state(): String                  { @@:("sleeping") }
+            is_alive(): bool                     { @@:(true) }
+            is_awaiting_confirmation(): bool     { @@:(false) }
+        }
+
+        $Asked {
+            yes() {
+                -> $Dead
+            }
+            no() {
+                -> $Sleeping
+            }
+            cancel() {
+                -> $Sleeping
+            }
+            attack() {
+                # Re-asking — stay in $Asked.
+            }
+            get_state(): String                  { @@:("asked") }
+            is_alive(): bool                     { @@:(true) }
+            is_awaiting_confirmation(): bool     { @@:(true) }
+        }
+
+        $Dead {
+            attack() {}    # idempotent
+            yes() {}
+            no() {}
+            cancel() {}
+            get_state(): String                  { @@:("dead") }
+            is_alive(): bool                     { @@:(false) }
+            is_awaiting_confirmation(): bool     { @@:(false) }
+        }
+}
+
+
+# ------------------------------------------------------------
 # ScoreLedger (aspect)
 # ------------------------------------------------------------
 # Demonstrates the *observe* verdict. ScoreLedger watches
@@ -1617,6 +1714,10 @@
         # Hints (parameterized × 3 parallel)
         request_hint(name: String): String
         hint_state(name: String): String
+
+        # Dragon (multi-turn parser dialog)
+        dragon_state(): String
+        dragon_alive(): bool
 
     machine:
 
@@ -1828,6 +1929,9 @@
                     @@:return(self.snake_hint.get_state())
                 @@:("unknown")
             }
+
+            dragon_state(): String  { @@:(self.dragon.get_state()) }
+            dragon_alive(): bool    { @@:(self.dragon.is_alive()) }
         }
 
     actions:
@@ -1875,6 +1979,12 @@
                 return self._verb_release(noun)
             elif verb == "feed":
                 return self._verb_feed(noun)
+            elif verb == "attack":
+                return self._verb_attack(noun)
+            elif verb == "yes":
+                return self._verb_yes()
+            elif verb == "no":
+                return self._verb_no()
             elif verb == "xyzzy" or verb == "plugh" or verb == "plover":
                 # MagicWordTeleport didn't transform — wrong room.
                 # Canon CCA response.
@@ -1919,6 +2029,8 @@
                     base = base + " A friendly-looking bear sits chained, its tongue lolling."
             if r == self.TROLL_ROOM and self.troll.is_blocking_bridge():
                 base = base + " A burly troll stands guard at the bridge, demanding tribute."
+            if r == self.DRAGON_ROOM and self.dragon.is_alive():
+                base = base + " A huge green dragon dozes on a Persian rug."
             return base
         }
 
@@ -1985,6 +2097,34 @@
                 return "The bear isn't interested."
             self.bear.feed()
             return "The bear eats the food eagerly and looks much friendlier."
+        }
+
+        _verb_attack(noun: String): String {
+            if noun != "dragon":
+                return "Don't be ridiculous."
+            if self.player.get_room() != self.DRAGON_ROOM:
+                return "There is nothing here to attack."
+            if not self.dragon.is_alive():
+                return "The dragon is already dead."
+            self.dragon.attack()
+            return "With what? Your bare hands?"
+        }
+
+        _verb_yes(): String {
+            # Yes/no only meaningful when something is asking.
+            # The Dragon's $Asked is the canonical case; if
+            # other interactive prompts are added, route here.
+            if self.dragon.is_awaiting_confirmation():
+                self.dragon.yes()
+                return "Congratulations! You have just vanquished a dragon with your bare hands."
+            return "I don't understand."
+        }
+
+        _verb_no(): String {
+            if self.dragon.is_awaiting_confirmation():
+                self.dragon.no()
+                return "The dragon, sensing your hesitation, lets you back away."
+            return "I don't understand."
         }
 
         _verb_release(noun: String): String {
@@ -2076,6 +2216,12 @@
         bird_hint = @@Hint(3)
         dark_hint = @@Hint(3)
         snake_hint = @@Hint(3)
+
+        # Dragon — small but iconic. Multi-turn parser dialog
+        # encoded as state. The "ATTACK / WITH WHAT? / YES"
+        # sequence stays consistent across turns because
+        # $Asked is a real state.
+        dragon = @@Dragon()
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
