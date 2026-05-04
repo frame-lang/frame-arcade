@@ -1,9 +1,12 @@
 # Colossal Cave Adventure (Frame port)
 
-> **Status:** playable. Twelve rooms, five treasures, six NPCs,
-> four cross-cutting aspects on the bus. Save/restore round-trips
-> the entire world. See [EVALUATION.md](./EVALUATION.md) for an
-> honest per-system score on Frame's value-add.
+> **Status:** canonical scope complete. 22 rooms, 15 treasures,
+> 6 NPCs (bird, snake, dragon, bear, troll, pirate, plus 5
+> dwarves), 4 cross-cutting aspects on the bus, full CCA
+> scoring breakdown (treasure / visits / hints / endgame).
+> Save/restore round-trips the entire world. See
+> [EVALUATION.md](./EVALUATION.md) for an honest per-system
+> score on Frame's value-add.
 
 Frame port of Crowther/Woods *Colossal Cave Adventure*. Built on
 the **aspect machines** pattern — small FSM interceptors on a

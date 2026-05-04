@@ -254,21 +254,39 @@ genuinely a less Frame-shaped genre, but not unfit.
 
 ---
 
-## Status: playable (as of commit `b1658c6`)
+## Status: canonical scope complete (as of commit `9d31999`)
 
-After the initial evaluation (drafted at commit `c274799`), the
-remaining wiring landed:
+After the initial evaluation (drafted at commit `c274799`),
+the rest landed in three rounds:
 
-- **Pirate** — small probabilistic-encounter FSM, scored 3/5,
-  added for canonical-roster completeness
-- **Treasures × 5** (subset of CCA's 15) — parameterized
-  composition with deposit→endgame chain
-- **Maze data tables** — 12 rooms with named exits in
-  `cca/godot/scripts/driver.gd`
-- **Parser** — verb-noun split + synonym table + article
-  stripping in the same file
-- **Driver/text I/O** — RichTextLabel scrolling log + LineEdit
-  input, single-file Godot Control scene
+**Round 1 — playable** (commit `b1658c6`):
+- Pirate FSM
+- Treasures × 5 (subset)
+- 12-room maze in driver
+- Parser with synonym table
+- Godot text-adventure UI
+
+**Round 2 — canonical scope** (commit `a5f92f5`):
+- 22-room maze (gold, silver, diamonds, jewelry, pearl on
+  the surface route; vase, eggs, trident, emerald, spices,
+  chest, pyramid, rug, coins, statuette in the deep-cave
+  loop accessible via the troll bridge)
+- Treasures × 15 (full canonical inventory)
+- Room descriptions upgraded to canon-faithful prose
+
+**Round 3 — verbs + scoring** (commit `9d31999`):
+- EXAMINE / READ / THROW verbs
+- DarknessGate gates "read" alongside "look"/"examine"
+- Real CCA scoring breakdown: treasure_score (sum of
+  deposited values), visit_score (one per unique room),
+  hint_penalty (-2 per accepted hint), endgame_score (+50
+  for successful detonation)
+- SCORE driver command renders the breakdown
+
+End-to-end smoke test (`/tmp/test_cca_full.gd`) walks the
+canonical solve path through all 15 treasures, exercises
+every verb, drives endgame timer to repository, detonates,
+and verifies the scoring breakdown sums correctly. PASS.
 
 CCA can be played end-to-end:
 
@@ -285,12 +303,22 @@ take bird; release at snake; attack dragon (yes); take diamonds;
 feed bear, take chain; drop at troll; take jewelry. Plus
 mid-game save/restore preserves NPC states.
 
-What's still skipped vs canonical CCA:
-- 10 of 15 treasures (we model 5; rest are mechanical to add)
-- The full Crowther/Woods 140-room map (we have 12)
-- Dwarf axe-throwing as an offensive mechanic
-- Some nuance in the bird/dragon edge cases
-- The closing-warning text crescendo (we print one message)
+What's still skipped vs canonical Crowther/Woods CCA:
+- The full 140-room map (we have 22 — every CCA archetype
+  is present but the geography is compressed)
+- Dwarf axe-throwing AT the player (dwarves currently only
+  receive attacks; reverse direction is unwired)
+- Some nuance in the bird/dragon edge cases (e.g. bird
+  refuses to be carried into Plover Room)
+- The vase's "drops break it" mechanic (we treat it as a
+  normal treasure)
+- The closing-warning text crescendo (we print one message;
+  canon has multiple at thresholds)
+- Eggs that disappear and reappear via FEE FIE FOE FOO
+- The crystal-bridge formation puzzle (rod + fissure)
+- Resurrection prompts after death (player has 3 deaths
+  available in the FSM but we never trigger them in the
+  prototype gameplay)
 
 ## Final per-chapter takeaway
 

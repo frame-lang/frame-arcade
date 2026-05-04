@@ -137,12 +137,13 @@ var verb_synonyms: Dictionary = {
     "i": "inventory", "inv": "inventory",
     "l": "look",
     "g": "look",                          # CCA tradition: G = look
+    "x": "examine",                       # IF tradition: X = examine
     "get": "take", "grab": "take", "pick": "take",
-    "throw": "drop",
     "extinguish": "extinguish", "off": "extinguish",
     "light": "light", "on": "light",
     "kill": "attack", "fight": "attack",
-    "y": "yes", "n2": "no",                # n is north; "no" must be typed
+    "hurl": "throw",
+    "y": "yes",                            # n is north; "no" must be typed
     "quit": "quit", "exit": "quit",
     "save": "save", "restore": "load", "load": "load",
     "score": "score",
@@ -248,8 +249,12 @@ func _process_input(text: String) -> void:
             get_tree().quit()
             return
         "score":
-            _println("Treasures deposited: %d/5 — score %d" % [
-                fsm.treasures_deposited(), fsm.total_score()])
+            _println("[b]Score: %d[/b] — treasures %d (%d/15 deposited), visits %d, hints %d, endgame %d" % [
+                fsm.score(),
+                fsm.treasure_score(), fsm.treasures_deposited(),
+                fsm.visit_score(),
+                fsm.hint_penalty(),
+                fsm.endgame_score()])
             return
         "inventory":
             _println(_format_inventory())
@@ -483,9 +488,10 @@ func _print_welcome() -> void:
 func _print_help() -> void:
     _println("""
 [b]Movement:[/b] NORTH/SOUTH/EAST/WEST, UP/DOWN, IN/OUT, or N/S/E/W/U/D.
-[b]Looking:[/b] LOOK or L. EXAMINE <thing>.
-[b]Items:[/b]   TAKE <thing>, DROP <thing>, INVENTORY (or I).
-[b]Special:[/b] LIGHT (lamp), EXTINGUISH, FEED BEAR, ATTACK DRAGON, RELEASE BIRD.
+[b]Looking:[/b] LOOK (L), EXAMINE <thing> (X), READ <thing>.
+[b]Items:[/b]   TAKE <thing>, DROP <thing>, INVENTORY (I).
+[b]Combat:[/b]  ATTACK <foe>, THROW AXE.
+[b]Special:[/b] LIGHT (lamp), EXTINGUISH, FEED BEAR, RELEASE BIRD.
 [b]Magic:[/b]   XYZZY, PLUGH, PLOVER (in the right places).
 [b]Meta:[/b]    SAVE, LOAD, SCORE, HINT [name], QUIT.
 """)
