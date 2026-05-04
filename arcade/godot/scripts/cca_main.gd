@@ -462,14 +462,15 @@ func _build_ui() -> void:
 func _on_text_submitted(text: String) -> void:
     var trimmed: String = text.strip_edges().to_lower()
     input.clear()
-    # Re-grab focus defensively. Some interactions (clicking the
-    # log, an Esc that we then cancel) can move focus off the
-    # LineEdit; this puts it back so the next command works.
-    input.grab_focus()
     if trimmed.is_empty():
+        # Defer so the regrab fires after the current input frame
+        # finishes — calling grab_focus() synchronously inside the
+        # text_submitted signal doesn't stick on every Godot version.
+        input.call_deferred("grab_focus")
         return
     _print_player_input(text)
     _process_input(trimmed)
+    input.call_deferred("grab_focus")
 
 func _process_input(text: String) -> void:
     var parsed := _parse(text)
