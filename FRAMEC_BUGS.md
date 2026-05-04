@@ -243,6 +243,17 @@ neutral defaults.
 
 ---
 
+## Verification — 2026-05-04, post RFC-0015
+
+Issues #1 and #2 re-verified against framepiler `cef6fc1`:
+
+- **Issue #1 reproducer** transpiles to `self._context_stack[-1]._return = self._inner(1, 2)` — paren intact.
+- **Issue #2 reproducer** (after running `scripts/migrate_rfc0015.py` on the source) transpiles to `self.inner = Inner.new(__raw_inner.get("seed"))` in `Outer.restore_state` — saved seed threaded through to the constructor (option 1 from the original triage). The default-param workaround in `cca/frame/cca.fgd` is no longer required.
+
+The fixes shipped via RFC-0015's factory-only construction contract; see `framepiler/docs/rfcs/rfc-0015.md`. Cookbook recipes and the corpus of 4,734 test fixtures have been migrated to the system-level `@@[persist(<type>)] @@[save(<name>)] @@[load(<name>)]` form. RFC-0012's operation-attribute persist form is hard-cut at framec 4.1.0+ via E819.
+
+---
+
 ## Issue #3 — `@@[save]` / `@@[load]` operation attributes not in cargo `framec` 4.0.0
 
 ### Severity
