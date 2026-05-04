@@ -399,6 +399,10 @@ func _build_ui() -> void:
     output.size_flags_vertical = Control.SIZE_EXPAND_FILL
     output.bbcode_enabled = true
     output.scroll_following = true
+    # Don't let the log panel steal keyboard focus when clicked.
+    # The LineEdit owns input; the log is read-only display.
+    output.focus_mode = Control.FOCUS_NONE
+    output.selection_enabled = true            # mouse-drag still selects text
     output.add_theme_font_size_override("normal_font_size", 16)
     output.add_theme_color_override("default_color", Color(0.85, 0.92, 0.96))
     vbox.add_child(output)
@@ -426,6 +430,10 @@ func _build_ui() -> void:
 func _on_text_submitted(text: String) -> void:
     var trimmed: String = text.strip_edges().to_lower()
     input.clear()
+    # Re-grab focus defensively. Some interactions (clicking the
+    # log, an Esc that we then cancel) can move focus off the
+    # LineEdit; this puts it back so the next command works.
+    input.grab_focus()
     if trimmed.is_empty():
         return
     _print_player_input(text)
