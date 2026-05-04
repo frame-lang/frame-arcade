@@ -54,6 +54,11 @@ const PYRAMID_ID := 121
 const RUG_ID := 122
 const COINS_ID := 123
 const STATUETTE_ID := 124
+# Non-treasure carriables (mirror Adventure.ROD_ID / KEYS_ID /
+# BOTTLE_ID in cca/frame/cca.fgd).
+const ROD_ID := 130
+const KEYS_ID := 131
+const BOTTLE_ID := 132
 
 # ------------------------------------------------------------
 # Maze topology
@@ -750,6 +755,9 @@ func _format_inventory() -> String:
     var items: Array = []
     if fsm.player.carrying(BIRD_ID):      items.append("a small bird")
     if fsm.player.carrying(CHAIN_ID):     items.append("the bear's chain")
+    if fsm.player.carrying(ROD_ID):       items.append("a black rod with a rusty star")
+    if fsm.player.carrying(KEYS_ID):      items.append("a set of brass keys")
+    if fsm.player.carrying(BOTTLE_ID):    items.append("a small glass bottle" + (" of water" if fsm.bottle_has_water() else ", empty"))
     if fsm.player.carrying(GOLD_ID):      items.append("a gold nugget")
     if fsm.player.carrying(SILVER_ID):    items.append("silver bars")
     if fsm.player.carrying(DIAMONDS_ID):  items.append("diamonds")
