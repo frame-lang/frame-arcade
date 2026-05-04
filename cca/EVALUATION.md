@@ -303,22 +303,45 @@ take bird; release at snake; attack dragon (yes); take diamonds;
 feed bear, take chain; drop at troll; take jewelry. Plus
 mid-game save/restore preserves NPC states.
 
+**Round 4 — canonical mechanics** (this commit):
+- Vase fragility: `Treasure` got a `fragile` param, a new
+  `$Broken` state, and `drop()` checks the room — outside
+  the well house the vase shatters and value goes to 0.
+- Eggs incantation: new `EggsIncantation` 4-state FSM
+  (`$Idle` → `$WaitingFie` → `$WaitingFoe` → `$WaitingFoo`
+  → `$Idle`). Adventure observes the foo→Idle transition
+  and calls `eggs.reappear()` to put them back in the
+  giant room. Off-canon words break the chant and reset.
+- Bear-attacks-player: `Adventure._verb_take("chain")`
+  inspects bear state — if `$Hungry`, it transitions bear
+  to `$Attacking` and calls `player.die()`.
+- Dwarf-attacks-player: per-turn `_maybe_dwarf_attack`
+  tick action — each dwarf in the player's room rolls
+  via its own deterministic PRNG and (on hit) sets
+  `dwarf_axe_flag` and calls `player.die()`.
+- Driver resurrection prompt: dead player triggers a
+  yes/no prompt; YES calls `player.revive()` and bumps
+  the deaths counter; the 4th death goes `$Permadead`
+  and ends the run.
+- Save/restore round-trips the new state cleanly,
+  including mid-death and the eggs-chant FSM compartment.
+
+A new `/tmp/test_cca_mechanics.gd` smoke test (28 checks,
+PASS) covers vase-shatters, vase-deposit-survives, the
+full FEE/FIE/FOE/FOO chant, broken-chant reset, bear-
+kills-player, deterministic dwarf-axe-throw, the
+resurrection cycle, permadeath after the 4th death, and
+save/restore mid-death-prompt.
+
 What's still skipped vs canonical Crowther/Woods CCA:
+
 - The full 140-room map (we have 22 — every CCA archetype
   is present but the geography is compressed)
-- Dwarf axe-throwing AT the player (dwarves currently only
-  receive attacks; reverse direction is unwired)
 - Some nuance in the bird/dragon edge cases (e.g. bird
   refuses to be carried into Plover Room)
-- The vase's "drops break it" mechanic (we treat it as a
-  normal treasure)
 - The closing-warning text crescendo (we print one message;
   canon has multiple at thresholds)
-- Eggs that disappear and reappear via FEE FIE FOE FOO
 - The crystal-bridge formation puzzle (rod + fissure)
-- Resurrection prompts after death (player has 3 deaths
-  available in the FSM but we never trigger them in the
-  prototype gameplay)
 
 ## Final per-chapter takeaway
 

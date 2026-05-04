@@ -170,6 +170,13 @@ var _save_path: String = "user://cca_save.dat"
 # stolen this run so we don't double-steal.
 var _pirate_already_stole: bool = false
 
+# Resurrection-prompt state. When the player dies (bear
+# mauling, dwarf axe), the FSM transitions Player → $Dead.
+# The driver detects this on the next post-command check,
+# prints the resurrection prompt, and pauses normal verb
+# processing until the player answers yes/no.
+var _awaiting_revive: bool = false
+
 # ============================================================
 func _ready() -> void:
     fsm = CcaFSM.new()
@@ -238,6 +245,27 @@ func _process_input(text: String) -> void:
         _println("I don't understand.")
         return
 
+    # Resurrection prompt has top priority — the only input we
+    # accept while the player is dead is yes/no. (We don't go
+    # through the normal verb dispatcher because the dragon
+    # also uses yes/no and we don't want a state collision.)
+    if _awaiting_revive:
+        if verb == "yes":
+            fsm.player.revive()
+            _awaiting_revive = false
+            _println("[color=#88dd88]You stagger to your feet, alive again. The cave entrance is before you.[/color]")
+            _last_room = -1   # force room re-print
+            _print_room()
+            return
+        if verb == "no":
+            _awaiting_revive = false
+            _println("[color=#cc4444]Then this is the end of you. Goodbye.[/color]")
+            await get_tree().create_timer(2.0).timeout
+            get_tree().quit()
+            return
+        _println("Please answer yes or no.")
+        return
+
     # UI-only verbs (driver-handled, never reach the FSM).
     match verb:
         "help":
@@ -289,11 +317,13 @@ func _process_input(text: String) -> void:
     fsm.tick()
 
     # Driver-side per-turn checks: pirate-steals, lamp
-    # warnings, endgame phase changes. We surface text the
-    # FSM can't know how to render.
+    # warnings, endgame phase changes, dwarf axe hits, player
+    # death. We surface text the FSM can't know how to render.
     _check_pirate_steal()
     _check_lamp_warnings()
     _check_endgame_phase_change()
+    _check_dwarf_axe()
+    _check_player_death()
     _maybe_print_room_after_move()
 
 # ============================================================
@@ -388,6 +418,25 @@ func _check_lamp_warnings() -> void:
     var msg: String = fsm.get_lamp_message()
     if msg != "":
         _println("[color=#ddaa66]%s[/color]" % msg)
+
+func _check_dwarf_axe() -> void:
+    if fsm.dwarf_threw_axe():
+        _println("[color=#cc7777][i]A dwarf throws an axe at you — and connects! The axe finds your back.[/i][/color]")
+
+func _check_player_death() -> void:
+    if _awaiting_revive:
+        return
+    var s: String = fsm.player_state()
+    if s == "dead":
+        _awaiting_revive = true
+        var deaths: int = fsm.player.get_deaths()
+        var prompt: String = "[color=#cc4444][b]You have died. (Death %d of %d.)[/b][/color]\n[i]Do you want to be resurrected?[/i] (YES/NO)" % [
+            deaths, 4]
+        _println(prompt)
+    elif s == "permadead":
+        _println("[color=#cc4444][b]You have used up your three resurrections. This is the end.[/b][/color]")
+        await get_tree().create_timer(2.0).timeout
+        get_tree().quit()
 
 var _last_endgame_state: String = "active"
 func _check_endgame_phase_change() -> void:

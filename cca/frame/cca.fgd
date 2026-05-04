@@ -1095,12 +1095,14 @@
 
     interface:
         wake_up(at_room: int)
-        attack()       # player attacks dwarf — may kill
-        flee()         # dwarf disengages
+        attack()                   # player attacks dwarf — may kill
+        try_throw_axe(): bool      # dwarf attacks player — may hit
+        flee()                     # dwarf disengages
         get_state(): String
         get_room(): int
         get_seed(): int
         get_step(): int
+        get_attack_step(): int
 
     machine:
 
@@ -1109,10 +1111,14 @@
                 self.room = at_room
                 -> $Stalking
             }
-            get_state(): String { @@:("hidden") }
-            get_room(): int     { @@:(-1) }
-            get_seed(): int     { @@:(self.seed) }
-            get_step(): int     { @@:(self.step) }
+            try_throw_axe(): bool {
+                @@:(false)             # not yet on the field
+            }
+            get_state(): String      { @@:("hidden") }
+            get_room(): int          { @@:(-1) }
+            get_seed(): int          { @@:(self.seed) }
+            get_step(): int          { @@:(self.step) }
+            get_attack_step(): int   { @@:(self.attack_step) }
         }
 
         $Stalking {
@@ -1128,31 +1134,46 @@
                 var roll: int = x % 100
                 if roll < 70:
                     -> $Dead
-                # else: dwarf survives the attack and stays
-                # stalking. Real CCA has the dwarf throw an
-                # axe back; modeling that is a future hook.
+            }
+            try_throw_axe(): bool {
+                # Dwarf throws an axe at the player. Separate
+                # PRNG counter from the player-attacks-dwarf
+                # rolls so the two streams don't interfere.
+                # 25% hit rate matches canonical CCA odds.
+                self.attack_step = self.attack_step + 1
+                var x: int = self.seed * 22695477 + self.attack_step * 1664525
+                x = ((x >> 16) ^ x) * 1013904223
+                x = x & 0xffffffff
+                var roll: int = x % 100
+                @@:(roll < 25)
             }
             flee() {
                 -> $Hidden
             }
-            get_state(): String { @@:("stalking") }
-            get_room(): int     { @@:(self.room) }
-            get_seed(): int     { @@:(self.seed) }
-            get_step(): int     { @@:(self.step) }
+            get_state(): String      { @@:("stalking") }
+            get_room(): int          { @@:(self.room) }
+            get_seed(): int          { @@:(self.seed) }
+            get_step(): int          { @@:(self.step) }
+            get_attack_step(): int   { @@:(self.attack_step) }
         }
 
         $Dead {
             # Terminal. The player's axe-throw connected.
-            get_state(): String { @@:("dead") }
-            get_room(): int     { @@:(-1) }
-            get_seed(): int     { @@:(self.seed) }
-            get_step(): int     { @@:(self.step) }
+            try_throw_axe(): bool {
+                @@:(false)
+            }
+            get_state(): String      { @@:("dead") }
+            get_room(): int          { @@:(-1) }
+            get_seed(): int          { @@:(self.seed) }
+            get_step(): int          { @@:(self.step) }
+            get_attack_step(): int   { @@:(self.attack_step) }
         }
 
     domain:
         seed: int = seed
         room: int = -1
         step: int = 0
+        attack_step: int = 0
 }
 
 
@@ -1591,7 +1612,7 @@
 # additional named instances, additional verb-noun branches.
 # ------------------------------------------------------------
 @@[persist]
-@@system Treasure(home_room: int = 0, value: int = 0) : RefCounted {
+@@system Treasure(home_room: int = 0, value: int = 0, fragile: bool = false) : RefCounted {
 
     operations:
         @@[save]
@@ -1602,11 +1623,13 @@
 
     interface:
         try_take(at_room: int): bool       # true if successfully taken
-        try_drop(at_room: int): String     # "dropped" / "deposited" / error msg
+        try_drop(at_room: int): String     # "dropped" / "deposited" / "broken" / error
+        reappear(at_room: int)              # used by Eggs incantation reset
         get_state(): String
         get_location(): int                # current room or -1 if carried
         get_value(): int
         is_deposited(): bool
+        is_broken(): bool
 
     machine:
 
@@ -1620,10 +1643,15 @@
             try_drop(at_room: int): String {
                 @@:("not carried")
             }
+            reappear(at_room: int) {
+                self.location_room = at_room
+                # already $InRoom; just relocate
+            }
             get_state(): String      { @@:("in_room") }
             get_location(): int      { @@:(self.location_room) }
             get_value(): int         { @@:(self.value) }
             is_deposited(): bool     { @@:(false) }
+            is_broken(): bool        { @@:(false) }
         }
 
         $Carried {
@@ -1635,13 +1663,28 @@
                 if at_room == self.DEPOSIT_ROOM:
                     -> $Deposited
                     @@:return("deposited")
+                # Fragile treasures shatter on a non-deposit
+                # drop. Real CCA: vase only survives on the
+                # velvet pillow (which lives in the egg room).
+                # We simplify: any non-deposit drop breaks it.
+                if self.fragile:
+                    -> $Broken
+                    @@:return("broken")
                 -> $InRoom
                 @@:("dropped")
+            }
+            reappear(at_room: int) {
+                # Magic-summon while carried: snap into the
+                # target room and drop carrying. Used by the
+                # Eggs incantation.
+                self.location_room = at_room
+                -> $InRoom
             }
             get_state(): String      { @@:("carried") }
             get_location(): int      { @@:(-1) }
             get_value(): int         { @@:(self.value) }
             is_deposited(): bool     { @@:(false) }
+            is_broken(): bool        { @@:(false) }
         }
 
         $Deposited {
@@ -1651,17 +1694,137 @@
             try_drop(at_room: int): String {
                 @@:("already deposited")
             }
+            reappear(at_room: int) {
+                # FEE FIE FOE FOO can summon eggs back even
+                # after they were deposited (canon CCA gives
+                # a chuckle and resets eggs to the giant room
+                # but doesn't credit the deposit twice; we
+                # match that — the score has already been
+                # awarded, and now the eggs are back in play).
+                self.location_room = at_room
+                -> $InRoom
+            }
             get_state(): String      { @@:("deposited") }
             get_location(): int      { @@:(self.DEPOSIT_ROOM) }
             get_value(): int         { @@:(self.value) }
             is_deposited(): bool     { @@:(true) }
+            is_broken(): bool        { @@:(false) }
+        }
+
+        $Broken {
+            try_take(at_room: int): bool {
+                @@:(false)             # shards aren't a treasure
+            }
+            try_drop(at_room: int): String {
+                @@:("already broken")
+            }
+            reappear(at_room: int) {
+                # Incantation can't un-break a thing.
+            }
+            get_state(): String      { @@:("broken") }
+            get_location(): int      { @@:(self.location_room) }
+            get_value(): int         { @@:(0) }
+            is_deposited(): bool     { @@:(false) }
+            is_broken(): bool        { @@:(true) }
         }
 
     domain:
         home_room: int = home_room
         value: int = value
+        fragile: bool = fragile
         location_room: int = home_room
         DEPOSIT_ROOM: int = 1
+}
+
+
+# ------------------------------------------------------------
+# EggsIncantation
+# ------------------------------------------------------------
+# CCA's most parser-poetic mechanic: the player chants
+# FEE FIE FOE FOO and the eggs (taken from the Giant Room)
+# magically reappear there. Breaks the chant on any other
+# verb. Modeled as a 4-state sequence FSM:
+#
+#   $Idle ── say("fee") ──► $WaitingFie
+#   $WaitingFie ── say("fie") ──► $WaitingFoe
+#                ── say(other) ──► $Idle
+#   $WaitingFoe ── say("foe") ──► $WaitingFoo
+#                ── say(other) ──► $Idle
+#   $WaitingFoo ── say("foo") ──► $Idle (with side effect:
+#                                        Adventure summons
+#                                        eggs back)
+#                ── say(other) ──► $Idle
+#
+# The side effect (eggs.reappear) is dispatched by Adventure
+# observing the FSM after each say() call: if the just-chanted
+# word was "foo" AND the prior state was $WaitingFoo, the
+# chant completed. Adventure handles the cross-FSM call
+# rather than baking it into EggsIncantation, keeping each
+# system testable in isolation.
+# ------------------------------------------------------------
+@@[persist]
+@@system EggsIncantation : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        say(word: String): String       # returns canonical reply
+        get_state(): String
+
+    machine:
+
+        $Idle {
+            say(word: String): String {
+                if word == "fee":
+                    -> $WaitingFie
+                    @@:return("Fie?")
+                @@:("Nothing happens.")
+            }
+            get_state(): String  { @@:("idle") }
+        }
+
+        $WaitingFie {
+            say(word: String): String {
+                if word == "fie":
+                    -> $WaitingFoe
+                    @@:return("Foe?")
+                -> $Idle
+                @@:("You broke the chant.")
+            }
+            get_state(): String  { @@:("waiting_fie") }
+        }
+
+        $WaitingFoe {
+            say(word: String): String {
+                if word == "foe":
+                    -> $WaitingFoo
+                    @@:return("Foo?")
+                -> $Idle
+                @@:("You broke the chant.")
+            }
+            get_state(): String  { @@:("waiting_foe") }
+        }
+
+        $WaitingFoo {
+            # On "foo" we transition back to $Idle and return the
+            # completion message. The actual side effect (summoning
+            # eggs back to the giant room) is dispatched by Adventure
+            # after observing this transition — keeping each FSM
+            # responsible for its own slice of behavior.
+            say(word: String): String {
+                if word == "foo":
+                    -> $Idle
+                    @@:return("Done!")
+                -> $Idle
+                @@:("You broke the chant.")
+            }
+            get_state(): String  { @@:("waiting_foo") }
+        }
 }
 
 
@@ -1909,6 +2072,7 @@
         wake_dwarves()
         attack_dwarf_in_room(): String        # tries the dwarf at player's location
         living_dwarves(): int
+        dwarf_threw_axe(): bool               # latched flag — driver reads & clears
 
         # Endgame
         deposit_treasure()
@@ -2022,6 +2186,13 @@
                 # steal. The driver checks pirate_try_steal()
                 # results and applies the consequence.
                 self.pirate.treasures_carried(self.player.inventory_size())
+                # Stalking dwarves in the player's room get a
+                # per-turn axe-throw chance. We resolve the
+                # first-encountered stalking dwarf — a single
+                # death is a single death whether one dwarf or
+                # five threw the axe. Adventure surfaces the
+                # message via dwarf_threw_axe().
+                self._maybe_dwarf_attack(r)
                 # Track first-visit for the visit_score
                 # component. CCA-canonical: each unique room
                 # explored is worth one point.
@@ -2121,6 +2292,16 @@
                 if self.dwarf5.get_state() != "dead":
                     n = n + 1
                 @@:(n)
+            }
+
+            dwarf_threw_axe(): bool {
+                # Latched flag — driver reads and clears via
+                # the side-effect-free read pattern below.
+                # Persistence-clean because it's a domain
+                # bool, not a transient.
+                var v: bool = self.dwarf_axe_flag
+                self.dwarf_axe_flag = false
+                @@:(v)
             }
 
             deposit_treasure() {
@@ -2231,6 +2412,39 @@
 
     actions:
 
+        _maybe_dwarf_attack(room: int) {
+            # Ask each dwarf in the player's room for an axe-
+            # throw roll. First hit ends the turn. The dwarf
+            # axe flag is set so the driver can render the
+            # message; the player dies via player.die() which
+            # routes through the standard $Alive → $Dead path.
+            if self.dwarf1.get_state() == "stalking" and self.dwarf1.get_room() == room:
+                if self.dwarf1.try_throw_axe():
+                    self.dwarf_axe_flag = true
+                    self.player.die()
+                    return
+            if self.dwarf2.get_state() == "stalking" and self.dwarf2.get_room() == room:
+                if self.dwarf2.try_throw_axe():
+                    self.dwarf_axe_flag = true
+                    self.player.die()
+                    return
+            if self.dwarf3.get_state() == "stalking" and self.dwarf3.get_room() == room:
+                if self.dwarf3.try_throw_axe():
+                    self.dwarf_axe_flag = true
+                    self.player.die()
+                    return
+            if self.dwarf4.get_state() == "stalking" and self.dwarf4.get_room() == room:
+                if self.dwarf4.try_throw_axe():
+                    self.dwarf_axe_flag = true
+                    self.player.die()
+                    return
+            if self.dwarf5.get_state() == "stalking" and self.dwarf5.get_room() == room:
+                if self.dwarf5.try_throw_axe():
+                    self.dwarf_axe_flag = true
+                    self.player.die()
+                    return
+        }
+
         # The bus holds names; this routes them to the actual
         # @@system field. Add a branch per aspect as we grow.
         # The ordering here doesn't matter — the bus already
@@ -2286,6 +2500,8 @@
                 return self._verb_read(noun)
             elif verb == "throw":
                 return self._verb_throw(noun)
+            elif verb == "fee" or verb == "fie" or verb == "foe" or verb == "foo":
+                return self._verb_chant(verb)
             elif verb == "xyzzy" or verb == "plugh" or verb == "plover":
                 # MagicWordTeleport didn't transform — wrong room.
                 # Canon CCA response.
@@ -2419,8 +2635,14 @@
                     return "There is no chain here."
                 var bs: String = self.bear.get_state()
                 if bs == "hungry":
+                    # Cross-FSM: the bear becomes $Attacking
+                    # AND the player dies. Adventure brokers
+                    # both transitions; the driver detects the
+                    # death state on the next post-command
+                    # check and surfaces the resurrection prompt.
                     self.bear.take_chain()
-                    return "With a roar the bear lunges at you. You should have fed it first."
+                    self.player.die()
+                    return "With a roar the bear lunges at you. You should have fed it first. You have been killed."
                 elif bs == "tame":
                     self.bear.take_chain()
                     self.player.take(self.CHAIN_ID)
@@ -2713,6 +2935,23 @@
             return "There is nothing to read here."
         }
 
+        _verb_chant(word: String): String {
+            # Drive the EggsIncantation FSM; observe whether
+            # the chant just completed (transition into $Idle
+            # from $WaitingFoo on "foo") and dispatch the
+            # eggs.reappear side effect cross-FSM.
+            var was_waiting_foo: bool = (self.eggs_chant.get_state() == "waiting_foo")
+            var reply: String = self.eggs_chant.say(word)
+            if was_waiting_foo and word == "foo":
+                # The eggs return to the Giant Room. If they
+                # were already deposited, this resets them
+                # (player can re-deposit and double-score —
+                # canon bug, we replicate intentionally).
+                self.eggs.reappear(14)
+                return reply + " The nest of golden eggs has appeared elsewhere!"
+            return reply
+        }
+
         _verb_throw(noun: String): String {
             # THROW is mostly for axes at dwarves. Routes to
             # the same attack-dwarf-in-room logic the dispatch
@@ -2857,6 +3096,11 @@
         # carrying multiple treasures.
         pirate = @@Pirate(99)
 
+        # Eggs incantation — 4-state sequence parser. Said
+        # anywhere; on completion, summons the eggs back to
+        # their home room (14, the Giant Room).
+        eggs_chant = @@EggsIncantation()
+
         # Five treasures, each in its home room with a value.
         # Real CCA has 15; we model the canonical lifecycle on
         # this subset to keep the maze manageable. Adding more
@@ -2870,7 +3114,7 @@
         pearl     = @@Treasure(6,  15)   # Plover Room (only via PLOVER magic)
         # Deep cave treasures — accessible after crossing the
         # troll bridge. Rooms 12-22 form the deep-cave loop.
-        vase      = @@Treasure(13, 14)   # Oriental Room
+        vase      = @@Treasure(13, 14, true)   # Oriental Room — fragile!
         eggs      = @@Treasure(14, 14)   # Giant Room
         trident   = @@Treasure(15, 14)   # Sapphire Hallway
         emerald   = @@Treasure(16, 14)   # Vast Hall
@@ -2927,4 +3171,8 @@
         score_hints: int = 0
         score_endgame: int = 0
         rooms_visited: Array = []
+        # Latched dwarf-attack flag — set by _maybe_dwarf_attack
+        # when a dwarf hits and read+cleared via dwarf_threw_axe().
+        # Domain bool so @@[persist] round-trips it across saves.
+        dwarf_axe_flag: bool = false
 }
