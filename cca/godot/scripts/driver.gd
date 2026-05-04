@@ -190,17 +190,25 @@ var room_exits: Dictionary = {
     48:  {"west": 46, "east": 49},                                       # Boulders cluster
     49:  {"west": 48},                                                   # Limestone passage (dead-end)
     # --- Maze of twisty little passages, all alike (50-57) ---
-    # Entry from "Above the immense passage" (27) via west. The
-    # rooms form a linear chain rather than canon's confusing
-    # web — the iconic name is the demo, not the map.
-    50:  {"east": 27, "west": 51, "north": 52, "south": 53},
-    51:  {"east": 50, "west": 54, "north": 55, "south": 56},
-    52:  {"south": 50, "west": 57},
-    53:  {"north": 50},
-    54:  {"east": 51, "west": 55},
-    55:  {"east": 54, "west": 56, "south": 51},
-    56:  {"east": 55, "north": 51},
-    57:  {"east": 52},
+    # Entry from "Above the immense passage" (27) via west. All
+    # 8 rooms share the same description ("a maze of twisty
+    # little passages, all alike"), so the player can't tell
+    # them apart from look. Exit topology is deliberately non-
+    # uniform — going "north" from one room and "north" from
+    # the next-identical-looking room lands you in different
+    # places. The canon CCA puzzle is to mark visited rooms by
+    # dropping items, then map the maze. Only room 50's east
+    # exit returns to room 27 (the way back out). Some
+    # directions are missing to create dead-end "you can't go
+    # that way" branches.
+    50:  {"east": 27, "north": 51, "south": 52, "west": 53},
+    51:  {"north": 54, "south": 55, "west": 50},
+    52:  {"east": 56, "north": 57, "south": 50},
+    53:  {"east": 51, "south": 54},
+    54:  {"north": 50, "east": 56},
+    55:  {"east": 51, "south": 57},
+    56:  {"west": 52, "north": 54},
+    57:  {"north": 55, "south": 53, "east": 50},
     # --- Maze of twisty passages, all different (58-65) ---
     # Entry from rock-jumble junction (30) via east.
     58:  {"west": 30, "east": 59, "south": 60},
