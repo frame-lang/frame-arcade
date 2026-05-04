@@ -146,9 +146,35 @@ var room_exits: Dictionary = {
     # Rod-puzzle branch: hangs off Y2 (33) to the north. The
     # fissure (17) is the gate; crossing east requires the
     # crystal bridge (waved up by the rod).
-    14:  {"south": 33, "north": 17},         # top of small pit
-    17:  {"south": 14, "east": 69},          # fissure — east gated below
-    69:  {"west": 17},                       # hall of mirrors (across)
+    14:  {"south": 33, "north": 17, "down": 15},  # top of small pit
+    17:  {"south": 14, "east": 69, "west": 18},   # fissure — east gated; west to other side
+    18:  {"east": 17, "west": 19},                # west side of fissure
+    69:  {"west": 17},                            # hall of mirrors (across)
+    # Mist + King hall + two-pit + plant + slab area. Hangs off
+    # the top of small pit (14) via a stone staircase down. The
+    # Hall of Mists (15) is the regional hub; King Hall (19) is
+    # the western centerpoint. The slab area (34-37) hangs off
+    # the rock-jumble junction (30) and is largely a dead-end
+    # for atmosphere.
+    15:  {"up": 14, "east": 16, "west": 19, "south": 18, "north": 21},   # Hall of Mists
+    16:  {"west": 15, "north": 30, "up": 17},                            # East end of mists
+    19:  {"east": 15, "north": 26, "south": 20},                         # Hall of Mt King
+    20:  {"north": 19},                                                  # South entry
+    21:  {"south": 15, "east": 22, "west": 23},                          # Two-pit room
+    22:  {"out": 21, "up": 21},                                          # East pit (dead-end)
+    23:  {"out": 21, "up": 24, "climb": 24},                             # West pit
+    24:  {"down": 23, "up": 25, "climb": 25},                            # Plant — middle
+    25:  {"down": 24},                                                   # Plant — top
+    26:  {"south": 19, "north": 27},                                     # Narrow corridor
+    27:  {"south": 26, "north": 29},                                     # Above immense passage
+    29:  {"south": 27, "east": 30},                                      # Immense passage
+    30:  {"south": 16, "west": 29, "north": 31, "down": 34},             # Jumble of rock
+    31:  {"south": 30, "north": 32},                                     # Window on pit (low)
+    32:  {"south": 31},                                                  # Window on pit (high)
+    34:  {"up": 30, "north": 35},                                        # Low dust chamber
+    35:  {"south": 34, "north": 36},                                     # Sloping corridor
+    36:  {"south": 35, "west": 37},                                      # Above slab
+    37:  {"east": 36},                                                   # Slab room (dead-end)
 }
 
 # Movements that require a clear NPC to traverse. Each entry:

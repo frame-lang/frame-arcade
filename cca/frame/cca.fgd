@@ -2747,6 +2747,51 @@
                 base = "You are in the Repository. All your treasures lie at your feet, plus a stick of dynamite."
             elif r == 14:
                 base = "You are in a small pit breathing strange vapor. Crawl-ways lead off in many directions."
+            # --- Mist + King hall + Two-pit + Slab area ---
+            # Reachable from room 14 (top of small pit) by going
+            # down into the Hall of Mists. The Hall is the canonical
+            # hub for the western branch of the cave; the king hall,
+            # two-pit room, and beanstalk plant rooms hang off it.
+            elif r == 15:
+                base = "You are at the east end of a vast hall stretching west out of sight. To the south and east are low wide crawls. A wide stone staircase leads down."
+            elif r == 16:
+                base = "You are in the east end of the Hall of Mists. A low wide crawl continues east, and a passage goes north into the gloom."
+            elif r == 18:
+                base = "You are on the west side of the fissure in the Hall of Mists. A narrow path leads west to the Hall of the Mountain King."
+            elif r == 19:
+                base = "You are in the Hall of the Mountain King, with passages off in all directions. The roof is so high it cannot be seen."
+            elif r == 20:
+                base = "You are at the south end of the Hall of the Mountain King. Above you the ceiling swirls in mist."
+            elif r == 21:
+                base = "You are in the Two-Pit Room. Two pits drop into darkness; the eastern pit is shallow, the western yawning."
+            elif r == 22:
+                base = "You are at the bottom of the eastern pit. A small dry hole leads on into nothingness."
+            elif r == 23:
+                base = "You are at the bottom of the western pit. There's a tall beanstalk growing here, with leaves big enough to climb."
+            elif r == 24:
+                base = "You are about ten feet up the beanstalk. The leaves rustle gently as you cling to them."
+            elif r == 25:
+                base = "You are at the top of the beanstalk. The plant is too feeble to hold any more weight, but a narrow crack in the wall lets you scramble through."
+            elif r == 26:
+                base = "You are in a long, narrow corridor stretching out of sight east-west. The walls are smooth and damp."
+            elif r == 27:
+                base = "You are at one end of an immense north/south passage."
+            elif r == 29:
+                base = "You are in the deep middle of an immense north/south passage. Stalactites loom overhead at impossible angles."
+            elif r == 30:
+                base = "You are in a complex rock-jumble junction. Crawls and passages branch off in several directions."
+            elif r == 31:
+                base = "You're at a low window overlooking a huge pit. The bottom is shrouded in mist."
+            elif r == 32:
+                base = "You're at a high window above the same pit, this side. The view is dizzying."
+            elif r == 34:
+                base = "You are in a low chamber with dust deep on the floor. Each footfall raises a small cloud."
+            elif r == 35:
+                base = "You are in a sloping corridor. The walls curve smoothly toward a dim glimmer above."
+            elif r == 36:
+                base = "You are above a large room that drops away below to the south. A flat slab of stone juts out into the void."
+            elif r == 37:
+                base = "You are in a large low circular chamber whose floor is a slab of stone. Above, the rock-jumble continues."
             elif r == 17:
                 base = "You are at the edge of a deep, narrow fissure. The walls drop away to nothing far below."
                 if self.crystal_bridge.is_built():
