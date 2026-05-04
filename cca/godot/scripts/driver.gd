@@ -258,9 +258,25 @@ var room_exits: Dictionary = {
     116: {"west": 115, "down": 136},                                     # Pre-Repository
     # 119, 121-129: cliff-and-ladder descent + sub-anteroom area.
     119: {"up": 87, "down": 121},                                        # Cliff face with ladder
-    121: {"up": 119, "north": 123, "east": 125},                         # Bottom of ladder
-    123: {"south": 121},                                                 # Anteroom with pictographs
+    121: {"up": 119, "north": 123, "east": 125, "south": 122, "west": 124}, # Bottom of ladder
+    123: {"south": 121, "north": 126},                                   # Anteroom with pictographs
     125: {"west": 121},                                                  # Anteroom with niches
+    # --- Phase F: iconic remainder ---
+    # Decorated chamber (88), different soft passage (92), Vending
+    # Machine Room (95) — canon CCA's pre-endgame Easter egg with
+    # the "BATTERIES — 25 CENTS" sign. Plus more forest variants
+    # (101-103) and miscellaneous passages.
+    88:  {"east": 76, "south": 90},                                      # Decorated chamber
+    92:  {"south": 91, "east": 95},                                      # Different soft passage
+    95:  {"west": 92, "down": 116},                                      # Vending Machine Room
+    101: {"west": 96},                                                   # Forest far east
+    102: {"north": 97},                                                  # Forest far south
+    103: {"east": 99},                                                   # Forest far west
+    109: {"east": 113},                                                  # Low passage (curving west)
+    113: {"west": 109, "down": 121},                                     # Wide chamber
+    122: {"north": 121},                                                 # Anteroom — basalt
+    124: {"east": 121},                                                  # Anteroom — red stone
+    126: {"south": 123},                                                 # Anteroom — fireplace
 }
 
 # Movements that require a clear NPC to traverse. Each entry:

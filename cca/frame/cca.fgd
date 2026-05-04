@@ -2915,6 +2915,29 @@
                 base = "You are in an anteroom carved with crude pictographs of strange beasts."
             elif r == 125:
                 base = "You are in a small antechamber with niches set into each wall."
+            # --- Phase F: iconic remainder ---
+            elif r == 88:
+                base = "You are in a decorated chamber whose walls are inlaid with strange carvings of dragons, beasts, and constellations."
+            elif r == 92:
+                base = "You are in a different soft passage. The floor is sand; your footfalls leave no echo."
+            elif r == 95:
+                base = "You are in a small chamber containing a battered vending machine with a hand-lettered sign: 'BATTERIES — 25 CENTS — IT WORKS NO REFUNDS'. There is no obvious way to insert a coin."
+            elif r == 101:
+                base = "You are in a different forest, far to the east. The trees are unfamiliar."
+            elif r == 102:
+                base = "You are in a different forest, far to the south. A small spring trickles between the roots of an ancient tree."
+            elif r == 103:
+                base = "You are in a different forest, far to the west. The light is greenish and the air close."
+            elif r == 109:
+                base = "You are in a low passage which curves westward. The ceiling is so low you must crawl."
+            elif r == 113:
+                base = "You are in a wide chamber with cracked walls. A dim light filters in from somewhere above."
+            elif r == 122:
+                base = "You are in an anteroom of polished basalt. Your footfalls ring sharply."
+            elif r == 124:
+                base = "You are in an anteroom carved from soft red stone. Faint torch-marks streak the walls."
+            elif r == 126:
+                base = "You are in an anteroom set deep in the rock, with a great fireplace cold and dark."
             elif r == 17:
                 base = "You are at the edge of a deep, narrow fissure. The walls drop away to nothing far below."
                 if self.crystal_bridge.is_built():
