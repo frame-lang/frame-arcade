@@ -567,10 +567,10 @@ func _draw_vision_cone(index: int) -> void:
     draw_colored_polygon(pts, fill)
 
 # ============================================================
-# Esc handling for the standalone chapter project — quit.
-# The cabinet driver overrides this with Arcade.return_to_menu.
+# Cabinet integration: Esc returns to the menu.
 # ============================================================
 func _input(event: InputEvent) -> void:
     if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+        print("[arcade] Esc pressed in ", get_tree().current_scene.scene_file_path, " — returning to menu")
         get_viewport().set_input_as_handled()
-        get_tree().quit()
+        Arcade.return_to_menu()
