@@ -285,6 +285,24 @@ var room_exits: Dictionary = {
     122: {"north": 121},                                                 # Anteroom — basalt
     124: {"east": 121},                                                  # Anteroom — red stone
     126: {"south": 123},                                                 # Anteroom — fireplace
+    # --- Round 10: canon-completion fillers (104-107, 110-114, 127-129, 137-139) ---
+    # Forest grid completion + inner-anteroom cluster + the
+    # final pre-Repository corridor. These bring the room
+    # total to ~140 (canon scope).
+    104: {"south": 96, "east": 105},                                     # Dense forest
+    105: {"west": 104, "south": 97, "east": 106},                        # Scrub forest
+    106: {"west": 105, "north": 107},                                    # Forest clearing (water source flavor)
+    107: {"south": 106, "west": 100},                                    # Forest path
+    110: {"east": 109, "north": 111},                                    # Low passage with claw-marks
+    111: {"south": 110, "east": 112, "down": 114},                       # Different secret canyon
+    112: {"west": 111, "north": 113},                                    # Tall canyon
+    114: {"up": 111},                                                    # Crystal grotto (dead-end)
+    127: {"south": 126, "east": 128},                                    # Inner anteroom
+    128: {"west": 127, "down": 129},                                     # Different inner anteroom
+    129: {"up": 128},                                                    # Polished slab chamber (dead-end)
+    137: {"north": 116, "down": 138},                                    # Antechamber outside Repository
+    138: {"up": 137, "east": 139, "south": 136},                         # Final corridor
+    139: {"west": 138},                                                  # EXIT plaque chamber (dead-end)
 }
 
 # Movements that require a clear NPC to traverse. Each entry:

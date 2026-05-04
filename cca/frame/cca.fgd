@@ -764,6 +764,11 @@
     interface:
         capture()
         release(at_room: int)
+        # Canonical CCA: the Plover Room's magic is fatal to
+        # the bird. Adventure calls vanish() when the player
+        # tries to enter Plover while carrying the bird, and
+        # the bird transitions to $Dead with no corpse left.
+        vanish()
 
         get_state(): String
         get_location(): int      # current room, or -1 if carried/dead
@@ -789,6 +794,10 @@
                 else:
                     -> $Free
             }
+            vanish() {
+                self.location_room = -1
+                -> $Dead
+            }
             get_state(): String  { @@:("caged") }
             get_location(): int  { @@:(-1) }
         }
@@ -802,7 +811,8 @@
         }
 
         $Dead {
-            # Terminal: the dragon ate the bird.
+            # Terminal: the dragon ate the bird, or the Plover
+            # Room's magic destroyed it. No corpse, no recovery.
             get_state(): String  { @@:("dead") }
             get_location(): int  { @@:(-1) }
         }
@@ -3254,6 +3264,38 @@
                 base = "You are in an anteroom carved from soft red stone. Faint torch-marks streak the walls."
             elif r == 126:
                 base = "You are in an anteroom set deep in the rock, with a great fireplace cold and dark."
+            # --- Final canon-completion rooms (Round 10) ---
+            # Forest grid completion + inner anteroom cluster +
+            # pre-Repository corridor branches. Brings the room
+            # total up to ~140 (canon scope).
+            elif r == 104:
+                base = "You are in dense forest, the canopy thick enough to cast everything in green twilight."
+            elif r == 105:
+                base = "You are in scrub forest, with low brush snagging at your ankles. A faint path winds eastward."
+            elif r == 106:
+                base = "You are in a forest clearing. A small spring trickles up from beneath a flat slab of stone."
+            elif r == 107:
+                base = "You are in a path through the forest. Ferns brush your shoulders on either side."
+            elif r == 110:
+                base = "You are in a low passage with a curiously-shaped ceiling. The walls bear claw-marks."
+            elif r == 111:
+                base = "You are in a different secret canyon. A cool draft blows from somewhere ahead."
+            elif r == 112:
+                base = "You are in a tall canyon, narrow and impossibly high. Stars seem to glimmer in the rock above."
+            elif r == 114:
+                base = "You are in a crystal grotto. Walls and ceiling are studded with small clear crystals refracting your lamplight into hundreds of pinpoints."
+            elif r == 127:
+                base = "You are in an inner anteroom. Carved nameless figures stand sentinel along the walls."
+            elif r == 128:
+                base = "You are in a different inner anteroom, with a low arch leading deeper in."
+            elif r == 129:
+                base = "You are in a chamber whose floor is one polished slab of stone, smooth enough to reflect your lamp."
+            elif r == 137:
+                base = "You are in an antechamber outside the Repository. A solemn weight presses on you here."
+            elif r == 138:
+                base = "You are in a final corridor, the air still and cold. The Repository lies just ahead."
+            elif r == 139:
+                base = "You are in a small chamber adjoining the Repository. A single brass plaque on the wall reads 'EXIT'."
             elif r == 17:
                 base = "You are at the edge of a deep, narrow fissure. The walls drop away to nothing far below."
                 if self.crystal_bridge.is_built():
@@ -3916,17 +3958,16 @@
             # bare "move" still does something during testing.
             var dest: int = noun.to_int()
             # Pre-move guard: the canon Plover Room (41) is fatal
-            # to the bird. If the player tries to enter Plover
-            # while carrying the bird, the bird flutters in
-            # panic and flies free in the player's current room.
-            # The player still completes the move (the magic word
-            # is committed); they just arrive at Plover alone.
+            # to the bird. Canonical CCA: the magic of the Plover
+            # Room is *destructive* to small animals — the bird
+            # vanishes entirely (no corpse, no recovery), the
+            # player still completes the move and arrives at
+            # Plover alone.
             var plover_bird_msg: String = ""
             if dest == 41 and self.player.carrying(self.BIRD_ID):
-                var here: int = self.player.get_room()
-                self.bird.release(here)
+                self.bird.vanish()
                 self.player.drop(self.BIRD_ID)
-                plover_bird_msg = "As you start to chant, the little bird flutters out of your hand in panic and disappears into the gloom. "
+                plover_bird_msg = "As you start to chant, the magic of the Plover Room flares around the little bird in your hand. There is a brief, brilliant flash, and the bird is gone. "
             if dest > 0:
                 self.player.move_to(dest)
             else:
