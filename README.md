@@ -153,6 +153,10 @@ last — it lands the patterns rather than introducing them.
 
 ## Patterns and Practices
 
+> **For the long-form companion** — code samples, "where to find it"
+> source pointers per chapter, and "when to reach for it / when not"
+> guidance — see [PATTERNS.md](./PATTERNS.md).
+
 The arcade returns to the same nine architectural patterns over and over.
 Each is introduced in one chapter, recurs in others, and the CCA capstone
 is where they all collide. If you remember nothing else from the book,
