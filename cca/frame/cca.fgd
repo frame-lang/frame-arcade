@@ -1340,11 +1340,11 @@
 
     domain:
         # Tunables. Real CCA: 15 treasures, ~30-turn closing
-        # warning. We ship smaller defaults for the prototype
-        # so the smoke test can exercise the full lifecycle
-        # quickly.
-        TREASURES_TO_TRIGGER: int = 5
-        CLOSING_DURATION: float = 10.0    # turns
+        # warning. We ship matching counts for the canonical
+        # version (10 of 15 triggers closing — the player
+        # doesn't need every single treasure to "complete").
+        TREASURES_TO_TRIGGER: int = 10
+        CLOSING_DURATION: float = 30.0    # turns
 
         treasures: int = 0
 }
@@ -2145,21 +2145,41 @@
 
             treasures_deposited(): int {
                 var n: int = 0
-                if self.gold.is_deposited():     n = n + 1
-                if self.silver.is_deposited():   n = n + 1
-                if self.diamonds.is_deposited(): n = n + 1
-                if self.jewelry.is_deposited():  n = n + 1
-                if self.pearl.is_deposited():    n = n + 1
+                if self.gold.is_deposited():      n = n + 1
+                if self.silver.is_deposited():    n = n + 1
+                if self.diamonds.is_deposited():  n = n + 1
+                if self.jewelry.is_deposited():   n = n + 1
+                if self.pearl.is_deposited():     n = n + 1
+                if self.vase.is_deposited():      n = n + 1
+                if self.eggs.is_deposited():      n = n + 1
+                if self.trident.is_deposited():   n = n + 1
+                if self.emerald.is_deposited():   n = n + 1
+                if self.spices.is_deposited():    n = n + 1
+                if self.chest.is_deposited():     n = n + 1
+                if self.pyramid.is_deposited():   n = n + 1
+                if self.rug.is_deposited():       n = n + 1
+                if self.coins.is_deposited():     n = n + 1
+                if self.statuette.is_deposited(): n = n + 1
                 @@:(n)
             }
 
             total_score(): int {
                 var s: int = 0
-                if self.gold.is_deposited():     s = s + self.gold.get_value()
-                if self.silver.is_deposited():   s = s + self.silver.get_value()
-                if self.diamonds.is_deposited(): s = s + self.diamonds.get_value()
-                if self.jewelry.is_deposited():  s = s + self.jewelry.get_value()
-                if self.pearl.is_deposited():    s = s + self.pearl.get_value()
+                if self.gold.is_deposited():      s = s + self.gold.get_value()
+                if self.silver.is_deposited():    s = s + self.silver.get_value()
+                if self.diamonds.is_deposited():  s = s + self.diamonds.get_value()
+                if self.jewelry.is_deposited():   s = s + self.jewelry.get_value()
+                if self.pearl.is_deposited():     s = s + self.pearl.get_value()
+                if self.vase.is_deposited():      s = s + self.vase.get_value()
+                if self.eggs.is_deposited():      s = s + self.eggs.get_value()
+                if self.trident.is_deposited():   s = s + self.trident.get_value()
+                if self.emerald.is_deposited():   s = s + self.emerald.get_value()
+                if self.spices.is_deposited():    s = s + self.spices.get_value()
+                if self.chest.is_deposited():     s = s + self.chest.get_value()
+                if self.pyramid.is_deposited():   s = s + self.pyramid.get_value()
+                if self.rug.is_deposited():       s = s + self.rug.get_value()
+                if self.coins.is_deposited():     s = s + self.coins.get_value()
+                if self.statuette.is_deposited(): s = s + self.statuette.get_value()
                 @@:(s)
             }
         }
@@ -2225,28 +2245,59 @@
         }
 
         _verb_look(): String {
-            # Stub — real CCA returns the room description from
-            # a per-room data table. For now, a few hardcoded
-            # rooms with NPC-presence appended dynamically.
+            # Per-room descriptions. Real CCA reads from a data
+            # table; we keep them in code so the @@[persist]
+            # round-trip and the chapter prose can co-exist
+            # without an extra resource layer.
             var r: int = self.player.get_room()
             var base: String = "You are deep in the cave."
             if r == 0:
-                base = "You are at the entrance to a cave."
+                base = "You are at the end of a road in front of a small brick building. Around you is a forest. A small stream flows out of the building and down a gully."
+            elif r == 1:
+                base = "You are inside a building, a well house for a large spring. There are some keys on the ground, and a bottle of water."
             elif r == 2:
-                base = "You are in a debris room filled with stuff."
+                base = "You are in a debris-filled room, with a low passage to the north. Old food cans and clutter line the floor."
+            elif r == 3:
+                base = "You are in the cave entrance, a damp, muddy passage leading down into the earth."
             elif r == 4:
-                base = "You are at the Y2 marker."
+                base = "You are in a large room with passages off in all directions. A sign reads 'Y2'."
             elif r == 5:
-                base = "You are in a chamber filled with the chirping of birds."
+                base = "You are in a chamber filled with the chirping of birds, alive with motion."
             elif r == 6:
-                base = "You are in the Plover Room."
+                base = "You are in the Plover Room, an alcove with rough walls and a curiously-cut floor."
             elif r == 7:
-                base = "You are at the end of a long passage."
+                base = "You are at the end of a long passage. The floor is chiseled smooth."
             elif r == 8:
-                base = "You are in a cavern dominated by a stone dragon."
-            # NPC presence is appended dynamically. The base
-            # description is room data; NPC overlays are world
-            # state and have to be queried each look.
+                base = "You are in a cavern with massive stalactites overhead. A wide Persian rug covers the floor."
+            elif r == 9:
+                base = "You are in the Bedquilt, a great chamber. A passage descends to the east."
+            elif r == 10:
+                base = "You are at the troll bridge, a rickety span over a yawning chasm."
+            elif r == 11:
+                base = "You are in a low chamber on the far side of the bridge."
+            elif r == 12:
+                base = "You are in a cobble crawl, low and twisty. Something glitters here and there."
+            elif r == 13:
+                base = "You are in the Oriental Room. Strange Asian artifacts surround you."
+            elif r == 14:
+                base = "You are in the Giant Room. The walls are streaked with silver, and a faint hum echoes from above."
+            elif r == 15:
+                base = "You are in a hall paved with sapphire-blue stone."
+            elif r == 16:
+                base = "You are in a vast hall stretching out of sight."
+            elif r == 17:
+                base = "You are in a small alcove with a fragrant aroma."
+            elif r == 18:
+                base = "You are in a chest room. The pirate's loot is hidden here."
+            elif r == 19:
+                base = "You are in a pyramid-shaped chamber, walls slanting inward."
+            elif r == 20:
+                base = "You are in a coin niche, a small space tucked into the wall."
+            elif r == 21:
+                base = "You are in a sloping passage. The walls are smooth and curved."
+            elif r == 22:
+                base = "You are in the Repository. All your treasures lie at your feet, plus a stick of dynamite."
+            # NPC presence overlays.
             if r == self.bird.get_location() and self.bird.get_state() == "free":
                 base = base + " A small bird flutters nearby."
             if r == self.SNAKE_ROOM and self.snake.is_blocking():
@@ -2261,9 +2312,9 @@
                 base = base + " A burly troll stands guard at the bridge, demanding tribute."
             if r == self.DRAGON_ROOM and self.dragon.is_alive():
                 base = base + " A huge green dragon dozes on a Persian rug."
-            # Treasure overlays — for each treasure, if its
-            # current location matches the player's room and
-            # it's not in the player's inventory, mention it.
+            # Treasure overlays — for each treasure, if it's
+            # in this room (not carried) mention it. The rug
+            # is special: covered by dragon while alive.
             if self.gold.get_location() == r and self.gold.get_state() == "in_room":
                 base = base + " There's a gleam of gold here."
             if self.silver.get_location() == r and self.silver.get_state() == "in_room":
@@ -2274,6 +2325,26 @@
                 base = base + " Fine jewelry lies scattered."
             if self.pearl.get_location() == r and self.pearl.get_state() == "in_room":
                 base = base + " A pearl as big as your fist rests here."
+            if self.vase.get_location() == r and self.vase.get_state() == "in_room":
+                base = base + " A delicate Ming vase rests on a pedestal."
+            if self.eggs.get_location() == r and self.eggs.get_state() == "in_room":
+                base = base + " A nest of golden eggs sits in the corner."
+            if self.trident.get_location() == r and self.trident.get_state() == "in_room":
+                base = base + " A jewel-encrusted trident leans against the wall."
+            if self.emerald.get_location() == r and self.emerald.get_state() == "in_room":
+                base = base + " An enormous emerald sparkles brilliantly."
+            if self.spices.get_location() == r and self.spices.get_state() == "in_room":
+                base = base + " Rare spices fill the air with their scent."
+            if self.chest.get_location() == r and self.chest.get_state() == "in_room":
+                base = base + " A treasure chest, half-hidden, catches your eye."
+            if self.pyramid.get_location() == r and self.pyramid.get_state() == "in_room":
+                base = base + " A miniature pyramid of solid gold rests here."
+            if self.rug.get_location() == r and self.rug.get_state() == "in_room" and not self.dragon.is_alive():
+                base = base + " A magnificent Persian rug lies on the floor."
+            if self.coins.get_location() == r and self.coins.get_state() == "in_room":
+                base = base + " A pile of rare coins glints here."
+            if self.statuette.get_location() == r and self.statuette.get_state() == "in_room":
+                base = base + " A delicate jade statuette rests in the corner."
             return base
         }
 
@@ -2356,6 +2427,60 @@
                     self.player.take(self.PEARL_ID)
                     return "Taken."
                 return "There is no pearl here."
+            elif name == "vase":
+                if self.vase.try_take(room):
+                    self.player.take(self.VASE_ID)
+                    return "Taken. (handle with care.)"
+                return "There is no vase here."
+            elif name == "eggs":
+                if self.eggs.try_take(room):
+                    self.player.take(self.EGGS_ID)
+                    return "Taken."
+                return "There are no eggs here."
+            elif name == "trident":
+                if self.trident.try_take(room):
+                    self.player.take(self.TRIDENT_ID)
+                    return "Taken."
+                return "There is no trident here."
+            elif name == "emerald":
+                if self.emerald.try_take(room):
+                    self.player.take(self.EMERALD_ID)
+                    return "Taken."
+                return "There is no emerald here."
+            elif name == "spices":
+                if self.spices.try_take(room):
+                    self.player.take(self.SPICES_ID)
+                    return "Taken."
+                return "There are no spices here."
+            elif name == "chest":
+                if self.chest.try_take(room):
+                    self.player.take(self.CHEST_ID)
+                    return "Taken."
+                return "There is no chest here."
+            elif name == "pyramid":
+                if self.pyramid.try_take(room):
+                    self.player.take(self.PYRAMID_ID)
+                    return "Taken."
+                return "There is no pyramid here."
+            elif name == "rug":
+                # The rug is under the dragon. Only takeable
+                # after the dragon is dead. Cross-FSM gate.
+                if self.dragon.is_alive() and room == self.DRAGON_ROOM:
+                    return "The dragon is sleeping on the rug. You'd best deal with it first."
+                if self.rug.try_take(room):
+                    self.player.take(self.RUG_ID)
+                    return "Taken. The Persian rug is exquisite."
+                return "There is no rug here."
+            elif name == "coins":
+                if self.coins.try_take(room):
+                    self.player.take(self.COINS_ID)
+                    return "Taken."
+                return "There are no coins here."
+            elif name == "statuette":
+                if self.statuette.try_take(room):
+                    self.player.take(self.STATUETTE_ID)
+                    return "Taken."
+                return "There is no statuette here."
             return "I don't see that here."
         }
 
@@ -2378,6 +2503,36 @@
             elif name == "pearl":
                 outcome = self.pearl.try_drop(room)
                 item_id = self.PEARL_ID
+            elif name == "vase":
+                outcome = self.vase.try_drop(room)
+                item_id = self.VASE_ID
+            elif name == "eggs":
+                outcome = self.eggs.try_drop(room)
+                item_id = self.EGGS_ID
+            elif name == "trident":
+                outcome = self.trident.try_drop(room)
+                item_id = self.TRIDENT_ID
+            elif name == "emerald":
+                outcome = self.emerald.try_drop(room)
+                item_id = self.EMERALD_ID
+            elif name == "spices":
+                outcome = self.spices.try_drop(room)
+                item_id = self.SPICES_ID
+            elif name == "chest":
+                outcome = self.chest.try_drop(room)
+                item_id = self.CHEST_ID
+            elif name == "pyramid":
+                outcome = self.pyramid.try_drop(room)
+                item_id = self.PYRAMID_ID
+            elif name == "rug":
+                outcome = self.rug.try_drop(room)
+                item_id = self.RUG_ID
+            elif name == "coins":
+                outcome = self.coins.try_drop(room)
+                item_id = self.COINS_ID
+            elif name == "statuette":
+                outcome = self.statuette.try_drop(room)
+                item_id = self.STATUETTE_ID
             else:
                 return "You aren't carrying that."
 
@@ -2538,11 +2693,23 @@
         # is mechanical (one named instance + one branch in
         # _take_treasure_by_name + _drop_treasure_by_name +
         # treasures_deposited / total_score).
-        gold     = @@Treasure(2,  5)    # debris room
-        silver   = @@Treasure(4,  5)    # Y2 marker
-        diamonds = @@Treasure(8,  10)   # dragon cavern
-        jewelry  = @@Treasure(11, 10)   # beyond troll bridge
-        pearl    = @@Treasure(6,  15)   # Plover Room (only via PLOVER magic)
+        gold      = @@Treasure(2,   5)   # debris room
+        silver    = @@Treasure(4,   5)   # Y2 marker
+        diamonds  = @@Treasure(8,  10)   # dragon cavern (under dragon? — simplified: just there)
+        jewelry   = @@Treasure(11, 10)   # beyond troll bridge
+        pearl     = @@Treasure(6,  15)   # Plover Room (only via PLOVER magic)
+        # Deep cave treasures — accessible after crossing the
+        # troll bridge. Rooms 12-22 form the deep-cave loop.
+        vase      = @@Treasure(13, 14)   # Oriental Room
+        eggs      = @@Treasure(14, 14)   # Giant Room
+        trident   = @@Treasure(15, 14)   # Sapphire Hallway
+        emerald   = @@Treasure(16, 14)   # Vast Hall
+        spices    = @@Treasure(17, 14)   # Alcove
+        chest     = @@Treasure(18, 14)   # Chest Room (pirate's loot)
+        pyramid   = @@Treasure(19, 14)   # Pyramid Chamber
+        rug       = @@Treasure(8,  14)   # under dragon (same room — drops once dragon dies)
+        coins     = @@Treasure(20, 10)   # Coin Niche
+        statuette = @@Treasure(21, 10)   # Sloping Passage
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
@@ -2556,6 +2723,16 @@
         DIAMONDS_ID: int = 112
         JEWELRY_ID: int = 113
         PEARL_ID: int = 114
+        VASE_ID: int = 115
+        EGGS_ID: int = 116
+        TRIDENT_ID: int = 117
+        EMERALD_ID: int = 118
+        SPICES_ID: int = 119
+        CHEST_ID: int = 120
+        PYRAMID_ID: int = 121
+        RUG_ID: int = 122
+        COINS_ID: int = 123
+        STATUETTE_ID: int = 124
         BIRD_HOME_ROOM: int = 5
         SNAKE_ROOM: int = 7
         DRAGON_ROOM: int = 8

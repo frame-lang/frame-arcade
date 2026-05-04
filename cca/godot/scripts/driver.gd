@@ -44,6 +44,16 @@ const SILVER_ID := 111
 const DIAMONDS_ID := 112
 const JEWELRY_ID := 113
 const PEARL_ID := 114
+const VASE_ID := 115
+const EGGS_ID := 116
+const TRIDENT_ID := 117
+const EMERALD_ID := 118
+const SPICES_ID := 119
+const CHEST_ID := 120
+const PYRAMID_ID := 121
+const RUG_ID := 122
+const COINS_ID := 123
+const STATUETTE_ID := 124
 
 # ------------------------------------------------------------
 # Maze topology
@@ -52,18 +62,29 @@ const PEARL_ID := 114
 # directions, plus contextual ones (in/out, up/down).
 #
 # Mapping intent:
-#   0  Outside cave entrance   (lit, surface)
-#   1  Inside well house        (lit; DEPOSIT_ROOM)
-#   2  Debris room               (dark; gold treasure)
-#   3  Cave entrance corridor    (dark; transit)
-#   4  Y2 marker                 (dark; silver, magic-word hub)
-#   5  Bird chamber              (dark; bird)
-#   6  Plover Room               (dark; pearl; magic-word access only)
-#   7  End of long passage       (dark; snake blocking east)
-#   8  Stone dragon cavern       (dark; dragon, diamonds)
-#   9  Bedquilt / bear chamber   (dark; bear, chain)
-#   10 Troll bridge              (dark; troll blocking east)
-#   11 Beyond the bridge         (dark; jewelry)
+#   0  End of road / outside building   (lit, surface)
+#   1  Inside well house                 (lit; DEPOSIT_ROOM)
+#   2  Debris room                       (dark; gold)
+#   3  Cave entrance corridor            (dark; transit)
+#   4  Y2 marker                         (dark; silver; magic-word hub)
+#   5  Bird chamber                      (dark; bird)
+#   6  Plover Room                       (dark; pearl; magic-word access only)
+#   7  End of long passage               (dark; snake blocking east)
+#   8  Stone dragon cavern               (dark; dragon, diamonds, rug)
+#   9  Bedquilt / bear chamber           (dark; bear, chain)
+#   10 Troll bridge                      (dark; troll blocking east)
+#   11 Beyond the bridge                 (dark; jewelry)
+#   12 Cobble crawl                      (dark; transit to deep cave)
+#   13 Oriental Room                     (dark; vase)
+#   14 Giant Room                        (dark; eggs)
+#   15 Sapphire Hallway                  (dark; trident)
+#   16 Vast Hall                         (dark; emerald)
+#   17 Alcove                            (dark; spices)
+#   18 Chest Room                        (dark; chest)
+#   19 Pyramid Chamber                   (dark; pyramid)
+#   20 Coin Niche                        (dark; coins)
+#   21 Sloping Passage                   (dark; statuette)
+#   22 Repository                        (endgame destination)
 #
 # Magic-word teleports (handled by the FSM's MagicWordTeleport
 # aspect, not these tables):
@@ -83,7 +104,20 @@ var room_exits: Dictionary = {
     8:  {"west": 7, "north": 9},
     9:  {"south": 8, "east": 10, "west": 4},
     10: {"west": 9, "east": 11},              # troll-east gated below
-    11: {"west": 10},
+    11: {"west": 10, "east": 12},
+    # Deep cave loop — accessible after crossing troll bridge.
+    # Linear chain east-west with each room hosting a treasure.
+    12: {"west": 11, "east": 13},
+    13: {"west": 12, "east": 14},
+    14: {"west": 13, "east": 15},
+    15: {"west": 14, "east": 16},
+    16: {"west": 15, "east": 17},
+    17: {"west": 16, "east": 18},
+    18: {"west": 17, "east": 19},
+    19: {"west": 18, "east": 20},
+    20: {"west": 19, "east": 21},
+    21: {"west": 20},
+    22: {},                                  # Repository — terminal endgame room
 }
 
 # Movements that require a clear NPC to traverse. Each entry:
@@ -332,14 +366,17 @@ func _check_pirate_steal() -> void:
         return
     if fsm.pirate_try_steal():
         _pirate_already_stole = true
-        _println("[color=#cc8855][i]A bearded pirate appears, takes one of your treasures, and vanishes with a snicker![/i][/color]")
+        _println("[color=#cc8855][i]A bearded pirate appears out of the gloom, snatches one of your treasures, and vanishes with a snicker![/i][/color]")
         # Drop the first treasure we find in inventory
-        for tid in [GOLD_ID, SILVER_ID, DIAMONDS_ID, JEWELRY_ID, PEARL_ID]:
+        for tid in [GOLD_ID, SILVER_ID, DIAMONDS_ID, JEWELRY_ID, PEARL_ID,
+                    VASE_ID, EGGS_ID, TRIDENT_ID, EMERALD_ID, SPICES_ID,
+                    CHEST_ID, PYRAMID_ID, RUG_ID, COINS_ID, STATUETTE_ID]:
             if fsm.player.carrying(tid):
                 fsm.player.drop(tid)
-                # We don't track where stolen treasures go in
-                # this prototype — real CCA puts them in a
-                # chest room; here we just remove from player.
+                # Real CCA puts stolen treasures in the chest
+                # room; this prototype just removes them from
+                # carry. The Treasure FSM still thinks it's in
+                # the player's last-known room — TODO: fix.
                 break
 
 func _check_lamp_warnings() -> void:
@@ -379,13 +416,23 @@ func _print_room() -> void:
 # ============================================================
 func _format_inventory() -> String:
     var items: Array = []
-    if fsm.player.carrying(BIRD_ID):     items.append("a small bird")
-    if fsm.player.carrying(CHAIN_ID):    items.append("the bear's chain")
-    if fsm.player.carrying(GOLD_ID):     items.append("a gold nugget")
-    if fsm.player.carrying(SILVER_ID):   items.append("silver bars")
-    if fsm.player.carrying(DIAMONDS_ID): items.append("diamonds")
-    if fsm.player.carrying(JEWELRY_ID):  items.append("fine jewelry")
-    if fsm.player.carrying(PEARL_ID):    items.append("a pearl")
+    if fsm.player.carrying(BIRD_ID):      items.append("a small bird")
+    if fsm.player.carrying(CHAIN_ID):     items.append("the bear's chain")
+    if fsm.player.carrying(GOLD_ID):      items.append("a gold nugget")
+    if fsm.player.carrying(SILVER_ID):    items.append("silver bars")
+    if fsm.player.carrying(DIAMONDS_ID):  items.append("diamonds")
+    if fsm.player.carrying(JEWELRY_ID):   items.append("fine jewelry")
+    if fsm.player.carrying(PEARL_ID):     items.append("a pearl")
+    if fsm.player.carrying(VASE_ID):      items.append("a Ming vase")
+    if fsm.player.carrying(EGGS_ID):      items.append("a nest of golden eggs")
+    if fsm.player.carrying(TRIDENT_ID):   items.append("a jewel-encrusted trident")
+    if fsm.player.carrying(EMERALD_ID):   items.append("an enormous emerald")
+    if fsm.player.carrying(SPICES_ID):    items.append("rare spices")
+    if fsm.player.carrying(CHEST_ID):     items.append("a treasure chest")
+    if fsm.player.carrying(PYRAMID_ID):   items.append("a golden pyramid")
+    if fsm.player.carrying(RUG_ID):       items.append("a Persian rug")
+    if fsm.player.carrying(COINS_ID):     items.append("rare coins")
+    if fsm.player.carrying(STATUETTE_ID): items.append("a jade statuette")
     if items.is_empty():
         return "You aren't carrying anything."
     return "You are carrying: " + ", ".join(items) + "."
