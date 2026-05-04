@@ -280,6 +280,15 @@
                 # at the end of their own tick handlers.
             }
 
+            # Default refresh: top up battery, drop to $Bright.
+            # Children may override (e.g., $Out adds a clear-
+            # warning + transition into $Bright).
+            refresh() {
+                self.battery = self.MAX_BATTERY
+                self.last_warning = ""
+                -> $Bright
+            }
+
             get_state(): String    { @@:("on") }
             is_lit(): bool         { @@:(true) }
             battery_left(): int    { @@:(self.battery) }
@@ -1958,6 +1967,72 @@
 
 
 # ------------------------------------------------------------
+# VendingMachine
+# ------------------------------------------------------------
+# Canon CCA Easter egg: at the Vending Machine Room (95) the
+# player can insert the rare-coins treasure to receive fresh
+# batteries. Two-state FSM with a single side-effect-bearing
+# transition. Adventure brokers the cross-FSM choreography:
+#   - removes coins from the player's inventory
+#   - relocates coins out of bounds (consuming them; player
+#     loses the points they'd score by depositing them at the
+#     well house, which is the actual puzzle decision)
+#   - calls lamp.refresh() so the new batteries take effect
+#
+# Why this earns a tiny FSM rather than a single function:
+# the Empty-after-use state matters for repeat behavior — once
+# the machine has been used, inserting more coins (somehow) is
+# not the canon behavior, and a $Used state is easier to read
+# than a `vending_used: bool` flag scattered through Adventure.
+# Also: this is the first Frame system that demonstrates
+# *consume-an-item* as a transition outcome, vs the existing
+# patterns of relocate (Pirate/Treasure) or transition-only
+# (CrystalBridge/Grate).
+#
+# State diagram:
+#
+#   $Loaded ── insert(have_coins=true)  ──► $Empty
+#   $Empty                                  terminal
+# ------------------------------------------------------------
+@@[persist]
+@@system VendingMachine : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        insert(have_coins: bool): String
+        get_state(): String
+        is_loaded(): bool
+
+    machine:
+
+        $Loaded {
+            insert(have_coins: bool): String  {
+                if have_coins:
+                    -> $Empty
+                    @@:return("The vending machine clanks twice and dispenses a fresh set of lamp batteries.")
+                @@:("You don't have any coins to insert.")
+            }
+            get_state(): String      { @@:("loaded") }
+            is_loaded(): bool        { @@:(true) }
+        }
+
+        $Empty {
+            insert(have_coins: bool): String  {
+                @@:("The vending machine is empty. The hand-lettered sign now reads 'OUT OF BATTERIES'.")
+            }
+            get_state(): String      { @@:("empty") }
+            is_loaded(): bool        { @@:(false) }
+        }
+}
+
+
+# ------------------------------------------------------------
 # Pirate
 # ------------------------------------------------------------
 # Three-state probabilistic encounter, similar in shape to a
@@ -2238,6 +2313,7 @@
         rod_in_inventory(): bool
         grate_locked(): bool
         keys_in_inventory(): bool
+        vending_loaded(): bool
 
     machine:
 
@@ -2591,6 +2667,7 @@
             rod_in_inventory(): bool   { @@:(self.rod_carried) }
             grate_locked(): bool       { @@:(self.grate.is_locked()) }
             keys_in_inventory(): bool  { @@:(self.keys_carried) }
+            vending_loaded(): bool     { @@:(self.vending.is_loaded()) }
 
             treasures_deposited(): int {
                 var n: int = 0
@@ -2729,6 +2806,8 @@
                 return self._verb_unlock(noun)
             elif verb == "lock":
                 return self._verb_lock(noun)
+            elif verb == "insert" or verb == "use":
+                return self._verb_insert(noun)
             elif verb == "fee" or verb == "fie" or verb == "foe" or verb == "foo":
                 return self._verb_chant(verb)
             elif verb == "xyzzy" or verb == "plugh" or verb == "plover":
@@ -2992,7 +3071,11 @@
             elif r == 92:
                 base = "You are in a different soft passage. The floor is sand; your footfalls leave no echo."
             elif r == 95:
-                base = "You are in a small chamber containing a battered vending machine with a hand-lettered sign: 'BATTERIES — 25 CENTS — IT WORKS NO REFUNDS'. There is no obvious way to insert a coin."
+                base = "You are in a small chamber containing a battered vending machine with a hand-lettered sign: 'BATTERIES — 25 CENTS — IT WORKS NO REFUNDS'."
+                if self.vending.is_loaded():
+                    base = base + " A coin slot gleams faintly. (Try INSERT COINS.)"
+                else:
+                    base = base + " A second hand-lettered sign over the slot now reads: 'OUT OF BATTERIES'."
             elif r == 101:
                 base = "You are in a different forest, far to the east. The trees are unfamiliar."
             elif r == 102:
@@ -3491,6 +3574,33 @@
             return self.grate.lock()
         }
 
+        _verb_insert(noun: String): String {
+            # Insert coins into the vending machine. Cross-FSM
+            # choreography: VendingMachine handles its own state
+            # transition; Adventure removes the coins from the
+            # player and refreshes the lamp on success.
+            if noun != "coins" and noun != "coin":
+                return "You can't insert that."
+            if self.player.get_room() != self.VENDING_ROOM:
+                return "There's nothing here to insert into."
+            # Defer to the vending FSM. We snapshot the
+            # before-state so we can detect a successful
+            # transition vs an already-empty machine. The FSM's
+            # message itself is canonical for both branches.
+            var was_loaded: bool = self.vending.is_loaded()
+            var carrying_coins: bool = self.player.carrying(self.COINS_ID)
+            var msg: String = self.vending.insert(carrying_coins)
+            if was_loaded and carrying_coins and not self.vending.is_loaded():
+                # Successful trade. Consume the coins (drop from
+                # inventory and relocate to room 0 — out of
+                # bounds, no overlay, not deposited) and refresh
+                # the lamp.
+                self.player.drop(self.COINS_ID)
+                self.coins.reappear(0)
+                self.lamp.refresh()
+            return msg
+        }
+
         _attack_dwarf_in_current(): String {
             # Inline copy of attack_dwarf_in_room's logic so
             # the verb handler can call it as an action. We
@@ -3663,6 +3773,12 @@
         # the cross-cuts.
         grate = @@Grate()
 
+        # The Vending Machine in room 95 — canon's pre-endgame
+        # Easter egg. Trade rare coins for fresh lamp batteries
+        # (and lose the points the coins would score at the well
+        # house — that's the puzzle decision).
+        vending = @@VendingMachine()
+
         # Five treasures, each in its home room with a value.
         # Real CCA has 15; we model the canonical lifecycle on
         # this subset to keep the maze manageable. Adding more
@@ -3728,6 +3844,7 @@
         FISSURE_ROOM: int = 17        # east of fissure
         GRATE_ROOM: int = 8           # depression with the steel grate
         KEYS_HOME_ROOM: int = 3       # well house
+        VENDING_ROOM: int = 95        # vending machine room
         ROD_HOME_ROOM: int = 11       # debris room — same as gold
         ROD_ID: int = 130
         KEYS_ID: int = 131

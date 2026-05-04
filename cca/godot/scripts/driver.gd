@@ -734,7 +734,7 @@ func _print_help() -> void:
 [b]Looking:[/b] LOOK (L), EXAMINE <thing> (X), READ <thing>.
 [b]Items:[/b]   TAKE <thing>, DROP <thing>, INVENTORY (I).
 [b]Combat:[/b]  ATTACK <foe>, THROW AXE.
-[b]Special:[/b] LIGHT (lamp), EXTINGUISH, FEED BEAR, RELEASE BIRD, WAVE ROD, UNLOCK GRATE.
+[b]Special:[/b] LIGHT (lamp), EXTINGUISH, FEED BEAR, RELEASE BIRD, WAVE ROD, UNLOCK GRATE, INSERT COINS.
 [b]Magic:[/b]   XYZZY, PLUGH, PLOVER (in the right places).
 [b]Chants:[/b]  FEE / FIE / FOE / FOO (in sequence).
 [b]Meta:[/b]    SAVE, LOAD, SCORE, HINT [name], QUIT.
