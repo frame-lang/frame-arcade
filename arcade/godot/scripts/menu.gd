@@ -82,7 +82,7 @@ func _build_ui() -> void:
 
     # Subtitle
     label_subtitle = Label.new()
-    label_subtitle.text = "seven classic arcade games as Frame state machines"
+    label_subtitle.text = "eight arcade games + a colossal cave adventure, all as Frame state machines"
     label_subtitle.add_theme_font_size_override("font_size", 14)
     label_subtitle.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
     label_subtitle.position = Vector2(0, 110)

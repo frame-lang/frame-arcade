@@ -88,6 +88,13 @@ const GAMES: Array = [
         "scene": "res://scenes/games/stealth.tscn",
         "blurb": "Agent AI — Frame as an alternative to behavior trees",
     },
+    {
+        "title": "9. Colossal Cave Adventure",
+        "name": "cca",
+        "scored": false,
+        "scene": "res://scenes/games/cca.tscn",
+        "blurb": "Capstone — 24 FSMs, 140 rooms, aspect bus + cross-FSM orchestration",
+    },
 ]
 
 # Live Scoreboard instance. Populated in _ready, persisted on

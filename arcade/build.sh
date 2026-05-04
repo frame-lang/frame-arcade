@@ -37,7 +37,9 @@ for entry in \
     "ch05-pacman:pacman" \
     "ch06-platformer:platformer" \
     "ch07-shooter:shooter" \
-    "ch08-stealth:stealth"
+    "ch08-stealth:stealth" \
+    "cca:aspects" \
+    "cca:cca"
 do
     chapter="${entry%%:*}"
     name="${entry##*:}"

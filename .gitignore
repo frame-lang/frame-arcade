@@ -12,8 +12,10 @@ ch??-*/generated/
 cca/generated/
 
 # generated game scripts (mixed with hand-written drivers in same dirs, so listed explicitly)
+arcade/godot/scripts/aspects.gd
 arcade/godot/scripts/asteroids.gd
 arcade/godot/scripts/breakout.gd
+arcade/godot/scripts/cca.gd
 arcade/godot/scripts/invaders.gd
 arcade/godot/scripts/pacman.gd
 arcade/godot/scripts/platformer.gd
