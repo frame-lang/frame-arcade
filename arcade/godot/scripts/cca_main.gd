@@ -399,28 +399,6 @@ func _ready() -> void:
     else:
         _print_welcome()
         _print_room()
-    # Whenever GUI focus changes, snap it back to the LineEdit
-    # unless the exit dialog is up. has_focus() can lie when
-    # focus has migrated to the viewport itself, so this signal
-    # is the most reliable hook.
-    get_viewport().gui_focus_changed.connect(_on_focus_changed)
-
-func _process(_delta: float) -> void:
-    # Bolt focus to the input box. Per-frame unconditional
-    # grab_focus — has_focus() can return true while keystrokes
-    # are routing somewhere else, so we don't gate on it.
-    # Idempotent: grabbing focus when you already have it is a
-    # no-op.
-    if input != null and not exit_dialog.is_open():
-        input.grab_focus()
-
-func _on_focus_changed(control: Control) -> void:
-    # Anything focusable in this scene other than the LineEdit
-    # is a mistake (or the exit dialog). Snap focus back.
-    if exit_dialog == null or exit_dialog.is_open():
-        return
-    if input != null and control != input:
-        input.call_deferred("grab_focus")
 
 func _build_ui() -> void:
     set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -468,6 +446,13 @@ func _build_ui() -> void:
     input.add_theme_font_size_override("font_size", 16)
     input.placeholder_text = "type a command (LOOK, NORTH, TAKE GOLD, HELP, ...)"
     input.text_submitted.connect(_on_text_submitted)
+    # Godot 4.4+ added `keep_editing_on_text_submit`, defaulting
+    # to false — every Enter press kicks the LineEdit out of
+    # editing mode even though it stays focused. Without this
+    # the player has to press Enter (or click) again before each
+    # new command. See:
+    #   https://github.com/godotengine/godot/issues/101434
+    input.keep_editing_on_text_submit = true
     prompt_row.add_child(input)
 
     input.grab_focus()
