@@ -660,40 +660,27 @@
                 var verb: String = event.get("verb", "")
                 var room: int = event.get("room", -1)
 
-                # framec note (TODO file as bug): the nested-call
-                # form `@@:return(self._teleport(event, N))` drops
-                # the closing paren in generated GDScript at the
-                # _teleport call site. Reformulating with a local
-                # var avoids the codegen bug. When framec is
-                # patched, fold these back into single-line
-                # @@:return(self._teleport(...)) calls.
-
                 # XYZZY: pairs room 0 ↔ room 2 (cave ↔ debris).
+                # In real CCA: outside-building ↔ debris-room.
                 if verb == "xyzzy":
                     if room == 0:
-                        var r: Dictionary = self._teleport(event, 2)
-                        @@:return(r)
+                        @@:return(self._teleport(event, 2))
                     elif room == 2:
-                        var r: Dictionary = self._teleport(event, 0)
-                        @@:return(r)
+                        @@:return(self._teleport(event, 0))
 
                 # PLUGH: pairs room 0 ↔ room 4 (cave ↔ Y2).
                 if verb == "plugh":
                     if room == 0:
-                        var r: Dictionary = self._teleport(event, 4)
-                        @@:return(r)
+                        @@:return(self._teleport(event, 4))
                     elif room == 4:
-                        var r: Dictionary = self._teleport(event, 0)
-                        @@:return(r)
+                        @@:return(self._teleport(event, 0))
 
                 # PLOVER: pairs room 4 ↔ room 6 (Y2 ↔ Plover).
                 if verb == "plover":
                     if room == 4:
-                        var r: Dictionary = self._teleport(event, 6)
-                        @@:return(r)
+                        @@:return(self._teleport(event, 6))
                     elif room == 6:
-                        var r: Dictionary = self._teleport(event, 4)
-                        @@:return(r)
+                        @@:return(self._teleport(event, 4))
 
                 # Unrecognized or wrong-room: pass through.
                 # Base handler returns "Nothing happens."
@@ -1056,6 +1043,120 @@
 
 
 # ------------------------------------------------------------
+# Dwarf (parameterized × 5)
+# ------------------------------------------------------------
+# Five identical instances composed under different seeds so
+# their probabilistic outcomes (axe-throw rolls, eventually
+# axe-hit-back rolls) diverge predictably. This is the
+# parameterized-systems-with-multiple-instances pattern that
+# Pac-Man's ghosts and Stealth's guards demonstrated; CCA's
+# dwarves are the third application of it in this repo.
+#
+# State diagram (per dwarf):
+#
+#   $Hidden ── wake_up(room) ──► $Stalking
+#   $Stalking ── attack() ──► $Dead    (probabilistic, 70%
+#                                       chance per attempt;
+#                                       seed makes it
+#                                       reproducible across
+#                                       save/restore)
+#   $Stalking ── flee() ──► $Hidden    (rare; in real CCA the
+#                                       dwarves vanish into
+#                                       the gloom occasionally)
+#
+# Why 5 instances rather than an Array of dwarves: framec
+# auto-traverses *named* domain fields (`dwarf1`, `dwarf2`, …)
+# for @@[persist], not generic Array<@@system>. Same constraint
+# that drove AspectBus to hold name strings instead of system
+# references. With named fields, the persistence story is
+# automatic; the trade-off is a small if-ladder in Adventure
+# to dispatch attacks to whichever dwarf is in the player's
+# current room.
+#
+# Determinism: probabilistic outcomes use a per-dwarf seed +
+# step counter. Same seed, same number of attacks → same
+# outcomes. Save/restore round-trips the seed and step, so
+# replay from a saved point is byte-identical.
+#
+# Determinism: probabilistic outcomes use a per-dwarf seed +
+# step counter. Same seed, same number of attacks → same
+# outcomes. Save/restore round-trips the seed and step, so
+# replay from a saved point is byte-identical.
+# ------------------------------------------------------------
+@@[persist]
+@@system Dwarf(seed: int) : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        wake_up(at_room: int)
+        attack()       # player attacks dwarf — may kill
+        flee()         # dwarf disengages
+        get_state(): String
+        get_room(): int
+        get_seed(): int
+        get_step(): int
+
+    machine:
+
+        $Hidden {
+            wake_up(at_room: int) {
+                self.room = at_room
+                -> $Stalking
+            }
+            get_state(): String { @@:("hidden") }
+            get_room(): int     { @@:(-1) }
+            get_seed(): int     { @@:(self.seed) }
+            get_step(): int     { @@:(self.step) }
+        }
+
+        $Stalking {
+            attack() {
+                # Roll a deterministic pseudo-random in [0,100).
+                # Seeded by (seed, step) so replays from a saved
+                # game produce identical outcomes. 70% kill rate
+                # matches roughly canonical CCA odds.
+                self.step = self.step + 1
+                var x: int = self.seed * 1664525 + self.step * 1013904223
+                x = ((x >> 16) ^ x) * 22695477
+                x = x & 0xffffffff
+                var roll: int = x % 100
+                if roll < 70:
+                    -> $Dead
+                # else: dwarf survives the attack and stays
+                # stalking. Real CCA has the dwarf throw an
+                # axe back; modeling that is a future hook.
+            }
+            flee() {
+                -> $Hidden
+            }
+            get_state(): String { @@:("stalking") }
+            get_room(): int     { @@:(self.room) }
+            get_seed(): int     { @@:(self.seed) }
+            get_step(): int     { @@:(self.step) }
+        }
+
+        $Dead {
+            # Terminal. The player's axe-throw connected.
+            get_state(): String { @@:("dead") }
+            get_room(): int     { @@:(-1) }
+            get_seed(): int     { @@:(self.seed) }
+            get_step(): int     { @@:(self.step) }
+        }
+
+    domain:
+        seed: int = seed
+        room: int = -1
+        step: int = 0
+}
+
+
+# ------------------------------------------------------------
 # ScoreLedger (aspect)
 # ------------------------------------------------------------
 # Demonstrates the *observe* verdict. ScoreLedger watches
@@ -1192,6 +1293,11 @@
         troll_state(): String
         troll_blocking(): bool
 
+        # Dwarves (5 parameterized instances).
+        wake_dwarves()
+        attack_dwarf_in_room(): String        # tries the dwarf at player's location
+        living_dwarves(): int
+
     machine:
 
         $Playing {
@@ -1289,6 +1395,68 @@
             bear_dangerous(): bool            { @@:(self.bear.is_dangerous()) }
             troll_state(): String             { @@:(self.troll.get_state()) }
             troll_blocking(): bool            { @@:(self.troll.is_blocking_bridge()) }
+
+            wake_dwarves() {
+                # Spread the five dwarves across the dwarf
+                # territory rooms (11..15). Real CCA wakes
+                # them probabilistically as the player wanders;
+                # this is the deterministic version for testing.
+                self.dwarf1.wake_up(11)
+                self.dwarf2.wake_up(12)
+                self.dwarf3.wake_up(13)
+                self.dwarf4.wake_up(14)
+                self.dwarf5.wake_up(15)
+            }
+
+            attack_dwarf_in_room(): String {
+                var r: int = self.player.get_room()
+                # The if-ladder version of "find the right
+                # parameterized instance." 5 branches; small
+                # enough that the lack of array iteration
+                # doesn't hurt. Same shape as the bus's
+                # _dispatch_to.
+                if self.dwarf1.get_state() == "stalking" and self.dwarf1.get_room() == r:
+                    self.dwarf1.attack()
+                    if self.dwarf1.get_state() == "dead":
+                        @@:return("You killed dwarf 1.")
+                    @@:return("Your axe missed dwarf 1.")
+                elif self.dwarf2.get_state() == "stalking" and self.dwarf2.get_room() == r:
+                    self.dwarf2.attack()
+                    if self.dwarf2.get_state() == "dead":
+                        @@:return("You killed dwarf 2.")
+                    @@:return("Your axe missed dwarf 2.")
+                elif self.dwarf3.get_state() == "stalking" and self.dwarf3.get_room() == r:
+                    self.dwarf3.attack()
+                    if self.dwarf3.get_state() == "dead":
+                        @@:return("You killed dwarf 3.")
+                    @@:return("Your axe missed dwarf 3.")
+                elif self.dwarf4.get_state() == "stalking" and self.dwarf4.get_room() == r:
+                    self.dwarf4.attack()
+                    if self.dwarf4.get_state() == "dead":
+                        @@:return("You killed dwarf 4.")
+                    @@:return("Your axe missed dwarf 4.")
+                elif self.dwarf5.get_state() == "stalking" and self.dwarf5.get_room() == r:
+                    self.dwarf5.attack()
+                    if self.dwarf5.get_state() == "dead":
+                        @@:return("You killed dwarf 5.")
+                    @@:return("Your axe missed dwarf 5.")
+                @@:("There's no dwarf here.")
+            }
+
+            living_dwarves(): int {
+                var n: int = 0
+                if self.dwarf1.get_state() != "dead":
+                    n = n + 1
+                if self.dwarf2.get_state() != "dead":
+                    n = n + 1
+                if self.dwarf3.get_state() != "dead":
+                    n = n + 1
+                if self.dwarf4.get_state() != "dead":
+                    n = n + 1
+                if self.dwarf5.get_state() != "dead":
+                    n = n + 1
+                @@:(n)
+            }
         }
 
     actions:
@@ -1514,6 +1682,17 @@
         snake = @@Snake()
         bear = @@Bear()
         troll = @@Troll()
+
+        # Five dwarves, each with a distinct seed so their
+        # probabilistic axe-throw outcomes diverge. The seed
+        # is a constructor parameter on the Dwarf system; this
+        # is the parameterized-system-with-multiple-instances
+        # pattern (chapter 5's ghosts, chapter 8's guards).
+        dwarf1 = @@Dwarf(1)
+        dwarf2 = @@Dwarf(2)
+        dwarf3 = @@Dwarf(3)
+        dwarf4 = @@Dwarf(4)
+        dwarf5 = @@Dwarf(5)
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
