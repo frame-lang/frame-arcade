@@ -1,12 +1,14 @@
 # Colossal Cave Adventure (Frame port)
 
-> **Status:** canonical scope complete. 22 rooms, 15 treasures,
+> **Status:** canonical scope complete. 25 rooms, 15 treasures,
 > 6 NPCs (bird, snake, dragon, bear, troll, pirate, plus 5
 > dwarves), 4 cross-cutting aspects on the bus, full CCA
-> scoring breakdown (treasure / visits / hints / endgame).
-> Save/restore round-trips the entire world. See
-> [EVALUATION.md](./EVALUATION.md) for an honest per-system
-> score on Frame's value-add.
+> scoring breakdown (treasure / visits / hints / endgame),
+> rod + crystal-bridge fissure puzzle, FEE/FIE/FOE/FOO eggs
+> incantation, fragile vase, bear/dwarf player attacks, and
+> a resurrection cycle with permadeath. Save/restore round-
+> trips the entire world. See [EVALUATION.md](./EVALUATION.md)
+> for an honest per-system score on Frame's value-add.
 
 Frame port of Crowther/Woods *Colossal Cave Adventure*. Built on
 the **aspect machines** pattern — small FSM interceptors on a
@@ -62,7 +64,7 @@ shows current treasure-deposit progress.
 ```
 frame/aspects.fgd         AspectBus + sample aspects + Conductor demo
                           (smoke-test fixture, not the game)
-frame/cca.fgd             real CCA — 17 @@system declarations
+frame/cca.fgd             real CCA — 20 @@system declarations
 generated/                framec output (gitignored)
 godot/scripts/driver.gd   text-adventure UI + parser + maze topology
 godot/scenes/main.tscn    Godot scene wiring driver to a Control node
@@ -94,25 +96,33 @@ EVALUATION.md             honest per-system Frame value-add scoring
 - `Dragon` — multi-turn parser dialog as state
 - `Dwarf × 5` — parameterized probabilistic encounter
 - `Pirate` — probabilistic threshold-activated encounter
-- `Treasure × 5` — parameterized; deposit→endgame chain
+- `Treasure × 15` — parameterized; deposit→endgame chain;
+  fragile flag for the vase (`$Broken` shatter state)
 - `Endgame` — multi-stage HSM with state-variable timer
 - `Hint × 3` — parallel parameterized small FSMs
+- `EggsIncantation` — 4-state chant FSM (FEE/FIE/FOE/FOO);
+  Adventure observes completion and summons eggs back
+- `CrystalBridge` — 2-state toggle FSM gating the fissure;
+  `wave()` only fires from Adventure when player has the rod
 
-**Total**: 17 `@@system` declarations, ~2900 lines of Frame
-source, ~7500 lines of generated GDScript. Eight smoke test
-files, ~230 individual checks, all PASS.
+**Total**: 20 `@@system` declarations, ~3300 lines of Frame
+source, ~9700 lines of generated GDScript. Fifteen smoke
+test files, ~280 individual checks, all PASS.
 
 ## Driver layer
 
-The driver (`godot/scripts/driver.gd`) is one ~340-line file:
+The driver (`godot/scripts/driver.gd`) is one ~580-line file:
 
-- Maze topology (12 rooms, named exits, gated passages)
+- Maze topology (25 rooms, named exits, gated passages
+  including snake/troll/crystal-bridge gates)
 - Verb-noun parser with synonym table + article stripping
 - UI verbs (HELP, SCORE, INVENTORY, HINT, SAVE, LOAD, QUIT)
   routed driver-side
 - Game verbs routed to `Adventure.do_command(verb, noun)`
-- Per-turn upkeep: lamp warnings, endgame phase transitions,
-  pirate steal events, room re-print on movement
+- Per-turn upkeep: lamp warnings, endgame phase transitions
+  (with closing-warning crescendo), pirate steal events,
+  dwarf-axe surfacing, resurrection prompt on player death,
+  room re-print on movement
 
 The driver doesn't use Frame — it's deliberately plain GDScript
 that bridges the player to the FSM. The "Frame is the brain,
@@ -137,9 +147,12 @@ godot --headless --path godot/ --script /tmp/test_cca_dwarves.gd
 godot --headless --path godot/ --script /tmp/test_cca_endgame.gd
 godot --headless --path godot/ --script /tmp/test_cca_hints.gd
 godot --headless --path godot/ --script /tmp/test_cca_dragon.gd
+godot --headless --path godot/ --script /tmp/test_cca_mechanics.gd
+godot --headless --path godot/ --script /tmp/test_cca_bridge.gd
 
 # End-to-end playthrough wiring
 godot --headless --path godot/ --script /tmp/test_cca_playthrough.gd
+godot --headless --path godot/ --script /tmp/test_cca_full.gd
 ```
 
 The playthrough test exercises the canonical solve path

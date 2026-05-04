@@ -85,6 +85,9 @@ const STATUETTE_ID := 124
 #   20 Coin Niche                        (dark; coins)
 #   21 Sloping Passage                   (dark; statuette)
 #   22 Repository                        (endgame destination)
+#   23 Small pit                         (dark; rod-puzzle approach)
+#   24 Fissure                           (dark; gated by crystal bridge)
+#   25 Hall of Mirrors                   (dark; far side of fissure)
 #
 # Magic-word teleports (handled by the FSM's MagicWordTeleport
 # aspect, not these tables):
@@ -97,7 +100,7 @@ var room_exits: Dictionary = {
     1:  {"south": 0, "out": 0, "down": 3},
     2:  {"out": 0, "up": 0},
     3:  {"up": 0, "down": 4, "north": 4},
-    4:  {"up": 3, "south": 3, "down": 5, "east": 7, "west": 9},
+    4:  {"up": 3, "south": 3, "down": 5, "east": 7, "west": 9, "north": 23},
     5:  {"up": 4, "out": 4},
     6:  {},                                  # Plover Room — only magic exits
     7:  {"west": 4, "east": 8},               # snake-east gated below
@@ -118,6 +121,12 @@ var room_exits: Dictionary = {
     20: {"west": 19, "east": 21},
     21: {"west": 20},
     22: {},                                  # Repository — terminal endgame room
+    # Rod-puzzle branch: hangs off Y2 to the north. The fissure
+    # at room 24 is the gate; crossing east requires the crystal
+    # bridge (waved up by the rod). All three rooms are dark.
+    23: {"south": 4, "north": 24},           # Small Pit
+    24: {"south": 23, "east": 25},           # Fissure — east gated below
+    25: {"west": 24},                        # Hall of Mirrors (across the fissure)
 }
 
 # Movements that require a clear NPC to traverse. Each entry:
@@ -127,6 +136,7 @@ var room_exits: Dictionary = {
 var gated_exits: Dictionary = {
     "7:east":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
     "10:east": {"check": "troll",  "msg": "The troll bars your way until you pay tribute."},
+    "24:east": {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
 }
 
 # Verb synonym table. Maps user input to a canonical verb
@@ -361,7 +371,8 @@ func _handle_movement(direction: String) -> void:
 
     var dest: int = exits[direction]
 
-    # Gated exits — snake at room 7 east, troll at room 10 east.
+    # Gated exits — snake at room 7 east, troll at room 10 east,
+    # crystal-bridge at the fissure (room 24 east).
     var gate_key: String = "%d:%s" % [current, direction]
     if gate_key in gated_exits:
         var gate: Dictionary = gated_exits[gate_key]
@@ -369,6 +380,9 @@ func _handle_movement(direction: String) -> void:
             _println(gate.msg)
             return
         if gate.check == "troll" and fsm.troll.is_blocking_bridge():
+            _println(gate.msg)
+            return
+        if gate.check == "bridge" and not fsm.bridge_built():
             _println(gate.msg)
             return
 
@@ -439,17 +453,41 @@ func _check_player_death() -> void:
         get_tree().quit()
 
 var _last_endgame_state: String = "active"
+# Track which closing-warning thresholds have already fired so
+# we emit each one exactly once. Canon CCA escalates the warning
+# text three times during the closing phase rather than printing
+# a single message at the start.
+var _closing_warned_25: bool = false
+var _closing_warned_15: bool = false
+var _closing_warned_5:  bool = false
+
 func _check_endgame_phase_change() -> void:
     var s: String = fsm.endgame_state()
-    if s == _last_endgame_state:
-        return
-    _last_endgame_state = s
+    if s != _last_endgame_state:
+        _last_endgame_state = s
+        if s == "closing":
+            _println("[color=#cc7777][b]A sepulchral voice intones: 'The cave is closing now. Your final chance to deposit treasures has begun.'[/b][/color]")
+        elif s == "in_repository":
+            _println("[color=#cc7777][b]The cave closes shut. You are teleported to the repository — all your treasures lie at your feet, plus a single stick of dynamite. Try DETONATE.[/b][/color]")
+        elif s == "won":
+            _println("[color=#88dd88][b]You have escaped! Final score: %d. Thank you for playing.[/b][/color]" % fsm.total_score())
+
+    # Closing-phase crescendo. While in $Closing, the timer
+    # decrements each turn from CLOSING_DURATION (30) down to 0.
+    # We surface escalating prose at three thresholds — once each
+    # — so the player feels the cave winding shut around them
+    # rather than getting one alert and silence.
     if s == "closing":
-        _println("[color=#cc7777][b]A sepulchral voice intones: 'The cave is closing now. Your final chance to deposit treasures has begun.'[/b][/color]")
-    elif s == "in_repository":
-        _println("[color=#cc7777][b]The cave closes shut. You are teleported to the repository — all your treasures lie at your feet, plus a single stick of dynamite. Try DETONATE.[/b][/color]")
-    elif s == "won":
-        _println("[color=#88dd88][b]You have escaped! Final score: %d. Thank you for playing.[/b][/color]" % fsm.total_score())
+        var t: float = fsm.endgame_timer()
+        if t <= 25.0 and not _closing_warned_25:
+            _closing_warned_25 = true
+            _println("[color=#cc7777][i]A second sepulchral voice booms: 'Cave closing soon. All adventurers exit immediately through main office.'[/i][/color]")
+        if t <= 15.0 and not _closing_warned_15:
+            _closing_warned_15 = true
+            _println("[color=#cc7777][i]The walls of the cave seem to be trembling. A brilliant white light suddenly fills the cave.[/i][/color]")
+        if t <= 5.0 and not _closing_warned_5:
+            _closing_warned_5 = true
+            _println("[color=#cc7777][b]The voice intones once more: 'The cave is closing — exit through the main office NOW.' The ground shudders beneath your feet.[/b][/color]")
 
 func _maybe_print_room_after_move() -> void:
     var current: int = fsm.player_room()
@@ -540,7 +578,8 @@ func _print_help() -> void:
 [b]Looking:[/b] LOOK (L), EXAMINE <thing> (X), READ <thing>.
 [b]Items:[/b]   TAKE <thing>, DROP <thing>, INVENTORY (I).
 [b]Combat:[/b]  ATTACK <foe>, THROW AXE.
-[b]Special:[/b] LIGHT (lamp), EXTINGUISH, FEED BEAR, RELEASE BIRD.
+[b]Special:[/b] LIGHT (lamp), EXTINGUISH, FEED BEAR, RELEASE BIRD, WAVE ROD.
 [b]Magic:[/b]   XYZZY, PLUGH, PLOVER (in the right places).
+[b]Chants:[/b]  FEE / FIE / FOE / FOO (in sequence).
 [b]Meta:[/b]    SAVE, LOAD, SCORE, HINT [name], QUIT.
 """)

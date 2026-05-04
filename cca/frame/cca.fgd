@@ -1829,6 +1829,73 @@
 
 
 # ------------------------------------------------------------
+# CrystalBridge
+# ------------------------------------------------------------
+# Two-state FSM that gates the fissure crossing. Canon CCA: a
+# black rod (with a star, in the canonical original; we just
+# call it "the rod") is found in the Debris Room. Waving the
+# rod at the fissure causes a crystal bridge to materialize
+# spanning it; waving the rod again causes the bridge to fade.
+# The bridge is the only way to reach the rooms beyond the
+# fissure.
+#
+# State diagram:
+#
+#   $NoBridge ── wave() ──► $Bridge      (rod must be in hand
+#                                          AND player must be at
+#                                          the fissure room —
+#                                          guarded by Adventure
+#                                          before this verb is
+#                                          dispatched)
+#   $Bridge   ── wave() ──► $NoBridge    (toggling re-fades it)
+#
+# Frame value: tiny FSM (two states) but the toggling
+# transition + persistence + queryable `is_built()` slot in
+# cleanly. The orchestration smarts (rod-in-hand, player-at-
+# fissure) live in Adventure where the cross-FSM context is
+# available; the bridge itself only knows its own toggle. This
+# is the same separation-of-concerns pattern that drove the
+# bird→snake and bear→troll wiring: each NPC owns its slice,
+# Adventure brokers the rest.
+# ------------------------------------------------------------
+@@[persist]
+@@system CrystalBridge : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        wave(): String
+        get_state(): String
+        is_built(): bool
+
+    machine:
+
+        $NoBridge {
+            wave(): String  {
+                -> $Bridge
+                @@:return("A crystal bridge now spans the fissure!")
+            }
+            get_state(): String  { @@:("no_bridge") }
+            is_built(): bool     { @@:(false) }
+        }
+
+        $Bridge {
+            wave(): String  {
+                -> $NoBridge
+                @@:return("The crystal bridge shimmers and vanishes.")
+            }
+            get_state(): String  { @@:("built") }
+            is_built(): bool     { @@:(true) }
+        }
+}
+
+
+# ------------------------------------------------------------
 # Pirate
 # ------------------------------------------------------------
 # Three-state probabilistic encounter, similar in shape to a
@@ -2097,6 +2164,10 @@
         # Treasures
         treasures_deposited(): int
         total_score(): int
+
+        # CrystalBridge / rod (the fissure puzzle)
+        bridge_built(): bool
+        rod_in_inventory(): bool
 
     machine:
 
@@ -2369,6 +2440,9 @@
             pirate_state(): String  { @@:(self.pirate.get_state()) }
             pirate_try_steal(): bool { @@:(self.pirate.try_steal()) }
 
+            bridge_built(): bool       { @@:(self.crystal_bridge.is_built()) }
+            rod_in_inventory(): bool   { @@:(self.rod_carried) }
+
             treasures_deposited(): int {
                 var n: int = 0
                 if self.gold.is_deposited():      n = n + 1
@@ -2500,6 +2574,8 @@
                 return self._verb_read(noun)
             elif verb == "throw":
                 return self._verb_throw(noun)
+            elif verb == "wave":
+                return self._verb_wave(noun)
             elif verb == "fee" or verb == "fie" or verb == "foe" or verb == "foo":
                 return self._verb_chant(verb)
             elif verb == "xyzzy" or verb == "plugh" or verb == "plover":
@@ -2564,6 +2640,14 @@
                 base = "You are in a sloping passage. The walls are smooth and curved."
             elif r == 22:
                 base = "You are in the Repository. All your treasures lie at your feet, plus a stick of dynamite."
+            elif r == 23:
+                base = "You are in a small pit breathing strange vapor. Crawl-ways lead off in many directions."
+            elif r == 24:
+                base = "You are at the edge of a deep, narrow fissure. The walls drop away to nothing far below."
+                if self.crystal_bridge.is_built():
+                    base = base + " A glittering crystal bridge spans the fissure."
+            elif r == 25:
+                base = "You are in a hall of mirrors on the far side of the fissure. Cool air drifts in from somewhere unseen."
             # NPC presence overlays.
             if r == self.bird.get_location() and self.bird.get_state() == "free":
                 base = base + " A small bird flutters nearby."
@@ -2612,6 +2696,11 @@
                 base = base + " A pile of rare coins glints here."
             if self.statuette.get_location() == r and self.statuette.get_state() == "in_room":
                 base = base + " A delicate jade statuette rests in the corner."
+            # Rod overlay — not a treasure (no point value), but
+            # visible in its room when not carried, same as the
+            # treasures above.
+            if not self.rod_carried and self.rod_location == r:
+                base = base + " A small black rod with a rusty star at one end lies on the ground."
             return base
         }
 
@@ -2630,6 +2719,14 @@
                 self.bird.capture()
                 self.player.take(self.BIRD_ID)
                 return "You catch the bird in your hand."
+            if noun == "rod":
+                if self.rod_carried:
+                    return "You already have the rod."
+                if self.player.get_room() != self.rod_location:
+                    return "There is no rod here."
+                self.rod_carried = true
+                self.player.take(self.ROD_ID)
+                return "Taken."
             if noun == "chain":
                 if self.player.get_room() != self.BEAR_HOME_ROOM:
                     return "There is no chain here."
@@ -2659,6 +2756,13 @@
             # case here: dropping the chain releases the bear
             # in the current room, and Adventure brokers the
             # bear→troll consequence chain.
+            if noun == "rod":
+                if not self.rod_carried:
+                    return "You aren't carrying the rod."
+                self.rod_carried = false
+                self.rod_location = self.player.get_room()
+                self.player.drop(self.ROD_ID)
+                return "Dropped."
             if noun == "chain":
                 if self.bear.get_state() != "following":
                     return "You aren't holding the bear's chain."
@@ -2961,6 +3065,22 @@
             return "I don't know how to throw that."
         }
 
+        _verb_wave(noun: String): String {
+            # The rod is the only wave-able object. The bridge
+            # only materializes when waved AT the fissure; waving
+            # the rod anywhere else gets a flavored deflection so
+            # the player knows the rod has a use without giving
+            # the puzzle away outright.
+            if noun != "rod":
+                return "Waving that around won't do much."
+            if not self.rod_carried:
+                return "You don't have the rod."
+            var r: int = self.player.get_room()
+            if r != self.FISSURE_ROOM:
+                return "You wave the rod, feeling slightly silly. Nothing happens."
+            return self.crystal_bridge.wave()
+        }
+
         _attack_dwarf_in_current(): String {
             # Inline copy of attack_dwarf_in_room's logic so
             # the verb handler can call it as an action. We
@@ -3101,6 +3221,12 @@
         # their home room (14, the Giant Room).
         eggs_chant = @@EggsIncantation()
 
+        # Crystal bridge across the fissure — two-state FSM that
+        # the player toggles by waving the rod at the fissure.
+        # Cross-FSM choreography lives in Adventure._verb_wave;
+        # the bridge itself only knows its own toggle.
+        crystal_bridge = @@CrystalBridge()
+
         # Five treasures, each in its home room with a value.
         # Real CCA has 15; we model the canonical lifecycle on
         # this subset to keep the maze manageable. Adding more
@@ -3153,6 +3279,19 @@
         BEAR_HOME_ROOM: int = 9
         TROLL_ROOM: int = 10
         DEPOSIT_ROOM: int = 1     # well house — must match Treasure.DEPOSIT_ROOM
+        # Fissure / rod-puzzle rooms. The rod starts in the
+        # debris room (its canonical CCA home) and can be carried
+        # to the fissure to summon the crystal bridge.
+        FISSURE_ROOM: int = 24
+        ROD_HOME_ROOM: int = 2    # debris room — same as gold
+        ROD_ID: int = 130
+
+        # The rod's runtime state. Carried as a domain bool +
+        # location int rather than a full FSM, because the rod
+        # has no behavior of its own — it's a key-with-no-lock.
+        # The bridge it summons is a separate FSM (crystal_bridge).
+        rod_carried: bool = false
+        rod_location: int = 2
 
         # Tick counter (advances every tick(), not every
         # do_command). Some commands are free; others tick.

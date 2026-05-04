@@ -303,7 +303,7 @@ take bird; release at snake; attack dragon (yes); take diamonds;
 feed bear, take chain; drop at troll; take jewelry. Plus
 mid-game save/restore preserves NPC states.
 
-**Round 4 — canonical mechanics** (this commit):
+**Round 4 — canonical mechanics** (commit `0b7ced3`):
 - Vase fragility: `Treasure` got a `fragile` param, a new
   `$Broken` state, and `drop()` checks the room — outside
   the well house the vase shatters and value goes to 0.
@@ -333,15 +333,40 @@ kills-player, deterministic dwarf-axe-throw, the
 resurrection cycle, permadeath after the 4th death, and
 save/restore mid-death-prompt.
 
+**Round 5 — fissure puzzle + closing crescendo** (this commit):
+
+- New `CrystalBridge` 2-state FSM (`$NoBridge` ↔ `$Bridge`)
+  toggled by `wave()`. Adventure brokers the cross-cutting
+  context: the bridge `wave()` only fires when the player
+  is at the fissure AND carrying the rod. Otherwise the
+  player gets a flavored deflection.
+- New `WAVE` verb on Adventure dispatch.
+- Rod added as a non-treasure item: domain `rod_carried`/
+  `rod_location`, integrated into `_verb_take("rod")` /
+  `_verb_drop("rod")` / `_verb_look` overlay.
+- Three new rooms added to the driver maze: room 23 (small
+  pit, north of Y2), room 24 (the fissure itself), room 25
+  (hall of mirrors, far side). Room 24's east exit is
+  driver-gated by `bridge_built()`.
+- Closing-warning crescendo: while in `$Closing`, the driver
+  surfaces three escalating messages at timer thresholds
+  25 / 15 / 5 (each fires once), giving the player a sense
+  of the cave winding shut rather than one alert and silence.
+- Save/restore round-trips the new bridge FSM compartment
+  and rod state.
+
+A new `/tmp/test_cca_bridge.gd` smoke test (20 checks, PASS)
+covers wave-without-rod, take rod, wave-elsewhere, wave-at-
+fissure (build), wave-again (toggle off), wave-non-rod,
+save/restore mid-bridge-built, and rod-drop-stays-where-
+dropped.
+
 What's still skipped vs canonical Crowther/Woods CCA:
 
-- The full 140-room map (we have 22 — every CCA archetype
+- The full 140-room map (we have 25 — every CCA archetype
   is present but the geography is compressed)
 - Some nuance in the bird/dragon edge cases (e.g. bird
   refuses to be carried into Plover Room)
-- The closing-warning text crescendo (we print one message;
-  canon has multiple at thresholds)
-- The crystal-bridge formation puzzle (rod + fissure)
 
 ## Final per-chapter takeaway
 
