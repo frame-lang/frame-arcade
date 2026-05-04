@@ -592,7 +592,7 @@
                 self.score = 0
                 self.waves_spawned = 0
                 self.wave_timer = 0.0
-                self.boss_spawned = false
+                self.boss_spawn_pending = false
             }
 
             start() {
