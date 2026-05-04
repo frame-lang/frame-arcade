@@ -1157,6 +1157,200 @@
 
 
 # ------------------------------------------------------------
+# Endgame
+# ------------------------------------------------------------
+# The multi-stage closing sequence. CCA's most genuinely
+# multi-state piece of game logic, and the place where
+# Frame's state-machine semantics earn the most keep in this
+# project: timers, threshold-driven transitions, and a
+# terminal puzzle state that the rest of the world has to
+# defer to once it's reached.
+#
+# State diagram:
+#
+#   $Active                         (normal play)
+#       │ treasure_deposited() — fires when the count
+#       │   crosses TREASURES_TO_TRIGGER
+#       v
+#   $Closing                        (cave is closing)
+#       │ $>() seeds closing_timer
+#       │ tick() decrements; warnings emitted at thresholds
+#       │ closing_timer hits 0
+#       v
+#   $InRepository                   (player teleported here
+#       │                            with all treasures + a
+#       │                            stick of dynamite — the
+#       │                            "marker")
+#       │ detonate() (called when the player drops the
+#       │   marker and detonates it from the right place)
+#       v
+#   $Won                            (terminal)
+#
+# This is genuinely multi-stage: each transition has its own
+# entry condition, its own timer or guard, and its own set of
+# valid events. Try expressing this as a flag-on-a-class
+# pattern and you'll feel why state machines exist.
+#
+# Cross-FSM:
+#   Adventure observes endgame.is_closing(), endgame.in_repository(),
+#   endgame.is_won() to decide which world rules apply this
+#   turn. During $Closing, normal movement still works but the
+#   driver appends a "the cave is closing" warning to look()
+#   output. During $InRepository, normal movement is replaced
+#   with the puzzle subset (drop marker, detonate). On $Won,
+#   the game ends.
+# ------------------------------------------------------------
+@@[persist]
+@@system Endgame : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        # Driver tells endgame each time a treasure was
+        # successfully deposited. We trigger on the threshold
+        # crossing.
+        treasure_deposited()
+
+        # Per-turn tick. Decrements the closing timer when in
+        # $Closing.
+        tick()
+
+        # Trigger the explosion in the repository. Drives
+        # $InRepository → $Won.
+        detonate()
+
+        # Queries for the orchestrator
+        get_state(): String
+        is_closing(): bool
+        in_repository(): bool
+        is_won(): bool
+        treasures_count(): int
+        closing_timer(): float
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $Active — normal play. treasure_deposited() counts up
+        # toward the trigger threshold; on crossing, transition
+        # to $Closing.
+        # ------------------------------------------------------------
+        $Active {
+            treasure_deposited() {
+                self.treasures = self.treasures + 1
+                if self.treasures >= self.TREASURES_TO_TRIGGER:
+                    -> $Closing
+            }
+            tick() {
+                # No-op. Timers are state-local.
+            }
+            detonate() {
+                # No-op outside the repository.
+            }
+            get_state(): String         { @@:("active") }
+            is_closing(): bool          { @@:(false) }
+            in_repository(): bool       { @@:(false) }
+            is_won(): bool              { @@:(false) }
+            treasures_count(): int      { @@:(self.treasures) }
+            closing_timer(): float      { @@:(0.0) }
+        }
+
+        # ------------------------------------------------------------
+        # $Closing — the cave is closing. State-variable timer
+        # ticks down; warning messages get emitted at thresholds
+        # (driver picks them up via closing_timer() and decides
+        # what to print).
+        # ------------------------------------------------------------
+        $Closing {
+            $.timer: float = 0.0
+
+            $>() {
+                $.timer = self.CLOSING_DURATION
+            }
+
+            treasure_deposited() {
+                # Still counts (for final score) but doesn't
+                # re-trigger anything.
+                self.treasures = self.treasures + 1
+            }
+
+            tick() {
+                $.timer = $.timer - 1.0
+                if $.timer <= 0.0:
+                    -> $InRepository
+            }
+
+            detonate() {
+                # No-op until in repository.
+            }
+
+            get_state(): String         { @@:("closing") }
+            is_closing(): bool          { @@:(true) }
+            in_repository(): bool       { @@:(false) }
+            is_won(): bool              { @@:(false) }
+            treasures_count(): int      { @@:(self.treasures) }
+            closing_timer(): float      { @@:($.timer) }
+        }
+
+        # ------------------------------------------------------------
+        # $InRepository — player has been teleported, with all
+        # treasures and a marker (TNT). The puzzle is to drop
+        # everything except the marker and detonate it. Adventure
+        # gates the verb table appropriately while we're here.
+        # ------------------------------------------------------------
+        $InRepository {
+            detonate() {
+                -> $Won
+            }
+            tick() {
+                # No timer in the repository. Player has all the
+                # time they want to figure the puzzle out.
+            }
+            treasure_deposited() {
+                # Shouldn't happen — there's nowhere to deposit
+                # a treasure inside the repository. Defensive
+                # no-op.
+            }
+            get_state(): String         { @@:("in_repository") }
+            is_closing(): bool          { @@:(false) }
+            in_repository(): bool       { @@:(true) }
+            is_won(): bool              { @@:(false) }
+            treasures_count(): int      { @@:(self.treasures) }
+            closing_timer(): float      { @@:(0.0) }
+        }
+
+        # ------------------------------------------------------------
+        # $Won — terminal. Player has escaped successfully.
+        # ------------------------------------------------------------
+        $Won {
+            tick() {}
+            treasure_deposited() {}
+            detonate() {}
+            get_state(): String         { @@:("won") }
+            is_closing(): bool          { @@:(false) }
+            in_repository(): bool       { @@:(false) }
+            is_won(): bool              { @@:(true) }
+            treasures_count(): int      { @@:(self.treasures) }
+            closing_timer(): float      { @@:(0.0) }
+        }
+
+    domain:
+        # Tunables. Real CCA: 15 treasures, ~30-turn closing
+        # warning. We ship smaller defaults for the prototype
+        # so the smoke test can exercise the full lifecycle
+        # quickly.
+        TREASURES_TO_TRIGGER: int = 5
+        CLOSING_DURATION: float = 10.0    # turns
+
+        treasures: int = 0
+}
+
+
+# ------------------------------------------------------------
 # ScoreLedger (aspect)
 # ------------------------------------------------------------
 # Demonstrates the *observe* verdict. ScoreLedger watches
@@ -1298,6 +1492,14 @@
         attack_dwarf_in_room(): String        # tries the dwarf at player's location
         living_dwarves(): int
 
+        # Endgame
+        deposit_treasure()
+        detonate_marker()
+        endgame_state(): String
+        endgame_closing(): bool
+        endgame_won(): bool
+        endgame_timer(): float
+
     machine:
 
         $Playing {
@@ -1368,6 +1570,7 @@
 
             tick() {
                 self.lamp.tick()
+                self.endgame.tick()
                 self.turns = self.turns + 1
             }
 
@@ -1457,6 +1660,17 @@
                     n = n + 1
                 @@:(n)
             }
+
+            deposit_treasure() {
+                self.endgame.treasure_deposited()
+            }
+            detonate_marker() {
+                self.endgame.detonate()
+            }
+            endgame_state(): String   { @@:(self.endgame.get_state()) }
+            endgame_closing(): bool   { @@:(self.endgame.is_closing()) }
+            endgame_won(): bool       { @@:(self.endgame.is_won()) }
+            endgame_timer(): float    { @@:(self.endgame.closing_timer()) }
         }
 
     actions:
@@ -1693,6 +1907,10 @@
         dwarf3 = @@Dwarf(3)
         dwarf4 = @@Dwarf(4)
         dwarf5 = @@Dwarf(5)
+
+        # Endgame phase machine — multi-stage HSM with timer.
+        # The genuine multi-state showpiece in CCA.
+        endgame = @@Endgame()
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
