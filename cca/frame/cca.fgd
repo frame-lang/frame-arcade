@@ -549,7 +549,7 @@
                 # world directly; that keeps it testable.
                 var dark: bool = event.get("is_dark", false)
                 var verb: String = event.get("verb", "")
-                var gated: bool = (verb == "look" or verb == "examine")
+                var gated: bool = (verb == "look" or verb == "examine" or verb == "read")
                 if dark and gated:
                     self.consumed_count = self.consumed_count + 1
                     @@:return({
@@ -1893,6 +1893,18 @@
         troll_state(): String
         troll_blocking(): bool
 
+        # Scoring breakdown — driver renders these in the
+        # SCORE command. CCA-canonical components:
+        #   treasure_score: sum of values of deposited treasures
+        #   visit_score:    one point per unique room visited
+        #   hint_penalty:   -2 per accepted hint
+        #   endgame_score:  +50 for successful escape
+        # `score()` already returns the rolled-up total above.
+        treasure_score(): int
+        visit_score(): int
+        hint_penalty(): int
+        endgame_score(): int
+
         # Dwarves (5 parameterized instances).
         wake_dwarves()
         attack_dwarf_in_room(): String        # tries the dwarf at player's location
@@ -2010,6 +2022,13 @@
                 # steal. The driver checks pirate_try_steal()
                 # results and applies the consequence.
                 self.pirate.treasures_carried(self.player.inventory_size())
+                # Track first-visit for the visit_score
+                # component. CCA-canonical: each unique room
+                # explored is worth one point.
+                if not self.rooms_visited.has(r):
+                    self.rooms_visited.append(r)
+                    self.score_visits = self.score_visits + 1
+                    self.real_score = self.real_score + 1
                 self.turns = self.turns + 1
             }
 
@@ -2028,7 +2047,11 @@
             darkness_consumed_count(): int    { @@:(self.darkness.consumed_count) }
             backpack_blocked_count(): int     { @@:(self.backpack.consumed_count) }
             magic_transforms_count(): int     { @@:(self.magic.transforms_count) }
-            score(): int                      { @@:(self.score_ledger.get_score()) }
+            score(): int                      { @@:(self.real_score) }
+            treasure_score(): int             { @@:(self.score_treasures) }
+            visit_score(): int                { @@:(self.score_visits) }
+            hint_penalty(): int               { @@:(self.score_hints) }
+            endgame_score(): int              { @@:(self.score_endgame) }
             commands_seen(): int              { @@:(self.score_ledger.commands_seen()) }
             bird_state(): String              { @@:(self.bird.get_state()) }
             bird_location(): int              { @@:(self.bird.get_location()) }
@@ -2104,6 +2127,14 @@
                 self.endgame.treasure_deposited()
             }
             detonate_marker() {
+                # Award the endgame bonus the moment the
+                # detonation happens (i.e., the player solved
+                # the repository puzzle). The endgame FSM
+                # transitions to $Won; we mirror that as a +50
+                # bump in the score breakdown.
+                if self.endgame.in_repository() and not self.endgame.is_won():
+                    self.score_endgame = self.score_endgame + 50
+                    self.real_score = self.real_score + 50
                 self.endgame.detonate()
             }
             endgame_state(): String   { @@:(self.endgame.get_state()) }
@@ -2113,19 +2144,33 @@
 
             request_hint(name: String): String {
                 # Each hint has different text. The Hint system
-                # itself doesn't know what its hint says — it
-                # just tracks eligibility. Adventure provides
-                # the message string at request time.
+                # itself doesn't know what its hint says —
+                # Adventure provides the message at request
+                # time. Detect was-eligible-now-offered by
+                # comparing state pre/post call; if a hint was
+                # actually delivered, charge the canonical -2
+                # score penalty.
+                var was_eligible: bool = false
                 if name == "bird":
-                    @@:return(self.bird_hint.request_hint(
-                        "Try catching the bird before doing anything else with it."))
+                    was_eligible = self.bird_hint.is_eligible()
                 elif name == "dark":
-                    @@:return(self.dark_hint.request_hint(
-                        "You'll need a lamp to make any progress in this part of the cave."))
+                    was_eligible = self.dark_hint.is_eligible()
                 elif name == "snake":
-                    @@:return(self.snake_hint.request_hint(
-                        "The bird drives the snake away. Bring it here in its cage."))
-                @@:("No hint by that name.")
+                    was_eligible = self.snake_hint.is_eligible()
+                var response: String = "No hint by that name."
+                if name == "bird":
+                    response = self.bird_hint.request_hint(
+                        "Try catching the bird before doing anything else with it.")
+                elif name == "dark":
+                    response = self.dark_hint.request_hint(
+                        "You'll need a lamp to make any progress in this part of the cave.")
+                elif name == "snake":
+                    response = self.snake_hint.request_hint(
+                        "The bird drives the snake away. Bring it here in its cage.")
+                if was_eligible:
+                    self.score_hints = self.score_hints - 2
+                    self.real_score = self.real_score - 2
+                @@:(response)
             }
 
             hint_state(name: String): String {
@@ -2235,6 +2280,12 @@
                 return self._verb_yes()
             elif verb == "no":
                 return self._verb_no()
+            elif verb == "examine":
+                return self._verb_examine(noun)
+            elif verb == "read":
+                return self._verb_read(noun)
+            elif verb == "throw":
+                return self._verb_throw(noun)
             elif verb == "xyzzy" or verb == "plugh" or verb == "plover":
                 # MagicWordTeleport didn't transform — wrong room.
                 # Canon CCA response.
@@ -2488,51 +2539,67 @@
             var room: int = self.player.get_room()
             var outcome: String = ""
             var item_id: int = -1
+            var value: int = 0
             if name == "gold":
                 outcome = self.gold.try_drop(room)
                 item_id = self.GOLD_ID
+                value = self.gold.get_value()
             elif name == "silver":
                 outcome = self.silver.try_drop(room)
                 item_id = self.SILVER_ID
+                value = self.silver.get_value()
             elif name == "diamonds":
                 outcome = self.diamonds.try_drop(room)
                 item_id = self.DIAMONDS_ID
+                value = self.diamonds.get_value()
             elif name == "jewelry":
                 outcome = self.jewelry.try_drop(room)
                 item_id = self.JEWELRY_ID
+                value = self.jewelry.get_value()
             elif name == "pearl":
                 outcome = self.pearl.try_drop(room)
                 item_id = self.PEARL_ID
+                value = self.pearl.get_value()
             elif name == "vase":
                 outcome = self.vase.try_drop(room)
                 item_id = self.VASE_ID
+                value = self.vase.get_value()
             elif name == "eggs":
                 outcome = self.eggs.try_drop(room)
                 item_id = self.EGGS_ID
+                value = self.eggs.get_value()
             elif name == "trident":
                 outcome = self.trident.try_drop(room)
                 item_id = self.TRIDENT_ID
+                value = self.trident.get_value()
             elif name == "emerald":
                 outcome = self.emerald.try_drop(room)
                 item_id = self.EMERALD_ID
+                value = self.emerald.get_value()
             elif name == "spices":
                 outcome = self.spices.try_drop(room)
                 item_id = self.SPICES_ID
+                value = self.spices.get_value()
             elif name == "chest":
                 outcome = self.chest.try_drop(room)
                 item_id = self.CHEST_ID
+                value = self.chest.get_value()
             elif name == "pyramid":
                 outcome = self.pyramid.try_drop(room)
                 item_id = self.PYRAMID_ID
+                value = self.pyramid.get_value()
             elif name == "rug":
                 outcome = self.rug.try_drop(room)
                 item_id = self.RUG_ID
+                value = self.rug.get_value()
             elif name == "coins":
                 outcome = self.coins.try_drop(room)
                 item_id = self.COINS_ID
+                value = self.coins.get_value()
             elif name == "statuette":
                 outcome = self.statuette.try_drop(room)
                 item_id = self.STATUETTE_ID
+                value = self.statuette.get_value()
             else:
                 return "You aren't carrying that."
 
@@ -2543,7 +2610,12 @@
             self.player.drop(item_id)
             if outcome == "deposited":
                 # Cross-FSM: deposit drives the endgame timer.
+                # Also award the treasure's value to the score
+                # breakdown (each treasure has a value that's
+                # baked into its parameter at construction).
                 self.endgame.treasure_deposited()
+                self.score_treasures = self.score_treasures + value
+                self.real_score = self.real_score + value
                 return "Safely stowed in the well house. A fine treasure indeed!"
             return "Dropped."
         }
@@ -2585,6 +2657,104 @@
                 self.dragon.no()
                 return "The dragon, sensing your hesitation, lets you back away."
             return "I don't understand."
+        }
+
+        _verb_examine(noun: String): String {
+            # Object/feature inspection. Shorter than LOOK
+            # (which describes the whole room); EXAMINE
+            # describes one item or feature in detail.
+            if noun == "lamp":
+                if self.lamp.is_lit():
+                    return "Your brass lantern is currently lit. Battery: " + str(self.lamp.battery_left()) + " turns."
+                return "Your brass lantern is dark. Battery: " + str(self.lamp.battery_left()) + " turns."
+            elif noun == "bird":
+                if self.player.carrying(self.BIRD_ID):
+                    return "A small bird flutters in your hand."
+                return "A small bird flutters about, chirping."
+            elif noun == "snake":
+                if self.snake.is_blocking():
+                    return "A huge green snake, fierce and terrible-looking. It bars the way east."
+                return "There is no snake here anymore."
+            elif noun == "dragon":
+                if self.dragon.is_alive():
+                    return "A huge green dragon dozes on a Persian rug, its scales catching what little light there is."
+                return "The dragon is dead. Its corpse lies sprawled on the rug."
+            elif noun == "bear":
+                var bs: String = self.bear.get_state()
+                if bs == "hungry":
+                    return "A large brown bear, looking very hungry. It is chained to the wall."
+                elif bs == "tame":
+                    return "A friendly-looking bear, contentedly chewing."
+                elif bs == "following":
+                    return "The bear pads along behind you, held by its chain."
+                elif bs == "released":
+                    return "The bear is settled here, glaring around."
+                return "There is no bear here."
+            elif noun == "troll":
+                if self.troll.is_blocking_bridge():
+                    return "A burly troll, demanding tribute to cross his bridge."
+                return "The troll is gone."
+            elif noun == "sign":
+                if self.player.get_room() == 4:
+                    return "The sign reads: 'Y2'."
+                return "There is no sign here."
+            return "You see nothing special about that."
+        }
+
+        _verb_read(noun: String): String {
+            # READ is mostly for signs and inscriptions. We
+            # share examine's text for objects with writing.
+            if noun == "sign":
+                if self.player.get_room() == 4:
+                    return "The sign reads: 'Y2'."
+                return "There is no sign here."
+            elif noun == "keys" or noun == "bottle":
+                return "Nothing is written on it."
+            return "There is nothing to read here."
+        }
+
+        _verb_throw(noun: String): String {
+            # THROW is mostly for axes at dwarves. Routes to
+            # the same attack-dwarf-in-room logic the dispatch
+            # interface exposes; it just reads more naturally.
+            if noun == "axe":
+                return self._attack_dwarf_in_current()
+            return "I don't know how to throw that."
+        }
+
+        _attack_dwarf_in_current(): String {
+            # Inline copy of attack_dwarf_in_room's logic so
+            # the verb handler can call it as an action. We
+            # keep both shapes (interface + action) for the
+            # two callsites — the test harness uses the
+            # interface, the verb dispatcher uses this action.
+            var r: int = self.player.get_room()
+            if self.dwarf1.get_state() == "stalking" and self.dwarf1.get_room() == r:
+                self.dwarf1.attack()
+                if self.dwarf1.get_state() == "dead":
+                    return "Your axe finds its mark. The dwarf collapses."
+                return "Your axe misses the dwarf, who cackles."
+            elif self.dwarf2.get_state() == "stalking" and self.dwarf2.get_room() == r:
+                self.dwarf2.attack()
+                if self.dwarf2.get_state() == "dead":
+                    return "Your axe finds its mark. The dwarf collapses."
+                return "Your axe misses the dwarf, who cackles."
+            elif self.dwarf3.get_state() == "stalking" and self.dwarf3.get_room() == r:
+                self.dwarf3.attack()
+                if self.dwarf3.get_state() == "dead":
+                    return "Your axe finds its mark. The dwarf collapses."
+                return "Your axe misses the dwarf, who cackles."
+            elif self.dwarf4.get_state() == "stalking" and self.dwarf4.get_room() == r:
+                self.dwarf4.attack()
+                if self.dwarf4.get_state() == "dead":
+                    return "Your axe finds its mark. The dwarf collapses."
+                return "Your axe misses the dwarf, who cackles."
+            elif self.dwarf5.get_state() == "stalking" and self.dwarf5.get_room() == r:
+                self.dwarf5.attack()
+                if self.dwarf5.get_state() == "dead":
+                    return "Your axe finds its mark. The dwarf collapses."
+                return "Your axe misses the dwarf, who cackles."
+            return "There's no dwarf to throw an axe at here."
         }
 
         _verb_release(noun: String): String {
@@ -2745,4 +2915,16 @@
         # For now, tick() is called once per do_command via
         # the driver.
         turns: int = 0
+
+        # Scoring — running totals. Each component is
+        # incremented at the right transition (deposit,
+        # first-visit, hint, endgame), never decremented
+        # except hint_penalty which goes negative. real_score
+        # is the rolled-up total returned by score().
+        real_score: int = 0
+        score_treasures: int = 0
+        score_visits: int = 0
+        score_hints: int = 0
+        score_endgame: int = 0
+        rooms_visited: Array = []
 }
