@@ -168,21 +168,20 @@
             }
 
             kill_invader(index: int): bool {
-                # NOTE: This handler hits framec Issue #4 (see
-                # FRAMEC_BUGS.md). The transition inside the inner
-                # if causes the generator to emit a bare return
-                # before _return is set, so when the killing blow
-                # drops the fleet to zero alive, this returns Nil
-                # instead of true. ch03-invaders' smoke test
-                # exposes the failure; chapter source kept in its
-                # natural shape so framec can be fixed at the
-                # source rather than worked around per-chapter.
+                # @@:(value) is a setter statement, not a scope-
+                # default — it only runs when reached. A transition
+                # is implicitly followed by a return, so any
+                # @@:(value) AFTER the transition (in any enclosing
+                # scope) never runs. We set the return value at
+                # each transition site explicitly. framepiler
+                # warning W705 catches the alternative shape at
+                # compile time. See FRAMEC_BUGS.md Issue #4.
                 if self._do_kill(index):
                     if self._count_alive() == 0:
                         -> $Defeated
-                    @@:(true)
-                else:
-                    @@:(false)
+                        @@:return(true)
+                    @@:return(true)
+                @@:(false)
             }
 
             edge_reached() {
@@ -223,15 +222,14 @@
             }
 
             kill_invader(index: int): bool {
-                # Same framec Issue #4 here as in $Marching.kill_invader.
-                # Source kept in natural shape; framec to be fixed
-                # at the source.
+                # Same shape as $Marching.kill_invader — see the
+                # note there. @@:return at each transition site.
                 if self._do_kill(index):
                     if self._count_alive() == 0:
                         -> $Defeated
-                    @@:(true)
-                else:
-                    @@:(false)
+                        @@:return(true)
+                    @@:return(true)
+                @@:(false)
             }
 
             consume_step(): bool        { @@:(false) }

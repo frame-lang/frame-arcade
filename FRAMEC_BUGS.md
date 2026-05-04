@@ -292,7 +292,33 @@ Whichever happens first:
 
 ---
 
-## Issue #4 — Transition inside `if` body, then fall-through `@@:(value)` outside the `if`, drops the return value
+## Issue #4 — Transition inside `if` body, then fall-through `@@:(value)` outside the `if`, drops the return value ✅ **WARNING ADDED (W705)**
+
+> **Resolved by W705** in framepiler `1ab36f0` (2026-05-04). Per
+> `frame_language.md`: "Every transition is implicitly followed by
+> a `return` — code after a transition is unreachable." The
+> behavior you observed is correct per the spec — `@@:(value)` is a
+> *setter statement* that runs when reached, not a scope-default
+> declaration. On the transition path it never runs, so `_return`
+> stays at the type's default (Nil/None/null/0).
+>
+> The codegen has a same-scope hoist convenience that makes
+> `-> $X; @@:(value)` work (the value is reordered before the bare
+> return). It was not extended to enclosing scopes by design — the
+> nested rewrite would conflict with the `auth_flow` shape where
+> `@@:(value)` is INTENTIONALLY placed before the transition to set
+> the return value (cf. RFC-0012 amendment Phase D's "user-set
+> _return survives the transition" guarantee).
+>
+> **Validator rule W705** now fires at compile time when this
+> mistake is detected: a transition in a non-void handler with no
+> `@@:(value)` preceding it (in the same or any enclosing scope)
+> and no same-scope `@@:(value)` immediately following. The
+> warning text suggests the fix: place `@@:(value)` before the
+> transition, or use `@@:return(value)` at the transition site.
+>
+> Your existing workarounds remain correct — they were the
+> idiomatic fix the language always intended.
 
 ### Severity
 
@@ -306,22 +332,22 @@ In GDScript this surfaces at runtime as
 function whose return type is "bool"`. The function's caller
 treats the result as falsy; bugs propagate from there.
 
-### Where it's hit in this repo
+### Where it was hit in this repo
 
-Two callsites, same shape:
+Two callsites where the wrong shape slipped in:
 
-- `cca/frame/cca.fgd`, `EggsIncantation.$WaitingFoo.say` —
-  caught and worked around in May 3's "EggsIncantation `$WaitingFoo.say`" pass
-  (commit `0b7ced3` had a comment-driven variant; the final fix
-  in commit before that round moved the comment outside the
-  `if`).
+- `cca/frame/cca.fgd`, `EggsIncantation.$WaitingFoo.say` — fixed
+  by moving the explanatory comment block outside the `if` so
+  the natural `-> $Idle; @@:return("Done!")` form lives at the
+  transition site.
 - `ch03-invaders/frame/invaders.fgd`, `Fleet.$Marching.kill_invader`
   and `Fleet.$Stepping.kill_invader` — caught while writing
   ch03's smoke test. The 55th invader kill (the one that
   drains the fleet to zero) returned Nil instead of `true`,
   so Invaders' orchestrator never saw the wave-clear signal,
   the score stalled at 540 instead of 550, and `$WaveComplete`
-  never fired.
+  never fired. Fixed by `@@:return(true)` at each transition
+  site, per spec.
 
 ### Minimal reproducer
 
@@ -368,40 +394,28 @@ inner `if` (intended as the fall-through value when the inner
 `if` is *false*, but here the inner if is unconditionally true
 so it should be the return path) gets generated *unreachable*.
 
-### Expected generated GDScript
+### Resolution: spec is correct, W705 catches misuse
 
-The `@@:(true)` should become `_return = true` *before* the
-transition, OR the bare `return` should be replaced with one
-that picks up the implicit fall-through value. Specifically:
+Per the language spec (`frame_language.md`):
 
-```gdscript
-if use_inner:
-    if true:
-        var __compartment = self.__prepareEnter("B", [], [])
-        self.__transition(__compartment)
-        self._context_stack[-1]._return = true   # set first
-        return
-    self._context_stack[-1]._return = true
-else:
-    self._context_stack[-1]._return = false
-```
+> Every transition is implicitly followed by a `return`. Code
+> after a transition is unreachable. `@@:(value)` is a *setter
+> statement* that runs when reached — not a scope-default
+> declaration.
 
-The semantics in Frame are: a transition `-> $X` does not
-short-circuit the surrounding control flow; the rest of the
-event handler runs. The generator already gets this right when
-the `@@:(value)` is *inside* the same branch as the transition,
-or when the transition is the only statement in the branch and
-the `@@:(value)` follows it (the `EggsIncantation.$WaitingFoo`
-case after our workaround). The defect is specific to the
-*nested-if* shape where the transition is two levels deep and
-the return value is one level out.
+So on the transition path, `@@:(value)` placed in any enclosing
+scope never runs and `_return` stays at the type's default
+(`Nil` / `null` / `0`). This is by design: it preserves the
+`auth_flow` shape where `@@:(value)` is intentionally placed
+*before* a transition to set the return value (see RFC-0012
+amendment Phase D's "user-set `_return` survives the
+transition" guarantee).
 
-### Workaround in this repo
+### Idiomatic shape
 
-In every branch that contains a transition, add an explicit
-`@@:return(value)` so the generator emits the return value at
-each transition site rather than relying on a fall-through
-`@@:(value)` later in the body:
+Place `@@:return(value)` (or `@@:(value)` ahead of the `->`)
+at each transition site. The shape we wanted in the buggy
+example becomes:
 
 ```frame
 do_thing(use_inner: bool): bool {
@@ -414,21 +428,18 @@ do_thing(use_inner: bool): bool {
 }
 ```
 
-This generates correctly. The downside is duplicating the
-return value; there's no clean way to factor it.
-
 ### Notes for triage
 
-- This is the same family as Issue #1 (the May 3 paren-drop)
-  and the EggsIncantation Nil-return — all involve transitions
-  interacting awkwardly with the generator's return-value
-  emission. The pattern across all three: framec's per-event
-  return-handling logic doesn't always survive a transition
-  inside the body.
-- The fix is presumably in the same area of the codegen.
-  Adding test coverage for "transition inside nested control
-  flow + fall-through @@:(value)" would catch this family of
-  issue going forward.
+- framepiler `1ab36f0` (2026-05-04) added validator rule
+  **W705**: a transition in a non-void handler with no
+  `@@:(value)` preceding it (in the same or any enclosing
+  scope) and no same-scope `@@:(value)` immediately following
+  now warns at compile time, with text suggesting the fix.
+- The W705 warning is the right safety net for future cases.
+- Same family as Issue #1 visually but the underlying cause is
+  different: Issue #1 was a real codegen bug (paren drop);
+  Issue #4 is correct codegen of an incorrect-but-tempting
+  source shape.
 
 ---
 
