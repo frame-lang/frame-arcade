@@ -413,20 +413,13 @@ func _check_pirate_steal() -> void:
         return
     if fsm.pirate_state() != "stalking":
         return
-    if fsm.pirate_try_steal():
+    # The FSM does the cross-cutting work: rolls the steal, picks
+    # a treasure deterministically, and reappears it in the chest
+    # room (room 18). Driver just renders.
+    var msg: String = fsm.pirate_attempt_steal()
+    if msg != "":
         _pirate_already_stole = true
-        _println("[color=#cc8855][i]A bearded pirate appears out of the gloom, snatches one of your treasures, and vanishes with a snicker![/i][/color]")
-        # Drop the first treasure we find in inventory
-        for tid in [GOLD_ID, SILVER_ID, DIAMONDS_ID, JEWELRY_ID, PEARL_ID,
-                    VASE_ID, EGGS_ID, TRIDENT_ID, EMERALD_ID, SPICES_ID,
-                    CHEST_ID, PYRAMID_ID, RUG_ID, COINS_ID, STATUETTE_ID]:
-            if fsm.player.carrying(tid):
-                fsm.player.drop(tid)
-                # Real CCA puts stolen treasures in the chest
-                # room; this prototype just removes them from
-                # carry. The Treasure FSM still thinks it's in
-                # the player's last-known room — TODO: fix.
-                break
+        _println("[color=#cc8855][i]%s[/color][/i]" % msg)
 
 func _check_lamp_warnings() -> void:
     var msg: String = fsm.get_lamp_message()

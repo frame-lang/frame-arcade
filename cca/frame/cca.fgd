@@ -2160,6 +2160,12 @@
         # Pirate (probabilistic encounter)
         pirate_state(): String
         pirate_try_steal(): bool
+        # Higher-level wrapper: rolls the pirate's steal, picks a
+        # treasure from the player's inventory in deterministic
+        # order, relocates it to the chest room (canon CCA's
+        # pirate hoard), and returns the user-visible message.
+        # Returns "" when nothing was stolen.
+        pirate_attempt_steal(): String
 
         # Treasures
         treasures_deposited(): int
@@ -2439,6 +2445,83 @@
             dragon_alive(): bool    { @@:(self.dragon.is_alive()) }
             pirate_state(): String  { @@:(self.pirate.get_state()) }
             pirate_try_steal(): bool { @@:(self.pirate.try_steal()) }
+
+            # Cross-FSM: drive the pirate steal AND relocate the
+            # stolen treasure to the chest room. Treasure IDs are
+            # walked in a fixed order so the same save+seed gives
+            # the same target on replay. The Pirate FSM only knows
+            # whether a steal triggered; Adventure (which has the
+            # treasure roster) decides which treasure and where it
+            # ends up. Same orchestrator pattern as bird→snake and
+            # bear→troll: each subsystem owns its slice, Adventure
+            # brokers the cross-cuts.
+            pirate_attempt_steal(): String {
+                if not self.pirate.try_steal():
+                    @@:return("")
+                # Walk treasures in canonical order; first one in
+                # inventory gets stashed.
+                if self.player.carrying(self.GOLD_ID):
+                    self.player.drop(self.GOLD_ID)
+                    self.gold.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your gold, and vanishes!")
+                if self.player.carrying(self.SILVER_ID):
+                    self.player.drop(self.SILVER_ID)
+                    self.silver.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your silver, and vanishes!")
+                if self.player.carrying(self.DIAMONDS_ID):
+                    self.player.drop(self.DIAMONDS_ID)
+                    self.diamonds.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your diamonds, and vanishes!")
+                if self.player.carrying(self.JEWELRY_ID):
+                    self.player.drop(self.JEWELRY_ID)
+                    self.jewelry.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your jewelry, and vanishes!")
+                if self.player.carrying(self.PEARL_ID):
+                    self.player.drop(self.PEARL_ID)
+                    self.pearl.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your pearl, and vanishes!")
+                if self.player.carrying(self.VASE_ID):
+                    self.player.drop(self.VASE_ID)
+                    self.vase.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your vase, and vanishes!")
+                if self.player.carrying(self.EGGS_ID):
+                    self.player.drop(self.EGGS_ID)
+                    self.eggs.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your eggs, and vanishes!")
+                if self.player.carrying(self.TRIDENT_ID):
+                    self.player.drop(self.TRIDENT_ID)
+                    self.trident.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your trident, and vanishes!")
+                if self.player.carrying(self.EMERALD_ID):
+                    self.player.drop(self.EMERALD_ID)
+                    self.emerald.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your emerald, and vanishes!")
+                if self.player.carrying(self.SPICES_ID):
+                    self.player.drop(self.SPICES_ID)
+                    self.spices.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your spices, and vanishes!")
+                if self.player.carrying(self.PYRAMID_ID):
+                    self.player.drop(self.PYRAMID_ID)
+                    self.pyramid.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your pyramid, and vanishes!")
+                if self.player.carrying(self.RUG_ID):
+                    self.player.drop(self.RUG_ID)
+                    self.rug.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your rug, and vanishes!")
+                if self.player.carrying(self.COINS_ID):
+                    self.player.drop(self.COINS_ID)
+                    self.coins.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your coins, and vanishes!")
+                if self.player.carrying(self.STATUETTE_ID):
+                    self.player.drop(self.STATUETTE_ID)
+                    self.statuette.reappear(self.CHEST_ROOM)
+                    @@:return("A bearded pirate appears, snatches your statuette, and vanishes!")
+                # Pirate rolled a steal but the player wasn't
+                # carrying anything stash-able. The roll is
+                # consumed (Pirate is now $Vanished); we just
+                # surface a flavor message.
+                @@:("A bearded pirate steps out of the gloom, sees your empty hands, and slinks off in disgust.")
+            }
 
             bridge_built(): bool       { @@:(self.crystal_bridge.is_built()) }
             rod_in_inventory(): bool   { @@:(self.rod_carried) }
@@ -3278,6 +3361,7 @@
         DRAGON_ROOM: int = 8
         BEAR_HOME_ROOM: int = 9
         TROLL_ROOM: int = 10
+        CHEST_ROOM: int = 18      # pirate's hoard — stolen treasures land here
         DEPOSIT_ROOM: int = 1     # well house — must match Treasure.DEPOSIT_ROOM
         # Fissure / rod-puzzle rooms. The rod starts in the
         # debris room (its canonical CCA home) and can be carried
