@@ -58,75 +58,77 @@ const STATUETTE_ID := 124
 # ------------------------------------------------------------
 # Maze topology
 # ------------------------------------------------------------
-# Each room maps direction → destination room. Compass
-# directions, plus contextual ones (in/out, up/down).
+# Canonical Crowther+Woods 1977 room numbering. Where a room
+# has a canonical analog, we use that number; interpolated
+# rooms (treasure side-rooms not in canon) take numbers in
+# the 130-139 gap zone above the canon repository (140).
 #
 # Mapping intent:
-#   0  End of road / outside building   (lit, surface)
-#   1  Inside well house                 (lit; DEPOSIT_ROOM)
-#   2  Debris room                       (dark; gold)
-#   3  Cave entrance corridor            (dark; transit)
-#   4  Y2 marker                         (dark; silver; magic-word hub)
-#   5  Bird chamber                      (dark; bird)
-#   6  Plover Room                       (dark; pearl; magic-word access only)
-#   7  End of long passage               (dark; snake blocking east)
-#   8  Stone dragon cavern               (dark; dragon, diamonds, rug)
-#   9  Bedquilt / bear chamber           (dark; bear, chain)
-#   10 Troll bridge                      (dark; troll blocking east)
-#   11 Beyond the bridge                 (dark; jewelry)
-#   12 Cobble crawl                      (dark; transit to deep cave)
-#   13 Oriental Room                     (dark; vase)
-#   14 Giant Room                        (dark; eggs)
-#   15 Sapphire Hallway                  (dark; trident)
-#   16 Vast Hall                         (dark; emerald)
-#   17 Alcove                            (dark; spices)
-#   18 Chest Room                        (dark; chest)
-#   19 Pyramid Chamber                   (dark; pyramid)
-#   20 Coin Niche                        (dark; coins)
-#   21 Sloping Passage                   (dark; statuette)
-#   22 Repository                        (endgame destination)
-#   23 Small pit                         (dark; rod-puzzle approach)
-#   24 Fissure                           (dark; gated by crystal bridge)
-#   25 Hall of Mirrors                   (dark; far side of fissure)
+#     1 End of road / outside building   (lit, surface)
+#     3 Inside well house                 (lit; DEPOSIT_ROOM)
+#    10 Cobble crawl                      (dark; transit to deep cave)
+#    11 Debris room                       (dark; gold; rod)
+#    12 Awkward sloping E/W canyon        (dark; transit)
+#    13 Bird chamber                      (dark; bird)
+#    14 Top of small pit                  (dark; rod-puzzle approach)
+#    17 East of fissure                   (dark; gated by crystal bridge)
+#    28 Giant Room                        (dark; eggs)
+#    33 Y2 marker                         (dark; silver; magic-word hub)
+#    38 Oriental Room                     (dark; vase)
+#    40 Alcove                            (dark; spices)
+#    41 Plover Room                       (lit; pearl; magic-word access only)
+#    47 Snake passage (secret E-W canyon) (dark; snake blocking east)
+#    69 Hall of Mirrors                   (dark; far side of fissure)
+#    70 Bedquilt / bear chamber           (dark; bear, chain)
+#    71 Scorched cavern                   (dark; dragon, diamonds, rug)
+#   117 Troll bridge                      (dark; troll blocking east)
+#   118 Cliff with ledge (beyond bridge)  (dark; jewelry)
+#   130 Sapphire Hallway      (interpolated, dark; trident)
+#   131 Vast Hall             (interpolated, dark; emerald)
+#   132 Pirate's chest cavern (interpolated, dark; chest)
+#   133 Pyramid Chamber       (interpolated, dark; pyramid)
+#   134 Coin Niche            (interpolated, dark; coins)
+#   135 Sloping Passage       (interpolated, dark; statuette)
+#   136 Repository                        (endgame destination)
 #
 # Magic-word teleports (handled by the FSM's MagicWordTeleport
 # aspect, not these tables):
-#   XYZZY  pairs 0 ↔ 2
-#   PLUGH  pairs 0 ↔ 4
-#   PLOVER pairs 4 ↔ 6
+#   XYZZY  pairs 1 ↔ 11
+#   PLUGH  pairs 1 ↔ 33
+#   PLOVER pairs 33 ↔ 41
 # ------------------------------------------------------------
 var room_exits: Dictionary = {
-    0:  {"north": 1, "in": 1, "enter": 1, "down": 3, "east": 3},
-    1:  {"south": 0, "out": 0, "down": 3},
-    2:  {"out": 0, "up": 0},
-    3:  {"up": 0, "down": 4, "north": 4},
-    4:  {"up": 3, "south": 3, "down": 5, "east": 7, "west": 9, "north": 23},
-    5:  {"up": 4, "out": 4},
-    6:  {},                                  # Plover Room — only magic exits
-    7:  {"west": 4, "east": 8},               # snake-east gated below
-    8:  {"west": 7, "north": 9},
-    9:  {"south": 8, "east": 10, "west": 4},
-    10: {"west": 9, "east": 11},              # troll-east gated below
-    11: {"west": 10, "east": 12},
+    1:   {"north": 3, "in": 3, "enter": 3, "down": 12, "east": 12},
+    3:   {"south": 1, "out": 1, "down": 12},
+    11:  {"out": 1, "up": 1},
+    12:  {"up": 1, "down": 33, "north": 33},
+    33:  {"up": 12, "south": 12, "down": 13, "east": 47, "west": 70, "north": 14},
+    13:  {"up": 33, "out": 33},
+    41:  {},                                 # Plover Room — only magic exits
+    47:  {"west": 33, "east": 71},           # snake-east gated below
+    71:  {"west": 47, "north": 70},
+    70:  {"south": 71, "east": 117, "west": 33},
+    117: {"west": 70, "east": 118},          # troll-east gated below
+    118: {"west": 117, "east": 10},
     # Deep cave loop — accessible after crossing troll bridge.
     # Linear chain east-west with each room hosting a treasure.
-    12: {"west": 11, "east": 13},
-    13: {"west": 12, "east": 14},
-    14: {"west": 13, "east": 15},
-    15: {"west": 14, "east": 16},
-    16: {"west": 15, "east": 17},
-    17: {"west": 16, "east": 18},
-    18: {"west": 17, "east": 19},
-    19: {"west": 18, "east": 20},
-    20: {"west": 19, "east": 21},
-    21: {"west": 20},
-    22: {},                                  # Repository — terminal endgame room
-    # Rod-puzzle branch: hangs off Y2 to the north. The fissure
-    # at room 24 is the gate; crossing east requires the crystal
-    # bridge (waved up by the rod). All three rooms are dark.
-    23: {"south": 4, "north": 24},           # Small Pit
-    24: {"south": 23, "east": 25},           # Fissure — east gated below
-    25: {"west": 24},                        # Hall of Mirrors (across the fissure)
+    10:  {"west": 118, "east": 38},
+    38:  {"west": 10, "east": 28},
+    28:  {"west": 38, "east": 130},
+    130: {"west": 28, "east": 131},
+    131: {"west": 130, "east": 40},
+    40:  {"west": 131, "east": 132},
+    132: {"west": 40, "east": 133},
+    133: {"west": 132, "east": 134},
+    134: {"west": 133, "east": 135},
+    135: {"west": 134},
+    136: {},                                 # Repository — terminal endgame room
+    # Rod-puzzle branch: hangs off Y2 (33) to the north. The
+    # fissure (17) is the gate; crossing east requires the
+    # crystal bridge (waved up by the rod).
+    14:  {"south": 33, "north": 17},         # top of small pit
+    17:  {"south": 14, "east": 69},          # fissure — east gated below
+    69:  {"west": 17},                       # hall of mirrors (across)
 }
 
 # Movements that require a clear NPC to traverse. Each entry:
@@ -134,9 +136,9 @@ var room_exits: Dictionary = {
 # Adventure exposes snake/troll blocking via accessor; we
 # check them before letting the player through.
 var gated_exits: Dictionary = {
-    "7:east":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
-    "10:east": {"check": "troll",  "msg": "The troll bars your way until you pay tribute."},
-    "24:east": {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "47:east":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
+    "117:east": {"check": "troll",  "msg": "The troll bars your way until you pay tribute."},
+    "17:east":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
 }
 
 # Verb synonym table. Maps user input to a canonical verb

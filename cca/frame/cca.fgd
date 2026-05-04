@@ -497,10 +497,10 @@
         }
 
     domain:
-        room: int = 0
+        room: int = 1                  # canonical: end-of-road
         inventory: Array = []
         deaths: int = 0
-        START_ROOM: int = 0
+        START_ROOM: int = 1            # canonical: end-of-road
         MAX_RESURRECTIONS: int = 3
 }
 
@@ -660,27 +660,26 @@
                 var verb: String = event.get("verb", "")
                 var room: int = event.get("room", -1)
 
-                # XYZZY: pairs room 0 ↔ room 2 (cave ↔ debris).
-                # In real CCA: outside-building ↔ debris-room.
+                # XYZZY: pairs end-of-road (1) ↔ debris room (11).
                 if verb == "xyzzy":
-                    if room == 0:
-                        @@:return(self._teleport(event, 2))
-                    elif room == 2:
-                        @@:return(self._teleport(event, 0))
+                    if room == 1:
+                        @@:return(self._teleport(event, 11))
+                    elif room == 11:
+                        @@:return(self._teleport(event, 1))
 
-                # PLUGH: pairs room 0 ↔ room 4 (cave ↔ Y2).
+                # PLUGH: pairs end-of-road (1) ↔ Y2 (33).
                 if verb == "plugh":
-                    if room == 0:
-                        @@:return(self._teleport(event, 4))
-                    elif room == 4:
-                        @@:return(self._teleport(event, 0))
+                    if room == 1:
+                        @@:return(self._teleport(event, 33))
+                    elif room == 33:
+                        @@:return(self._teleport(event, 1))
 
-                # PLOVER: pairs room 4 ↔ room 6 (Y2 ↔ Plover).
+                # PLOVER: pairs Y2 (33) ↔ Plover Room (41).
                 if verb == "plover":
-                    if room == 4:
-                        @@:return(self._teleport(event, 6))
-                    elif room == 6:
-                        @@:return(self._teleport(event, 4))
+                    if room == 33:
+                        @@:return(self._teleport(event, 41))
+                    elif room == 41:
+                        @@:return(self._teleport(event, 33))
 
                 # Unrecognized or wrong-room: pass through.
                 # Base handler returns "Nothing happens."
@@ -802,12 +801,12 @@
     domain:
         # Starting position — bird-chamber room. Must match
         # Adventure.BIRD_HOME_ROOM.
-        location_room: int = 5
+        location_room: int = 13
 
         # Special rooms that change release outcomes. Must
         # match Adventure.SNAKE_ROOM and Adventure.DRAGON_ROOM.
-        SNAKE_ROOM: int = 7
-        DRAGON_ROOM: int = 8
+        SNAKE_ROOM: int = 47
+        DRAGON_ROOM: int = 71
 }
 
 
@@ -1733,7 +1732,7 @@
         value: int = value
         fragile: bool = fragile
         location_room: int = home_room
-        DEPOSIT_ROOM: int = 1
+        DEPOSIT_ROOM: int = 3            # canonical: well house
 }
 
 
@@ -2314,11 +2313,11 @@
                 # transit and combat rooms. Real CCA wakes
                 # them probabilistically as the player wanders;
                 # this is the deterministic version for testing.
-                self.dwarf1.wake_up(3)    # cave entrance proper
-                self.dwarf2.wake_up(4)    # Y2 marker
-                self.dwarf3.wake_up(7)    # snake passage
-                self.dwarf4.wake_up(9)    # bear chamber
-                self.dwarf5.wake_up(11)   # beyond bridge
+                self.dwarf1.wake_up(12)   # awkward canyon
+                self.dwarf2.wake_up(33)   # Y2 marker
+                self.dwarf3.wake_up(47)   # snake passage
+                self.dwarf4.wake_up(70)   # bedquilt / bear chamber
+                self.dwarf5.wake_up(118)  # cliff with ledge (beyond bridge)
             }
 
             attack_dwarf_in_room(): String {
@@ -2677,59 +2676,60 @@
             # without an extra resource layer.
             var r: int = self.player.get_room()
             var base: String = "You are deep in the cave."
-            if r == 0:
+            # --- Canonical CCA rooms (Crowther+Woods 1977 numbering) ---
+            if r == 1:
                 base = "You are at the end of a road in front of a small brick building. Around you is a forest. A small stream flows out of the building and down a gully."
-            elif r == 1:
-                base = "You are inside a building, a well house for a large spring. There are some keys on the ground, and a bottle of water."
-            elif r == 2:
-                base = "You are in a debris-filled room, with a low passage to the north. Old food cans and clutter line the floor."
             elif r == 3:
-                base = "You are in the cave entrance, a damp, muddy passage leading down into the earth."
-            elif r == 4:
-                base = "You are in a large room with passages off in all directions. A sign reads 'Y2'."
-            elif r == 5:
-                base = "You are in a chamber filled with the chirping of birds, alive with motion."
-            elif r == 6:
-                base = "You are in the Plover Room, an alcove with rough walls and a curiously-cut floor."
-            elif r == 7:
-                base = "You are at the end of a long passage. The floor is chiseled smooth."
-            elif r == 8:
-                base = "You are in a cavern with massive stalactites overhead. A wide Persian rug covers the floor."
-            elif r == 9:
-                base = "You are in the Bedquilt, a great chamber. A passage descends to the east."
-            elif r == 10:
-                base = "You are at the troll bridge, a rickety span over a yawning chasm."
+                base = "You are inside a building, a well house for a large spring. There are some keys on the ground, and a bottle of water."
             elif r == 11:
-                base = "You are in a low chamber on the far side of the bridge."
+                base = "You are in a debris-filled room, with a low passage to the north. Old food cans and clutter line the floor."
             elif r == 12:
-                base = "You are in a cobble crawl, low and twisty. Something glitters here and there."
+                base = "You are in an awkward sloping east/west canyon."
+            elif r == 33:
+                base = "You are in a large room with passages off in all directions. A sign reads 'Y2'."
             elif r == 13:
+                base = "You are in a chamber filled with the chirping of birds, alive with motion."
+            elif r == 41:
+                base = "You are in the Plover Room, an alcove with rough walls and a curiously-cut floor."
+            elif r == 47:
+                base = "You are at the end of a long passage. The floor is chiseled smooth."
+            elif r == 71:
+                base = "You are in a cavern with massive stalactites overhead. A wide Persian rug covers the floor."
+            elif r == 70:
+                base = "You are in the Bedquilt, a great chamber. A passage descends to the east."
+            elif r == 117:
+                base = "You are at the troll bridge, a rickety span over a yawning chasm."
+            elif r == 118:
+                base = "You are on a cliff with a narrow ledge, on the far side of the bridge."
+            elif r == 10:
+                base = "You are in a cobble crawl, low and twisty. Something glitters here and there."
+            elif r == 38:
                 base = "You are in the Oriental Room. Strange Asian artifacts surround you."
-            elif r == 14:
+            elif r == 28:
                 base = "You are in the Giant Room. The walls are streaked with silver, and a faint hum echoes from above."
-            elif r == 15:
+            elif r == 130:
                 base = "You are in a hall paved with sapphire-blue stone."
-            elif r == 16:
+            elif r == 131:
                 base = "You are in a vast hall stretching out of sight."
-            elif r == 17:
+            elif r == 40:
                 base = "You are in a small alcove with a fragrant aroma."
-            elif r == 18:
-                base = "You are in a chest room. The pirate's loot is hidden here."
-            elif r == 19:
+            elif r == 132:
+                base = "You are in a chest cavern. The pirate's loot is hidden here."
+            elif r == 133:
                 base = "You are in a pyramid-shaped chamber, walls slanting inward."
-            elif r == 20:
+            elif r == 134:
                 base = "You are in a coin niche, a small space tucked into the wall."
-            elif r == 21:
+            elif r == 135:
                 base = "You are in a sloping passage. The walls are smooth and curved."
-            elif r == 22:
+            elif r == 136:
                 base = "You are in the Repository. All your treasures lie at your feet, plus a stick of dynamite."
-            elif r == 23:
+            elif r == 14:
                 base = "You are in a small pit breathing strange vapor. Crawl-ways lead off in many directions."
-            elif r == 24:
+            elif r == 17:
                 base = "You are at the edge of a deep, narrow fissure. The walls drop away to nothing far below."
                 if self.crystal_bridge.is_built():
                     base = base + " A glittering crystal bridge spans the fissure."
-            elif r == 25:
+            elif r == 69:
                 base = "You are in a hall of mirrors on the far side of the fissure. Cool air drifts in from somewhere unseen."
             # NPC presence overlays.
             if r == self.bird.get_location() and self.bird.get_state() == "free":
@@ -3104,7 +3104,7 @@
                     return "A burly troll, demanding tribute to cross his bridge."
                 return "The troll is gone."
             elif noun == "sign":
-                if self.player.get_room() == 4:
+                if self.player.get_room() == 33:    # Y2 (canonical)
                     return "The sign reads: 'Y2'."
                 return "There is no sign here."
             return "You see nothing special about that."
@@ -3114,7 +3114,7 @@
             # READ is mostly for signs and inscriptions. We
             # share examine's text for objects with writing.
             if noun == "sign":
-                if self.player.get_room() == 4:
+                if self.player.get_room() == 33:    # Y2 (canonical)
                     return "The sign reads: 'Y2'."
                 return "There is no sign here."
             elif noun == "keys" or noun == "bottle":
@@ -3134,7 +3134,7 @@
                 # were already deposited, this resets them
                 # (player can re-deposit and double-score —
                 # canon bug, we replicate intentionally).
-                self.eggs.reappear(14)
+                self.eggs.reappear(28)    # canonical: Giant Room
                 return reply + " The nest of golden eggs has appeared elsewhere!"
             return reply
         }
@@ -3233,7 +3233,8 @@
                 self.player.move_to(dest)
             else:
                 var r: int = self.player.get_room()
-                self.player.move_to(1 if r == 0 else 0)
+                # toggle between end-of-road (1) and well house (3)
+                self.player.move_to(3 if r == 1 else 1)
             var nr: int = self.player.get_room()
             if self._room_is_dark(nr) and not self.lamp.is_lit():
                 return "You move into darkness."
@@ -3241,11 +3242,13 @@
         }
 
         # World inspection: is the player's current room dark?
-        # Real CCA has a per-room `is_dark` data flag; here we
-        # use a stub that says "everything except room 0 is
-        # dark when the lamp is off."
+        # Canonical CCA tags each room with a flag; we use a
+        # simple rule: outdoor / surface rooms (1=end-of-road,
+        # 3=well house) and the Plover Room (41, lit by an
+        # otherworldly glow) are lit. Everything else is dark
+        # when the lamp is off.
         _room_is_dark(room: int): bool {
-            if room == 0:
+            if room == 1 or room == 3 or room == 41:
                 return false
             return not self.lamp.is_lit()
         }
@@ -3316,23 +3319,24 @@
         # is mechanical (one named instance + one branch in
         # _take_treasure_by_name + _drop_treasure_by_name +
         # treasures_deposited / total_score).
-        gold      = @@Treasure(2,   5)   # debris room
-        silver    = @@Treasure(4,   5)   # Y2 marker
-        diamonds  = @@Treasure(8,  10)   # dragon cavern (under dragon? — simplified: just there)
-        jewelry   = @@Treasure(11, 10)   # beyond troll bridge
-        pearl     = @@Treasure(6,  15)   # Plover Room (only via PLOVER magic)
-        # Deep cave treasures — accessible after crossing the
-        # troll bridge. Rooms 12-22 form the deep-cave loop.
-        vase      = @@Treasure(13, 14, true)   # Oriental Room — fragile!
-        eggs      = @@Treasure(14, 14)   # Giant Room
-        trident   = @@Treasure(15, 14)   # Sapphire Hallway
-        emerald   = @@Treasure(16, 14)   # Vast Hall
-        spices    = @@Treasure(17, 14)   # Alcove
-        chest     = @@Treasure(18, 14)   # Chest Room (pirate's loot)
-        pyramid   = @@Treasure(19, 14)   # Pyramid Chamber
-        rug       = @@Treasure(8,  14)   # under dragon (same room — drops once dragon dies)
-        coins     = @@Treasure(20, 10)   # Coin Niche
-        statuette = @@Treasure(21, 10)   # Sloping Passage
+        # Canonical CCA room numbering for treasure homes.
+        gold      = @@Treasure(11,  5)   # debris room
+        silver    = @@Treasure(33,  5)   # Y2 marker
+        diamonds  = @@Treasure(71, 10)   # scorched cavern (with dragon, rug)
+        jewelry   = @@Treasure(118,10)   # cliff with ledge (beyond troll bridge)
+        pearl     = @@Treasure(41, 15)   # Plover Room (only via PLOVER magic)
+        # Treasures whose canonical home rooms aren't deeply
+        # specified in canon get gap-zone numbers (130-139).
+        vase      = @@Treasure(38, 14, true)   # Oriental Room — fragile!
+        eggs      = @@Treasure(28, 14)   # Giant Room
+        trident   = @@Treasure(130,14)   # Sapphire Hallway (interpolated)
+        emerald   = @@Treasure(131,14)   # Vast Hall (interpolated)
+        spices    = @@Treasure(40, 14)   # Alcove
+        chest     = @@Treasure(132,14)   # Pirate's chest cavern (interpolated)
+        pyramid   = @@Treasure(133,14)   # Pyramid Chamber (interpolated)
+        rug       = @@Treasure(71, 14)   # under dragon (drops once dragon dies)
+        coins     = @@Treasure(134,10)   # Coin Niche (interpolated)
+        statuette = @@Treasure(135,10)   # Sloping Passage (interpolated)
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
@@ -3356,18 +3360,23 @@
         RUG_ID: int = 122
         COINS_ID: int = 123
         STATUETTE_ID: int = 124
-        BIRD_HOME_ROOM: int = 5
-        SNAKE_ROOM: int = 7
-        DRAGON_ROOM: int = 8
-        BEAR_HOME_ROOM: int = 9
-        TROLL_ROOM: int = 10
-        CHEST_ROOM: int = 18      # pirate's hoard — stolen treasures land here
-        DEPOSIT_ROOM: int = 1     # well house — must match Treasure.DEPOSIT_ROOM
+        # Canonical Crowther/Woods 1977 room numbering. Where a
+        # room name has a canonical analog, we use that number;
+        # interpolated rooms (treasure-side-rooms not in canon)
+        # take numbers in the 130-139 gap zone above the canon
+        # repository (140) so they don't collide.
+        BIRD_HOME_ROOM: int = 13      # bird chamber
+        SNAKE_ROOM: int = 47          # secret east-west canyon
+        DRAGON_ROOM: int = 71         # scorched cavern
+        BEAR_HOME_ROOM: int = 70      # bear chamber
+        TROLL_ROOM: int = 117         # troll bridge
+        CHEST_ROOM: int = 132         # pirate's chest cavern (interpolated)
+        DEPOSIT_ROOM: int = 3         # well house — must match Treasure.DEPOSIT_ROOM
         # Fissure / rod-puzzle rooms. The rod starts in the
         # debris room (its canonical CCA home) and can be carried
         # to the fissure to summon the crystal bridge.
-        FISSURE_ROOM: int = 24
-        ROD_HOME_ROOM: int = 2    # debris room — same as gold
+        FISSURE_ROOM: int = 17        # east of fissure
+        ROD_HOME_ROOM: int = 11       # debris room — same as gold
         ROD_ID: int = 130
 
         # The rod's runtime state. Carried as a domain bool +
@@ -3375,7 +3384,7 @@
         # has no behavior of its own — it's a key-with-no-lock.
         # The bridge it summons is a separate FSM (crystal_bridge).
         rod_carried: bool = false
-        rod_location: int = 2
+        rod_location: int = 11    # debris room (matches ROD_HOME_ROOM)
 
         # Tick counter (advances every tick(), not every
         # do_command). Some commands are free; others tick.
