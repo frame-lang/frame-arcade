@@ -2033,6 +2033,143 @@
 
 
 # ------------------------------------------------------------
+# Bottle
+# ------------------------------------------------------------
+# The water bottle from the well house. A 2-state container
+# tracking whether it currently holds water. The bottle is also
+# an inventory item — its location/carry state lives in
+# Adventure (`bottle_carried` / `bottle_location`). The FSM
+# here just tracks contents.
+#
+# State diagram:
+#
+#   $Empty ── fill(at_water_source=true) ──► $Water
+#   $Water ── pour() ──► $Empty
+#   $Water ── drink() ──► $Empty
+#
+# Cross-FSM choreography (Adventure brokers):
+#   - FILL only succeeds at a water-source room (3, 4, 83, 84).
+#   - POUR on the plant triggers `plant.water()`.
+#   - POUR anywhere else just empties the bottle for flavor.
+# ------------------------------------------------------------
+@@[persist]
+@@system Bottle : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        fill(at_water_source: bool): String
+        pour(): String
+        drink(): String
+        get_state(): String
+        has_water(): bool
+
+    machine:
+
+        $Empty {
+            fill(at_water_source: bool): String  {
+                if at_water_source:
+                    -> $Water
+                    @@:return("Your bottle is now full of water.")
+                @@:("There's no water here to fill it from.")
+            }
+            pour(): String           { @@:("The bottle is empty.") }
+            drink(): String          { @@:("The bottle is empty.") }
+            get_state(): String      { @@:("empty") }
+            has_water(): bool        { @@:(false) }
+        }
+
+        $Water {
+            fill(at_water_source: bool): String  {
+                @@:("The bottle is already full of water.")
+            }
+            pour(): String           {
+                -> $Empty
+                @@:return("You pour the water out.")
+            }
+            drink(): String          {
+                -> $Empty
+                @@:return("The water is wonderfully fresh and clear.")
+            }
+            get_state(): String      { @@:("water") }
+            has_water(): bool        { @@:(true) }
+        }
+}
+
+
+# ------------------------------------------------------------
+# Plant
+# ------------------------------------------------------------
+# The beanstalk in the West Pit (room 23). Canonically a 3-stage
+# growth chain driven by waterings: Tiny → Tall (one water) →
+# Huge (two waters). $Tall lets the player climb to the middle
+# section (room 24); $Huge lets them climb all the way to the
+# top (room 25). Without water, the plant is too feeble to
+# climb at all.
+#
+# State diagram:
+#
+#   $Tiny ── water() ──► $Tall
+#   $Tall ── water() ──► $Huge
+#   $Huge      terminal (already enormous)
+#
+# Adventure brokers: `_verb_pour("water")` at the West Pit
+# calls `plant.water()` AND empties the bottle. The driver
+# gates the climb exits (23→24, 24→25) on the plant's state.
+# ------------------------------------------------------------
+@@[persist]
+@@system Plant : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        water(): String
+        get_state(): String
+        is_tall(): bool          # climbable to room 24
+        is_huge(): bool          # climbable to room 25
+
+    machine:
+
+        $Tiny {
+            water(): String          {
+                -> $Tall
+                @@:return("The plant grows ten feet, towering above you.")
+            }
+            get_state(): String      { @@:("tiny") }
+            is_tall(): bool          { @@:(false) }
+            is_huge(): bool          { @@:(false) }
+        }
+
+        $Tall {
+            water(): String          {
+                -> $Huge
+                @@:return("The plant grows another fifty feet, vanishing into the gloom above.")
+            }
+            get_state(): String      { @@:("tall") }
+            is_tall(): bool          { @@:(true) }
+            is_huge(): bool          { @@:(false) }
+        }
+
+        $Huge {
+            water(): String          { @@:("The plant is already enormous.") }
+            get_state(): String      { @@:("huge") }
+            is_tall(): bool          { @@:(true) }
+            is_huge(): bool          { @@:(true) }
+        }
+}
+
+
+# ------------------------------------------------------------
 # Pirate
 # ------------------------------------------------------------
 # Three-state probabilistic encounter, similar in shape to a
@@ -2314,6 +2451,10 @@
         grate_locked(): bool
         keys_in_inventory(): bool
         vending_loaded(): bool
+        plant_is_tall(): bool
+        plant_is_huge(): bool
+        bottle_in_inventory(): bool
+        bottle_has_water(): bool
 
     machine:
 
@@ -2668,6 +2809,10 @@
             grate_locked(): bool       { @@:(self.grate.is_locked()) }
             keys_in_inventory(): bool  { @@:(self.keys_carried) }
             vending_loaded(): bool     { @@:(self.vending.is_loaded()) }
+            plant_is_tall(): bool      { @@:(self.plant.is_tall()) }
+            plant_is_huge(): bool      { @@:(self.plant.is_huge()) }
+            bottle_in_inventory(): bool { @@:(self.bottle_carried) }
+            bottle_has_water(): bool   { @@:(self.bottle.has_water()) }
 
             treasures_deposited(): int {
                 var n: int = 0
@@ -2808,6 +2953,14 @@
                 return self._verb_lock(noun)
             elif verb == "insert" or verb == "use":
                 return self._verb_insert(noun)
+            elif verb == "fill":
+                return self._verb_fill(noun)
+            elif verb == "pour":
+                return self._verb_pour(noun)
+            elif verb == "water":
+                return self._verb_water(noun)
+            elif verb == "drink":
+                return self._verb_drink(noun)
             elif verb == "fee" or verb == "fie" or verb == "foe" or verb == "foo":
                 return self._verb_chant(verb)
             elif verb == "xyzzy" or verb == "plugh" or verb == "plover":
@@ -2838,7 +2991,7 @@
             elif r == 2:
                 base = "You have walked up a hill, still in the forest. The road slopes back down the other side. A building is visible through the trees, far below."
             elif r == 3:
-                base = "You are inside a building, a well house for a large spring. A bottle of water sits on a wooden shelf."
+                base = "You are inside a building, a well house for a large spring. Water bubbles out of the spring with a quiet murmur."
             elif r == 4:
                 base = "You are in a valley in the forest beside a stream tumbling along a rocky bed."
             elif r == 5:
@@ -2917,11 +3070,20 @@
             elif r == 22:
                 base = "You are at the bottom of the eastern pit. A small dry hole leads on into nothingness."
             elif r == 23:
-                base = "You are at the bottom of the western pit. There's a tall beanstalk growing here, with leaves big enough to climb."
+                # Plant description tracks growth. Tiny is the
+                # default; canonical CCA player won't get past
+                # this room without watering the plant.
+                var ps: String = self.plant.get_state()
+                if ps == "tiny":
+                    base = "You are at the bottom of the western pit. There is a tiny plant in the pit, murmuring 'Water, water, ...'"
+                elif ps == "tall":
+                    base = "You are at the bottom of the western pit. There is a 12-foot-tall beanstalk stretching up out of the pit, bellowing 'Water!! Water!!'"
+                else:
+                    base = "You are at the bottom of the western pit. There is a gigantic beanstalk stretching all the way up to the hole."
             elif r == 24:
-                base = "You are about ten feet up the beanstalk. The leaves rustle gently as you cling to them."
+                base = "You are about 10 feet above the bottom of the pit. There is a thick beanstalk to one side."
             elif r == 25:
-                base = "You are at the top of the beanstalk. The plant is too feeble to hold any more weight, but a narrow crack in the wall lets you scramble through."
+                base = "You are at the top of a vast crack in the rock, with the giant beanstalk vanishing into the gloom below. The crack twists upward but is barely wide enough to crawl through."
             elif r == 26:
                 base = "You are in a long, narrow corridor stretching out of sight east-west. The walls are smooth and damp."
             elif r == 27:
@@ -3153,6 +3315,11 @@
                 base = base + " A small black rod with a rusty star at one end lies on the ground."
             if not self.keys_carried and self.keys_location == r:
                 base = base + " A set of brass keys lies on the floor."
+            if not self.bottle_carried and self.bottle_location == r:
+                if self.bottle.has_water():
+                    base = base + " A small glass bottle, full of water, sits on a wooden shelf."
+                else:
+                    base = base + " A small empty glass bottle sits on a wooden shelf."
             # Grate state overlay — only at the depression itself.
             if r == self.GRATE_ROOM:
                 if self.grate.is_locked():
@@ -3192,6 +3359,14 @@
                     return "There are no keys here."
                 self.keys_carried = true
                 self.player.take(self.KEYS_ID)
+                return "Taken."
+            if noun == "bottle":
+                if self.bottle_carried:
+                    return "You already have the bottle."
+                if self.player.get_room() != self.bottle_location:
+                    return "There is no bottle here."
+                self.bottle_carried = true
+                self.player.take(self.BOTTLE_ID)
                 return "Taken."
             if noun == "chain":
                 if self.player.get_room() != self.BEAR_HOME_ROOM:
@@ -3235,6 +3410,13 @@
                 self.keys_carried = false
                 self.keys_location = self.player.get_room()
                 self.player.drop(self.KEYS_ID)
+                return "Dropped."
+            if noun == "bottle":
+                if not self.bottle_carried:
+                    return "You aren't carrying the bottle."
+                self.bottle_carried = false
+                self.bottle_location = self.player.get_room()
+                self.player.drop(self.BOTTLE_ID)
                 return "Dropped."
             if noun == "chain":
                 if self.bear.get_state() != "following":
@@ -3601,6 +3783,73 @@
             return msg
         }
 
+        # World inspection: is the player's current room a water
+        # source? Canon CCA's water sources are the well house
+        # spring (3), the valley stream (4), the underground
+        # reservoir (83), and the underground stream (84).
+        _at_water_source(): bool {
+            var r: int = self.player.get_room()
+            if r == 3 or r == 4 or r == 83 or r == 84:
+                return true
+            return false
+        }
+
+        _verb_fill(noun: String): String {
+            if noun != "bottle":
+                return "You can't fill that."
+            if not self.bottle_carried:
+                return "You don't have the bottle."
+            return self.bottle.fill(self._at_water_source())
+        }
+
+        _verb_pour(noun: String): String {
+            # POUR with no noun, or POUR WATER, or POUR BOTTLE —
+            # all pour the bottle's contents at the player's
+            # location. Special case: at the West Pit (room 23)
+            # the water is absorbed by the plant, growing it.
+            # Anywhere else it just spills.
+            if noun != "" and noun != "bottle" and noun != "water":
+                return "You can't pour that."
+            if not self.bottle_carried:
+                return "You don't have the bottle."
+            if not self.bottle.has_water():
+                return "The bottle is empty."
+            var r: int = self.player.get_room()
+            # Empty the bottle regardless of where the water lands.
+            var msg: String = self.bottle.pour()
+            if r == self.WEST_PIT_ROOM:
+                # Cross-FSM: water the plant.
+                var grow_msg: String = self.plant.water()
+                return "The water soaks into the soil. " + grow_msg
+            return msg
+        }
+
+        _verb_water(noun: String): String {
+            # WATER PLANT is the canonical CCA verb. We accept
+            # bare WATER (defaults to the plant if at West Pit)
+            # and "water plant" / "water beanstalk" / "water it".
+            if noun != "" and noun != "plant" and noun != "beanstalk" and noun != "it":
+                return "You can't water that."
+            if self.player.get_room() != self.WEST_PIT_ROOM:
+                return "There's nothing here that needs watering."
+            # Same effect as POUR at the West Pit — defer to
+            # _verb_pour to keep the choreography in one place.
+            return self._verb_pour("water")
+        }
+
+        _verb_drink(noun: String): String {
+            # Bare DRINK or DRINK WATER drinks the bottle
+            # contents. Drinking from a stream / reservoir works
+            # too as a flavor response.
+            if noun != "" and noun != "water" and noun != "bottle":
+                return "You can't drink that."
+            if not self.bottle_carried:
+                if self._at_water_source():
+                    return "The water is wonderfully fresh and clear, but you have no way to carry any."
+                return "You have nothing to drink."
+            return self.bottle.drink()
+        }
+
         _attack_dwarf_in_current(): String {
             # Inline copy of attack_dwarf_in_room's logic so
             # the verb handler can call it as an action. We
@@ -3779,6 +4028,14 @@
         # house — that's the puzzle decision).
         vending = @@VendingMachine()
 
+        # Bottle (item) and Plant (FSM in West Pit). Canonical
+        # CCA's beanstalk puzzle: take bottle from well house,
+        # fill at a water source, pour on the plant in West Pit,
+        # climb. Two waterings to grow it from $Tiny → $Tall →
+        # $Huge so you can climb all the way to room 25.
+        bottle = @@Bottle()
+        plant  = @@Plant()
+
         # Five treasures, each in its home room with a value.
         # Real CCA has 15; we model the canonical lifecycle on
         # this subset to keep the maze manageable. Adding more
@@ -3845,6 +4102,9 @@
         GRATE_ROOM: int = 8           # depression with the steel grate
         KEYS_HOME_ROOM: int = 3       # well house
         VENDING_ROOM: int = 95        # vending machine room
+        WEST_PIT_ROOM: int = 23       # plant lives here
+        BOTTLE_ID: int = 132
+        BOTTLE_HOME_ROOM: int = 3     # well house
         ROD_HOME_ROOM: int = 11       # debris room — same as gold
         ROD_ID: int = 130
         KEYS_ID: int = 131
@@ -3857,6 +4117,8 @@
         rod_location: int = 11    # debris room (matches ROD_HOME_ROOM)
         keys_carried: bool = false
         keys_location: int = 3    # well house (matches KEYS_HOME_ROOM)
+        bottle_carried: bool = false
+        bottle_location: int = 3  # well house (matches BOTTLE_HOME_ROOM)
 
         # Tick counter (advances every tick(), not every
         # do_command). Some commands are free; others tick.
