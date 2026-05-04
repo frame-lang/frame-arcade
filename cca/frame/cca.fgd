@@ -2792,6 +2792,61 @@
                 base = "You are above a large room that drops away below to the south. A flat slab of stone juts out into the void."
             elif r == 37:
                 base = "You are in a large low circular chamber whose floor is a slab of stone. Above, the rock-jumble continues."
+            # --- Snake/dragon side passages, the two mazes, Witt's End ---
+            # Canonical Crowther+Woods has the maze of twisty
+            # passages all alike (8 rooms with identical text but
+            # divergent exit logic in canon — we keep the text but
+            # use a simple linear topology since making the maze
+            # actually confusing requires a non-Euclidean room
+            # mechanic that would be a sub-system of its own).
+            elif r == 39:
+                base = "You are in a small misty cavern. Walls and ceiling are slick with damp; water drips ceaselessly somewhere out of sight."
+            elif r == 42:
+                base = "You are in a dark, dirty alcove. Soot and dust lie thick on every surface, undisturbed for centuries."
+            elif r == 43:
+                base = "You are in a relatively wide spot in the passage. The east wall has bands of dark and light stone."
+            elif r == 44:
+                base = "You are in a secret canyon. The walls overhang above and meet to form a narrow ribbon of stars."
+            elif r == 45:
+                base = "The passage here is so tight you can barely squeeze through. There's a narrow opening to the east."
+            elif r == 46:
+                base = "You are in a tall east/west passage. The roof is lost in shadows above."
+            elif r == 48:
+                base = "You are in a boulder-strewn passage, with stones the size of small houses lying about."
+            elif r == 49:
+                base = "You are in a passage of polished limestone, smoothly weathered by ages of dripping water."
+            # Maze of twisty little passages, all alike (50-57).
+            # Each room shares the canonical text. Canonically the
+            # maze is mapped by dropping items to mark visited
+            # rooms. Our linear topology removes that puzzle but
+            # preserves the iconic flavor.
+            elif r >= 50 and r <= 57:
+                base = "You are in a maze of twisty little passages, all alike."
+            # Maze of twisty passages, all different (58-65). Same
+            # iconic text, rearranged words to keep the player on
+            # their toes.
+            elif r == 58:
+                base = "You are in a maze of twisty little passages, all different."
+            elif r == 59:
+                base = "You are in a maze of twisting little passages, all different."
+            elif r == 60:
+                base = "You are in a little maze of twisty passages, all different."
+            elif r == 61:
+                base = "You are in a twisting maze of little passages, all different."
+            elif r == 62:
+                base = "You are in a twisting little maze of passages, all different."
+            elif r == 63:
+                base = "You are in a twisty little maze of passages, all different."
+            elif r == 64:
+                base = "You are in a twisty maze of little passages, all different."
+            elif r == 65:
+                base = "You are in a little twisty maze of passages, all different."
+            elif r == 66:
+                base = "You are at one of the exits from the labyrinth, where a long passage stretches east."
+            elif r == 67:
+                base = "You are at Witt's End. Passages lead off in all directions but most are barely visible, and most of those that are visible appear to lead nowhere useful."
+            elif r == 68:
+                base = "You are at the bottom of a smoothly polished cone of limestone, with a steep climb back the way you came."
             elif r == 17:
                 base = "You are at the edge of a deep, narrow fissure. The walls drop away to nothing far below."
                 if self.crystal_bridge.is_built():

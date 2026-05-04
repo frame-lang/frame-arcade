@@ -124,8 +124,8 @@ var room_exits: Dictionary = {
     12:  {"up": 1, "down": 33, "north": 33, "south": 11, "west": 11}, # Awkward canyon
     33:  {"up": 12, "south": 12, "down": 13, "east": 47, "west": 70, "north": 14},
     13:  {"up": 33, "out": 33},
-    41:  {},                                 # Plover Room — only magic exits
-    47:  {"west": 33, "east": 71},           # snake-east gated below
+    41:  {"north": 42},                      # Plover Room — magic exits + north to dark room
+    47:  {"west": 33, "east": 71, "up": 44}, # snake-east gated; up to secret canyon side branch
     71:  {"west": 47, "north": 70},
     70:  {"south": 71, "east": 117, "west": 33},
     117: {"west": 70, "east": 118},          # troll-east gated below
@@ -133,7 +133,7 @@ var room_exits: Dictionary = {
     # Deep cave loop — accessible after crossing troll bridge.
     # Linear chain east-west with each room hosting a treasure.
     120: {"west": 118, "east": 38},
-    38:  {"west": 120, "east": 28},
+    38:  {"west": 120, "east": 28, "north": 39},
     28:  {"west": 38, "east": 130},
     130: {"west": 28, "east": 131},
     131: {"west": 130, "east": 40},
@@ -166,15 +166,55 @@ var room_exits: Dictionary = {
     24:  {"down": 23, "up": 25, "climb": 25},                            # Plant — middle
     25:  {"down": 24},                                                   # Plant — top
     26:  {"south": 19, "north": 27},                                     # Narrow corridor
-    27:  {"south": 26, "north": 29},                                     # Above immense passage
+    27:  {"south": 26, "north": 29, "west": 50},                         # Above immense passage
     29:  {"south": 27, "east": 30},                                      # Immense passage
-    30:  {"south": 16, "west": 29, "north": 31, "down": 34},             # Jumble of rock
+    30:  {"south": 16, "west": 29, "north": 31, "down": 34, "east": 58}, # Jumble of rock
     31:  {"south": 30, "north": 32},                                     # Window on pit (low)
     32:  {"south": 31},                                                  # Window on pit (high)
     34:  {"up": 30, "north": 35},                                        # Low dust chamber
     35:  {"south": 34, "north": 36},                                     # Sloping corridor
     36:  {"south": 35, "west": 37},                                      # Above slab
     37:  {"east": 36},                                                   # Slab room (dead-end)
+    # --- Side passages (39, 42-49) ---
+    # 39 hangs off the Oriental Room (38) to the north. 42 is the
+    # "dark room after Plover" — reachable from Plover (41) via
+    # north (a one-way exit; you can't go back through Plover
+    # without the magic word). 43-49 form a side branch off the
+    # snake passage (47).
+    39:  {"south": 38},                                                  # Misty cavern
+    42:  {"south": 41, "out": 41, "north": 43},                          # Dark room after Plover
+    43:  {"south": 42, "north": 44},                                     # Wide place
+    44:  {"south": 43, "north": 45, "down": 47},                         # Secret canyon
+    45:  {"south": 44, "east": 46},                                      # Tight place
+    46:  {"west": 45, "east": 48},                                       # Tall E/W passage
+    48:  {"west": 46, "east": 49},                                       # Boulders cluster
+    49:  {"west": 48},                                                   # Limestone passage (dead-end)
+    # --- Maze of twisty little passages, all alike (50-57) ---
+    # Entry from "Above the immense passage" (27) via west. The
+    # rooms form a linear chain rather than canon's confusing
+    # web — the iconic name is the demo, not the map.
+    50:  {"east": 27, "west": 51, "north": 52, "south": 53},
+    51:  {"east": 50, "west": 54, "north": 55, "south": 56},
+    52:  {"south": 50, "west": 57},
+    53:  {"north": 50},
+    54:  {"east": 51, "west": 55},
+    55:  {"east": 54, "west": 56, "south": 51},
+    56:  {"east": 55, "north": 51},
+    57:  {"east": 52},
+    # --- Maze of twisty passages, all different (58-65) ---
+    # Entry from rock-jumble junction (30) via east.
+    58:  {"west": 30, "east": 59, "south": 60},
+    59:  {"west": 58, "east": 61, "north": 62},
+    60:  {"north": 58, "east": 63},
+    61:  {"west": 59, "east": 64},
+    62:  {"south": 59, "east": 65},
+    63:  {"west": 60, "east": 64},
+    64:  {"west": 63, "north": 65, "east": 66},
+    65:  {"south": 64, "west": 62},
+    # --- Witt's End trio (66-68) ---
+    66:  {"west": 64, "east": 67, "down": 68},
+    67:  {"west": 66},                                                   # Witt's End — apparent dead-end
+    68:  {"up": 66},                                                     # Bottom of polished cone
 }
 
 # Movements that require a clear NPC to traverse. Each entry:
