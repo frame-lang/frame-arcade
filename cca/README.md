@@ -1,17 +1,18 @@
 # Colossal Cave Adventure (Frame port)
 
-> **Status:** full canonical scope. **125 rooms with canonical
-> Crowther+Woods 1977 numbering**, 15 treasures, 6 NPCs (bird,
-> snake, dragon, bear, troll, pirate, plus 5 dwarves), 4 cross-
-> cutting aspects on the bus, full CCA scoring breakdown
-> (treasure / visits / hints / endgame), rod + crystal-bridge
-> fissure puzzle, **keys + grate puzzle**, FEE/FIE/FOE/FOO eggs
-> incantation, fragile vase, bear/dwarf player attacks,
+> **Status:** **100% canon-complete to Crowther+Woods 1977.**
+> 140 rooms with canonical numbering, 15 treasures, 6 NPCs
+> (bird, snake, dragon, bear, troll, pirate, plus 5 dwarves),
+> 4 cross-cutting aspects on the bus, full CCA scoring
+> breakdown (treasure / visits / hints / endgame), rod +
+> crystal-bridge fissure puzzle, keys + grate puzzle,
+> bottle + water + plant beanstalk chain, FEE/FIE/FOE/FOO
+> eggs incantation, fragile vase, bear/dwarf player attacks,
 > resurrection cycle with permadeath, pirate stash + retrieval,
-> both mazes (twisty passages all alike, with canon's confusing
-> non-Euclidean topology), Witt's End, **functional Vending
-> Machine** (trade rare coins for lamp batteries), bird-refuses-
-> Plover-Room nuance, and the canonical surface forest grid
+> both mazes (twisty passages all alike with canon's confusing
+> non-Euclidean topology), Witt's End, functional Vending
+> Machine (trade rare coins for lamp batteries), bird-vanishes-
+> in-Plover-Room canon, and the canonical surface forest grid
 > with descent through the slit and grate. Save/restore
 > round-trips the entire world. See [EVALUATION.md](./EVALUATION.md)
 > for an honest per-system score on Frame's value-add.
@@ -115,18 +116,23 @@ EVALUATION.md             honest per-system Frame value-add scoring
 - `VendingMachine` — 2-state consume-and-side-effect FSM;
   inserting coins consumes them and refreshes the lamp,
   trading deposit-points for batteries
+- `Bottle` — 2-state container ($Empty / $Water) with
+  FILL / POUR / DRINK transitions
+- `Plant` — 3-state monotonic growth FSM ($Tiny / $Tall /
+  $Huge), one watering per growth step; gates 23→24 and
+  24→25 climbs
 
-**Total**: 22 `@@system` declarations, ~3900 lines of Frame
-source, ~10800 lines of generated GDScript. Eighteen smoke
-test files, ~340 individual checks, all PASS.
+**Total**: 24 `@@system` declarations, ~4200 lines of Frame
+source, ~11700 lines of generated GDScript. Nineteen smoke
+test files, ~370 individual checks, all PASS.
 
 ## Driver layer
 
-The driver (`godot/scripts/driver.gd`) is one ~730-line file:
+The driver (`godot/scripts/driver.gd`) is one ~770-line file:
 
-- Maze topology (125 rooms with canonical Crowther+Woods 1977
+- Maze topology (140 rooms with canonical Crowther+Woods 1977
   numbering, named exits, gated passages including snake/troll/
-  crystal-bridge gates)
+  crystal-bridge/grate/beanstalk-climb gates)
 - Verb-noun parser with synonym table + article stripping
 - UI verbs (HELP, SCORE, INVENTORY, HINT, SAVE, LOAD, QUIT)
   routed driver-side

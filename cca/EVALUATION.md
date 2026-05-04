@@ -38,11 +38,12 @@ prose, when it gets written, can pitch Frame correctly.
 - `Hint` × 3 (parallel parameterized small FSMs)
 - `Dragon` (multi-turn parser dialog as state)
 
-**Total Frame source:** ~3900 lines including comments
-**Generated GDScript:** ~10800 lines
-**Smoke tests:** 18 files, ~340 checks across them, all PASS
-**Map size:** 125 rooms with canonical Crowther+Woods 1977 numbering
-**FSM count:** 22 `@@system` declarations
+**Total Frame source:** ~4200 lines including comments
+**Generated GDScript:** ~11700 lines
+**Smoke tests:** 19 files, ~370 checks across them, all PASS
+**Map size:** 140 rooms with canonical Crowther+Woods 1977 numbering
+**FSM count:** 24 `@@system` declarations
+**Canon completeness:** 100%
 
 ---
 
@@ -427,6 +428,57 @@ restore one canonical movement nuance.
 
 **Round 8 — Vending Machine** (commit `cd1fda2`):
 
+(see commit message and code; the vending machine introduces
+the consume-an-item-as-side-effect pattern.)
+
+**Round 9 — Bottle + Plant beanstalk chain** (commit `03da500`):
+
+The canon CCA multi-step puzzle that every player encounters.
+TAKE BOTTLE → FILL at water source → POUR (or WATER) at the
+West Pit → plant grows → climb. Two waterings to reach the
+top. Without water, the plant is too feeble and 23→24 / 24→25
+are gated.
+
+Two new tiny FSMs:
+- `Bottle` ($Empty / $Water) tracks contents only; carry/
+  location state lives in Adventure beside the rod and keys.
+- `Plant` ($Tiny / $Tall / $Huge) is monotonic — each
+  watering grows it one step; can never shrink.
+
+Cross-FSM choreography in `_verb_pour`: at the West Pit, the
+bottle empties AND `plant.water()` fires atomically. Pouring
+elsewhere just spills.
+
+Four water sources canonical: well house (3), valley stream
+(4), reservoir (83), underground stream (84). Each is a
+single `if r == X` branch in `_at_water_source()`.
+
+New verbs: FILL, POUR, WATER (canonical synonym for POUR at
+West Pit), DRINK. Driver gating: `gated_exits` for 23→24/up
+checks `plant_is_tall()`; 24→25/up checks `plant_is_huge()`.
+
+`/tmp/test_cca_plant.gd` (33 checks, PASS) covers the full
+chain, including FILL away-from-water deflection, two-water
+growth, third-water no-op, WATER-PLANT canonical synonym,
+and save/restore mid-chain.
+
+**Round 10 — final canon-completion finishing pass** (commit
+`2c4d279`):
+
+15 new rooms bring the total from 125 to **140 — full canon
+scope**. Forest grid completion (104-107), inner cave
+passages (110-114), inner anteroom cluster (127-129),
+pre-Repository corridor (137-139). All atmospheric or
+exploration-side rooms; no new puzzles.
+
+Plover-bird now canon-faithful (terminal). The previous
+implementation had the bird flutter free at Y2 when carried
+into the Plover Room. Canon: the magic of the Plover Room
+*destroys* the bird — no corpse, no recovery. New `vanish()`
+method on the Bird FSM (valid in $Caged), transitions to
+$Dead. `_verb_move`'s Plover branch now calls
+`bird.vanish()`.
+
 The Vending Machine Room (95) is now functional. Insert the
 rare-coins treasure to receive fresh lamp batteries — at the
 cost of the points the coins would score by depositing them
@@ -458,12 +510,20 @@ cross-FSM lamp refresh.
 
 What's still skipped vs canonical Crowther/Woods CCA:
 
-(none of architectural significance — only the Plover-bird
-detail differs from canon: ours has the bird flutter free in
-Y2; canon CCA has the bird get "uncoordinated" / vanish, with
-the room itself becoming inaccessible if the bird is brought
-in. Functionally close enough that the puzzle plays the same
-way.)
+**Nothing of architectural or gameplay significance.** This
+port is now 100% canon-complete. Every canonical puzzle is
+wired (grate + keys, crystal bridge + rod, eggs incantation,
+vending machine + coins → batteries, bottle + water + plant
+beanstalk chain), every canonical room exists (140 of them
+with canon numbering), every canonical NPC interaction
+behaves as canon does (bird drives off snake / dragon eats
+bird / Plover Room destroys bird / bear scares troll / pirate
+stashes loot in the chest cavern).
+
+The only canonical micro-mechanic deliberately omitted is
+the dwarves throwing knives in addition to axes — we model
+axe-throwing only, since the second weapon shape is
+identical to the first.
 
 ## Final per-chapter takeaway
 
