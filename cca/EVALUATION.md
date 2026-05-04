@@ -38,9 +38,10 @@ prose, when it gets written, can pitch Frame correctly.
 - `Hint` × 3 (parallel parameterized small FSMs)
 - `Dragon` (multi-turn parser dialog as state)
 
-**Total Frame source:** ~2150 lines including comments
-**Generated GDScript:** ~7000 lines
-**Smoke tests:** 8 files, ~200 checks across them, all PASS
+**Total Frame source:** ~3600 lines including comments
+**Generated GDScript:** ~10000 lines
+**Smoke tests:** 16 files, ~300 checks across them, all PASS
+**Map size:** 125 rooms with canonical Crowther+Woods 1977 numbering
 
 ---
 
@@ -333,7 +334,7 @@ kills-player, deterministic dwarf-axe-throw, the
 resurrection cycle, permadeath after the 4th death, and
 save/restore mid-death-prompt.
 
-**Round 5 — fissure puzzle + closing crescendo** (this commit):
+**Round 5 — fissure puzzle + closing crescendo** (commit `d44bb5b`):
 
 - New `CrystalBridge` 2-state FSM (`$NoBridge` ↔ `$Bridge`)
   toggled by `wave()`. Adventure brokers the cross-cutting
@@ -361,10 +362,48 @@ fissure (build), wave-again (toggle off), wave-non-rod,
 save/restore mid-bridge-built, and rod-drop-stays-where-
 dropped.
 
+**Round 6 — full canonical room scope** (this commit):
+
+The room count goes from 25 (compressed, every CCA archetype
+present) to 125 (full canonical Crowther+Woods 1977 numbering).
+The world model now matches canon: the surface descent through
+the slit and grate, the Hall of Mists hub, both mazes (twisty
+passages all alike + all different), Witt's End, the Reservoir,
+the Treasury, the cliff-and-iron-ladder descent, the Vending
+Machine Room, and the canonical surface forest grid.
+
+This round is **pure data, zero new architecture** — the
+existing 20 `@@system` declarations and aspect bus handle the
+expanded map without modification. Save/restore continues to
+round-trip the entire world. The point of the round is to show
+that the Frame architecture *scales* from 25 to 125 rooms
+without growing the FSM surface.
+
+Phases:
+
+- A: Renumber existing 25 rooms to canon (commit `e01e114`)
+- B: Surface block 2-10 (commit `3f3868f`)
+- C: Mist + King hall + beanstalk + slab (commit `5125a8b`)
+- D: Mazes + Witt's End + side passages (commit `0fac7e8`)
+- E: Bedquilt extensions + reservoir + treasury + cliff +
+     forests (commit `96f0494`)
+- F: Vending Machine Room + iconic remainder (commit `2164b90`)
+
+The grate is described as "swung open" rather than gated —
+adding a Grate FSM (locked/unlocked + keys) would replicate
+the `CrystalBridge` shape exactly with no new demonstration
+value. The maze of twisty passages is described with canonical
+text (all 8 rooms identical, plus 8 more "all different") but
+uses linear topology rather than the canon non-Euclidean
+maze-trap mechanic — that would be a sub-system of its own.
+
 What's still skipped vs canonical Crowther/Woods CCA:
 
-- The full 140-room map (we have 25 — every CCA archetype
-  is present but the geography is compressed)
+- The Grate-and-keys puzzle (currently grate is "swung open")
+- The non-Euclidean maze-trap mechanic (rooms exist with
+  canonical text, but exits are linear)
+- The vending machine actually dispensing batteries (it's a
+  flavor room only)
 - Some nuance in the bird/dragon edge cases (e.g. bird
   refuses to be carried into Plover Room)
 

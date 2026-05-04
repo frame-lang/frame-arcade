@@ -1,13 +1,16 @@
 # Colossal Cave Adventure (Frame port)
 
-> **Status:** canonical scope complete. 25 rooms, 15 treasures,
-> 6 NPCs (bird, snake, dragon, bear, troll, pirate, plus 5
-> dwarves), 4 cross-cutting aspects on the bus, full CCA
-> scoring breakdown (treasure / visits / hints / endgame),
-> rod + crystal-bridge fissure puzzle, FEE/FIE/FOE/FOO eggs
-> incantation, fragile vase, bear/dwarf player attacks, and
-> a resurrection cycle with permadeath. Save/restore round-
-> trips the entire world. See [EVALUATION.md](./EVALUATION.md)
+> **Status:** full canonical scope. **125 rooms with canonical
+> Crowther+Woods 1977 numbering**, 15 treasures, 6 NPCs (bird,
+> snake, dragon, bear, troll, pirate, plus 5 dwarves), 4 cross-
+> cutting aspects on the bus, full CCA scoring breakdown
+> (treasure / visits / hints / endgame), rod + crystal-bridge
+> fissure puzzle, FEE/FIE/FOE/FOO eggs incantation, fragile
+> vase, bear/dwarf player attacks, resurrection cycle with
+> permadeath, pirate stash + retrieval, both mazes, Witt's End,
+> the Vending Machine Room, and the canonical surface forest
+> grid with descent through the slit and grate. Save/restore
+> round-trips the entire world. See [EVALUATION.md](./EVALUATION.md)
 > for an honest per-system score on Frame's value-add.
 
 Frame port of Crowther/Woods *Colossal Cave Adventure*. Built on
@@ -105,16 +108,17 @@ EVALUATION.md             honest per-system Frame value-add scoring
 - `CrystalBridge` — 2-state toggle FSM gating the fissure;
   `wave()` only fires from Adventure when player has the rod
 
-**Total**: 20 `@@system` declarations, ~3300 lines of Frame
-source, ~9700 lines of generated GDScript. Fifteen smoke
-test files, ~280 individual checks, all PASS.
+**Total**: 20 `@@system` declarations, ~3600 lines of Frame
+source, ~10000 lines of generated GDScript. Sixteen smoke
+test files, ~300 individual checks, all PASS.
 
 ## Driver layer
 
-The driver (`godot/scripts/driver.gd`) is one ~580-line file:
+The driver (`godot/scripts/driver.gd`) is one ~730-line file:
 
-- Maze topology (25 rooms, named exits, gated passages
-  including snake/troll/crystal-bridge gates)
+- Maze topology (125 rooms with canonical Crowther+Woods 1977
+  numbering, named exits, gated passages including snake/troll/
+  crystal-bridge gates)
 - Verb-noun parser with synonym table + article stripping
 - UI verbs (HELP, SCORE, INVENTORY, HINT, SAVE, LOAD, QUIT)
   routed driver-side
