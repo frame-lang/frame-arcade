@@ -168,12 +168,19 @@
             }
 
             kill_invader(index: int): bool {
+                # Workaround for a framec quirk: when an inner branch
+                # contains a transition (-> $X) followed by a fall-
+                # through `@@:(value)` outside the branch, the
+                # generator emits a bare `return` after the transition
+                # and the outer `@@:(value)` never runs. Both branches
+                # of the inner if explicitly @@:return(true) so the
+                # generated code sets _return on every path.
                 if self._do_kill(index):
                     if self._count_alive() == 0:
                         -> $Defeated
-                    @@:(true)
-                else:
-                    @@:(false)
+                        @@:return(true)
+                    @@:return(true)
+                @@:(false)
             }
 
             edge_reached() {
@@ -214,12 +221,13 @@
             }
 
             kill_invader(index: int): bool {
+                # Same framec workaround as $Marching.kill_invader.
                 if self._do_kill(index):
                     if self._count_alive() == 0:
                         -> $Defeated
-                    @@:(true)
-                else:
-                    @@:(false)
+                        @@:return(true)
+                    @@:return(true)
+                @@:(false)
             }
 
             consume_step(): bool        { @@:(false) }

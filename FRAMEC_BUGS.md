@@ -292,6 +292,146 @@ Whichever happens first:
 
 ---
 
+## Issue #4 — Transition inside `if` body, then fall-through `@@:(value)` outside the `if`, drops the return value
+
+### Severity
+
+Silently wrong-result. The function declares a non-void return
+type (e.g., `bool`, `String`), but a specific control-flow path
+returns `Nil` because the generator emits a bare `return` after
+the transition and the outer `@@:(value)` never runs.
+
+In GDScript this surfaces at runtime as
+`SCRIPT ERROR: Trying to return value of type "Nil" from a
+function whose return type is "bool"`. The function's caller
+treats the result as falsy; bugs propagate from there.
+
+### Where it's hit in this repo
+
+Two callsites, same shape:
+
+- `cca/frame/cca.fgd`, `EggsIncantation.$WaitingFoo.say` —
+  caught and worked around in May 3's "EggsIncantation `$WaitingFoo.say`" pass
+  (commit `0b7ced3` had a comment-driven variant; the final fix
+  in commit before that round moved the comment outside the
+  `if`).
+- `ch03-invaders/frame/invaders.fgd`, `Fleet.$Marching.kill_invader`
+  and `Fleet.$Stepping.kill_invader` — caught while writing
+  ch03's smoke test. The 55th invader kill (the one that
+  drains the fleet to zero) returned Nil instead of `true`,
+  so Invaders' orchestrator never saw the wave-clear signal,
+  the score stalled at 540 instead of 550, and `$WaveComplete`
+  never fired.
+
+### Minimal reproducer
+
+```frame
+@@[target("gdscript")]
+
+@@system Repro : RefCounted {
+    interface:
+        do_thing(use_inner: bool): bool
+
+    machine:
+        $A {
+            do_thing(use_inner: bool): bool {
+                if use_inner:
+                    if true:
+                        -> $B
+                    @@:(true)
+                @@:(false)
+            }
+        }
+        $B { }
+}
+```
+
+### Observed generated GDScript
+
+```gdscript
+func _s_A_hdl_user_do_thing(__e, compartment):
+    var use_inner = __e._parameters[0]
+    if use_inner:
+        if true:
+            var __compartment = self.__prepareEnter("B", [], [])
+            self.__transition(__compartment)
+            return                              # <-- BARE return!
+        self._context_stack[-1]._return = true  # <-- dead branch
+    else:
+        self._context_stack[-1]._return = false
+```
+
+When `use_inner` is true, control enters the inner `if true`,
+transitions to `$B`, and bare-returns. `_return` is never set,
+so the function returns `Nil`. The `@@:(true)` outside the
+inner `if` (intended as the fall-through value when the inner
+`if` is *false*, but here the inner if is unconditionally true
+so it should be the return path) gets generated *unreachable*.
+
+### Expected generated GDScript
+
+The `@@:(true)` should become `_return = true` *before* the
+transition, OR the bare `return` should be replaced with one
+that picks up the implicit fall-through value. Specifically:
+
+```gdscript
+if use_inner:
+    if true:
+        var __compartment = self.__prepareEnter("B", [], [])
+        self.__transition(__compartment)
+        self._context_stack[-1]._return = true   # set first
+        return
+    self._context_stack[-1]._return = true
+else:
+    self._context_stack[-1]._return = false
+```
+
+The semantics in Frame are: a transition `-> $X` does not
+short-circuit the surrounding control flow; the rest of the
+event handler runs. The generator already gets this right when
+the `@@:(value)` is *inside* the same branch as the transition,
+or when the transition is the only statement in the branch and
+the `@@:(value)` follows it (the `EggsIncantation.$WaitingFoo`
+case after our workaround). The defect is specific to the
+*nested-if* shape where the transition is two levels deep and
+the return value is one level out.
+
+### Workaround in this repo
+
+In every branch that contains a transition, add an explicit
+`@@:return(value)` so the generator emits the return value at
+each transition site rather than relying on a fall-through
+`@@:(value)` later in the body:
+
+```frame
+do_thing(use_inner: bool): bool {
+    if use_inner:
+        if true:
+            -> $B
+            @@:return(true)        # explicit at transition site
+        @@:return(true)            # explicit even in fall-through
+    @@:(false)
+}
+```
+
+This generates correctly. The downside is duplicating the
+return value; there's no clean way to factor it.
+
+### Notes for triage
+
+- This is the same family as Issue #1 (the May 3 paren-drop)
+  and the EggsIncantation Nil-return — all involve transitions
+  interacting awkwardly with the generator's return-value
+  emission. The pattern across all three: framec's per-event
+  return-handling logic doesn't always survive a transition
+  inside the body.
+- The fix is presumably in the same area of the codegen.
+  Adding test coverage for "transition inside nested control
+  flow + fall-through @@:(value)" would catch this family of
+  issue going forward.
+
+---
+
 ## Appendix: working features I lean on heavily and didn't re-verify
 
 For completeness — these all worked first-try and aren't bugs;
