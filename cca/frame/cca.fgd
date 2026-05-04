@@ -2847,6 +2847,74 @@
                 base = "You are at Witt's End. Passages lead off in all directions but most are barely visible, and most of those that are visible appear to lead nowhere useful."
             elif r == 68:
                 base = "You are at the bottom of a smoothly polished cone of limestone, with a steep climb back the way you came."
+            # --- Phase E: Bedquilt extensions, reservoir, treasury,
+            # cliff-and-ladder descent, post-cave outdoors, forest grid.
+            elif r == 72:
+                base = "You are in a long, sloping corridor that descends gently into the rock."
+            elif r == 73:
+                base = "You are in a sloping room above a large round chamber. The drop is sheer."
+            elif r == 74:
+                base = "You are in a large low room. Crawls lead north, southeast, and southwest."
+            elif r == 75:
+                base = "You are in a sloping corridor with a smooth ramp of stone underfoot."
+            elif r == 76:
+                base = "You are in the Soft Room. The walls are covered with a heavy curtain that muffles all sound."
+            elif r == 77:
+                base = "You are in a steep canyon. The walls overhang above you and meet to form a narrow ribbon of darkness."
+            elif r == 78:
+                base = "You are in a different secret canyon, twisting east-west. The walls bear faint runes."
+            elif r == 79:
+                base = "You are in a steep passage that descends sharply to the north."
+            elif r == 80:
+                base = "You are in a dirty passage. Soot stains the walls, and your feet leave clear tracks in the dust."
+            elif r == 81:
+                base = "You are in a wet room. Drip-formations cover the floor like inverted stalactites."
+            elif r == 82:
+                base = "You are in a different cobble crawl, low and twisty. The cobbles here glitter faintly with mica."
+            elif r == 83:
+                base = "You are at the edge of a vast underground reservoir. Black water laps quietly against a stone shelf."
+            elif r == 84:
+                base = "You are wading in a small underground stream. The water is icy-cold and crystal-clear."
+            elif r == 85:
+                base = "You are in front of a barren room, with the entrance arching low to the east."
+            elif r == 86:
+                base = "You are in a barren room, the floor and walls smooth and untouched."
+            elif r == 87:
+                base = "You are at the brink of a thirty-foot cliff. A passage continues to the east; below, a ledge runs along the cliff face."
+            elif r == 89:
+                base = "You are inside a cylindrical canyon. The walls rise smoothly to a band of grey light far above."
+            elif r == 90:
+                base = "You are in a smooth passage of polished stone, walls unbroken and ceiling low."
+            elif r == 91:
+                base = "You are in a different soft passage. Moss covers everything in a green carpet."
+            elif r == 93:
+                base = "You are on the south side of a different fissure, deeper and narrower than the first."
+            elif r == 94:
+                base = "You are in the Treasury. Glittering valuables line every shelf — long since looted, but the residue still sparkles."
+            elif r == 96:
+                base = "You are in a different forest, far to the north of the road. The trees here stand taller and darker."
+            elif r == 97:
+                base = "You are in a different forest, to the northeast."
+            elif r == 98:
+                base = "You are in a different forest, to the southeast."
+            elif r == 99:
+                base = "You are in a different forest, to the southwest."
+            elif r == 100:
+                base = "You are in a different forest, to the northwest."
+            elif r == 108:
+                base = "You are at a fork in the path. One branch leads east into shadow; the other curves back to the north."
+            elif r == 115:
+                base = "You are at the end of a long corridor. Far ahead, a faint glow promises an exit."
+            elif r == 116:
+                base = "You are in a pre-repository chamber, where the cave compels you onward but provides no path back."
+            elif r == 119:
+                base = "You are at a cliff face, with an iron ladder bolted into the rock leading down. Far below you can hear the faint murmur of water."
+            elif r == 121:
+                base = "You are at the bottom of the iron ladder, on a stone landing. Passages lead in several directions."
+            elif r == 123:
+                base = "You are in an anteroom carved with crude pictographs of strange beasts."
+            elif r == 125:
+                base = "You are in a small antechamber with niches set into each wall."
             elif r == 17:
                 base = "You are at the edge of a deep, narrow fissure. The walls drop away to nothing far below."
                 if self.crystal_bridge.is_built():

@@ -114,8 +114,8 @@ var room_exits: Dictionary = {
     2:   {"down": 1, "south": 1},                   # Hill in road
     3:   {"south": 1, "out": 1, "down": 12},        # Well house
     4:   {"north": 1, "up": 1, "south": 7, "down": 7, "east": 5, "west": 6},  # Valley
-    5:   {"east": 1, "west": 6},                    # Forest 1
-    6:   {"east": 5, "west": 1},                    # Forest 2
+    5:   {"east": 1, "west": 6, "north": 96},       # Forest 1
+    6:   {"east": 5, "west": 1, "north": 100},      # Forest 2
     7:   {"north": 4, "up": 4},                     # Slit (too small to enter)
     8:   {"north": 1, "up": 1, "down": 9, "in": 9}, # Depression / outside grate
     9:   {"up": 8, "out": 8, "west": 10, "in": 10}, # Below grate
@@ -127,7 +127,7 @@ var room_exits: Dictionary = {
     41:  {"north": 42},                      # Plover Room — magic exits + north to dark room
     47:  {"west": 33, "east": 71, "up": 44}, # snake-east gated; up to secret canyon side branch
     71:  {"west": 47, "north": 70},
-    70:  {"south": 71, "east": 117, "west": 33},
+    70:  {"south": 71, "east": 117, "west": 33, "north": 72},
     117: {"west": 70, "east": 118},          # troll-east gated below
     118: {"west": 117, "east": 120},
     # Deep cave loop — accessible after crossing troll bridge.
@@ -215,6 +215,52 @@ var room_exits: Dictionary = {
     66:  {"west": 64, "east": 67, "down": 68},
     67:  {"west": 66},                                                   # Witt's End — apparent dead-end
     68:  {"up": 66},                                                     # Bottom of polished cone
+    # --- Phase E: Bedquilt extensions, reservoir, treasury,
+    # cliff-and-ladder descent, post-cave outdoors, forest grid ---
+    # 72-86: deeper passages, soft room, reservoir, barren room.
+    # Most chain off Bedquilt (70) or each other.
+    72:  {"south": 70, "north": 73},                                     # Sloping corridor
+    73:  {"south": 72, "down": 74},                                      # Sloping room above large round chamber
+    74:  {"up": 73, "north": 75, "south": 80},                           # Large low room
+    75:  {"south": 74, "north": 76},                                     # Sloping corridor
+    76:  {"south": 75, "north": 77},                                     # Soft Room
+    77:  {"south": 76, "east": 78, "down": 79},                          # Steep canyon
+    78:  {"west": 77, "east": 81, "north": 87},                          # Different secret canyon
+    79:  {"up": 77, "east": 82},                                         # Steep passage
+    80:  {"north": 74, "east": 81},                                      # Dirty passage
+    81:  {"west": 80, "north": 78, "down": 83},                          # Wet room
+    82:  {"west": 79, "east": 83},                                       # Different cobble crawl
+    83:  {"up": 81, "west": 82, "east": 84},                             # Reservoir
+    84:  {"west": 83, "down": 85},                                       # Underground stream
+    85:  {"up": 84, "east": 86},                                         # Front of barren room
+    86:  {"west": 85},                                                   # Barren room (dead-end)
+    # 87-94: cliff brink, cylindrical canyon, treasury area.
+    # Brought together off the secret canyons (78/93) and the
+    # cliff-with-ladder (119) chain.
+    87:  {"east": 89, "down": 119, "south": 78},                         # Brink of cliff
+    89:  {"west": 87, "north": 90},                                      # Cylindrical canyon
+    90:  {"south": 89, "east": 91},                                      # Smooth passage
+    91:  {"west": 90, "north": 93},                                      # Different soft passage
+    93:  {"south": 91, "east": 94},                                      # Different fissure
+    94:  {"west": 93},                                                   # Treasury (dead-end)
+    # 96-100: forest grid on the surface — these chain off the
+    # existing forest rooms (5, 6) and the road/valley.
+    96:  {"south": 5, "east": 97},                                       # Forest NE-of-road
+    97:  {"west": 96, "south": 98},                                      # Forest SE-of-road
+    98:  {"north": 97, "west": 99},                                      # Forest SE/SW
+    99:  {"east": 98, "north": 100},                                     # Forest SW-of-road
+    100: {"south": 99, "east": 6},                                       # Forest NW (back to known forest)
+    # 108, 115, 116: pre-repository corridor.
+    # Threads from snake passage / rear of dragon area into the
+    # endgame approach.
+    108: {"east": 115, "north": 67},                                     # Fork
+    115: {"west": 108, "east": 116},                                     # End of corridor
+    116: {"west": 115, "down": 136},                                     # Pre-Repository
+    # 119, 121-129: cliff-and-ladder descent + sub-anteroom area.
+    119: {"up": 87, "down": 121},                                        # Cliff face with ladder
+    121: {"up": 119, "north": 123, "east": 125},                         # Bottom of ladder
+    123: {"south": 121},                                                 # Anteroom with pictographs
+    125: {"west": 121},                                                  # Anteroom with niches
 }
 
 # Movements that require a clear NPC to traverse. Each entry:
