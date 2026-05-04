@@ -1895,6 +1895,69 @@
 
 
 # ------------------------------------------------------------
+# Grate
+# ------------------------------------------------------------
+# Canonical CCA's first gating puzzle: a steel grate set into
+# the depression floor (room 8). It starts $Locked. Inside the
+# well house (room 3) sit some keys, which the player must take
+# and bring to the grate to unlock it.
+#
+# Architecturally this is the same shape as CrystalBridge — a
+# tiny two-state FSM with an `unlock(have_keys: bool)` guarded
+# transition. We add it for canon completeness rather than for
+# new-pattern demonstration value; the Frame brain doesn't grow,
+# but the player's first canonical CCA experience now matches
+# what every other port renders.
+#
+# State diagram:
+#
+#   $Locked   ── unlock(have_keys=true)  ──► $Unlocked
+#   $Unlocked ── lock()                   ──► $Locked
+#                  (re-locks; canon allows this both ways)
+# ------------------------------------------------------------
+@@[persist]
+@@system Grate : RefCounted {
+
+    operations:
+        @@[save]
+        save_state(): PackedByteArray {}
+
+        @@[load]
+        restore_state(data: PackedByteArray) {}
+
+    interface:
+        unlock(have_keys: bool): String
+        lock(): String
+        get_state(): String
+        is_locked(): bool
+
+    machine:
+
+        $Locked {
+            unlock(have_keys: bool): String  {
+                if have_keys:
+                    -> $Unlocked
+                    @@:return("The grate is now unlocked.")
+                @@:("You don't have the keys.")
+            }
+            lock(): String           { @@:("It's already locked.") }
+            get_state(): String      { @@:("locked") }
+            is_locked(): bool        { @@:(true) }
+        }
+
+        $Unlocked {
+            unlock(have_keys: bool): String  { @@:("It's already unlocked.") }
+            lock(): String           {
+                -> $Locked
+                @@:return("The grate is now locked.")
+            }
+            get_state(): String      { @@:("unlocked") }
+            is_locked(): bool        { @@:(false) }
+        }
+}
+
+
+# ------------------------------------------------------------
 # Pirate
 # ------------------------------------------------------------
 # Three-state probabilistic encounter, similar in shape to a
@@ -2173,6 +2236,8 @@
         # CrystalBridge / rod (the fissure puzzle)
         bridge_built(): bool
         rod_in_inventory(): bool
+        grate_locked(): bool
+        keys_in_inventory(): bool
 
     machine:
 
@@ -2524,6 +2589,8 @@
 
             bridge_built(): bool       { @@:(self.crystal_bridge.is_built()) }
             rod_in_inventory(): bool   { @@:(self.rod_carried) }
+            grate_locked(): bool       { @@:(self.grate.is_locked()) }
+            keys_in_inventory(): bool  { @@:(self.keys_carried) }
 
             treasures_deposited(): int {
                 var n: int = 0
@@ -2658,6 +2725,10 @@
                 return self._verb_throw(noun)
             elif verb == "wave":
                 return self._verb_wave(noun)
+            elif verb == "unlock" or verb == "open":
+                return self._verb_unlock(noun)
+            elif verb == "lock":
+                return self._verb_lock(noun)
             elif verb == "fee" or verb == "fie" or verb == "foe" or verb == "foo":
                 return self._verb_chant(verb)
             elif verb == "xyzzy" or verb == "plugh" or verb == "plover":
@@ -2688,7 +2759,7 @@
             elif r == 2:
                 base = "You have walked up a hill, still in the forest. The road slopes back down the other side. A building is visible through the trees, far below."
             elif r == 3:
-                base = "You are inside a building, a well house for a large spring. There are some keys on the ground, and a bottle of water."
+                base = "You are inside a building, a well house for a large spring. A bottle of water sits on a wooden shelf."
             elif r == 4:
                 base = "You are in a valley in the forest beside a stream tumbling along a rocky bed."
             elif r == 5:
@@ -2997,6 +3068,14 @@
             # treasures above.
             if not self.rod_carried and self.rod_location == r:
                 base = base + " A small black rod with a rusty star at one end lies on the ground."
+            if not self.keys_carried and self.keys_location == r:
+                base = base + " A set of brass keys lies on the floor."
+            # Grate state overlay — only at the depression itself.
+            if r == self.GRATE_ROOM:
+                if self.grate.is_locked():
+                    base = base + " The grate is locked."
+                else:
+                    base = base + " The grate is unlocked and swung open."
             return base
         }
 
@@ -3022,6 +3101,14 @@
                     return "There is no rod here."
                 self.rod_carried = true
                 self.player.take(self.ROD_ID)
+                return "Taken."
+            if noun == "keys" or noun == "key":
+                if self.keys_carried:
+                    return "You already have the keys."
+                if self.player.get_room() != self.keys_location:
+                    return "There are no keys here."
+                self.keys_carried = true
+                self.player.take(self.KEYS_ID)
                 return "Taken."
             if noun == "chain":
                 if self.player.get_room() != self.BEAR_HOME_ROOM:
@@ -3058,6 +3145,13 @@
                 self.rod_carried = false
                 self.rod_location = self.player.get_room()
                 self.player.drop(self.ROD_ID)
+                return "Dropped."
+            if noun == "keys" or noun == "key":
+                if not self.keys_carried:
+                    return "You aren't carrying the keys."
+                self.keys_carried = false
+                self.keys_location = self.player.get_room()
+                self.player.drop(self.KEYS_ID)
                 return "Dropped."
             if noun == "chain":
                 if self.bear.get_state() != "following":
@@ -3377,6 +3471,26 @@
             return self.crystal_bridge.wave()
         }
 
+        _verb_unlock(noun: String): String {
+            # The grate is the only canonical lockable in this
+            # port. UNLOCK and OPEN both route here. We require the
+            # player to be at the depression (room 8) AND carrying
+            # the keys; the Grate FSM does the actual transition.
+            if noun != "grate" and noun != "":
+                return "I don't see how to unlock that."
+            if self.player.get_room() != self.GRATE_ROOM:
+                return "There is nothing here to unlock."
+            return self.grate.unlock(self.keys_carried)
+        }
+
+        _verb_lock(noun: String): String {
+            if noun != "grate" and noun != "":
+                return "I don't see how to lock that."
+            if self.player.get_room() != self.GRATE_ROOM:
+                return "There is nothing here to lock."
+            return self.grate.lock()
+        }
+
         _attack_dwarf_in_current(): String {
             # Inline copy of attack_dwarf_in_room's logic so
             # the verb handler can call it as an action. We
@@ -3530,6 +3644,13 @@
         # the bridge itself only knows its own toggle.
         crystal_bridge = @@CrystalBridge()
 
+        # Steel grate at the depression (room 8) into the chamber
+        # below (room 9). Starts $Locked; the keys live in the
+        # well house. Same orchestrator pattern as the rod-and-
+        # bridge: each subsystem owns its slice, Adventure brokers
+        # the cross-cuts.
+        grate = @@Grate()
+
         # Five treasures, each in its home room with a value.
         # Real CCA has 15; we model the canonical lifecycle on
         # this subset to keep the maze manageable. Adding more
@@ -3593,8 +3714,11 @@
         # debris room (its canonical CCA home) and can be carried
         # to the fissure to summon the crystal bridge.
         FISSURE_ROOM: int = 17        # east of fissure
+        GRATE_ROOM: int = 8           # depression with the steel grate
+        KEYS_HOME_ROOM: int = 3       # well house
         ROD_HOME_ROOM: int = 11       # debris room — same as gold
         ROD_ID: int = 130
+        KEYS_ID: int = 131
 
         # The rod's runtime state. Carried as a domain bool +
         # location int rather than a full FSM, because the rod
@@ -3602,6 +3726,8 @@
         # The bridge it summons is a separate FSM (crystal_bridge).
         rod_carried: bool = false
         rod_location: int = 11    # debris room (matches ROD_HOME_ROOM)
+        keys_carried: bool = false
+        keys_location: int = 3    # well house (matches KEYS_HOME_ROOM)
 
         # Tick counter (advances every tick(), not every
         # do_command). Some commands are free; others tick.

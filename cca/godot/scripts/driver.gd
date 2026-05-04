@@ -287,6 +287,8 @@ var gated_exits: Dictionary = {
     "47:east":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
     "117:east": {"check": "troll",  "msg": "The troll bars your way until you pay tribute."},
     "17:east":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "8:down":   {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
+    "8:in":     {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
 }
 
 # Verb synonym table. Maps user input to a canonical verb
@@ -535,6 +537,9 @@ func _handle_movement(direction: String) -> void:
         if gate.check == "bridge" and not fsm.bridge_built():
             _println(gate.msg)
             return
+        if gate.check == "grate" and fsm.grate_locked():
+            _println(gate.msg)
+            return
 
     # Plover Room special: when leaving room 6 normally without
     # PLOVER, you can't. Stuck unless you use the magic word.
@@ -721,7 +726,7 @@ func _print_help() -> void:
 [b]Looking:[/b] LOOK (L), EXAMINE <thing> (X), READ <thing>.
 [b]Items:[/b]   TAKE <thing>, DROP <thing>, INVENTORY (I).
 [b]Combat:[/b]  ATTACK <foe>, THROW AXE.
-[b]Special:[/b] LIGHT (lamp), EXTINGUISH, FEED BEAR, RELEASE BIRD, WAVE ROD.
+[b]Special:[/b] LIGHT (lamp), EXTINGUISH, FEED BEAR, RELEASE BIRD, WAVE ROD, UNLOCK GRATE.
 [b]Magic:[/b]   XYZZY, PLUGH, PLOVER (in the right places).
 [b]Chants:[/b]  FEE / FIE / FOE / FOO (in sequence).
 [b]Meta:[/b]    SAVE, LOAD, SCORE, HINT [name], QUIT.
