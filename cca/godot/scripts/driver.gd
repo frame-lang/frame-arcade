@@ -381,8 +381,20 @@ func _ready() -> void:
     _print_welcome()
     _print_room()
 
+func _process(_delta: float) -> void:
+    # Bolt focus to the input box. There's nothing else to do
+    # in this scene; per-frame re-grab catches Tab, clicks,
+    # focus drift after text_submitted, and any other source.
+    if input != null and not input.has_focus():
+        input.grab_focus()
+
 func _build_ui() -> void:
     set_anchors_preset(Control.PRESET_FULL_RECT)
+    # The root Control should never claim focus. Tab cycles
+    # focus through focusable controls; with the root non-
+    # focusable and the output panel non-focusable, Tab has
+    # nowhere to go but the LineEdit.
+    focus_mode = Control.FOCUS_NONE
 
     var bg := ColorRect.new()
     bg.color = Color(0.05, 0.06, 0.09)

@@ -400,8 +400,21 @@ func _ready() -> void:
         _print_welcome()
         _print_room()
 
+func _process(_delta: float) -> void:
+    # Bolt focus to the input box. Anything in CCA except the
+    # exit dialog should leave keyboard focus in the LineEdit.
+    # Per-frame re-grab catches Tab, clicks, focus signals
+    # during text submission, and any other drift.
+    if input != null and not exit_dialog.is_open() and not input.has_focus():
+        input.grab_focus()
+
 func _build_ui() -> void:
     set_anchors_preset(Control.PRESET_FULL_RECT)
+    # The root Control should never claim focus. Tab cycles
+    # focus through focusable controls; with the root non-
+    # focusable and the output panel non-focusable (set below),
+    # Tab has nowhere to go but the LineEdit.
+    focus_mode = Control.FOCUS_NONE
 
     var bg := ColorRect.new()
     bg.color = Color(0.05, 0.06, 0.09)
