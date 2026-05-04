@@ -358,7 +358,7 @@ var fsm
 var output: RichTextLabel
 var input: LineEdit
 var _last_room: int = -1
-var _save_path: String = "user://cca_save.dat"
+var _save_path: String = "user://cca.save"     # cabinet convention: matches Arcade.save_path("cca")
 
 # Pirate-stalking starts only after the player has carried
 # treasures past a threshold. We track that the pirate has
@@ -372,14 +372,29 @@ var _pirate_already_stole: bool = false
 # processing until the player answers yes/no.
 var _awaiting_revive: bool = false
 
+# --- Exit dialog (Save / Quit) ---
+# Shown when the player presses Esc. Quit is default on Enter;
+# S (or save) writes the game and returns to menu; Esc cancels
+# back to the game.
+var _exit_dialog_active: bool = false
+var label_exit_dialog: Label
+
 # ============================================================
 func _ready() -> void:
     fsm = CcaFSM.new()
     fsm.setup_default_aspects()
     fsm.wake_dwarves()
     _build_ui()
-    _print_welcome()
-    _print_room()
+    # If a save file is on disk, the cabinet menu's Continue/New
+    # prompt has already routed us here with the player's choice
+    # baked in (New game deletes the save before launching, so
+    # the file's existence here means "Continue"). Auto-load and
+    # skip the welcome/intro text.
+    if FileAccess.file_exists(_save_path):
+        _load_game()
+    else:
+        _print_welcome()
+        _print_room()
 
 func _build_ui() -> void:
     set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -425,6 +440,19 @@ func _build_ui() -> void:
     prompt_row.add_child(input)
 
     input.grab_focus()
+
+    # Centered Save/Quit dialog overlay. Hidden until Esc.
+    label_exit_dialog = Label.new()
+    label_exit_dialog.add_theme_font_size_override("font_size", 24)
+    label_exit_dialog.add_theme_color_override("font_color", Color(1.0, 0.95, 0.4))
+    label_exit_dialog.set_anchors_preset(Control.PRESET_CENTER)
+    label_exit_dialog.position = Vector2(-220, -60)
+    label_exit_dialog.size = Vector2(440, 120)
+    label_exit_dialog.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    label_exit_dialog.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    label_exit_dialog.text = "Save before quitting?\n\n[Enter] Quit (default)    [S] Save and quit\n[Esc] Cancel"
+    label_exit_dialog.visible = false
+    add_child(label_exit_dialog)
 
 # ============================================================
 func _on_text_submitted(text: String) -> void:
@@ -781,17 +809,48 @@ func _print_help() -> void:
 """)
 
 # ============================================================
-# Cabinet integration: Esc returns to the menu.
+# Cabinet integration: Esc opens a Save/Quit dialog.
 #
-# CCA's text-input mode swallows most keys via the LineEdit, so
-# Esc here is the deliberate "leave this game" signal. The
-# in-game QUIT verb still works for canonical CCA flavor; this
-# handler is the cabinet-level escape hatch.
+# First Esc: show the dialog (Save / Quit, default Quit).
+#   Enter  → discard progress, return to menu
+#   S      → save to disk, return to menu (cabinet menu's
+#            Continue/New prompt will offer Restore on next launch)
+#   Esc    → cancel back to game
 # ============================================================
 func _input(event: InputEvent) -> void:
-    if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+    if not (event is InputEventKey and event.pressed):
+        return
+
+    if _exit_dialog_active:
         get_viewport().set_input_as_handled()
-        Arcade.return_to_menu()
+        if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER or event.keycode == KEY_SPACE:
+            # Default: discard and quit
+            Arcade.return_to_menu()
+        elif event.keycode == KEY_S:
+            _save_game()
+            Arcade.return_to_menu()
+        elif event.keycode == KEY_ESCAPE:
+            # Cancel — go back to the game
+            _hide_exit_dialog()
+        return
+
+    if event.keycode == KEY_ESCAPE:
+        get_viewport().set_input_as_handled()
+        _show_exit_dialog()
+
+func _show_exit_dialog() -> void:
+    _exit_dialog_active = true
+    label_exit_dialog.visible = true
+    # Take focus off the LineEdit so its keystrokes don't fight
+    # the dialog handler. We restore on cancel.
+    if input != null:
+        input.release_focus()
+
+func _hide_exit_dialog() -> void:
+    _exit_dialog_active = false
+    label_exit_dialog.visible = false
+    if input != null:
+        input.grab_focus()
 
 # When the application window regains focus (alt-tab back, click
 # on a different app and return, etc.), Godot doesn't restore
