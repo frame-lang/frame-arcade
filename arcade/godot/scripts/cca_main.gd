@@ -792,3 +792,13 @@ func _input(event: InputEvent) -> void:
     if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
         get_viewport().set_input_as_handled()
         Arcade.return_to_menu()
+
+# When the application window regains focus (alt-tab back, click
+# on a different app and return, etc.), Godot doesn't restore
+# which Control had keyboard focus before — so the LineEdit
+# stops accepting keystrokes until the player clicks it again.
+# We listen for the focus-in notification and re-grab.
+func _notification(what: int) -> void:
+    if what == NOTIFICATION_APPLICATION_FOCUS_IN:
+        if input != null:
+            input.grab_focus()

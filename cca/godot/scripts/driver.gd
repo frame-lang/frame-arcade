@@ -779,3 +779,13 @@ func _print_help() -> void:
 [b]Chants:[/b]  FEE / FIE / FOE / FOO (in sequence).
 [b]Meta:[/b]    SAVE, LOAD, SCORE, HINT [name], QUIT.
 """)
+
+# When the application window regains focus (alt-tab back, click
+# on a different app and return, etc.), Godot doesn't restore
+# which Control had keyboard focus before — so the LineEdit
+# stops accepting keystrokes until the player clicks it again.
+# We listen for the focus-in notification and re-grab.
+func _notification(what: int) -> void:
+    if what == NOTIFICATION_APPLICATION_FOCUS_IN:
+        if input != null:
+            input.grab_focus()
