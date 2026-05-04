@@ -380,13 +380,21 @@ func _ready() -> void:
     _build_ui()
     _print_welcome()
     _print_room()
+    # Whenever GUI focus changes, snap it back to the LineEdit.
+    # has_focus() can lie when focus has migrated to the viewport
+    # itself, so this signal is the most reliable hook.
+    get_viewport().gui_focus_changed.connect(_on_focus_changed)
 
 func _process(_delta: float) -> void:
-    # Bolt focus to the input box. There's nothing else to do
-    # in this scene; per-frame re-grab catches Tab, clicks,
-    # focus drift after text_submitted, and any other source.
-    if input != null and not input.has_focus():
+    # Bolt focus to the input box. Per-frame unconditional
+    # grab_focus — has_focus() can return true while keystrokes
+    # are routing somewhere else, so we don't gate on it.
+    if input != null:
         input.grab_focus()
+
+func _on_focus_changed(control: Control) -> void:
+    if input != null and control != input:
+        input.call_deferred("grab_focus")
 
 func _build_ui() -> void:
     set_anchors_preset(Control.PRESET_FULL_RECT)

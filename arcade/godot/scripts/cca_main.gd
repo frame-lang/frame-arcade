@@ -399,14 +399,28 @@ func _ready() -> void:
     else:
         _print_welcome()
         _print_room()
+    # Whenever GUI focus changes, snap it back to the LineEdit
+    # unless the exit dialog is up. has_focus() can lie when
+    # focus has migrated to the viewport itself, so this signal
+    # is the most reliable hook.
+    get_viewport().gui_focus_changed.connect(_on_focus_changed)
 
 func _process(_delta: float) -> void:
-    # Bolt focus to the input box. Anything in CCA except the
-    # exit dialog should leave keyboard focus in the LineEdit.
-    # Per-frame re-grab catches Tab, clicks, focus signals
-    # during text submission, and any other drift.
-    if input != null and not exit_dialog.is_open() and not input.has_focus():
+    # Bolt focus to the input box. Per-frame unconditional
+    # grab_focus — has_focus() can return true while keystrokes
+    # are routing somewhere else, so we don't gate on it.
+    # Idempotent: grabbing focus when you already have it is a
+    # no-op.
+    if input != null and not exit_dialog.is_open():
         input.grab_focus()
+
+func _on_focus_changed(control: Control) -> void:
+    # Anything focusable in this scene other than the LineEdit
+    # is a mistake (or the exit dialog). Snap focus back.
+    if exit_dialog == null or exit_dialog.is_open():
+        return
+    if input != null and control != input:
+        input.call_deferred("grab_focus")
 
 func _build_ui() -> void:
     set_anchors_preset(Control.PRESET_FULL_RECT)
