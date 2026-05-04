@@ -2039,15 +2039,15 @@
             troll_blocking(): bool            { @@:(self.troll.is_blocking_bridge()) }
 
             wake_dwarves() {
-                # Spread the five dwarves across the dwarf
-                # territory rooms (11..15). Real CCA wakes
+                # Spread the five dwarves across the cave's
+                # transit and combat rooms. Real CCA wakes
                 # them probabilistically as the player wanders;
                 # this is the deterministic version for testing.
-                self.dwarf1.wake_up(11)
-                self.dwarf2.wake_up(12)
-                self.dwarf3.wake_up(13)
-                self.dwarf4.wake_up(14)
-                self.dwarf5.wake_up(15)
+                self.dwarf1.wake_up(3)    # cave entrance proper
+                self.dwarf2.wake_up(4)    # Y2 marker
+                self.dwarf3.wake_up(7)    # snake passage
+                self.dwarf4.wake_up(9)    # bear chamber
+                self.dwarf5.wake_up(11)   # beyond bridge
             }
 
             attack_dwarf_in_room(): String {
@@ -2538,11 +2538,11 @@
         # is mechanical (one named instance + one branch in
         # _take_treasure_by_name + _drop_treasure_by_name +
         # treasures_deposited / total_score).
-        gold     = @@Treasure(12,  5)
-        silver   = @@Treasure(13,  5)
-        diamonds = @@Treasure(14, 10)
-        jewelry  = @@Treasure(15, 10)
-        pearl    = @@Treasure(6,  15)
+        gold     = @@Treasure(2,  5)    # debris room
+        silver   = @@Treasure(4,  5)    # Y2 marker
+        diamonds = @@Treasure(8,  10)   # dragon cavern
+        jewelry  = @@Treasure(11, 10)   # beyond troll bridge
+        pearl    = @@Treasure(6,  15)   # Plover Room (only via PLOVER magic)
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
