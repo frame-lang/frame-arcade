@@ -2991,6 +2991,8 @@
             elif r == 205:
                 base = "You are in the deep middle of an immense north/south passage. Stalactites loom overhead at impossible angles."
             elif r == 30:
+                base = "You are in the west side chamber of the Hall of the Mountain King."
+            elif r == 206:
                 base = "You are in a complex rock-jumble junction. Crawls and passages branch off in several directions."
             elif r == 31:
                 base = "You're at a low window overlooking a huge pit. The bottom is shrouded in mist."
@@ -3995,7 +3997,7 @@
         chest     = @@Treasure(132,14)   # Pirate's chest cavern (interpolated)
         pyramid   = @@Treasure(133,14)   # Pyramid Chamber (interpolated)
         rug       = @@Treasure(71, 14)   # under dragon (drops once dragon dies)
-        coins     = @@Treasure(134,14)   # Coin Niche (interpolated)
+        coins     = @@Treasure(30, 14)   # West side chamber Hall of Mt King — canon 30
         statuette = @@Treasure(135,14)   # Sloping Passage (interpolated)
 
         # World-layout constants. Must match Bird's domain

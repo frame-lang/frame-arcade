@@ -38,7 +38,7 @@ func _init():
     _expect("vending loaded",      adv.vending_loaded(),     true)
     _expect("vending state",       adv.vending.get_state(),  "loaded")
     _expect("coins in_room",       adv.coins.get_state(),    "in_room")
-    _expect("coins location",      adv.coins.get_location(), 134)
+    _expect("coins location",      adv.coins.get_location(), 30)
 
     # --- INSERT without coins ---
     print("INSERT without coins deflects:")
@@ -57,7 +57,7 @@ func _init():
     # --- Pick up coins, drain lamp partially, then insert ---
     print("Pick up coins, run the lamp down a bit, then insert:")
     adv.do_command("light", "")
-    adv.player.move_to(134)
+    adv.player.move_to(30)
     adv.do_command("take", "coins")
     _expect("carrying coins",      adv.player.carrying(adv.COINS_ID), true)
     var bat_before: int = adv.battery_left()

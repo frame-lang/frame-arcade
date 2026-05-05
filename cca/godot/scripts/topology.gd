@@ -119,10 +119,11 @@ const ROOMS: Dictionary = {
     # the rock-jumble junction (30) and is largely a dead-end
     # for atmosphere.
     15:  {"up": 14, "east": 16, "west": 19, "south": 18, "north": 21},   # Hall of Mists
-    16:  {"west": 15, "north": 30, "up": 17},                            # East end of mists
-    19:  {"east": 15, "north": 26, "south": 29},                        # Hall of Mt King — south to canon-29 south chamber
+    16:  {"west": 15, "north": 206, "up": 17},                           # East end of mists
+    19:  {"east": 15, "north": 30, "south": 29},                        # Hall of Mt King — north canon-30, south canon-29
     20:  {"north": 19},                                                  # South entry (port-orphan; canon 20 is broken-neck death msg)
     29:  {"north": 19},                                                  # South side chamber — canon 29 (jewelry home)
+    30:  {"south": 19},                                                  # West side chamber Hall of Mt King — canon 30 (coins home)
     21:  {"south": 15, "east": 22, "west": 23},                          # Two-pit room
     22:  {"out": 21, "up": 21},                                          # East pit (dead-end)
     23:  {"out": 21, "up": 24, "climb": 24},                             # West pit
@@ -130,11 +131,11 @@ const ROOMS: Dictionary = {
     25:  {"down": 24},                                                   # Plant — top
     26:  {"south": 19, "north": 204},                                    # Narrow corridor
     204: {"south": 26, "north": 205, "west": 50},                       # Above immense passage (port-synth; canon 27 = west fissure)
-    205: {"south": 204, "east": 30},                                    # Immense passage (port-synth; canon 29 is south side chamber)
-    30:  {"south": 16, "west": 205, "north": 31, "down": 34, "east": 58}, # Jumble of rock
-    31:  {"south": 30, "north": 32},                                     # Window on pit (low)
+    205: {"south": 204, "east": 206},                                   # Immense passage (port-synth; canon 29 is south side chamber)
+    206: {"south": 16, "west": 205, "north": 31, "down": 34, "east": 58},# Jumble of rock (port-synth; canon 30 = west side chamber)
+    31:  {"south": 206, "north": 32},                                    # Window on pit (low)
     32:  {"south": 31},                                                  # Window on pit (high)
-    34:  {"up": 30, "north": 35},                                        # Low dust chamber
+    34:  {"up": 206, "north": 35},                                       # Low dust chamber
     35:  {"south": 34, "north": 36},                                     # Sloping corridor
     36:  {"south": 35, "west": 37},                                      # Above slab
     37:  {"east": 36},                                                   # Slab room (dead-end)
@@ -176,7 +177,7 @@ const ROOMS: Dictionary = {
     # Entry from rock-jumble junction (30) via east.
     # Synthesized terminal room moved 65 → 203 to free canon
     # room 65 (Bedquilt).
-    58:  {"west": 30, "east": 59, "south": 60},
+    58:  {"west": 206, "east": 59, "south": 60},
     59:  {"west": 58, "east": 61, "north": 62},
     60:  {"north": 58, "east": 63},
     61:  {"west": 59, "east": 64},

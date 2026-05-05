@@ -549,22 +549,38 @@ func _stages() -> Array:
             "asserts":    _assert_treasures_deposited(13),
             "checkpoint": "after_batch_b",
         },
-        # ----- Batch C: coins, statuette -----
-        # Path 3 → 1 → 33 → 65 → 117 → 118 → 120 → 97 → 92 →
-        # 95 → 131 → 40 → 132 → 133 → 134 (Coin Niche).
-        # 1 west + 11 east = 12 nav.
+        # ----- Batch C: coins (canon 30) + statuette (port 135) -----
+        # Coins moved to canon 30 (West side chamber Hall of Mt
+        # King) per advent.dat. Take coins first via canon route,
+        # then statuette via port deep cave.
+        # Coins trip: 3 → plugh → 33 → north 14 → down 15 →
+        # west 19 → north 30, take, back via south → east → up
+        # → south → 33 → plugh → 3.
+        # Statuette trip: 3 → plugh → 33 → west 65 → east 117
+        # → east 118 → east 120 → east 97 → east 92 → east 95
+        # → east 131 → east 40 → east 132 → east 133 → east 134
+        # → east 135. (Coin Niche at 134 now empty.)
         {
             "name":       "deep_cave_batch_c_takes",
             "from":       "after_batch_b",
             "actions":    [
-                ["plugh", ""],
-                ["go", "west"],
-                ["go", "east"], ["go", "east"], ["go", "east"],
-                ["go", "east"], ["go", "east"], ["go", "east"],
-                ["go", "east"], ["go", "east"], ["go", "east"],
-                ["go", "east"], ["go", "east"],   # 11 easts → at 134
+                # --- Coins via Hall of Mt King ---
+                ["plugh", ""],             # 3 → 33
+                ["go", "north"],           # 33 → 14
+                ["go", "down"],            # 14 → 15
+                ["go", "west"],            # 15 → 19
+                ["go", "north"],           # 19 → 30 (West side chamber)
                 ["take", "coins"],
-                ["go", "east"],            # 134 → 135
+                ["go", "south"],           # 30 → 19
+                ["go", "east"],            # 19 → 15
+                ["go", "up"],              # 15 → 14
+                ["go", "south"],           # 14 → 33
+                # --- Statuette via deep cave ---
+                ["go", "west"],            # 33 → 65
+                ["go", "east"], ["go", "east"], ["go", "east"],
+                ["go", "east"], ["go", "east"], ["go", "east"],
+                ["go", "east"], ["go", "east"], ["go", "east"],
+                ["go", "east"], ["go", "east"], ["go", "east"],   # 12 east → at 135
                 ["take", "statuette"],
             ],
             "asserts":    _assert_batch_c_carried,

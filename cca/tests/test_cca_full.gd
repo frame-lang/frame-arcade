@@ -117,7 +117,7 @@ func _init():
         adv.player.move_to(3)
         adv.do_command("drop", entry[1])
 
-    var batch_c: Array = [[134,"coins"], [135,"statuette"]]
+    var batch_c: Array = [[30, "coins"], [135,"statuette"]]
     for entry in batch_c:
         adv.player.move_to(entry[0])
         adv.do_command("take", entry[1])
