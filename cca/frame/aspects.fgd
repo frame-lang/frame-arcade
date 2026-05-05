@@ -69,15 +69,10 @@
 # been resized"). Modeling the dispatch lifecycle as states
 # makes the deferral explicit and impossible to forget.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system AspectBus : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         # Registration. Higher priority fires earlier.
@@ -253,15 +248,10 @@
 # aspect itself can be a real FSM — its own internal mode
 # changes how it responds to the same event.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system LoudAspect : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         try_handle(event: Dictionary): Dictionary
@@ -310,15 +300,10 @@
 # demonstrates the consume verdict — the base never sees
 # muted events.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system MuteAspect : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         try_handle(event: Dictionary): Dictionary
@@ -354,15 +339,10 @@
 # Demonstrates the "I just want to know what's happening"
 # pattern (telemetry, audit log, replay capture).
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system LogAspect : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         try_handle(event: Dictionary): Dictionary
@@ -404,15 +384,10 @@
 # parser's (verb, noun) instead of (name, data).
 # ------------------------------------------------------------
 @@[main]
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Conductor : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         # Wire all aspects into the bus. Called once after

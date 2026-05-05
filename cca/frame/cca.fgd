@@ -44,15 +44,10 @@
 # listener metadata, $Idle/$Dispatching states for queue-
 # during-dispatch, why we hold names not @@system refs).
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system AspectBus : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         register(name: String, priority: int)
@@ -200,15 +195,10 @@
 #   (is_lit, message) in children is what HSM's parent
 #   inheritance gives you for free.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Lamp : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         # Lifecycle
@@ -411,15 +401,10 @@
 # CCA behavior); $Dead.revive() re-enters $Alive at the cave
 # entrance with empty inventory.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Player : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         move_to(room_id: int)
@@ -535,15 +520,10 @@
 # dark rooms — you might fall into a pit. So MOVE doesn't
 # belong to this aspect; that risk is handled elsewhere.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system DarknessGate : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         try_handle(event: Dictionary): Dictionary
@@ -592,15 +572,10 @@
 # "grab" once we accept synonyms) duplicates the check.
 # The aspect intercepts at the boundary instead.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system BackpackLimit : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         try_handle(event: Dictionary): Dictionary
@@ -649,15 +624,10 @@
 # room-pair table, which is exactly the cross-cutting concern
 # we extracted. Aspects own this kind of input rewriting.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system MagicWordTeleport : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         try_handle(event: Dictionary): Dictionary
@@ -751,15 +721,10 @@
 # constant must match Adventure's is the simpler shape. If the
 # room layout ever becomes data-driven we'll parameterize.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Bird : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         capture()
@@ -843,15 +808,10 @@
 # being a state machine makes Snake a first-class citizen
 # alongside Bird and Bear.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Snake : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         bird_released_here()
@@ -915,15 +875,10 @@
 # Same orchestration shape as Bird/Snake. The bear doesn't
 # know about the troll; Adventure brokers.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Bear : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         feed()
@@ -1023,15 +978,10 @@
 # $TollPaid and $Vanished open the bridge; the difference is
 # whether the player forfeited a treasure to do it.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Troll : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         pay_toll()
@@ -1101,15 +1051,10 @@
 # outcomes. Save/restore round-trips the seed and step, so
 # replay from a saved point is byte-identical.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Dwarf(seed: int) : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         wake_up(at_room: int)
@@ -1239,15 +1184,10 @@
 #   with the puzzle subset (drop marker, detonate). On $Won,
 #   the game ends.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Endgame : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         # Driver tells endgame each time a treasure was
@@ -1422,15 +1362,10 @@
 # you'd lose the "each hint is a typed thing with a query
 # surface" structure.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Hint(threshold: int = 5) : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         # Driver tells us whether OUR trigger condition is true
@@ -1536,15 +1471,10 @@
 # scoring). Adventure exposes is_alive() so the rest of the
 # world can gate on dragon-killed.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Dragon : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         attack()
@@ -1629,15 +1559,10 @@
 # Adding more is mechanical — same Treasure system,
 # additional named instances, additional verb-noun branches.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Treasure(home_room: int = 0, value: int = 0, fragile: bool = false) : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         try_take(at_room: int): bool       # true if successfully taken
@@ -1780,15 +1705,10 @@
 # rather than baking it into EggsIncantation, keeping each
 # system testable in isolation.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system EggsIncantation : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         say(word: String): String       # returns canonical reply
@@ -1876,15 +1796,10 @@
 # bird→snake and bear→troll wiring: each NPC owns its slice,
 # Adventure brokers the rest.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system CrystalBridge : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         wave(): String
@@ -1934,15 +1849,10 @@
 #   $Unlocked ── lock()                   ──► $Locked
 #                  (re-locks; canon allows this both ways)
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Grate : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         unlock(have_keys: bool): String
@@ -2004,15 +1914,10 @@
 #   $Loaded ── insert(have_coins=true)  ──► $Empty
 #   $Empty                                  terminal
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system VendingMachine : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         insert(have_coins: bool): String
@@ -2062,15 +1967,10 @@
 #   - POUR on the plant triggers `plant.water()`.
 #   - POUR anywhere else just empties the bottle for flavor.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Bottle : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         fill(at_water_source: bool): String
@@ -2132,15 +2032,10 @@
 # calls `plant.water()` AND empties the bottle. The driver
 # gates the climb exits (23→24, 24→25) on the plant's state.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Plant : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         water(): String
@@ -2202,15 +2097,10 @@
 # treasures_carried; a successful steal reduces the player's
 # treasure count and the Adventure surfaces the "rrrgh!" message.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Pirate(seed: int = 42) : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         treasures_carried(n: int)
@@ -2290,15 +2180,10 @@
 # This prototype version just counts. Per-rule scoring goes
 # in once we have treasures and a deposit room.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system ScoreLedger : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         try_handle(event: Dictionary): Dictionary
@@ -2355,15 +2240,10 @@
 # do_command(verb, noun) and reads back a String message.
 # ------------------------------------------------------------
 @@[main]
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Adventure : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         # Lifecycle
