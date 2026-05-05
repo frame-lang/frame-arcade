@@ -221,20 +221,43 @@ func _stages() -> Array:
             "checkpoint": "debris_room",
         },
         {
-            "name":       "rod_and_gold",
+            "name":       "rod_taken",
             "from":       "debris_room",
-            "actions":    [["take", "rod"], ["take", "gold"]],
+            "actions":    [["take", "rod"]],
+            "asserts":    _assert_rod_carried,
+            "checkpoint": "carrying_rod",
+        },
+        # Canon: gold lives at room 18 ("low room with crude
+        # note, you won't get it up the steps"), reached from
+        # Hall of Mists (15) → south. Path from debris (11):
+        # 11 east → 12 → north → 33 → north → 14 → down → 15
+        # → south → 18. Take gold, then walk back to 33 via
+        # 18 → north (15) → up (14) → south (33) — leaving the
+        # player at Y2 ready for the bird-chamber descent.
+        {
+            "name":       "gold_taken_back_at_y2",
+            "from":       "carrying_rod",
+            "actions":    [
+                ["go", "east"],            # 11 → 12
+                ["go", "north"],           # 12 → 33
+                ["go", "north"],           # 33 → 14
+                ["go", "down"],            # 14 → 15
+                ["go", "south"],           # 15 → 18 (gold-nugget room)
+                ["take", "gold"],
+                ["go", "north"],           # 18 → 15
+                ["go", "up"],              # 15 → 14
+                ["go", "south"],           # 14 → 33 (Y2)
+            ],
             "asserts":    _assert_rod_and_gold_carried,
             "checkpoint": "carrying_rod_gold",
         },
-        # ----- Bird chamber -----
-        # Y2 (33) is reachable via a sequence of canyons from
-        # debris (11). The canon path: debris → awkward canyon
-        # (12) east → Y2 (33) down → bird chamber (13).
+        # carrying_rod_gold checkpoint is now AT Y2 (33).
+        # at_y2 stage is a no-op assert; downstream stages
+        # already chain off carrying_rod_gold via Y2.
         {
             "name":       "at_y2",
             "from":       "carrying_rod_gold",
-            "actions":    [["go", "east"], ["go", "down"]],
+            "actions":    [],
             "asserts":    _assert_room(33),
             "checkpoint": "at_y2",
         },
@@ -752,10 +775,14 @@ func _assert_grate_unlocked(adv, t) -> void:
 func _assert_room(want: int) -> Callable:
     return func(adv, t): t._expect("player_room", adv.player_room(), want)
 
+func _assert_rod_carried(adv, t) -> void:
+    t._expect("rod carried",  adv.rod_in_inventory(),       true)
+    t._expect("at debris",    adv.player_room(),            11)
+
 func _assert_rod_and_gold_carried(adv, t) -> void:
     t._expect("rod carried",  adv.rod_in_inventory(),       true)
     t._expect("gold carried", adv.player.carrying(110),     true)
-    t._expect("at debris",    adv.player_room(),            11)
+    t._expect("at Y2",        adv.player_room(),            33)
 
 func _assert_bird_and_rod_carried(adv, t) -> void:
     t._expect("bird carried", adv.player.carrying(100), true)

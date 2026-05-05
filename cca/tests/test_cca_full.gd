@@ -48,7 +48,7 @@ func _init():
     _expect_contains("throw axe response", rx4, "dwarf")
 
     print("Loot the surface treasures:")
-    adv.player.move_to(11)              # debris
+    adv.player.move_to(18)              # gold-nugget room (canon 18)
     adv.do_command("take", "gold")
     _deposit(adv, "gold", 11)
 

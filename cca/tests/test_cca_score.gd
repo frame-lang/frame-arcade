@@ -31,7 +31,7 @@ func _init():
 
     print("Pass-through commands all observed:")
     adv.do_command("look", "")          # at end-of-road (1), lit, observed
-    adv.player.move_to(11)              # into debris room (dark)
+    adv.player.move_to(18)              # gold-nugget room (canon 18, dark)
     adv.do_command("look", "")          # in dark room — consumed by darkness, NOT observed
     _expect("commands seen",     adv.commands_seen(), 1)
     _expect("darkness consumed", adv.darkness_consumed_count(), 1)

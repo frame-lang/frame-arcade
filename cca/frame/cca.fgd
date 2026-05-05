@@ -2954,6 +2954,8 @@
             elif r == 16:
                 base = "You are in the east end of the Hall of Mists. A low wide crawl continues east, and a passage goes north into the gloom."
             elif r == 18:
+                base = "This is a low room with a crude note on the wall. The note says, \"You won't get it up the steps\"."
+            elif r == 27:
                 base = "You are on the west side of the fissure in the Hall of Mists. A narrow path leads west to the Hall of the Mountain King."
             elif r == 19:
                 base = "You are in the Hall of the Mountain King, with passages off in all directions. The roof is so high it cannot be seen."
@@ -2980,7 +2982,7 @@
                 base = "You are at the top of a vast crack in the rock, with the giant beanstalk vanishing into the gloom below. The crack twists upward but is barely wide enough to crawl through."
             elif r == 26:
                 base = "You are in a long, narrow corridor stretching out of sight east-west. The walls are smooth and damp."
-            elif r == 27:
+            elif r == 204:
                 base = "You are at one end of an immense north/south passage."
             elif r == 29:
                 base = "You are in the deep middle of an immense north/south passage. Stalactites loom overhead at impossible angles."
@@ -3972,7 +3974,7 @@
         # across 15 treasures = 210 points of treasure score —
         # the dominant component of the canonical 350-point
         # target. Earlier port values (5/10/15) under-scored.
-        gold      = @@Treasure(11, 14)   # debris room
+        gold      = @@Treasure(18, 14)   # Low room w/ steps note — canon 18
         silver    = @@Treasure(33, 14)   # Y2 marker
         diamonds  = @@Treasure(71, 14)   # scorched cavern (with dragon, rug)
         jewelry   = @@Treasure(118,14)   # cliff with ledge (beyond troll bridge)

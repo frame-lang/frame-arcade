@@ -48,8 +48,11 @@ func _init():
     # In room 11 with lamp off → DarknessGate consumes:
     _expect_contains("dark consumes look", r3, "dark")
 
-    print("Light lamp, look — gold mentioned:")
+    print("Light lamp:")
     adv.do_command("light", "")
+
+    print("Teleport to gold-nugget room (canon 18) — gold mentioned:")
+    adv.player.move_to(18)
     var r4 = adv.do_command("look", "")
     _expect_contains("look mentions gold", r4, "gold")
 
@@ -58,8 +61,8 @@ func _init():
     _expect_contains("take gold response", r5, "Taken")
     _expect("carrying gold", adv.player.carrying(110), true)
 
-    print("XYZZY back to well house (canon: 11 → 3 directly), drop gold:")
-    adv.do_command("xyzzy", "")
+    print("Teleport back to well house, drop gold:")
+    adv.player.move_to(3)
     _expect("at deposit room", adv.player_room(),    3)
     var r6 = adv.do_command("drop", "gold")
     _expect_contains("deposited",     r6, "stowed")

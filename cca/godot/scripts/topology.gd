@@ -34,6 +34,8 @@
 #    13 Bird chamber                      (dark; bird)
 #    14 Top of small pit                  (dark; rod-puzzle approach)
 #    17 East of fissure                   (dark; gated by crystal bridge)
+#    18 Low room w/ "won't get it up the steps" sign  (dark; gold home — canon 18)
+#    27 West bank fissure                  (dark) — canon 27
 #    92 Giant Room                        (dark; eggs)
 #    33 Y2 marker                         (dark; silver; magic-word hub)
 #    97 Oriental Room                     (dark; vase)
@@ -105,8 +107,9 @@ const ROOMS: Dictionary = {
     # fissure (17) is the gate; crossing east requires the
     # crystal bridge (waved up by the rod).
     14:  {"south": 33, "north": 17, "down": 15},  # top of small pit
-    17:  {"south": 14, "east": 69, "west": 18},   # fissure — east gated; west to other side
-    18:  {"east": 17, "west": 19},                # west side of fissure
+    17:  {"south": 14, "east": 69, "west": 27},   # fissure — east gated; west to other side
+    18:  {"north": 15},                            # Low room w/ "won't get it up the steps" sign — canon 18 (gold home)
+    27:  {"east": 17, "west": 19},                # West bank of fissure — canon 27
     69:  {"west": 17},                            # hall of mirrors (across)
     # Mist + King hall + two-pit + plant + slab area. Hangs off
     # the top of small pit (14) via a stone staircase down. The
@@ -123,9 +126,9 @@ const ROOMS: Dictionary = {
     23:  {"out": 21, "up": 24, "climb": 24},                             # West pit
     24:  {"down": 23, "up": 25, "climb": 25},                            # Plant — middle
     25:  {"down": 24},                                                   # Plant — top
-    26:  {"south": 19, "north": 27},                                     # Narrow corridor
-    27:  {"south": 26, "north": 29, "west": 50},                         # Above immense passage
-    29:  {"south": 27, "east": 30},                                      # Immense passage
+    26:  {"south": 19, "north": 204},                                    # Narrow corridor
+    204: {"south": 26, "north": 29, "west": 50},                         # Above immense passage (port-synth; canon 27 = west fissure)
+    29:  {"south": 204, "east": 30},                                     # Immense passage
     30:  {"south": 16, "west": 29, "north": 31, "down": 34, "east": 58}, # Jumble of rock
     31:  {"south": 30, "north": 32},                                     # Window on pit (low)
     32:  {"south": 31},                                                  # Window on pit (high)
@@ -148,7 +151,7 @@ const ROOMS: Dictionary = {
     48:  {"west": 46, "east": 49},                                       # Boulders cluster
     49:  {"west": 48},                                                   # Limestone passage (dead-end)
     # --- Maze of twisty little passages, all alike (50-57) ---
-    # Entry from "Above the immense passage" (27) via west. All
+    # Entry from "Above the immense passage" (204) via west. All
     # 8 rooms share the same description ("a maze of twisty
     # little passages, all alike"), so the player can't tell
     # them apart from look. Exit topology is deliberately non-
@@ -156,10 +159,10 @@ const ROOMS: Dictionary = {
     # the next-identical-looking room lands you in different
     # places. The canon CCA puzzle is to mark visited rooms by
     # dropping items, then map the maze. Only room 50's east
-    # exit returns to room 27 (the way back out). Some
+    # exit returns to room 204 (the way back out). Some
     # directions are missing to create dead-end "you can't go
     # that way" branches.
-    50:  {"east": 27, "north": 51, "south": 52, "west": 53},
+    50:  {"east": 204, "north": 51, "south": 52, "west": 53},
     51:  {"north": 54, "south": 55, "west": 50},
     52:  {"east": 56, "north": 57, "south": 50},
     53:  {"east": 51, "south": 54},

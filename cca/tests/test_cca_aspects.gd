@@ -36,7 +36,7 @@ func _init():
 
     print("Take a real treasure through the bus (should succeed):")
     adv.do_command("light", "")
-    adv.player.move_to(11)                              # debris room — gold
+    adv.player.move_to(18)                              # debris room — gold
     var r1 = adv.do_command("take", "gold")
     _expect("take response contains 'Taken'", r1.contains("Taken"), true)
     _expect("inventory size",      adv.player.inventory_size(), 1)
