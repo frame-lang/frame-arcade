@@ -3984,7 +3984,7 @@
         # the 130-139 interpolated zone pending Phase 5
         # canonical-room placement.
         trident   = @@Treasure(130,14)   # Sapphire Hallway (interpolated)
-        emerald   = @@Treasure(131,14)   # Vast Hall (interpolated)
+        emerald   = @@Treasure(100,14)   # Plover Room canon 100 (per advent.dat section 7)
         spices    = @@Treasure(40, 14)   # Alcove
         chest     = @@Treasure(132,14)   # Pirate's chest cavern (interpolated)
         pyramid   = @@Treasure(133,14)   # Pyramid Chamber (interpolated)

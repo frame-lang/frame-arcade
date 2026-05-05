@@ -334,30 +334,36 @@ func _stages() -> Array:
             "asserts":    _assert_treasures_deposited(4),
             "checkpoint": "after_silver",
         },
-        # ----- Pearl from Plover Room -----
-        # PLOVER pairs 33 ↔ 41. The Plover Room is otherwise
+        # ----- Pearl + Emerald from Plover Room -----
+        # PLOVER pairs 33 ↔ 100. The Plover Room is otherwise
         # unreachable (its map exits don't lead back through
-        # 33). Pearl lives there.
+        # 33). Canon: BOTH pearl and emerald live in the Plover
+        # Room (advent.dat section 7 places emerald at 100 and
+        # pearl is dynamic — picked up from the oyster — but
+        # the port still treats pearl as a static placement at
+        # the Plover Room until the clam/oyster mechanic lands).
         {
-            "name":       "take_pearl",
+            "name":       "take_pearl_emerald",
             "from":       "after_silver",
             "actions":    [
-                ["plugh", ""],             # 1 → 33
+                ["plugh", ""],             # 3 → 33
                 ["plover", ""],            # 33 → 100
                 ["take", "pearl"],
+                ["take", "emerald"],
             ],
-            "asserts":    _assert_pearl_at_plover,
-            "checkpoint": "carrying_pearl",
+            "asserts":    _assert_pearl_emerald_at_plover,
+            "checkpoint": "carrying_pearl_emerald",
         },
         {
-            "name":       "deposit_pearl",
-            "from":       "carrying_pearl",
+            "name":       "deposit_pearl_emerald",
+            "from":       "carrying_pearl_emerald",
             "actions":    [
-                ["plover", ""],            # 41 → 33
-                ["plugh", ""],              # 1 → 3
+                ["plover", ""],            # 100 → 33
+                ["plugh", ""],             # 33 → 3
                 ["drop", "pearl"],
+                ["drop", "emerald"],
             ],
-            "asserts":    _assert_treasures_deposited(5),
+            "asserts":    _assert_treasures_deposited(6),
             "checkpoint": "after_pearl",
         },
         # ----- Bear → troll bridge → jewelry -----
@@ -402,12 +408,13 @@ func _stages() -> Array:
             "asserts":    _assert_jewelry_carried,
             "checkpoint": "carrying_jewelry",
         },
-        # ----- Deep cave loop: vase, eggs, trident, emerald -----
-        # 118 → 120 → 97(vase) → 28(eggs) → 130(trident) →
-        # 131(emerald). Carry 4 treasures + jewelry = 5 items;
-        # plus keys/bottle/rod = 8 → over 7-cap. We drop
-        # jewelry-only at the well house first (separate
-        # deposit trip), then do the deep-cave batch.
+        # ----- Deep cave loop: vase, eggs, trident -----
+        # 118 → 120 → 97(vase) → 92(eggs) → 130(trident).
+        # Emerald moved to canon Plover Room (taken with pearl
+        # in the earlier trip), so deep-cave batch_a is now 3
+        # treasures. We drop jewelry at well house first
+        # (separate trip) so the deep-cave run starts with
+        # only keys/bottle/rod in inventory.
         {
             "name":       "deposit_jewelry",
             "from":       "carrying_jewelry",
@@ -415,10 +422,10 @@ func _stages() -> Array:
                 ["go", "west"],            # 118 → 117
                 ["go", "west"],            # 117 → 65
                 ["go", "west"],            # 65 → 33
-                ["plugh", ""],              # 1 → 3
+                ["plugh", ""],              # 33 → 3
                 ["drop", "jewelry"],
             ],
-            "asserts":    _assert_treasures_deposited(6),
+            "asserts":    _assert_treasures_deposited(7),
             "checkpoint": "after_jewelry",
         },
         # Walk back to the deep cave: 3 → 1 (plugh) → 33 → 65
@@ -429,7 +436,7 @@ func _stages() -> Array:
             "name":       "deep_cave_batch_a_takes",
             "from":       "after_jewelry",
             "actions":    [
-                ["plugh", ""],             # 1 → 33
+                ["plugh", ""],             # 3 → 33
                 ["go", "west"],            # 33 → 65
                 ["go", "east"],            # 65 → 117
                 ["go", "east"],            # 117 → 118
@@ -440,8 +447,6 @@ func _stages() -> Array:
                 ["take", "eggs"],
                 ["go", "east"],            # 92 → 130
                 ["take", "trident"],
-                ["go", "east"],            # 130 → 131
-                ["take", "emerald"],
             ],
             "asserts":    _assert_batch_a_carried,
             "checkpoint": "carrying_batch_a",
@@ -450,7 +455,6 @@ func _stages() -> Array:
             "name":       "deposit_batch_a",
             "from":       "carrying_batch_a",
             "actions":    [
-                ["go", "west"],            # 131 → 130
                 ["go", "west"],            # 130 → 92
                 ["go", "west"],            # 92 → 97
                 ["go", "west"],            # 97 → 120
@@ -458,11 +462,10 @@ func _stages() -> Array:
                 ["go", "west"],            # 118 → 117
                 ["go", "west"],            # 117 → 65
                 ["go", "west"],            # 65 → 33
-                ["plugh", ""],              # 1 → 3
+                ["plugh", ""],             # 33 → 3
                 ["drop", "vase"],
                 ["drop", "eggs"],
                 ["drop", "trident"],
-                ["drop", "emerald"],
             ],
             "asserts":    _assert_treasures_deposited(10),
             "checkpoint": "after_batch_a",
@@ -801,6 +804,11 @@ func _assert_pearl_at_plover(adv, t) -> void:
     t._expect("at Plover Room",  adv.player_room(),         100)
     t._expect("pearl carried",   adv.player.carrying(114), true)
 
+func _assert_pearl_emerald_at_plover(adv, t) -> void:
+    t._expect("at Plover Room",   adv.player_room(),         100)
+    t._expect("pearl carried",    adv.player.carrying(114),  true)
+    t._expect("emerald carried",  adv.player.carrying(118),  true)
+
 func _assert_room_and_bear(want_room: int, want_bear: String) -> Callable:
     return func(adv, t):
         t._expect("player_room", adv.player_room(),  want_room)
@@ -824,7 +832,8 @@ func _assert_batch_a_carried(adv, t) -> void:
     t._expect("vase carried",    adv.player.carrying(115), true)
     t._expect("eggs carried",    adv.player.carrying(116), true)
     t._expect("trident carried", adv.player.carrying(117), true)
-    t._expect("emerald carried", adv.player.carrying(118), true)
+    # Emerald moved to canon Plover Room — taken in the
+    # take_pearl_emerald stage upstream, not here.
 
 func _assert_batch_b_carried(adv, t) -> void:
     t._expect("spices carried",  adv.player.carrying(119), true)

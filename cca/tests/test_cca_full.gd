@@ -59,9 +59,13 @@ func _init():
     adv.player.move_to(33)
     adv.do_command("plover", "")
     _expect("at Plover Room",          adv.player_room(),    100)
+    # Canon: pearl AND emerald both live in Plover Room.
     adv.do_command("take", "pearl")
+    adv.do_command("take", "emerald")
     adv.do_command("plover", "")
     _deposit(adv, "pearl", 33)
+    adv.player.move_to(3); adv.do_command("drop", "emerald")
+    adv.player.move_to(33)
 
     print("Bird → Snake → Dragon → diamonds + rug:")
     adv.player.move_to(13)              # bird chamber
@@ -92,11 +96,12 @@ func _init():
     _deposit(adv, "jewelry", 118)
 
     print("Deep cave (3 batches to stay under 7-item cap):")
-    # Canonical room IDs of the deep-cave treasures:
+    # Canonical room IDs of the remaining deep-cave treasures
+    # (emerald moved to Plover Room canon 100, taken alongside pearl):
     #   97 oriental(vase), 92 giant(eggs), 130 sapphire(trident),
-    #   131 vast(emerald), 40 alcove(spices), 132 chest(chest),
+    #   40 alcove(spices), 132 chest(chest),
     #   133 pyramid, 134 coins, 135 statuette.
-    var batch_a: Array = [[97, "vase"], [92, "eggs"], [130,"trident"], [131,"emerald"]]
+    var batch_a: Array = [[97, "vase"], [92, "eggs"], [130,"trident"]]
     for entry in batch_a:
         adv.player.move_to(entry[0])
         adv.do_command("take", entry[1])
