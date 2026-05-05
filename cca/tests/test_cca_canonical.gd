@@ -430,7 +430,16 @@ func _stages() -> Array:
             "name":       "take_jewelry",
             "from":       "troll_vanished",
             "actions":    [
-                ["go", "east"],            # 117 → 118
+                # Canon: jewelry at room 29 (south side chamber).
+                # Reached via Hall of Mt King (19) south. Walk
+                # from troll bridge (117) back through Bedquilt
+                # → Y2 → Hall of Mists → Hall of Mt King → 29.
+                ["go", "west"],            # 117 → 65 (Bedquilt)
+                ["go", "west"],            # 65 → 33 (Y2)
+                ["go", "north"],           # 33 → 14 (top of small pit)
+                ["go", "down"],            # 14 → 15 (Hall of Mists)
+                ["go", "west"],            # 15 → 19 (Hall of Mt King)
+                ["go", "south"],           # 19 → 29 (south side chamber)
                 ["take", "jewelry"],
             ],
             "asserts":    _assert_jewelry_carried,
@@ -447,10 +456,13 @@ func _stages() -> Array:
             "name":       "deposit_jewelry",
             "from":       "carrying_jewelry",
             "actions":    [
-                ["go", "west"],            # 118 → 117
-                ["go", "west"],            # 117 → 65
-                ["go", "west"],            # 65 → 33
-                ["plugh", ""],              # 33 → 3
+                # From canon-29 (south side chamber) walk back
+                # to Y2 (33) and PLUGH to deposit.
+                ["go", "north"],           # 29 → 19 (Hall of Mt King)
+                ["go", "east"],            # 19 → 15 (Hall of Mists)
+                ["go", "up"],              # 15 → 14
+                ["go", "south"],           # 14 → 33 (Y2)
+                ["plugh", ""],             # 33 → 3 (well house)
                 ["drop", "jewelry"],
             ],
             "asserts":    _assert_treasures_deposited(7),
@@ -857,8 +869,8 @@ func _assert_troll_vanished(adv, t) -> void:
     t._expect("chain dropped", adv.player.carrying(101),  false)
 
 func _assert_jewelry_carried(adv, t) -> void:
-    t._expect("jewelry carried", adv.player.carrying(113), true)
-    t._expect("at cliff",        adv.player_room(),        118)
+    t._expect("jewelry carried",   adv.player.carrying(113), true)
+    t._expect("at south chamber",  adv.player_room(),        29)
 
 func _assert_batch_a_carried(adv, t) -> void:
     t._expect("vase carried",    adv.player.carrying(115), true)

@@ -121,9 +121,9 @@ func _init():
     _expect_contains("flees",      r14, "flees")
     _expect("troll gone",       adv.troll.is_blocking_bridge(), false)
 
-    print("East to beyond bridge, take jewelry:")
-    adv.do_command("move", "118")
-    _expect("at beyond",        adv.player_room(),  118)
+    print("Jewelry now at south side chamber (canon 29):")
+    adv.player.move_to(29)
+    _expect("at south chamber", adv.player_room(),  29)
     var r15 = adv.do_command("take", "jewelry")
     _expect_contains("took jewelry", r15, "Taken")
 
@@ -134,7 +134,7 @@ func _init():
 
     var adv2 = Cca.new()
     adv2.restore_state(bytes)
-    _expect("restored room",    adv2.player_room(), 118)
+    _expect("restored room",    adv2.player_room(), 29)
     _expect("restored carrying jewelry", adv2.player.carrying(113), true)
     _expect("restored troll gone",  adv2.troll.is_blocking_bridge(), false)
     _expect("restored snake gone",  adv2.snake.is_blocking(), false)

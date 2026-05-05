@@ -90,10 +90,10 @@ func _init():
     adv.do_command("drop", "chain")
     _expect("troll vanished",          adv.troll_state(),    "vanished")
 
-    print("Beyond bridge — jewelry first:")
-    adv.do_command("move", "118")       # cliff with ledge
+    print("Jewelry at south side chamber (canon 29):")
+    adv.player.move_to(29)              # south side chamber — canon 29
     adv.do_command("take", "jewelry")
-    _deposit(adv, "jewelry", 118)
+    _deposit(adv, "jewelry", 117)       # return to troll bridge area
 
     print("Deep cave (3 batches to stay under 7-item cap):")
     # Canonical room IDs of the remaining deep-cave treasures

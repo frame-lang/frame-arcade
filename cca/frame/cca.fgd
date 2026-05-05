@@ -2987,6 +2987,8 @@
             elif r == 204:
                 base = "You are at one end of an immense north/south passage."
             elif r == 29:
+                base = "You are in the south side chamber."
+            elif r == 205:
                 base = "You are in the deep middle of an immense north/south passage. Stalactites loom overhead at impossible angles."
             elif r == 30:
                 base = "You are in a complex rock-jumble junction. Crawls and passages branch off in several directions."
@@ -3979,7 +3981,7 @@
         gold      = @@Treasure(18, 14)   # Low room w/ steps note — canon 18
         silver    = @@Treasure(28, 14)   # low n/s passage at hole — canon 28
         diamonds  = @@Treasure(71, 14)   # scorched cavern (with dragon, rug)
-        jewelry   = @@Treasure(118,14)   # cliff with ledge (beyond troll bridge)
+        jewelry   = @@Treasure(29, 14)   # south side chamber — canon 29
         pearl     = @@Treasure(100,14)   # Plover Room canon 100 (only via PLOVER magic)
         vase      = @@Treasure(97, 14, true)   # Oriental Room canon 97 — fragile!
         eggs      = @@Treasure(92, 14)   # Giant Room (canon 92)
