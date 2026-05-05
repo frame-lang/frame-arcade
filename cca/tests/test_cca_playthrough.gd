@@ -64,7 +64,7 @@ func _init():
     var r6 = adv.do_command("drop", "gold")
     _expect_contains("deposited",     r6, "stowed")
     _expect("treasures deposited", adv.treasures_deposited(), 1)
-    _expect("score",          adv.total_score(),    5)
+    _expect("score",          adv.total_score(),    14)
 
     print("PLUGH from well house (3) → Y2 (33) — canon pair:")
     adv.do_command("plugh", "")

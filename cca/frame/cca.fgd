@@ -3969,24 +3969,30 @@
         # is mechanical (one named instance + one branch in
         # _take_treasure_by_name + _drop_treasure_by_name +
         # treasures_deposited / total_score).
-        # Canonical CCA room numbering for treasure homes.
-        gold      = @@Treasure(11,  5)   # debris room
-        silver    = @@Treasure(33,  5)   # Y2 marker
-        diamonds  = @@Treasure(71, 10)   # scorched cavern (with dragon, rug)
-        jewelry   = @@Treasure(118,10)   # cliff with ledge (beyond troll bridge)
-        pearl     = @@Treasure(41, 15)   # Plover Room (only via PLOVER magic)
-        # Treasures whose canonical home rooms aren't deeply
-        # specified in canon get gap-zone numbers (130-139).
+        # Canonical CCA: per-treasure value cap is 14 (2 points
+        # for first take + 12 for deposit at well house). Sum
+        # across 15 treasures = 210 points of treasure score —
+        # the dominant component of the canonical 350-point
+        # target. Earlier port values (5/10/15) under-scored.
+        gold      = @@Treasure(11, 14)   # debris room
+        silver    = @@Treasure(33, 14)   # Y2 marker
+        diamonds  = @@Treasure(71, 14)   # scorched cavern (with dragon, rug)
+        jewelry   = @@Treasure(118,14)   # cliff with ledge (beyond troll bridge)
+        pearl     = @@Treasure(41, 14)   # Plover Room (only via PLOVER magic)
         vase      = @@Treasure(38, 14, true)   # Oriental Room — fragile!
         eggs      = @@Treasure(28, 14)   # Giant Room
+        # Treasures whose canonical home rooms aren't yet
+        # placed in the port topology — temporarily housed in
+        # the 130-139 interpolated zone pending Phase 5
+        # canonical-room placement.
         trident   = @@Treasure(130,14)   # Sapphire Hallway (interpolated)
         emerald   = @@Treasure(131,14)   # Vast Hall (interpolated)
         spices    = @@Treasure(40, 14)   # Alcove
         chest     = @@Treasure(132,14)   # Pirate's chest cavern (interpolated)
         pyramid   = @@Treasure(133,14)   # Pyramid Chamber (interpolated)
         rug       = @@Treasure(71, 14)   # under dragon (drops once dragon dies)
-        coins     = @@Treasure(134,10)   # Coin Niche (interpolated)
-        statuette = @@Treasure(135,10)   # Sloping Passage (interpolated)
+        coins     = @@Treasure(134,14)   # Coin Niche (interpolated)
+        statuette = @@Treasure(135,14)   # Sloping Passage (interpolated)
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic

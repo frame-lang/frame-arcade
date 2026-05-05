@@ -842,7 +842,7 @@ func _assert_all_15_deposited(adv, t) -> void:
     # exercised by the trigger at deposit_batch_a (treasures
     # deposited == 10).
     t._expect("all 15 deposited",   adv.treasures_deposited(), 15)
-    t._expect("treasure score",     adv.treasure_score(),      177)
+    t._expect("treasure score",     adv.treasure_score(),      210)
     t._expect("endgame past active", adv.endgame_state() != "active", true)
 
 func _assert_closing_phase(adv, t) -> void:

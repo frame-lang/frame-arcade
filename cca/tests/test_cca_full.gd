@@ -121,7 +121,7 @@ func _init():
         adv.do_command("drop", entry[1])
 
     _expect("all 15 deposited",        adv.treasures_deposited(), 15)
-    _expect("treasure score",          adv.treasure_score(), 177)
+    _expect("treasure score",          adv.treasure_score(), 210)
     _expect("endgame closing",         adv.endgame_closing(), true)
 
     print("Drive endgame timer to 0:")
