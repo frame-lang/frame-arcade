@@ -237,29 +237,93 @@ weekend, not a quarter."
 
 ---
 
-## What's next: Phase 2
+## What we tried for Phase 2 — and why it didn't ship
 
-The fingerprint is 8 fields because that's all I could hash
-without instrumenting the FSMs. Aspect changes (inventory
-gain/loss, score increments, hint penalties) are invisible
-to the outside-in view — and that's exactly where the
-monkey's coverage plateaus.
+The plan after Phase 1 was a richer monkey: instrument hot
+FSMs with a `Recorder` side-channel so the driver could see
+internal observations (`Player.take(item)`, `Pirate.steal()`,
+aspect verdicts) the public interface doesn't expose. Use
+those observations to bias exploration toward "interesting"
+fingerprints, with periodic teleport via save/restore.
 
-Phase 2 adds a `Recorder` side-channel: an autoload object
-the FSMs call from their action blocks to report
-*observations* the driver couldn't infer from `get_state()`
-alone. The driver subscribes between commands and feeds the
-extra signal back into the exploration heuristic — biasing
-toward fingerprints where novel observations were just
-recorded.
+What actually happened across the build:
 
-This is the labour-broad cost: every Frame source that
-contributes interesting observations needs a `recorder.record(...)`
-call in its action blocks. It's not free. The judgement
-will be: does the richer signal solve the gated-puzzle
-plateau, or do we need a different shape (LLM-prompted
-goal selection, learned policy) for that to crack?
+1. **The Recorder turned out to be unnecessary.** Reviewing
+   Adventure's public surface — `*_state()` per sub-FSM,
+   `darkness_consumed_count()` / `backpack_blocked_count()` /
+   `magic_transforms_count()` for aspect verdicts, the score
+   and treasure-deposit counters, plus `inventory_size()` /
+   `bottle_has_water()` / `plant_is_tall()` and similar — we
+   already had ~25 observable signals. Phase 2's premise
+   ("the public interface isn't enough") was wrong. The
+   Frame source stays clean of test-only instrumentation.
 
-Phase 1 — the work in this article — landed in commits
-`13f9584` (state explorer) and `e4e657f` (monkey + topology
-extraction). 21 tests all green.
+2. **Richer fingerprint helped a little.** Going from 8
+   fields to 18 fields lifted distinct fingerprint count
+   ~17% (974 → 1142 average over 5 seeds at 10k steps).
+   Real but modest signal.
+
+3. **Novelty-biased teleport didn't pay off on CCA.**
+   Periodic teleport (10% every step) hurt forward progress:
+   directed walker reached *fewer* rooms than random on
+   3-of-5 seeds, max score collapsed (53 → 29), wall time
+   doubled. Switching to "only teleport when stuck" never
+   actually fired — the random walker on CCA is never stuck
+   long enough to trigger. The walker isn't stuck; it's
+   inefficient. Different problem.
+
+The honest finding: **for the CCA shape (140-room graph,
+turn-based parser, gated puzzles), the random walker's real
+failure mode is wasted commands, not local minima**. Random
+draws spend 60% of budget on no-ops. Fixing that needs
+goal-directed action selection ("that take just got blocked
+— drop something first" / "this command sequence is
+canonical for the dragon") which is planning over the FSM
+graph, not save/restore teleport.
+
+That's Phase 3 territory: LLM-prompted goal selection or a
+learned policy. The headline architectural lesson stands —
+`@@[persist]` enables both the state explorer (which works
+beautifully) and the directed monkey (which we built and
+shelved) — but the monkey heuristic doesn't cross the
+threshold where it earns its complexity.
+
+The directed monkey code lived briefly in
+`cca/godot/scripts/monkey_directed.gd` + an A/B test, then
+was deleted as study residue. The result is in this section
+instead.
+
+---
+
+## What landed (final)
+
+- **State explorer** — `cca/godot/scripts/state_explorer.gd`
+  with `tests/test_cca_state_exploration.gd`. Six small FSMs
+  exhaustively validated against canonical shape. Real
+  forward-looking regression bound.
+- **Random monkey** — `cca/godot/scripts/monkey.gd` with
+  `tests/test_cca_monkey.gd`. 10k random commands, fingerprint
+  diff, soft-lock detection. Cheap insurance: 0 crashes,
+  0 soft-lock candidates against the current build.
+- **Topology extracted** — `cca/godot/scripts/topology.gd`.
+  Room map and gates as pure data so non-UI consumers
+  (monkey, future visualisers) can reason about the graph
+  without instantiating the driver Control.
+
+For *bug coverage*, scripted scenario tests
+(`test_cca_full.gd`, `test_cca_dragon.gd`, etc.) do the
+heavy lifting. The model-checking work above is *insurance*
+on top of that — it asserts structural shape and survives
+random fuzzing, but it doesn't replace knowing the canonical
+paths.
+
+The pitch hasn't changed: **Frame's `@@[persist]` is what
+makes building these tools cheap**. The state explorer is
+the most defensible demonstration of that. The monkey is a
+bonus.
+
+Phase 1 commits: `13f9584` (state explorer), `e4e657f`
+(monkey + topology), `d553b84` (this writeup, original
+version). Phase 2 ablation absorbed into this section
+without a new commit — the experiment didn't earn one.
+21 tests green.
