@@ -45,7 +45,7 @@
 #    71 Scorched cavern                   (dark; dragon, diamonds, rug)
 #   117 Troll bridge                      (dark; troll blocking east)
 #   118 Cliff with ledge (beyond bridge)  (dark; jewelry)
-#   130 Sapphire Hallway      (interpolated, dark; trident)
+#    95 Magnificent Cavern (waterfall)    (dark; trident) — canon 95
 #   131 Vast Hall             (interpolated, dark; emerald)
 #   132 Pirate's chest cavern (interpolated, dark; chest)
 #   133 Pyramid Chamber       (interpolated, dark; pyramid)
@@ -92,9 +92,9 @@ const ROOMS: Dictionary = {
     # Linear chain east-west with each room hosting a treasure.
     120: {"west": 118, "east": 97},
     97:  {"west": 120, "east": 92, "north": 39},                         # Oriental Room (canon 97) — vase
-    92:  {"west": 97, "east": 130},                                      # Giant Room (canon 92) — eggs
-    130: {"west": 92, "east": 131},
-    131: {"west": 130, "east": 40},
+    92:  {"west": 97, "east": 95},                                       # Giant Room (canon 92) — eggs
+    95:  {"west": 92, "east": 131},                                      # Magnificent Cavern (canon 95) — trident, waterfall
+    131: {"west": 95, "east": 40},
     40:  {"west": 131, "east": 132},
     132: {"west": 40, "east": 133},
     133: {"west": 132, "east": 134},

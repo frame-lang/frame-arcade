@@ -2926,7 +2926,7 @@
                 base = "You are in the Oriental Room. Strange Asian artifacts surround you."
             elif r == 92:
                 base = "You are in the Giant Room. The walls are streaked with silver, and a faint hum echoes from above."
-            elif r == 130:
+            elif r == 95:
                 base = "You are in a hall paved with sapphire-blue stone."
             elif r == 131:
                 base = "You are in a vast hall stretching out of sight."
@@ -3983,7 +3983,7 @@
         # placed in the port topology — temporarily housed in
         # the 130-139 interpolated zone pending Phase 5
         # canonical-room placement.
-        trident   = @@Treasure(130,14)   # Sapphire Hallway (interpolated)
+        trident   = @@Treasure(95, 14)   # Magnificent Cavern canon 95 (waterfall)
         emerald   = @@Treasure(100,14)   # Plover Room canon 100 (per advent.dat section 7)
         spices    = @@Treasure(40, 14)   # Alcove
         chest     = @@Treasure(132,14)   # Pirate's chest cavern (interpolated)

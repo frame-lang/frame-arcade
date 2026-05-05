@@ -445,7 +445,7 @@ func _stages() -> Array:
                 ["take", "vase"],
                 ["go", "east"],            # 97 → 92
                 ["take", "eggs"],
-                ["go", "east"],            # 92 → 130
+                ["go", "east"],            # 92 → 95
                 ["take", "trident"],
             ],
             "asserts":    _assert_batch_a_carried,
@@ -455,7 +455,7 @@ func _stages() -> Array:
             "name":       "deposit_batch_a",
             "from":       "carrying_batch_a",
             "actions":    [
-                ["go", "west"],            # 130 → 92
+                ["go", "west"],            # 95 → 92
                 ["go", "west"],            # 92 → 97
                 ["go", "west"],            # 97 → 120
                 ["go", "west"],            # 120 → 118
@@ -472,7 +472,7 @@ func _stages() -> Array:
         },
         # ----- Batch B: spices, chest, pyramid -----
         # Path 3 → 1 → 33 → 65 → 117 → 118 → 120 → 97 → 92 →
-        # 130 → 131 → 40 (Alcove). 1 west + 8 east = 9 nav.
+        # 95 → 131 → 40 (Alcove). 1 west + 8 east = 9 nav.
         {
             "name":       "deep_cave_batch_b_takes",
             "from":       "after_batch_a",
@@ -511,7 +511,7 @@ func _stages() -> Array:
         },
         # ----- Batch C: coins, statuette -----
         # Path 3 → 1 → 33 → 65 → 117 → 118 → 120 → 97 → 92 →
-        # 130 → 131 → 40 → 132 → 133 → 134 (Coin Niche).
+        # 95 → 131 → 40 → 132 → 133 → 134 (Coin Niche).
         # 1 west + 11 east = 12 nav.
         {
             "name":       "deep_cave_batch_c_takes",
