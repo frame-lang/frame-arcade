@@ -293,6 +293,40 @@ The directed monkey code lived briefly in
 was deleted as study residue. The result is in this section
 instead.
 
+### Addendum — constrained-vocabulary monkey also lost
+
+A second heuristic was tried after this writeup landed:
+pre-filter the command vocabulary to only include legal
+actions per turn (move only through real exits, take only
+items in the player's room, drop only items currently
+carried). Hypothesis: cutting the random walker's ~60%
+no-op rate would convert wasted draws into exploration.
+
+What happened across 5 seeds at 10k steps each:
+
+| Metric | Random | Constrained | Δ |
+|---|---|---|---|
+| Rooms reached | 59.0 | 52.6 | **-6.4** |
+| Fingerprints | 974 | 794 | **-180** |
+| Max score | 48.2 | 43.0 | -5.2 |
+| No-op draws | 5635 | 1460 | -4175 |
+
+The no-op rate dropped 75% — but rooms went *down*. The
+diagnosis: random's no-ops were acting as an effective rate
+limiter on inventory churn. The constrained walker greedily
+takes every visible item, fills inventory, hits
+BackpackLimit, drops something, takes the next item — burning
+the "saved" budget on loops in already-visited regions
+rather than on movement.
+
+That makes the random monkey a surprisingly strong baseline
+for the CCA graph shape. Two heuristic improvements
+(novelty-biased teleport, legal-only vocabulary) both
+failed to beat it. The next honest path is goal-directed
+search (Phase 3 — LLM-prompted action selection or learned
+policy), which is a different framework, not a tuning
+twiddle on this one.
+
 ---
 
 ## What landed (final)
