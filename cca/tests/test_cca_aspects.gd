@@ -79,15 +79,15 @@ func _init():
     adv.do_command("plugh", "")
     _expect("after plugh",         adv.player_room(),           33)
 
-    print("PLOVER from Y2 (33) → Plover Room (41) — canon dest 100, port 41:")
+    print("PLOVER from Y2 (33) → Plover Room (canon 100):")
     adv.do_command("plover", "")
-    _expect("after plover",        adv.player_room(),           41)
+    _expect("after plover",        adv.player_room(),           100)
     _expect("magic transforms",    adv.magic_transforms_count(), 4)
 
     print("XYZZY from unrecognized room (Plover) — passes through:")
     var r5 = adv.do_command("xyzzy", "")
     _expect("xyzzy nothing",       r5, "Nothing happens.")
-    _expect("room unchanged",      adv.player_room(),           41)
+    _expect("room unchanged",      adv.player_room(),           100)
     _expect("magic transforms",    adv.magic_transforms_count(), 4)
 
     print("Save mid-run, mutate, restore:")
@@ -102,7 +102,7 @@ func _init():
 
     var adv2 = Cca.new()
     adv2.restore_state(bytes)
-    _expect("restored room",       adv2.player_room(),           41)
+    _expect("restored room",       adv2.player_room(),           100)
     _expect("restored transforms", adv2.magic_transforms_count(), 4)
     _expect("restored backpack",   adv2.backpack_blocked_count(), 1)
 

@@ -126,7 +126,7 @@ func _init():
     adv_p.player.move_to(33)               # Y2
     var rp = adv_p.do_command("plover", "")
     _expect_contains("plover bird msg",   rp, "brilliant flash")
-    _expect("at Plover Room",            adv_p.player_room(),  41)
+    _expect("at Plover Room",            adv_p.player_room(),  100)
     _expect("bird not carried",          adv_p.player.carrying(100), false)
     _expect("bird state dead",           adv_p.bird_state(),   "dead")
 

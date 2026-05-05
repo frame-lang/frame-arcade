@@ -656,14 +656,12 @@
                     elif room == 33:
                         @@:return(self._teleport(event, 3))
 
-                # PLOVER: pairs Y2 (33) ↔ Plover Room (41 in port,
-                # canon 100). Canon travel-table: "33 100 71" /
-                # "100 33 71". Port destination still 41 until the
-                # full Plover Room renumbering lands.
+                # PLOVER: pairs Y2 (33) ↔ Plover Room (canon 100).
+                # Canon travel-table: "33 100 71" / "100 33 71".
                 if verb == "plover":
                     if room == 33:
-                        @@:return(self._teleport(event, 41))
-                    elif room == 41:
+                        @@:return(self._teleport(event, 100))
+                    elif room == 100:
                         @@:return(self._teleport(event, 33))
 
                 # Unrecognized or wrong-room: pass through.
@@ -2908,7 +2906,7 @@
                 base = "You are in a large room with passages off in all directions. A sign reads 'Y2'."
             elif r == 13:
                 base = "You are in a chamber filled with the chirping of birds, alive with motion."
-            elif r == 41:
+            elif r == 100:
                 base = "You are in the Plover Room, an alcove with rough walls and a curiously-cut floor."
             elif r == 47:
                 base = "You are at the end of a long passage. The floor is chiseled smooth."
@@ -3843,14 +3841,14 @@
             # Otherwise fall back to the toggle behavior so
             # bare "move" still does something during testing.
             var dest: int = noun.to_int()
-            # Pre-move guard: the canon Plover Room (41) is fatal
+            # Pre-move guard: the canon Plover Room (100) is fatal
             # to the bird. Canonical CCA: the magic of the Plover
             # Room is *destructive* to small animals — the bird
             # vanishes entirely (no corpse, no recovery), the
             # player still completes the move and arrives at
             # Plover alone.
             var plover_bird_msg: String = ""
-            if dest == 41 and self.player.carrying(self.BIRD_ID):
+            if dest == 100 and self.player.carrying(self.BIRD_ID):
                 self.bird.vanish()
                 self.player.drop(self.BIRD_ID)
                 plover_bird_msg = "As you start to chant, the magic of the Plover Room flares around the little bird in your hand. There is a brief, brilliant flash, and the bird is gone. "
@@ -3870,14 +3868,14 @@
         # Canonical CCA tags each room with a flag; we use the
         # canonical surface-rooms-are-lit rule: rooms 1-8 (end
         # of road, hill, well house, valley, forests, slit,
-        # depression) plus the Plover Room (41, lit by an
+        # depression) plus the Plover Room (canon 100, lit by an
         # otherworldly glow) are lit. Everything else — the
         # cave proper, starting at the chamber below the grate
         # (room 9) — is dark when the lamp is off.
         _room_is_dark(room: int): bool {
             if room >= 1 and room <= 8:
                 return false
-            if room == 41:
+            if room == 100:
                 return false
             return not self.lamp.is_lit()
         }
@@ -3978,7 +3976,7 @@
         silver    = @@Treasure(33, 14)   # Y2 marker
         diamonds  = @@Treasure(71, 14)   # scorched cavern (with dragon, rug)
         jewelry   = @@Treasure(118,14)   # cliff with ledge (beyond troll bridge)
-        pearl     = @@Treasure(41, 14)   # Plover Room (only via PLOVER magic)
+        pearl     = @@Treasure(100,14)   # Plover Room canon 100 (only via PLOVER magic)
         vase      = @@Treasure(38, 14, true)   # Oriental Room — fragile!
         eggs      = @@Treasure(28, 14)   # Giant Room
         # Treasures whose canonical home rooms aren't yet

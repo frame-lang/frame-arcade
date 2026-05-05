@@ -58,7 +58,7 @@ func _init():
 
     adv.player.move_to(33)
     adv.do_command("plover", "")
-    _expect("at Plover Room",          adv.player_room(),    41)
+    _expect("at Plover Room",          adv.player_room(),    100)
     adv.do_command("take", "pearl")
     adv.do_command("plover", "")
     _deposit(adv, "pearl", 33)

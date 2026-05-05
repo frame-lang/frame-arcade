@@ -343,7 +343,7 @@ func _stages() -> Array:
             "from":       "after_silver",
             "actions":    [
                 ["plugh", ""],             # 1 → 33
-                ["plover", ""],            # 33 → 41
+                ["plover", ""],            # 33 → 100
                 ["take", "pearl"],
             ],
             "asserts":    _assert_pearl_at_plover,
@@ -798,7 +798,7 @@ func _assert_treasures_deposited(want: int) -> Callable:
         t._expect("treasures deposited", adv.treasures_deposited(), want)
 
 func _assert_pearl_at_plover(adv, t) -> void:
-    t._expect("at Plover Room",  adv.player_room(),         41)
+    t._expect("at Plover Room",  adv.player_room(),         100)
     t._expect("pearl carried",   adv.player.carrying(114), true)
 
 func _assert_room_and_bear(want_room: int, want_bear: String) -> Callable:
