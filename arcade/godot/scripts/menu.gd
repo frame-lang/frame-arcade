@@ -54,6 +54,12 @@ var _escape_was_down: bool = false
 
 # ============================================================
 func _ready() -> void:
+    # Restore the row the user was last on. Returning from a
+    # game (Esc) lands here; pre-selecting their just-played
+    # game beats forcing them back to row 0 every time.
+    if Arcade.last_played_index >= 0 and Arcade.last_played_index < Arcade.GAMES.size():
+        selected_index = Arcade.last_played_index
+
     _build_ui()
     _refresh_selection()
     _refresh_scores()
@@ -97,11 +103,25 @@ func _build_ui() -> void:
     for i in range(games.size()):
         var row_y: float = list_top + i * row_height
 
+        # The row's hit-area is a transparent Control spanning
+        # the full row width — gives a consistent click target
+        # whether the mouse is over the title or the score.
+        # Labels themselves stay non-interactive so their text
+        # rendering isn't affected by Control focus visuals.
+        var hit := Control.new()
+        hit.position = Vector2(CARD_LEFT, row_y)
+        hit.size = Vector2(CARD_RIGHT - CARD_LEFT, row_height)
+        hit.mouse_filter = Control.MOUSE_FILTER_STOP
+        hit.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+        hit.gui_input.connect(_on_row_input.bind(i))
+        canvas.add_child(hit)
+
         var title_lbl := Label.new()
         title_lbl.add_theme_font_size_override("font_size", 22)
         title_lbl.position = Vector2(CARD_LEFT, row_y)
         title_lbl.size = Vector2(TITLE_WIDTH, row_height)
         title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        title_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
         canvas.add_child(title_lbl)
         game_labels.append(title_lbl)
 
@@ -111,6 +131,7 @@ func _build_ui() -> void:
         score_lbl.size = Vector2(SCORE_WIDTH, row_height)
         score_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         score_lbl.add_theme_color_override("font_color", Color(0.55, 0.75, 0.95))
+        score_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
         canvas.add_child(score_lbl)
         score_labels.append(score_lbl)
 
@@ -125,7 +146,7 @@ func _build_ui() -> void:
 
     # Help footer
     label_help = Label.new()
-    label_help.text = "↑/↓ select    Enter launch    1-9 jump    Esc quit"
+    label_help.text = "↑/↓ or click    Enter launch    1-9 jump    Esc quit"
     label_help.add_theme_font_size_override("font_size", 13)
     label_help.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
     label_help.position = Vector2(0, COURT_SIZE.y - 36)
@@ -208,6 +229,22 @@ func _check_number_shortcuts() -> void:
 # otherwise launch directly. The branch keeps the menu silent
 # for the common no-save path — players who never save never
 # see the prompt.
+# Row-level mouse handler. Hover moves the highlight; left-click
+# launches the row (going through the Continue/New prompt if a
+# saved run exists, same path as Enter on a keyboard-selected row).
+func _on_row_input(event: InputEvent, index: int) -> void:
+    if event is InputEventMouseMotion:
+        if not _save_prompt_active and selected_index != index:
+            selected_index = index
+            _refresh_selection()
+        return
+    if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+        if _save_prompt_active:
+            return
+        selected_index = index
+        _refresh_selection()
+        _on_game_selected(index)
+
 func _on_game_selected(index: int) -> void:
     var entry: Dictionary = Arcade.GAMES[index]
     if Arcade.has_save(entry.name):

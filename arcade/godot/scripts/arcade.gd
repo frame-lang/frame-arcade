@@ -103,6 +103,12 @@ const GAMES: Array = [
 # autoload singleton without each managing their own copy.
 var _scoreboard
 
+# Index of the most recently launched game. -1 before any
+# launch. The menu reads this on _ready to pre-select the
+# row the user just came from, so Esc-back-from-game returns
+# them to where they were rather than the top of the list.
+var last_played_index: int = -1
+
 func _ready() -> void:
     _scoreboard = ScoreboardScript.new()
     _load_scoreboard()
@@ -112,6 +118,7 @@ func _ready() -> void:
 func launch_game(index: int) -> void:
     if index < 0 or index >= GAMES.size():
         return
+    last_played_index = index
     get_tree().change_scene_to_file(GAMES[index].scene)
 
 func return_to_menu() -> void:
