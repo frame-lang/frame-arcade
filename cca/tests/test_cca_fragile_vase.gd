@@ -7,7 +7,7 @@ extends SceneTree
 # round-trips through @@[persist].
 #
 # Verifies:
-#   - Vase starts $InRoom in the Oriental Room (room 38).
+#   - Vase starts $InRoom in the Oriental Room (room 97).
 #   - Take vase → $Carried.
 #   - Drop vase outside deposit room → $Broken, response
 #     contains "broken" / "shattered" / similar.
@@ -33,18 +33,18 @@ func _init():
     print("=== CCA fragile vase ===")
 
     # --- Initial conditions ---
-    print("Initial — vase at home (room 38), uncarried, intact:")
+    print("Initial — vase at home (room 97), uncarried, intact:")
     var adv = Cca.new()
     adv.setup_default_aspects()
     _expect("vase state",          adv.vase.get_state(),      "in_room")
-    _expect("vase location",       adv.vase.get_location(),   38)
+    _expect("vase location",       adv.vase.get_location(),   97)
     _expect("vase value",          adv.vase.get_value(),      14)
     _expect("vase intact",         adv.vase.is_broken(),      false)
     _expect("vase not deposited",  adv.vase.is_deposited(),   false)
 
     # --- Take vase ---
     print("Take vase from Oriental Room:")
-    adv.player.move_to(38)
+    adv.player.move_to(97)
     adv.do_command("take", "vase")
     _expect("vase carried state",  adv.vase.get_state(),      "carried")
     _expect("vase location -1",    adv.vase.get_location(),   -1)

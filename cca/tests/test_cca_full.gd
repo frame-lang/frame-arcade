@@ -93,10 +93,10 @@ func _init():
 
     print("Deep cave (3 batches to stay under 7-item cap):")
     # Canonical room IDs of the deep-cave treasures:
-    #   38 oriental(vase), 28 giant(eggs), 130 sapphire(trident),
+    #   97 oriental(vase), 28 giant(eggs), 130 sapphire(trident),
     #   131 vast(emerald), 40 alcove(spices), 132 chest(chest),
     #   133 pyramid, 134 coins, 135 statuette.
-    var batch_a: Array = [[38,"vase"], [28,"eggs"], [130,"trident"], [131,"emerald"]]
+    var batch_a: Array = [[97, "vase"], [28,"eggs"], [130,"trident"], [131,"emerald"]]
     for entry in batch_a:
         adv.player.move_to(entry[0])
         adv.do_command("take", entry[1])

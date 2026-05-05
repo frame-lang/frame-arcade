@@ -36,7 +36,7 @@
 #    17 East of fissure                   (dark; gated by crystal bridge)
 #    28 Giant Room                        (dark; eggs)
 #    33 Y2 marker                         (dark; silver; magic-word hub)
-#    38 Oriental Room                     (dark; vase)
+#    97 Oriental Room                     (dark; vase)
 #    40 Alcove                            (dark; spices)
 #   100 Plover Room                       (lit; pearl; magic-word access only)
 #    47 Snake passage (secret E-W canyon) (dark; snake blocking east)
@@ -90,9 +90,9 @@ const ROOMS: Dictionary = {
     118: {"west": 117, "east": 120},
     # Deep cave loop — accessible after crossing troll bridge.
     # Linear chain east-west with each room hosting a treasure.
-    120: {"west": 118, "east": 38},
-    38:  {"west": 120, "east": 28, "north": 39},
-    28:  {"west": 38, "east": 130},
+    120: {"west": 118, "east": 97},
+    97:  {"west": 120, "east": 28, "north": 39},                         # Oriental Room (canon 97) — vase
+    28:  {"west": 97, "east": 130},
     130: {"west": 28, "east": 131},
     131: {"west": 130, "east": 40},
     40:  {"west": 131, "east": 132},
@@ -134,12 +134,12 @@ const ROOMS: Dictionary = {
     36:  {"south": 35, "west": 37},                                      # Above slab
     37:  {"east": 36},                                                   # Slab room (dead-end)
     # --- Side passages (39, 42-49) ---
-    # 39 hangs off the Oriental Room (38) to the north. 42 is the
+    # 39 hangs off the Oriental Room (97) to the north. 42 is the
     # "dark room after Plover" — reachable from Plover (100) via
     # north (a one-way exit; you can't go back through Plover
     # without the magic word). 43-49 form a side branch off the
     # snake passage (47).
-    39:  {"south": 38},                                                  # Misty cavern
+    39:  {"south": 97},                                                  # Misty cavern
     42:  {"south": 100, "out": 100, "north": 43},                        # Dark room after Plover
     43:  {"south": 42, "north": 44},                                     # Wide place
     44:  {"south": 43, "north": 45, "down": 47},                         # Secret canyon
@@ -214,9 +214,9 @@ const ROOMS: Dictionary = {
     # Port-synthesized: canon has only forest rooms 5 and 6.
     # The "Forest NW" room moved from 100 → 200 to free room
     # 100 for canonical Plover Room.
-    96:  {"south": 5, "east": 97},                                       # Forest NE-of-road
-    97:  {"west": 96, "south": 98},                                      # Forest SE-of-road
-    98:  {"north": 97, "west": 99},                                      # Forest SE/SW
+    96:  {"south": 5, "east": 201},                                      # Forest NE-of-road
+    201: {"west": 96, "south": 98},                                      # Forest SE-of-road (port-synth; canon 97 is Oriental Room)
+    98:  {"north": 201, "west": 99},                                     # Forest SE/SW
     99:  {"east": 98, "north": 200},                                     # Forest SW-of-road
     200: {"south": 99, "east": 6},                                       # Forest NW (port-synthesized; canon 100 is Plover Room — moved out of canon range)
     # 108, 115, 116: pre-repository corridor.
@@ -239,7 +239,7 @@ const ROOMS: Dictionary = {
     92:  {"south": 91, "east": 95},                                      # Different soft passage
     95:  {"west": 92, "down": 116},                                      # Vending Machine Room
     101: {"west": 96},                                                   # Forest far east
-    102: {"north": 97},                                                  # Forest far south
+    102: {"north": 201},                                                 # Forest far south
     103: {"east": 99},                                                   # Forest far west
     109: {"east": 113},                                                  # Low passage (curving west)
     113: {"west": 109, "down": 121},                                     # Wide chamber
@@ -251,7 +251,7 @@ const ROOMS: Dictionary = {
     # final pre-Repository corridor. These bring the room
     # total to ~140 (canon scope).
     104: {"south": 96, "east": 105},                                     # Dense forest
-    105: {"west": 104, "south": 97, "east": 106},                        # Scrub forest
+    105: {"west": 104, "south": 201, "east": 106},                       # Scrub forest
     106: {"west": 105, "north": 107},                                    # Forest clearing (water source flavor)
     107: {"south": 106, "west": 200},                                    # Forest path
     110: {"east": 109, "north": 111},                                    # Low passage with claw-marks

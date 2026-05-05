@@ -403,7 +403,7 @@ func _stages() -> Array:
             "checkpoint": "carrying_jewelry",
         },
         # ----- Deep cave loop: vase, eggs, trident, emerald -----
-        # 118 → 120 → 38(vase) → 28(eggs) → 130(trident) →
+        # 118 → 120 → 97(vase) → 28(eggs) → 130(trident) →
         # 131(emerald). Carry 4 treasures + jewelry = 5 items;
         # plus keys/bottle/rod = 8 → over 7-cap. We drop
         # jewelry-only at the well house first (separate
@@ -423,7 +423,7 @@ func _stages() -> Array:
         },
         # Walk back to the deep cave: 3 → 1 (plugh) → 33 → 70
         # → 117 (bear+troll already cleared, bridge passable)
-        # → 118 → 120 → 38 (Oriental, vase). Long traversal;
+        # → 118 → 120 → 97 (Oriental, vase). Long traversal;
         # keep as one stage since each transition is just "go".
         {
             "name":       "deep_cave_batch_a_takes",
@@ -434,9 +434,9 @@ func _stages() -> Array:
                 ["go", "east"],            # 70 → 117
                 ["go", "east"],            # 117 → 118
                 ["go", "east"],            # 118 → 120
-                ["go", "east"],            # 120 → 38
+                ["go", "east"],            # 120 → 97
                 ["take", "vase"],
-                ["go", "east"],            # 38 → 28
+                ["go", "east"],            # 97 → 28
                 ["take", "eggs"],
                 ["go", "east"],            # 28 → 130
                 ["take", "trident"],
@@ -452,8 +452,8 @@ func _stages() -> Array:
             "actions":    [
                 ["go", "west"],            # 131 → 130
                 ["go", "west"],            # 130 → 28
-                ["go", "west"],            # 28 → 38
-                ["go", "west"],            # 38 → 120
+                ["go", "west"],            # 28 → 97
+                ["go", "west"],            # 97 → 120
                 ["go", "west"],            # 120 → 118
                 ["go", "west"],            # 118 → 117
                 ["go", "west"],            # 117 → 70
@@ -468,7 +468,7 @@ func _stages() -> Array:
             "checkpoint": "after_batch_a",
         },
         # ----- Batch B: spices, chest, pyramid -----
-        # Path 3 → 1 → 33 → 70 → 117 → 118 → 120 → 38 → 28 →
+        # Path 3 → 1 → 33 → 70 → 117 → 118 → 120 → 97 → 28 →
         # 130 → 131 → 40 (Alcove). 1 west + 8 east = 9 nav.
         {
             "name":       "deep_cave_batch_b_takes",
@@ -507,7 +507,7 @@ func _stages() -> Array:
             "checkpoint": "after_batch_b",
         },
         # ----- Batch C: coins, statuette -----
-        # Path 3 → 1 → 33 → 70 → 117 → 118 → 120 → 38 → 28 →
+        # Path 3 → 1 → 33 → 70 → 117 → 118 → 120 → 97 → 28 →
         # 130 → 131 → 40 → 132 → 133 → 134 (Coin Niche).
         # 1 west + 11 east = 12 nav.
         {

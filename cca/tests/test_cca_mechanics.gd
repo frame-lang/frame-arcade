@@ -34,7 +34,7 @@ func _init():
     var adv = Cca.new()
     adv.setup_default_aspects()
     adv.do_command("light", "")
-    adv.player.move_to(38)
+    adv.player.move_to(97)
     adv.do_command("take", "vase")
     _expect("carrying vase",     adv.player.carrying(115), true)
     # Drop in random non-deposit room
@@ -48,7 +48,7 @@ func _init():
     print("Vase survives when dropped at the well house:")
     var adv_b = Cca.new()
     adv_b.setup_default_aspects()
-    adv_b.player.move_to(38)
+    adv_b.player.move_to(97)
     adv_b.do_command("take", "vase")
     adv_b.player.move_to(3)
     adv_b.do_command("drop", "vase")
