@@ -3126,7 +3126,7 @@
                 base = "You are in a decorated chamber whose walls are inlaid with strange carvings of dragons, beasts, and constellations."
             elif r == 202:
                 base = "You are in a different soft passage. The floor is sand; your footfalls leave no echo."
-            elif r == 95:
+            elif r == 140:
                 base = "You are in a small chamber containing a battered vending machine with a hand-lettered sign: 'BATTERIES — 25 CENTS — IT WORKS NO REFUNDS'."
                 if self.vending.is_loaded():
                     base = base + " A coin slot gleams faintly. (Try INSERT COINS.)"
@@ -3947,7 +3947,7 @@
         # the cross-cuts.
         grate = @@Grate()
 
-        # The Vending Machine in room 95 — canon's pre-endgame
+        # The Vending Machine in room 140 — canon's pre-endgame
         # Easter egg. Trade rare coins for fresh lamp batteries
         # (and lose the points the coins would score at the well
         # house — that's the puzzle decision).
@@ -4032,7 +4032,7 @@
         FISSURE_ROOM: int = 17        # east of fissure
         GRATE_ROOM: int = 8           # depression with the steel grate
         KEYS_HOME_ROOM: int = 3       # well house
-        VENDING_ROOM: int = 95        # vending machine room
+        VENDING_ROOM: int = 140       # vending machine room (canon 140 DEAD END per advent.dat section 7)
         WEST_PIT_ROOM: int = 23       # plant lives here
         BOTTLE_ID: int = 132
         BOTTLE_HOME_ROOM: int = 3     # well house

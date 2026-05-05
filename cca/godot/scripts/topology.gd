@@ -234,12 +234,12 @@ const ROOMS: Dictionary = {
     125: {"west": 121},                                                  # Anteroom with niches
     # --- Phase F: iconic remainder ---
     # Decorated chamber (88), different soft passage (202), Vending
-    # Machine Room (95) — canon CCA's pre-endgame Easter egg with
+    # Machine Room (canon 140) — canon CCA's pre-endgame Easter egg with
     # the "BATTERIES — 25 CENTS" sign. Plus more forest variants
     # (101-103) and miscellaneous passages.
     88:  {"east": 76, "south": 90},                                      # Decorated chamber
-    202: {"south": 91, "east": 95},                                     # Different soft passage (port-synth; canon 92 is Giant Room)
-    95:  {"west": 202, "down": 116},                                     # Vending Machine Room
+    202: {"south": 91, "east": 140},                                    # Different soft passage (port-synth; canon 92 is Giant Room)
+    140: {"west": 202, "down": 116},                                    # Vending Machine Room (canon 140 — DEAD END w/ vending)
     101: {"west": 96},                                                   # Forest far east
     102: {"north": 201},                                                 # Forest far south
     103: {"east": 99},                                                   # Forest far west

@@ -4,7 +4,7 @@ extends SceneTree
 # Verifies:
 #   - Machine starts $Loaded.
 #   - INSERT without coins / from wrong room is deflected.
-#   - INSERT coins at room 95 consumes them, transitions to
+#   - INSERT coins at room 140 consumes them, transitions to
 #     $Empty, refreshes the lamp.
 #   - The coins are no longer counted toward treasure score
 #     (the player traded points for batteries).
@@ -42,7 +42,7 @@ func _init():
 
     # --- INSERT without coins ---
     print("INSERT without coins deflects:")
-    adv.player.move_to(95)
+    adv.player.move_to(140)
     var r1 = adv.do_command("insert", "coins")
     _expect_contains("response",   r1, "don't have any coins")
     _expect("still loaded",        adv.vending_loaded(),     true)
@@ -67,9 +67,9 @@ func _init():
     var bat_drained: int = adv.battery_left()
     _expect("battery dropped",     bat_drained < bat_before,  true)
 
-    # --- Insert at room 95 ---
+    # --- Insert at room 140 ---
     print("Insert at the vending machine room:")
-    adv.player.move_to(95)
+    adv.player.move_to(140)
     var r3 = adv.do_command("insert", "coins")
     _expect_contains("response",   r3, "fresh set of lamp batteries")
     _expect("vending empty",       adv.vending_loaded(),     false)
