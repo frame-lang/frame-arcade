@@ -305,8 +305,7 @@ func _stages() -> Array:
             "actions":    [
                 ["go", "west"],            # 71 → 47
                 ["go", "west"],            # 47 → 33
-                ["plugh", ""],             # 33 → 1
-                ["go", "in"],              # 1 → 3 well house
+                ["plugh", ""],              # 1 → 3 well house
                 ["drop", "diamonds"],
                 ["drop", "rug"],
                 ["drop", "gold"],
@@ -319,7 +318,6 @@ func _stages() -> Array:
             "name":       "take_silver",
             "from":       "after_first_deposit",
             "actions":    [
-                ["go", "out"],             # 3 → 1
                 ["plugh", ""],             # 1 → 33
                 ["take", "silver"],
             ],
@@ -330,8 +328,7 @@ func _stages() -> Array:
             "name":       "deposit_silver",
             "from":       "carrying_silver",
             "actions":    [
-                ["plugh", ""],             # 33 → 1
-                ["go", "in"],              # 1 → 3
+                ["plugh", ""],              # 1 → 3
                 ["drop", "silver"],
             ],
             "asserts":    _assert_treasures_deposited(4),
@@ -345,7 +342,6 @@ func _stages() -> Array:
             "name":       "take_pearl",
             "from":       "after_silver",
             "actions":    [
-                ["go", "out"],             # 3 → 1
                 ["plugh", ""],             # 1 → 33
                 ["plover", ""],            # 33 → 41
                 ["take", "pearl"],
@@ -358,8 +354,7 @@ func _stages() -> Array:
             "from":       "carrying_pearl",
             "actions":    [
                 ["plover", ""],            # 41 → 33
-                ["plugh", ""],             # 33 → 1
-                ["go", "in"],              # 1 → 3
+                ["plugh", ""],              # 1 → 3
                 ["drop", "pearl"],
             ],
             "asserts":    _assert_treasures_deposited(5),
@@ -374,7 +369,6 @@ func _stages() -> Array:
             "name":       "at_bear_chamber",
             "from":       "after_pearl",
             "actions":    [
-                ["go", "out"],             # 3 → 1
                 ["plugh", ""],             # 1 → 33
                 ["go", "west"],            # 33 → 70
             ],
@@ -421,8 +415,7 @@ func _stages() -> Array:
                 ["go", "west"],            # 118 → 117
                 ["go", "west"],            # 117 → 70
                 ["go", "west"],            # 70 → 33
-                ["plugh", ""],             # 33 → 1
-                ["go", "in"],              # 1 → 3
+                ["plugh", ""],              # 1 → 3
                 ["drop", "jewelry"],
             ],
             "asserts":    _assert_treasures_deposited(6),
@@ -436,7 +429,6 @@ func _stages() -> Array:
             "name":       "deep_cave_batch_a_takes",
             "from":       "after_jewelry",
             "actions":    [
-                ["go", "out"],             # 3 → 1
                 ["plugh", ""],             # 1 → 33
                 ["go", "west"],            # 33 → 70
                 ["go", "east"],            # 70 → 117
@@ -466,8 +458,7 @@ func _stages() -> Array:
                 ["go", "west"],            # 118 → 117
                 ["go", "west"],            # 117 → 70
                 ["go", "west"],            # 70 → 33
-                ["plugh", ""],             # 33 → 1
-                ["go", "in"],              # 1 → 3
+                ["plugh", ""],              # 1 → 3
                 ["drop", "vase"],
                 ["drop", "eggs"],
                 ["drop", "trident"],
@@ -483,7 +474,7 @@ func _stages() -> Array:
             "name":       "deep_cave_batch_b_takes",
             "from":       "after_batch_a",
             "actions":    [
-                ["go", "out"], ["plugh", ""],
+                ["plugh", ""],
                 ["go", "west"],
                 ["go", "east"], ["go", "east"], ["go", "east"],
                 ["go", "east"], ["go", "east"], ["go", "east"],
@@ -507,7 +498,7 @@ func _stages() -> Array:
                 ["go", "west"], ["go", "west"], ["go", "west"],
                 ["go", "west"], ["go", "west"], ["go", "west"],
                 ["go", "west"], ["go", "west"],
-                ["plugh", ""], ["go", "in"],
+                ["plugh", ""],
                 ["drop", "spices"],
                 ["drop", "chest"],
                 ["drop", "pyramid"],
@@ -523,7 +514,7 @@ func _stages() -> Array:
             "name":       "deep_cave_batch_c_takes",
             "from":       "after_batch_b",
             "actions":    [
-                ["go", "out"], ["plugh", ""],
+                ["plugh", ""],
                 ["go", "west"],
                 ["go", "east"], ["go", "east"], ["go", "east"],
                 ["go", "east"], ["go", "east"], ["go", "east"],
@@ -547,7 +538,7 @@ func _stages() -> Array:
                 ["go", "west"], ["go", "west"], ["go", "west"],
                 ["go", "west"], ["go", "west"], ["go", "west"],
                 ["go", "west"],
-                ["plugh", ""], ["go", "in"],
+                ["plugh", ""],
                 ["drop", "coins"],
                 ["drop", "statuette"],
             ],

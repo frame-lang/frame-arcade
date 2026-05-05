@@ -41,8 +41,7 @@ func _init():
     adv.do_command("move", "3")     # driver-translated direction
     _expect("at well house",  adv.player_room(),    3)
 
-    print("Move south → 1, then magic XYZZY → 11 (debris):")
-    adv.do_command("move", "1")
+    print("XYZZY from well house → 11 (debris) — canon pair (3 ↔ 11):")
     var r2 = adv.do_command("xyzzy", "")
     _expect("after xyzzy",    adv.player_room(),    11)
     var r3 = adv.do_command("look", "")
@@ -59,18 +58,15 @@ func _init():
     _expect_contains("take gold response", r5, "Taken")
     _expect("carrying gold", adv.player.carrying(110), true)
 
-    print("Magic XYZZY back to surface, north to well house, drop gold:")
+    print("XYZZY back to well house (canon: 11 → 3 directly), drop gold:")
     adv.do_command("xyzzy", "")
-    _expect("back at surface", adv.player_room(),    1)
-    adv.do_command("move", "3")
     _expect("at deposit room", adv.player_room(),    3)
     var r6 = adv.do_command("drop", "gold")
     _expect_contains("deposited",     r6, "stowed")
     _expect("treasures deposited", adv.treasures_deposited(), 1)
     _expect("score",          adv.total_score(),    5)
 
-    print("PLUGH from outside cave to Y2 (33):")
-    adv.do_command("move", "1")
+    print("PLUGH from well house (3) → Y2 (33) — canon pair:")
     adv.do_command("plugh", "")
     _expect("at Y2",          adv.player_room(),    33)
 

@@ -63,28 +63,28 @@ func _init():
     _expect("inventory size",      adv.player.inventory_size(), 7)
     _expect("backpack still 1",    adv.backpack_blocked_count(), 1)
 
-    print("XYZZY from room 0 → room 2:")
-    adv.player.move_to(1)                              # reset for magic-word section (end-of-road)
-    _expect("starting room",       adv.player_room(),           1)
+    print("XYZZY from well house (3) → debris (11) — canon pair:")
+    adv.player.move_to(3)                              # well house
+    _expect("starting room",       adv.player_room(),           3)
     var r4 = adv.do_command("xyzzy", "")
     _expect("after xyzzy",         adv.player_room(),           11)
     _expect("magic transforms",    adv.magic_transforms_count(), 1)
 
-    print("XYZZY from room 2 → room 0:")
+    print("XYZZY from debris (11) → well house (3):")
     adv.do_command("xyzzy", "")
-    _expect("after xyzzy back",    adv.player_room(),           1)
+    _expect("after xyzzy back",    adv.player_room(),           3)
     _expect("magic transforms",    adv.magic_transforms_count(), 2)
 
-    print("PLUGH from room 0 → room 4:")
+    print("PLUGH from well house (3) → Y2 (33) — canon pair:")
     adv.do_command("plugh", "")
     _expect("after plugh",         adv.player_room(),           33)
 
-    print("PLOVER from room 4 → room 6:")
+    print("PLOVER from Y2 (33) → Plover Room (41) — canon dest 100, port 41:")
     adv.do_command("plover", "")
     _expect("after plover",        adv.player_room(),           41)
     _expect("magic transforms",    adv.magic_transforms_count(), 4)
 
-    print("XYZZY from unrecognized room (6) — passes through:")
+    print("XYZZY from unrecognized room (Plover) — passes through:")
     var r5 = adv.do_command("xyzzy", "")
     _expect("xyzzy nothing",       r5, "Nothing happens.")
     _expect("room unchanged",      adv.player_room(),           41)

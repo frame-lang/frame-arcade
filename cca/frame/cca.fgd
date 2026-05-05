@@ -639,21 +639,27 @@
                 var verb: String = event.get("verb", "")
                 var room: int = event.get("room", -1)
 
-                # XYZZY: pairs end-of-road (1) ↔ debris room (11).
+                # XYZZY: pairs well house (3) ↔ debris room (11).
+                # Per Don Woods 1977: travel-table rows
+                #   "3 11 62" / "11 3 62"  (motion 62 = XYZZY).
                 if verb == "xyzzy":
-                    if room == 1:
+                    if room == 3:
                         @@:return(self._teleport(event, 11))
                     elif room == 11:
-                        @@:return(self._teleport(event, 1))
+                        @@:return(self._teleport(event, 3))
 
-                # PLUGH: pairs end-of-road (1) ↔ Y2 (33).
+                # PLUGH: pairs well house (3) ↔ Y2 (33).
+                # Canon travel-table: "3 33 65" / "33 3 65".
                 if verb == "plugh":
-                    if room == 1:
+                    if room == 3:
                         @@:return(self._teleport(event, 33))
                     elif room == 33:
-                        @@:return(self._teleport(event, 1))
+                        @@:return(self._teleport(event, 3))
 
-                # PLOVER: pairs Y2 (33) ↔ Plover Room (41).
+                # PLOVER: pairs Y2 (33) ↔ Plover Room (41 in port,
+                # canon 100). Canon travel-table: "33 100 71" /
+                # "100 33 71". Port destination still 41 until the
+                # full Plover Room renumbering lands.
                 if verb == "plover":
                     if room == 33:
                         @@:return(self._teleport(event, 41))

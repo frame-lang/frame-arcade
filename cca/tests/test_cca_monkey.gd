@@ -25,18 +25,21 @@ const Monkey = preload("res://scripts/monkey.gd")
 const Topology = preload("res://scripts/topology.gd")
 
 # Tuned against current CCA build (10000 steps, seed 42).
-# Measured baseline: 64 rooms, 974 fingerprints, 4324 moves,
-# 0 soft-locks, ~8s wall time. Thresholds set with ~20% margin
-# below baseline so the test stays green across minor FSM
-# tweaks. If a number here drops below threshold, that's a
-# real regression — either the random walker can no longer
-# reach a previously-reachable region (gating bug) or the FSM
-# stopped responding to events it used to.
+# Measured baselines:
+#   pre-canon-magic-word-fix: 64 rooms / 974 fps / 4324 moves
+#   post-canon-magic-word-fix (XYZZY/PLUGH only fire from room 3):
+#                              41 rooms / 613 fps / 4248 moves
+# The canonical pairs are HARDER for a random walker — magic
+# words are gated behind reaching the well house (3) first,
+# which is itself ~3 random commands of work. Thresholds below
+# reflect the post-canon baseline with ~15% margin.
+# If a number here drops below threshold, that's a real
+# regression.
 const SEED         := 42
 const MAX_STEPS    := 10000
-const MIN_ROOMS    := 50      # out of ~140 — baseline 64
-const MIN_FPS      := 750     # baseline 974
-const MIN_MOVES    := 3500    # baseline 4324
+const MIN_ROOMS    := 35      # post-canon baseline 41
+const MIN_FPS      := 525     # post-canon baseline 613
+const MIN_MOVES    := 3500    # post-canon baseline 4248
 const MAX_SOFTLOCK := 0       # ANY soft-lock candidate is a real finding
 
 var failures: int = 0
