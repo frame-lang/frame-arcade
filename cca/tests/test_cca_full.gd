@@ -44,8 +44,10 @@ func _init():
     _expect_contains("examine sign at Y2", rx2, "Y2")
     var rx3 = adv.do_command("read", "sign")
     _expect_contains("read sign at Y2",    rx3, "Y2")
+    # Canon: throw verb requires the axe item (dwarf-thrown).
+    # Without an axe in hand the verb refuses up front.
     var rx4 = adv.do_command("throw", "axe")
-    _expect_contains("throw axe response", rx4, "dwarf")
+    _expect_contains("throw axe response", rx4, "no axe")
 
     print("Loot the surface treasures:")
     adv.player.move_to(18)              # gold-nugget room (canon 18)
@@ -59,31 +61,45 @@ func _init():
     adv.player.move_to(33)
     adv.do_command("plover", "")
     _expect("at Plover Room",          adv.player_room(),    100)
-    # Canon: pearl AND emerald both live in Plover Room.
-    adv.do_command("take", "pearl")
+    # Canon: emerald in Plover Room; pearl is dynamic (clam→oyster).
     adv.do_command("take", "emerald")
     adv.do_command("plover", "")
-    _deposit(adv, "pearl", 33)
     adv.player.move_to(3); adv.do_command("drop", "emerald")
+    # Pearl: take rod (canon 11), then clam at canon 103, break
+    # it (with rod) — pearl falls out at the break room.
+    adv.player.move_to(11)
+    adv.do_command("take", "rod")
+    adv.player.move_to(103)
+    adv.do_command("take", "clam")
+    adv.player.move_to(16)
+    adv.do_command("break", "clam")
+    adv.do_command("take", "pearl")
+    _deposit(adv, "pearl", 33)
     adv.player.move_to(33)
 
-    print("Bird → Snake → Dragon → diamonds + rug:")
+    print("Bird → Snake → Dragon → rug + diamonds (canon split):")
+    adv.player.move_to(10)              # cobble crawl — pick up cage first
+    adv.do_command("take", "cage")
     adv.player.move_to(13)              # bird chamber
     adv.do_command("take", "bird")
-    adv.player.move_to(47)              # snake passage
+    adv.player.move_to(19)              # Hall of Mt King — canon snake room (19)
     adv.do_command("release", "bird")
-    adv.do_command("move", "71")        # dragon cavern
+    adv.do_command("move", "119")       # canon dragon canyon (119)
     adv.do_command("attack", "dragon")
     adv.do_command("yes", "")
     _expect("dragon dead",             adv.dragon_alive(),   false)
-    adv.do_command("take", "diamonds")
     adv.do_command("take", "rug")
-    _deposit(adv, "diamonds", 71)
-    adv.player.move_to(71)
-    _deposit(adv, "rug", 71)
+    _deposit(adv, "rug", 119)
+    # Diamonds canonically live at canon room 27 (west bank
+    # fissure, Hall of Mists), not with the dragon.
+    adv.player.move_to(27)
+    adv.do_command("take", "diamonds")
+    _deposit(adv, "diamonds", 27)
 
     print("Bear → Troll bridge unlock:")
-    adv.player.move_to(65)              # bedquilt / bear chamber
+    adv.player.move_to(3)               # well house — pick up food
+    adv.do_command("take", "food")
+    adv.player.move_to(130)             # Barren Room — canon 130 (bear chamber)
     adv.do_command("feed", "bear")
     adv.do_command("take", "chain")
     adv.do_command("move", "117")       # troll bridge
@@ -99,8 +115,8 @@ func _init():
     # Canonical room IDs of the remaining deep-cave treasures
     # (emerald moved to Plover Room canon 100, taken alongside pearl):
     #   97 oriental(vase), 92 giant(eggs), 95 magnificent_cavern(trident),
-    #   40 alcove(spices), 132 chest(chest),
-    #   133 pyramid, 134 coins, 135 statuette.
+    #   127 chamber-of-boulders(spices), 132 chest(chest),
+    #   101 dark-room(pyramid), 30 west-side-chamber(coins), 135 statuette.
     var batch_a: Array = [[97, "vase"], [92, "eggs"], [95, "trident"]]
     for entry in batch_a:
         adv.player.move_to(entry[0])
@@ -109,7 +125,10 @@ func _init():
         adv.player.move_to(3)
         adv.do_command("drop", entry[1])
 
-    var batch_b: Array = [[40,"spices"], [132,"chest"], [133,"pyramid"]]
+    # Canon: chest is dynamic — spawn it at CHEST_ROOM before
+    # batch_b walks past it.
+    adv.chest.reappear(adv.CHEST_ROOM)
+    var batch_b: Array = [[127,"spices"], [132,"chest"], [101,"pyramid"]]
     for entry in batch_b:
         adv.player.move_to(entry[0])
         adv.do_command("take", entry[1])
@@ -117,7 +136,10 @@ func _init():
         adv.player.move_to(3)
         adv.do_command("drop", entry[1])
 
-    var batch_c: Array = [[30, "coins"], [135,"statuette"]]
+    # Batch C: coins (canon 30) + chain (15th canon treasure;
+    # already lying at the troll bridge after the bear scared the
+    # troll off — bear FSM is in $Released by now).
+    var batch_c: Array = [[30, "coins"], [117, "chain"]]
     for entry in batch_c:
         adv.player.move_to(entry[0])
         adv.do_command("take", entry[1])

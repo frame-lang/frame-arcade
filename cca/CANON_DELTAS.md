@@ -24,6 +24,53 @@ revision replaces it with verified data.**
 
 ---
 
+## Status (2026-05-05) — every delta tracked here is now closed
+
+`tests/test_cca_canon.gd` is the live conformance dashboard. It
+runs every checkin and currently reports:
+
+```text
+Canon conformance: 100.0%  (38 / 38 checks passing)
+Open deltas: 0
+```
+
+The 38 checks are organised in three groups:
+
+| Group | Count | What's verified |
+|---|---|---|
+| Treasure homes | 15 | Each canon treasure either lives at the canonical room, or is dynamic (`location <= 0`) when canon places it dynamically (chest, pearl). |
+| NPC + key-room constants | 7 | `BIRD_HOME_ROOM`, `SNAKE_ROOM`, `DRAGON_ROOM`, `BEAR_HOME_ROOM`, `VENDING_ROOM`, `WEST_PIT_ROOM`, `DEPOSIT_ROOM` agree with canon. |
+| Magic-word teleport pairs | 6 | XYZZY (3 ↔ 11), PLUGH (3 ↔ 33), PLOVER (33 ↔ 100) — both directions of all three. |
+| Architecture / mechanism probes | 10 | Each is a real probe (live Adventure instance), not a string assertion: cage gates bird-take; food consumed on bear-feed; pillow lets vase land softly; dwarf throws drop the axe; chest is dynamic until the pirate strikes; chain is the 15th treasure (deposit-counted); BREAK CLAM with the rod spawns the pearl; vending dispenses BATTERIES (lamp refresh deferred to INSERT BATTERIES); bottle has an `$Oil` state at the oil source; magazine drop at Witt's End awards the +1 bonus; two distinct rod IDs exist (star = magic, mark = decoy from slain dwarf). |
+
+The rest of this file is the original delta inventory and stays as
+historical record — it documented the gap, motivated the fix
+sequence (Phases 5k–5q for room placements, 6a–6k for mechanism
+deltas), and the work it called for has now landed. The `Recommended
+ordering for fixing` list at the end of the document was followed
+with one inversion: room placements went first (Phase 5), then the
+mechanism deltas (Phase 6). Each commit closed one row of the
+dashboard at a time, so the conformance percentage was a live
+progress bar across the work.
+
+The end-state code lives in:
+
+- `cca/frame/cca.fgd` — Adventure constants (`CAGE_ID`, `FOOD_ID`,
+  `PILLOW_ID`, `AXE_ID`, `BATTERIES_ID`, `MAGAZINE_ID`, `MARK_ROD_ID`,
+  `CLAM_ID`, `OYSTER_ID`, `OIL_SOURCE_ROOM`, `WITTS_END_ROOM`),
+  Treasure declarations (chain promoted to 15th), Bottle aspect
+  with `$Oil`, BREAK verb, witts_end_bonus, etc.
+- `cca/godot/scripts/topology.gd` — canon rooms 18, 27, 28, 29, 30,
+  101, 103, 119, 127, 130 added; port-23 ↔ port-25 swapped so the
+  plant lives at canon 25; snake gate moved 47:east → 19:north +
+  19:south; plant climb-gates moved 23:up → 25:up.
+- `cca/tests/test_cca_canon.gd` — the live dashboard with one probe
+  per architectural delta.
+- `cca/tests/test_cca_canonical.gd` — full real-commands playthrough
+  rewritten around the canon room and item set.
+
+---
+
 ## 1. Room map
 
 ### 1a. Headline finding

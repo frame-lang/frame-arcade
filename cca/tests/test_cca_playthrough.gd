@@ -73,16 +73,21 @@ func _init():
     adv.do_command("plugh", "")
     _expect("at Y2",          adv.player_room(),    33)
 
+    print("Detour to cobbles (canon 10) for the cage — required to catch bird:")
+    adv.player.move_to(10)
+    adv.do_command("take", "cage")
+    _expect("cage carried",    adv.player.carrying(adv.CAGE_ID), true)
+
     print("Move down to bird chamber (13), take bird:")
     adv.do_command("move", "13")
     _expect("at bird chamber", adv.player_room(),   13)
     var r7 = adv.do_command("take", "bird")
     _expect_contains("caught bird", r7, "catch")
 
-    print("Move up to Y2, east to snake (47):")
+    print("Move up to Y2, then to snake at canon 19 (Hall of Mt King):")
     adv.do_command("move", "33")
-    adv.do_command("move", "47")
-    _expect("at snake passage", adv.player_room(),  47)
+    adv.do_command("move", "19")
+    _expect("at snake room",    adv.player_room(),  19)
     _expect("snake blocking",   adv.snake.is_blocking(), true)
 
     print("Release bird in snake's room — snake flees:")
@@ -90,9 +95,9 @@ func _init():
     _expect_contains("attacks snake", r8, "attacks")
     _expect("snake gone",       adv.snake.is_blocking(), false)
 
-    print("Now east to dragon cavern (71):")
-    adv.do_command("move", "71")
-    _expect("at dragon",        adv.player_room(),  71)
+    print("Now to dragon canyon (canon 119):")
+    adv.do_command("move", "119")
+    _expect("at dragon",        adv.player_room(),  119)
 
     print("Attack dragon, say YES:")
     var r9 = adv.do_command("attack", "dragon")
@@ -101,19 +106,27 @@ func _init():
     _expect_contains("vanquished", r10, "vanquished")
     _expect("dragon dead",      adv.dragon_alive(), false)
 
-    print("Take diamonds (was here all along, now safe):")
+    print("Diamonds canonically live at room 27 (west bank fissure):")
+    adv.player.move_to(27)
     var r11 = adv.do_command("take", "diamonds")
     _expect_contains("took diamonds", r11, "Taken")
+    adv.player.move_to(119)              # back to dragon canyon for next leg
 
-    print("North to bear chamber, feed bear, take chain:")
-    adv.do_command("move", "65")
-    _expect("at bear room",     adv.player_room(),  65)
+    print("Detour to well house for food (canon 3):")
+    adv.player.move_to(3)
+    adv.do_command("take", "food")
+    _expect("food carried",     adv.player.carrying(adv.FOOD_ID), true)
+
+    print("To bear chamber (canon 130 — Barren Room), feed bear, take chain:")
+    adv.do_command("move", "130")
+    _expect("at bear room",     adv.player_room(),  130)
     var r12 = adv.do_command("feed", "bear")
     _expect_contains("fed bear",   r12, "eats")
     var r13 = adv.do_command("take", "chain")
     _expect_contains("got chain",  r13, "lumbers")
 
-    print("East to troll bridge, drop chain — troll flees:")
+    print("Up to Bedquilt then east to troll bridge, drop chain — troll flees:")
+    adv.do_command("move", "65")
     adv.do_command("move", "117")
     _expect("at troll bridge",  adv.player_room(),  117)
     _expect("troll blocking",   adv.troll.is_blocking_bridge(), true)

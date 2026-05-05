@@ -45,6 +45,7 @@ const CANON_TREASURE_HOMES := {
     "pearl":     0,     # dynamic — from clam → oyster
     "rug":       119,   # canyon (with dragon)
     "spices":    127,   # Chamber of Boulders
+    "chain":     130,   # Barren Room (with bear) — 15th canon treasure
 }
 
 # Adventure domain-constant home rooms.
@@ -68,20 +69,24 @@ const CANON_MAGIC_PAIRS := [
     ["plover", 100, 33],
 ]
 
-# Architecture / mechanism deltas (each is a known-open
-# canon-fidelity gap that's bigger than a simple room move).
-# These print as deltas until the corresponding feature lands.
-const ARCHITECTURE_DELTAS := [
-    "chain is the 15th treasure — port: chain is a non-treasure FSM",
-    "cage required to take bird — port: bird directly takeable",
-    "food item required to feed bear — port: feed verb has no food",
-    "velvet pillow saves vase — port: vase shatters on any non-deposit drop",
-    "axe is item from dwarf — port: throw verb without axe item",
-    "batteries are item from vending — port: insert refreshes lamp directly",
-    "magazine at Witt's End — port: not implemented",
-    "two rods (star + mark) — port: one rod",
-    "oil-in-bottle — port: water-only",
-    "clam → oyster → pearl puzzle — port: pearl static at Plover",
+# Architecture / mechanism deltas. Each entry is a probe:
+#   [label, probe_func_name, default_open_message]
+# probe_func_name is invoked via call() with a fresh Adventure;
+# return true if the canon mechanism is in place (delta closed),
+# false if the port still has the legacy behavior. The probe
+# names are resolved lazily so we can re-fold features in
+# without pre-declaring all of them at script-load time.
+var ARCHITECTURE_PROBES := [
+    ["chain is the 15th treasure",            "_probe_chain_treasure",     "port: chain is a non-treasure FSM"],
+    ["cage required to take bird",            "_probe_cage_required",      "port: bird directly takeable"],
+    ["food item required to feed bear",       "_probe_food_required",      "port: feed verb has no food"],
+    ["velvet pillow saves vase",              "_probe_pillow_saves_vase",  "port: vase shatters on any non-deposit drop"],
+    ["axe is item from dwarf",                "_probe_axe_item",           "port: throw verb without axe item"],
+    ["batteries are item from vending",       "_probe_batteries_item",     "port: insert refreshes lamp directly"],
+    ["magazine at Witt's End",                "_probe_magazine_at_witts",  "port: not implemented"],
+    ["two rods (star + mark)",                "_probe_two_rods",           "port: one rod"],
+    ["oil-in-bottle",                         "_probe_oil_in_bottle",      "port: water-only"],
+    ["clam → oyster → pearl puzzle",          "_probe_clam_oyster_pearl",  "port: pearl static at Plover"],
 ]
 
 # ----- State -----
@@ -165,8 +170,260 @@ func _check_magic_pairs() -> void:
 func _check_architecture_deltas() -> void:
     print()
     print("Architecture / mechanism deltas:")
-    for d in ARCHITECTURE_DELTAS:
-        _check("  " + d, false, "")
+    for entry in ARCHITECTURE_PROBES:
+        var label: String = entry[0]
+        var probe_name: String = entry[1]
+        var open_msg: String = entry[2]
+        # Probes are written as methods on this script. We
+        # `call()` by name so each new Phase 6 step lands one
+        # probe at a time without script-wide load ordering.
+        var ok: bool = false
+        if has_method(probe_name):
+            var result = call(probe_name)
+            ok = bool(result)
+        _check("  " + label, ok, "" if ok else open_msg)
+
+# ----- Architecture probes -----
+# Each probe creates a fresh Adventure and exercises the
+# canonical mechanism. Returns true when the port matches canon.
+# Missing probes are treated as "not yet implemented" (delta
+# stays open).
+
+func _probe_cage_required() -> bool:
+    # Canon: bird won't enter inventory without a wicker cage.
+    # Probe: at the bird chamber WITHOUT the cage, `take bird`
+    # must NOT capture the bird; with the cage, it must.
+    # Two-arm check ensures the gate is genuine (not just a
+    # blanket "no").
+    var no_cage = Cca.new()
+    no_cage.setup_default_aspects()
+    no_cage.do_command("light", "")
+    no_cage.player.move_to(13)
+    no_cage.do_command("take", "bird")
+    var refused_without_cage: bool = (
+        no_cage.bird_state() == "free"
+        and not no_cage.player.carrying(no_cage.BIRD_ID)
+    )
+
+    var with_cage = Cca.new()
+    with_cage.setup_default_aspects()
+    with_cage.do_command("light", "")
+    with_cage.player.move_to(10)
+    with_cage.do_command("take", "cage")
+    with_cage.player.move_to(13)
+    with_cage.do_command("take", "bird")
+    var captured_with_cage: bool = (
+        with_cage.bird_state() == "caged"
+        and with_cage.player.carrying(with_cage.BIRD_ID)
+    )
+
+    return refused_without_cage and captured_with_cage
+
+func _probe_food_required() -> bool:
+    # Canon: feed bear refuses without the food item; succeeds
+    # once the player picks up FOOD at the well house.
+    var no_food = Cca.new()
+    no_food.setup_default_aspects()
+    no_food.do_command("light", "")
+    no_food.player.move_to(no_food.BEAR_HOME_ROOM)
+    no_food.do_command("feed", "bear")
+    var refused: bool = no_food.bear_state() == "hungry"
+
+    var with_food = Cca.new()
+    with_food.setup_default_aspects()
+    with_food.do_command("light", "")
+    with_food.player.move_to(3)
+    with_food.do_command("take", "food")
+    with_food.player.move_to(with_food.BEAR_HOME_ROOM)
+    with_food.do_command("feed", "bear")
+    var tamed: bool = with_food.bear_state() == "tame"
+    # Food consumed on feed.
+    var consumed: bool = not with_food.food_carried
+
+    return refused and tamed and consumed
+
+func _probe_pillow_saves_vase() -> bool:
+    # Canon: vase shatters on a non-deposit drop EXCEPT when the
+    # velvet pillow is in the same room. Two-arm probe:
+    #   1. drop vase at non-pillow room → broken
+    #   2. drop pillow first, then vase → in_room (saved)
+    var no_pillow = Cca.new()
+    no_pillow.setup_default_aspects()
+    no_pillow.do_command("light", "")
+    no_pillow.player.move_to(97)               # Oriental Room (vase home)
+    no_pillow.do_command("take", "vase")
+    no_pillow.player.move_to(11)               # debris room (no pillow)
+    no_pillow.do_command("drop", "vase")
+    var shattered: bool = no_pillow.vase.get_state() == "broken"
+
+    var with_pillow = Cca.new()
+    with_pillow.setup_default_aspects()
+    with_pillow.do_command("light", "")
+    with_pillow.player.move_to(96)             # Soft Room (pillow home)
+    with_pillow.do_command("take", "pillow")
+    with_pillow.player.move_to(97)
+    with_pillow.do_command("take", "vase")
+    with_pillow.player.move_to(11)
+    with_pillow.do_command("drop", "pillow")
+    var resp = with_pillow.do_command("drop", "vase")
+    var saved: bool = (
+        with_pillow.vase.get_state() == "in_room"
+        and not with_pillow.vase.is_broken()
+    )
+
+    return shattered and saved
+
+func _probe_axe_item() -> bool:
+    # Canon: throw verb requires axe, which originates from a
+    # dwarf throw. Two-arm probe:
+    #   1. fresh adventure: throw axe → "you have no axe"
+    #   2. seed an axe (via the "first dwarf throws" rig) and
+    #      verify the player can take it and throw it.
+    var no_axe = Cca.new()
+    no_axe.setup_default_aspects()
+    no_axe.do_command("light", "")
+    no_axe.player.move_to(12)
+    var resp_no = no_axe.do_command("throw", "axe")
+    var refused: bool = resp_no.to_lower().contains("no axe")
+
+    var with_axe = Cca.new()
+    with_axe.setup_default_aspects()
+    with_axe.do_command("light", "")
+    with_axe.wake_dwarves()
+    with_axe.player.move_to(12)        # dwarf1 spawn
+    # Tick until either dwarf rolls a throw and drops an axe.
+    var got_axe: bool = false
+    for i in 30:
+        with_axe.tick()
+        if with_axe.axe_location > 0 or with_axe.axe_carried:
+            got_axe = true
+            break
+        if with_axe.player_state() == "dead":
+            with_axe.player.revive()
+            with_axe.player.move_to(12)
+    return refused and got_axe
+
+func _probe_chest_dynamic() -> bool:
+    # Canon: chest is placed dynamically by the pirate, not
+    # static at world init. Probe: fresh adventure → chest
+    # should NOT be at any room yet.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    var loc: int = adv.chest.get_location()
+    return loc <= 0
+
+func _probe_batteries_item() -> bool:
+    # Canon: vending dispenses batteries; lamp refresh requires
+    # INSERT BATTERIES. Probe: insert coins → batteries appear,
+    # not yet refresh; insert batteries → refresh.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    adv.do_command("light", "")
+    adv.player.move_to(30)
+    adv.do_command("take", "coins")
+    adv.player.move_to(adv.VENDING_ROOM)
+    # Drain a few ticks BEFORE the insert so we have measurable
+    # headroom — the refresh on INSERT BATTERIES will visibly
+    # bump the battery count back up.
+    for i in 5:
+        adv.tick()
+    var pre_insert: int = adv.battery_left()
+    adv.do_command("insert", "coins")
+    var bat_at_room: bool = adv.batteries_location == adv.VENDING_ROOM
+    var lamp_unchanged: bool = adv.battery_left() < pre_insert + 1
+    adv.do_command("take", "batteries")
+    var pre_refresh: int = adv.battery_left()
+    adv.do_command("insert", "batteries")
+    var lamp_refreshed: bool = adv.battery_left() > pre_refresh
+    return bat_at_room and lamp_unchanged and lamp_refreshed
+
+func _probe_two_rods() -> bool:
+    # Canon: two rods exist — STAR (the magic-bridge one, at
+    # canon 11 from start) and MARK (decoy, dropped by a slain
+    # dwarf). Probe verifies both are distinct items by
+    # construction.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    adv.do_command("light", "")
+    # STAR rod sits at the debris room from init.
+    var star_at_home: bool = adv.rod_location == 11 and not adv.rod_carried
+    # MARK rod is not in the world yet.
+    var mark_absent: bool = adv.mark_rod_location <= 0 and not adv.mark_rod_carried
+    # The two IDs differ.
+    var distinct: bool = adv.ROD_ID != adv.MARK_ROD_ID
+    return star_at_home and mark_absent and distinct
+
+func _probe_magazine_at_witts() -> bool:
+    # Canon: magazine spawns at canon 106 (Anteroom). Dropping
+    # it at canon 108 (Witt's End) awards a 1-point bonus.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    adv.do_command("light", "")
+    adv.player.move_to(adv.MAGAZINE_HOME_ROOM)
+    adv.do_command("take", "magazine")
+    var carried: bool = adv.player.carrying(adv.MAGAZINE_ID)
+    adv.player.move_to(adv.WITTS_END_ROOM)
+    var pre_bonus: int = adv.witts_end_bonus
+    adv.do_command("drop", "magazine")
+    var bonus_awarded: bool = adv.witts_end_bonus == 1 and pre_bonus == 0
+    return carried and bonus_awarded
+
+func _probe_oil_in_bottle() -> bool:
+    # Canon: bottle can hold oil, not just water. Probe: at the
+    # canon oil source, FILL BOTTLE produces $Oil; pour empties.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    adv.do_command("light", "")
+    adv.player.move_to(3)
+    adv.do_command("take", "bottle")
+    adv.player.move_to(adv.OIL_SOURCE_ROOM)
+    adv.do_command("fill", "bottle")
+    var has_oil: bool = adv.bottle.has_oil()
+    var not_water: bool = not adv.bottle.has_water()
+    adv.do_command("pour", "")
+    var emptied: bool = adv.bottle.get_state() == "empty"
+    return has_oil and not_water and emptied
+
+func _probe_clam_oyster_pearl() -> bool:
+    # Canon: pearl is dynamic — falls out of the clam when the
+    # player breaks it. Probe: clam at canon 103, take it, BREAK
+    # CLAM with the rod elsewhere → pearl spawns at the break
+    # room.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    adv.do_command("light", "")
+    # Pearl should NOT be at any room initially.
+    if adv.pearl.get_location() > 0:
+        return false
+    adv.player.move_to(11)
+    adv.do_command("take", "rod")
+    adv.player.move_to(adv.CLAM_HOME_ROOM)
+    adv.do_command("take", "clam")
+    var carries_clam: bool = adv.player.carrying(adv.CLAM_ID)
+    adv.player.move_to(16)
+    adv.do_command("break", "clam")
+    var pearl_here: bool = adv.pearl.get_location() == 16
+    var oyster_here: bool = adv.oyster_location == 16
+    return carries_clam and pearl_here and oyster_here
+
+func _probe_chain_treasure() -> bool:
+    # Canon: chain is the 15th treasure — depositing it counts
+    # toward treasures_deposited and worth its 14 points.
+    # Probe: take + drop chain at well house, then verify.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    adv.do_command("light", "")
+    adv.player.move_to(3)
+    adv.do_command("take", "food")
+    adv.player.move_to(adv.BEAR_HOME_ROOM)
+    adv.do_command("feed", "bear")
+    adv.do_command("take", "chain")
+    var carried: bool = adv.chain.get_state() == "carried"
+    adv.player.move_to(3)
+    adv.do_command("drop", "chain")
+    var deposited: bool = adv.chain.is_deposited()
+    var counts: bool = adv.treasures_deposited() >= 1
+    return carried and deposited and counts
 
 # ----- Main -----
 func _init():

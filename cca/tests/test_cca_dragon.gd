@@ -42,8 +42,8 @@ func _init():
     _expect("stray yes",       r2, "I don't understand.")
     _expect("stray no",        r3, "I don't understand.")
 
-    print("Move to dragon room (8), look, attack:")
-    adv.player.move_to(71)
+    print("Move to dragon room (canon 119 — Secret canyon), look, attack:")
+    adv.player.move_to(119)
     var r4 = adv.do_command("look", "")
     _expect("look mentions dragon", r4.contains("dragon"), true)
     var r5 = adv.do_command("attack", "dragon")
@@ -68,7 +68,7 @@ func _init():
     _expect("back to sleeping",    adv2.dragon_state(), "sleeping")
 
     print("Re-attack, say YES — dragon dies:")
-    adv2.player.move_to(71)
+    adv2.player.move_to(119)
     adv2.do_command("attack", "dragon")
     var r7 = adv2.do_command("yes", "")
     _expect("kill response",       r7.contains("vanquished"), true)
@@ -90,7 +90,7 @@ func _init():
     print("Cancellation: any other verb during $Asked exits dialog:")
     var adv3 = Cca.new()
     adv3.setup_default_aspects()
-    adv3.player.move_to(71)
+    adv3.player.move_to(119)
     adv3.do_command("attack", "dragon")
     _expect("entered asked",       adv3.dragon_state(), "asked")
     # Note: my current Adventure doesn't actually fire dragon.cancel()

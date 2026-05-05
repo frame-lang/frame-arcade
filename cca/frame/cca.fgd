@@ -793,8 +793,8 @@
 
         # Special rooms that change release outcomes. Must
         # match Adventure.SNAKE_ROOM and Adventure.DRAGON_ROOM.
-        SNAKE_ROOM: int = 47
-        DRAGON_ROOM: int = 71
+        SNAKE_ROOM: int = 19         # Hall of Mountain King — canon 19
+        DRAGON_ROOM: int = 119       # Secret canyon (dragon) — canon 119
 }
 
 
@@ -1571,6 +1571,7 @@
     interface:
         try_take(at_room: int): bool       # true if successfully taken
         try_drop(at_room: int): String     # "dropped" / "deposited" / "broken" / error
+        try_drop_soft(at_room: int): String # canonical soft landing — fragile survives (used by vase-on-pillow)
         reappear(at_room: int)              # used by Eggs incantation reset
         get_state(): String
         get_location(): int                # current room or -1 if carried
@@ -1588,6 +1589,9 @@
                 @@:(false)
             }
             try_drop(at_room: int): String {
+                @@:("not carried")
+            }
+            try_drop_soft(at_room: int): String {
                 @@:("not carried")
             }
             reappear(at_room: int) {
@@ -1611,14 +1615,25 @@
                     -> $Deposited
                     @@:return("deposited")
                 # Fragile treasures shatter on a non-deposit
-                # drop. Real CCA: vase only survives on the
-                # velvet pillow (which lives in the egg room).
-                # We simplify: any non-deposit drop breaks it.
+                # drop. Real CCA: the velvet pillow saves the
+                # vase — Adventure brokers that case via
+                # try_drop_soft below.
                 if self.fragile:
                     -> $Broken
                     @@:return("broken")
                 -> $InRoom
                 @@:("dropped")
+            }
+            try_drop_soft(at_room: int): String {
+                # Soft landing: caller has verified a pillow (or
+                # equivalent canonical cushion) is present in
+                # the room. Fragile survives in this case.
+                self.location_room = at_room
+                if at_room == self.DEPOSIT_ROOM:
+                    -> $Deposited
+                    @@:return("deposited")
+                -> $InRoom
+                @@:("dropped_soft")
             }
             reappear(at_room: int) {
                 # Magic-summon while carried: snap into the
@@ -1639,6 +1654,9 @@
                 @@:(false)             # treasure is locked in deposit room
             }
             try_drop(at_room: int): String {
+                @@:("already deposited")
+            }
+            try_drop_soft(at_room: int): String {
                 @@:("already deposited")
             }
             reappear(at_room: int) {
@@ -1663,6 +1681,9 @@
                 @@:(false)             # shards aren't a treasure
             }
             try_drop(at_room: int): String {
+                @@:("already broken")
+            }
+            try_drop_soft(at_room: int): String {
                 @@:("already broken")
             }
             reappear(at_room: int) {
@@ -1978,10 +1999,12 @@
 
     interface:
         fill(at_water_source: bool): String
+        fill_oil(at_oil_source: bool): String
         pour(): String
         drink(): String
         get_state(): String
         has_water(): bool
+        has_oil(): bool
 
     machine:
 
@@ -1992,15 +2015,25 @@
                     @@:return("Your bottle is now full of water.")
                 @@:("There's no water here to fill it from.")
             }
+            fill_oil(at_oil_source: bool): String  {
+                if at_oil_source:
+                    -> $Oil
+                    @@:return("Your bottle is now full of oil.")
+                @@:("There's no oil here to fill it from.")
+            }
             pour(): String           { @@:("The bottle is empty.") }
             drink(): String          { @@:("The bottle is empty.") }
             get_state(): String      { @@:("empty") }
             has_water(): bool        { @@:(false) }
+            has_oil(): bool          { @@:(false) }
         }
 
         $Water {
             fill(at_water_source: bool): String  {
                 @@:("The bottle is already full of water.")
+            }
+            fill_oil(at_oil_source: bool): String  {
+                @@:("The bottle is full of water — empty it first.")
             }
             pour(): String           {
                 -> $Empty
@@ -2012,6 +2045,26 @@
             }
             get_state(): String      { @@:("water") }
             has_water(): bool        { @@:(true) }
+            has_oil(): bool          { @@:(false) }
+        }
+
+        $Oil {
+            fill(at_water_source: bool): String  {
+                @@:("The bottle is full of oil — empty it first.")
+            }
+            fill_oil(at_oil_source: bool): String  {
+                @@:("The bottle is already full of oil.")
+            }
+            pour(): String           {
+                -> $Empty
+                @@:return("The oil pours out, soaking into whatever is beneath you.")
+            }
+            drink(): String          {
+                @@:("Drink that?  Don't be ridiculous.")
+            }
+            get_state(): String      { @@:("oil") }
+            has_water(): bool        { @@:(false) }
+            has_oil(): bool          { @@:(true) }
         }
 }
 
@@ -2503,29 +2556,37 @@
                 # enough that the lack of array iteration
                 # doesn't hurt. Same shape as the bus's
                 # _dispatch_to.
+                # On a kill, canon CCA leaves the dwarf's "rod
+                # with a mark" lying at the player's room — same
+                # rule for every dwarf; do it once per kill.
                 if self.dwarf1.get_state() == "stalking" and self.dwarf1.get_room() == r:
                     self.dwarf1.attack()
                     if self.dwarf1.get_state() == "dead":
+                        self.mark_rod_location = r
                         @@:return("You killed dwarf 1.")
                     @@:return("Your axe missed dwarf 1.")
                 elif self.dwarf2.get_state() == "stalking" and self.dwarf2.get_room() == r:
                     self.dwarf2.attack()
                     if self.dwarf2.get_state() == "dead":
+                        self.mark_rod_location = r
                         @@:return("You killed dwarf 2.")
                     @@:return("Your axe missed dwarf 2.")
                 elif self.dwarf3.get_state() == "stalking" and self.dwarf3.get_room() == r:
                     self.dwarf3.attack()
                     if self.dwarf3.get_state() == "dead":
+                        self.mark_rod_location = r
                         @@:return("You killed dwarf 3.")
                     @@:return("Your axe missed dwarf 3.")
                 elif self.dwarf4.get_state() == "stalking" and self.dwarf4.get_room() == r:
                     self.dwarf4.attack()
                     if self.dwarf4.get_state() == "dead":
+                        self.mark_rod_location = r
                         @@:return("You killed dwarf 4.")
                     @@:return("Your axe missed dwarf 4.")
                 elif self.dwarf5.get_state() == "stalking" and self.dwarf5.get_room() == r:
                     self.dwarf5.attack()
                     if self.dwarf5.get_state() == "dead":
+                        self.mark_rod_location = r
                         @@:return("You killed dwarf 5.")
                     @@:return("Your axe missed dwarf 5.")
                 @@:("There's no dwarf here.")
@@ -2633,6 +2694,11 @@
             pirate_attempt_steal(): String {
                 if not self.pirate.try_steal():
                     @@:return("")
+                # Canon: the pirate's chest is itself dynamic —
+                # it appears at the chest room on the first
+                # successful steal. reappear is idempotent for
+                # subsequent steals (already at CHEST_ROOM).
+                self.chest.reappear(self.CHEST_ROOM)
                 # Walk treasures in canonical order; first one in
                 # inventory gets stashed.
                 if self.player.carrying(self.GOLD_ID):
@@ -2724,7 +2790,7 @@
                 if self.pyramid.is_deposited():   n = n + 1
                 if self.rug.is_deposited():       n = n + 1
                 if self.coins.is_deposited():     n = n + 1
-                if self.statuette.is_deposited(): n = n + 1
+                if self.chain.is_deposited():     n = n + 1
                 @@:(n)
             }
 
@@ -2744,7 +2810,7 @@
                 if self.pyramid.is_deposited():   s = s + self.pyramid.get_value()
                 if self.rug.is_deposited():       s = s + self.rug.get_value()
                 if self.coins.is_deposited():     s = s + self.coins.get_value()
-                if self.statuette.is_deposited(): s = s + self.statuette.get_value()
+                if self.chain.is_deposited():     s = s + self.chain.get_value()
                 @@:(s)
             }
         }
@@ -2757,28 +2823,45 @@
             # axe flag is set so the driver can render the
             # message; the player dies via player.die() which
             # routes through the standard $Alive → $Dead path.
+            # Canon: every throw — hit or miss — leaves the axe
+            # in the room. Adventure tracks axe_location.
             if self.dwarf1.get_state() == "stalking" and self.dwarf1.get_room() == room:
-                if self.dwarf1.try_throw_axe():
+                var d1_hit: bool = self.dwarf1.try_throw_axe()
+                self.axe_location = room
+                self.axe_carried = false
+                if d1_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
             if self.dwarf2.get_state() == "stalking" and self.dwarf2.get_room() == room:
-                if self.dwarf2.try_throw_axe():
+                var d2_hit: bool = self.dwarf2.try_throw_axe()
+                self.axe_location = room
+                self.axe_carried = false
+                if d2_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
             if self.dwarf3.get_state() == "stalking" and self.dwarf3.get_room() == room:
-                if self.dwarf3.try_throw_axe():
+                var d3_hit: bool = self.dwarf3.try_throw_axe()
+                self.axe_location = room
+                self.axe_carried = false
+                if d3_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
             if self.dwarf4.get_state() == "stalking" and self.dwarf4.get_room() == room:
-                if self.dwarf4.try_throw_axe():
+                var d4_hit: bool = self.dwarf4.try_throw_axe()
+                self.axe_location = room
+                self.axe_carried = false
+                if d4_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
             if self.dwarf5.get_state() == "stalking" and self.dwarf5.get_room() == room:
-                if self.dwarf5.try_throw_axe():
+                var d5_hit: bool = self.dwarf5.try_throw_axe()
+                self.axe_location = room
+                self.axe_carried = false
+                if d5_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
@@ -2842,7 +2925,13 @@
             elif verb == "wave":
                 return self._verb_wave(noun)
             elif verb == "unlock" or verb == "open":
+                # Canon: OPEN CLAM is the puzzle action — clam
+                # is not a lock but a shellfish to be cracked.
+                if noun == "clam" or noun == "oyster":
+                    return self._verb_break(noun)
                 return self._verb_unlock(noun)
+            elif verb == "break":
+                return self._verb_break(noun)
             elif verb == "lock":
                 return self._verb_lock(noun)
             elif verb == "insert" or verb == "use":
@@ -2911,9 +3000,13 @@
             elif r == 47:
                 base = "You are at the end of a long passage. The floor is chiseled smooth."
             elif r == 71:
-                base = "You are in a cavern with massive stalactites overhead. A wide Persian rug covers the floor."
+                base = "You are in a secret canyon at a junction of three canyons, bearing north, south, and southwest. (Port-synth; canon dragon now at canon 119.)"
             elif r == 65:
                 base = "You are in the Bedquilt, a great chamber. A passage descends to the east."
+            elif r == 130:
+                base = "You are in a Barren Room. The walls are featureless and the floor is dusty rock."
+            elif r == 103:
+                base = "You are in a splendid chamber thirty feet high. The walls are frozen rivers of orange stone. An awkward canyon and a small window can be seen elsewhere."
             elif r == 117:
                 base = "You are at the troll bridge, a rickety span over a yawning chasm."
             elif r == 118:
@@ -2933,11 +3026,11 @@
             elif r == 131:
                 base = "You are in a vast hall stretching out of sight."
             elif r == 40:
-                base = "You are in a small alcove with a fragrant aroma."
+                base = "You are in an alcove. A small passage exits to the east. (Port-synth; canon spices are at canon 127.)"
             elif r == 132:
                 base = "You are in a chest cavern. The pirate's loot is hidden here."
             elif r == 133:
-                base = "You are in a pyramid-shaped chamber, walls slanting inward."
+                base = "You are in a quiet transit chamber. (Port-synth; canon pyramid is at canon 101.)"
             elif r == 134:
                 base = "You are in a coin niche, a small space tucked into the wall."
             elif r == 135:
@@ -2967,10 +3060,11 @@
                 base = "You are in the Two-Pit Room. Two pits drop into darkness; the eastern pit is shallow, the western yawning."
             elif r == 22:
                 base = "You are at the bottom of the eastern pit. A small dry hole leads on into nothingness."
-            elif r == 23:
+            elif r == 25:
                 # Plant description tracks growth. Tiny is the
                 # default; canonical CCA player won't get past
-                # this room without watering the plant.
+                # this room without watering the plant. Canon
+                # room 25 = bottom of west pit (plant home).
                 var ps: String = self.plant.get_state()
                 if ps == "tiny":
                     base = "You are at the bottom of the western pit. There is a tiny plant in the pit, murmuring 'Water, water, ...'"
@@ -2980,7 +3074,7 @@
                     base = "You are at the bottom of the western pit. There is a gigantic beanstalk stretching all the way up to the hole."
             elif r == 24:
                 base = "You are about 10 feet above the bottom of the pit. There is a thick beanstalk to one side."
-            elif r == 25:
+            elif r == 23:
                 base = "You are at the top of a vast crack in the rock, with the giant beanstalk vanishing into the gloom below. The crack twists upward but is barely wide enough to crawl through."
             elif r == 26:
                 base = "You are in a long, narrow corridor stretching out of sight east-west. The walls are smooth and damp."
@@ -3015,8 +3109,8 @@
             # mechanic that would be a sub-system of its own).
             elif r == 39:
                 base = "You are in a small misty cavern. Walls and ceiling are slick with damp; water drips ceaselessly somewhere out of sight."
-            elif r == 42:
-                base = "You are in a dark, dirty alcove. Soot and dust lie thick on every surface, undisturbed for centuries."
+            elif r == 101:
+                base = "You're in the Dark-room. A corridor leading south is the only exit."
             elif r == 43:
                 base = "You are in a relatively wide spot in the passage. The east wall has bands of dark and light stone."
             elif r == 44:
@@ -3122,7 +3216,7 @@
             elif r == 116:
                 base = "You are in a pre-repository chamber, where the cave compels you onward but provides no path back."
             elif r == 119:
-                base = "You are at a cliff face, with an iron ladder bolted into the rock leading down. Far below you can hear the faint murmur of water."
+                base = "You are in a secret canyon which exits to the north and east."
             elif r == 121:
                 base = "You are at the bottom of the iron ladder, on a stone landing. Passages lead in several directions."
             elif r == 123:
@@ -3155,7 +3249,7 @@
             elif r == 124:
                 base = "You are in an anteroom carved from soft red stone. Faint torch-marks streak the walls."
             elif r == 126:
-                base = "You are in an anteroom set deep in the rock, with a great fireplace cold and dark."
+                base = "You are on the edge of a breath-taking view. Far below you is an active volcano, from which great gouts of molten lava come surging out, cascading back down into the depths."
             # --- Final canon-completion rooms (Round 10) ---
             # Forest grid completion + inner anteroom cluster +
             # pre-Repository corridor branches. Brings the room
@@ -3177,7 +3271,7 @@
             elif r == 114:
                 base = "You are in a crystal grotto. Walls and ceiling are studded with small clear crystals refracting your lamplight into hundreds of pinpoints."
             elif r == 127:
-                base = "You are in an inner anteroom. Carved nameless figures stand sentinel along the walls."
+                base = "You are in a small chamber filled with large boulders. The walls are very warm, causing the air in the room to be almost stifling from the heat. The only exit is south."
             elif r == 128:
                 base = "You are in a different inner anteroom, with a low arch leading deeper in."
             elif r == 129:
@@ -3254,6 +3348,24 @@
                     base = base + " A small glass bottle, full of water, sits on a wooden shelf."
                 else:
                     base = base + " A small empty glass bottle sits on a wooden shelf."
+            if not self.cage_carried and self.cage_location == r:
+                base = base + " There is a small wicker cage discarded nearby."
+            if not self.food_carried and self.food_location > 0 and self.food_location == r:
+                base = base + " There is tasty food here."
+            if not self.pillow_carried and self.pillow_location == r:
+                base = base + " A small velvet pillow lies on the floor."
+            if not self.axe_carried and self.axe_location > 0 and self.axe_location == r:
+                base = base + " There is a little axe lying here."
+            if not self.clam_carried and self.clam_location > 0 and self.clam_location == r:
+                base = base + " There is an enormous clam here with its shell tightly closed."
+            if self.oyster_location > 0 and self.oyster_location == r:
+                base = base + " A massive oyster sits open on the floor — far too heavy to carry."
+            if not self.batteries_carried and self.batteries_location > 0 and self.batteries_location == r:
+                base = base + " A fresh set of lamp batteries lies in the dispenser tray."
+            if not self.magazine_carried and self.magazine_location > 0 and self.magazine_location == r:
+                base = base + " A few recent issues of \"Spelunker Today\" magazine are scattered about."
+            if not self.mark_rod_carried and self.mark_rod_location > 0 and self.mark_rod_location == r:
+                base = base + " A small black rod with a rusty mark on the end lies nearby."
             # Grate state overlay — only at the depression itself.
             if r == self.GRATE_ROOM:
                 if self.grate.is_locked():
@@ -3275,6 +3387,11 @@
                     return "There is no bird here."
                 if self.player.get_room() != self.bird.get_location():
                     return "There is no bird here."
+                # Canon: bird won't approach without a cage. The
+                # rod separately scares it (existing port rule);
+                # the cage is the carry container.
+                if not self.cage_carried:
+                    return "You can catch the bird, but you cannot carry it."
                 self.bird.capture()
                 self.player.take(self.BIRD_ID)
                 return "You catch the bird in your hand."
@@ -3302,24 +3419,110 @@
                 self.bottle_carried = true
                 self.player.take(self.BOTTLE_ID)
                 return "Taken."
+            if noun == "cage":
+                if self.cage_carried:
+                    return "You already have the cage."
+                if self.player.get_room() != self.cage_location:
+                    return "There is no cage here."
+                self.cage_carried = true
+                self.player.take(self.CAGE_ID)
+                return "Taken."
+            if noun == "food":
+                if self.food_carried:
+                    return "You already have the food."
+                if self.food_location <= 0 or self.player.get_room() != self.food_location:
+                    return "There is no food here."
+                self.food_carried = true
+                self.player.take(self.FOOD_ID)
+                return "Taken."
+            if noun == "pillow" or noun == "velvet":
+                if self.pillow_carried:
+                    return "You already have the pillow."
+                if self.player.get_room() != self.pillow_location:
+                    return "There is no pillow here."
+                self.pillow_carried = true
+                self.player.take(self.PILLOW_ID)
+                return "Taken."
+            if noun == "axe":
+                if self.axe_carried:
+                    return "You already have the axe."
+                if self.axe_location <= 0 or self.player.get_room() != self.axe_location:
+                    return "There is no axe here."
+                self.axe_carried = true
+                self.axe_location = -1
+                self.player.take(self.AXE_ID)
+                return "Taken."
+            if noun == "clam":
+                if self.clam_carried:
+                    return "You already have the clam."
+                if self.clam_location <= 0 or self.player.get_room() != self.clam_location:
+                    return "There is no clam here."
+                self.clam_carried = true
+                self.player.take(self.CLAM_ID)
+                return "Taken."
+            if noun == "oyster":
+                # Canonically the oyster is too heavy to carry.
+                if self.oyster_location > 0 and self.player.get_room() == self.oyster_location:
+                    return "You can't be serious — that oyster weighs a ton."
+                return "There is no oyster here."
+            if noun == "batteries" or noun == "battery":
+                if self.batteries_carried:
+                    return "You already have the batteries."
+                if self.batteries_location <= 0 or self.player.get_room() != self.batteries_location:
+                    return "There are no batteries here."
+                self.batteries_carried = true
+                self.batteries_location = -1
+                self.player.take(self.BATTERIES_ID)
+                return "Taken."
+            if noun == "magazine":
+                if self.magazine_carried:
+                    return "You already have the magazine."
+                if self.magazine_location <= 0 or self.player.get_room() != self.magazine_location:
+                    return "There is no magazine here."
+                self.magazine_carried = true
+                self.magazine_location = -1
+                self.player.take(self.MAGAZINE_ID)
+                return "Taken."
+            if noun == "mark" or noun == "mark-rod" or noun == "stick":
+                if self.mark_rod_carried:
+                    return "You already have the rod with a mark."
+                if self.mark_rod_location <= 0 or self.player.get_room() != self.mark_rod_location:
+                    return "There is no second rod here."
+                self.mark_rod_carried = true
+                self.mark_rod_location = -1
+                self.player.take(self.MARK_ROD_ID)
+                return "Taken."
             if noun == "chain":
-                if self.player.get_room() != self.BEAR_HOME_ROOM:
-                    return "There is no chain here."
-                var bs: String = self.bear.get_state()
-                if bs == "hungry":
-                    # Cross-FSM: the bear becomes $Attacking
-                    # AND the player dies. Adventure brokers
-                    # both transitions; the driver detects the
-                    # death state on the next post-command
-                    # check and surfaces the resurrection prompt.
-                    self.bear.take_chain()
-                    self.player.die()
-                    return "With a roar the bear lunges at you. You should have fed it first. You have been killed."
-                elif bs == "tame":
-                    self.bear.take_chain()
+                # Two paths:
+                #   1) at the bear's home — bear is still chained.
+                #      Hungry → mauls, Tame → take and bear follows.
+                #   2) elsewhere (e.g. troll bridge after the bear
+                #      bolted) — chain is just lying as a treasure.
+                var room: int = self.player.get_room()
+                if room == self.BEAR_HOME_ROOM:
+                    var bs: String = self.bear.get_state()
+                    if bs == "hungry":
+                        # Cross-FSM: the bear becomes $Attacking
+                        # AND the player dies. Adventure brokers
+                        # both transitions; the driver detects the
+                        # death state on the next post-command
+                        # check and surfaces the resurrection prompt.
+                        self.bear.take_chain()
+                        self.player.die()
+                        return "With a roar the bear lunges at you. You should have fed it first. You have been killed."
+                    elif bs == "tame":
+                        self.bear.take_chain()
+                        self.chain.try_take(room)
+                        self.player.take(self.CHAIN_ID)
+                        return "The bear lumbers along behind you on its chain."
+                    return "The chain has already been taken."
+                # Off-bear-room: chain might be lying as a treasure
+                # (e.g. dropped at the troll bridge). Use the
+                # standard treasure take pathway.
+                if self.chain.try_take(room):
                     self.player.take(self.CHAIN_ID)
-                    return "The bear lumbers along behind you on its chain."
-                return "The chain has already been taken."
+                    return "Taken."
+                return "There is no chain here."
             # Treasures
             return self._take_treasure_by_name(noun)
         }
@@ -3352,16 +3555,110 @@
                 self.bottle_location = self.player.get_room()
                 self.player.drop(self.BOTTLE_ID)
                 return "Dropped."
+            if noun == "cage":
+                if not self.cage_carried:
+                    return "You aren't carrying the cage."
+                # If the bird is currently caged, dropping the
+                # cage drops a bird-with-cage. Canon CCA actually
+                # treats them separately (you can release the
+                # bird and keep the cage), so we forbid dropping
+                # the cage while it holds the bird — matches the
+                # canon "you have the bird" guard.
+                if self.player.carrying(self.BIRD_ID):
+                    return "(Releasing the bird first — see RELEASE BIRD.)"
+                self.cage_carried = false
+                self.cage_location = self.player.get_room()
+                self.player.drop(self.CAGE_ID)
+                return "Dropped."
+            if noun == "food":
+                if not self.food_carried:
+                    return "You aren't carrying the food."
+                self.food_carried = false
+                self.food_location = self.player.get_room()
+                self.player.drop(self.FOOD_ID)
+                return "Dropped."
+            if noun == "pillow" or noun == "velvet":
+                if not self.pillow_carried:
+                    return "You aren't carrying the pillow."
+                self.pillow_carried = false
+                self.pillow_location = self.player.get_room()
+                self.player.drop(self.PILLOW_ID)
+                return "Dropped."
+            if noun == "axe":
+                if not self.axe_carried:
+                    return "You aren't carrying the axe."
+                self.axe_carried = false
+                self.axe_location = self.player.get_room()
+                self.player.drop(self.AXE_ID)
+                return "Dropped."
+            if noun == "clam":
+                if not self.clam_carried:
+                    return "You aren't carrying the clam."
+                self.clam_carried = false
+                self.clam_location = self.player.get_room()
+                self.player.drop(self.CLAM_ID)
+                return "Dropped."
+            if noun == "batteries" or noun == "battery":
+                if not self.batteries_carried:
+                    return "You aren't carrying the batteries."
+                self.batteries_carried = false
+                self.batteries_location = self.player.get_room()
+                self.player.drop(self.BATTERIES_ID)
+                return "Dropped."
+            if noun == "magazine":
+                if not self.magazine_carried:
+                    return "You aren't carrying the magazine."
+                self.magazine_carried = false
+                self.magazine_location = self.player.get_room()
+                self.player.drop(self.MAGAZINE_ID)
+                # Canon: dropping the magazine at Witt's End
+                # earns one bonus point. Once-per-game (don't
+                # re-award on subsequent drops in the same room).
+                if self.magazine_location == self.WITTS_END_ROOM and self.witts_end_bonus == 0:
+                    self.witts_end_bonus = 1
+                    self.real_score = self.real_score + 1
+                    return "Dropped — and what a fitting place to leave it."
+                return "Dropped."
+            if noun == "mark" or noun == "mark-rod" or noun == "stick":
+                if not self.mark_rod_carried:
+                    return "You aren't carrying that rod."
+                self.mark_rod_carried = false
+                self.mark_rod_location = self.player.get_room()
+                self.player.drop(self.MARK_ROD_ID)
+                return "Dropped."
             if noun == "chain":
-                if self.bear.get_state() != "following":
-                    return "You aren't holding the bear's chain."
-                self.bear.drop_chain()
-                self.player.drop(self.CHAIN_ID)
                 var room: int = self.player.get_room()
-                if room == self.TROLL_ROOM and self.troll.is_blocking_bridge():
-                    self.troll.scared_off()
-                    return "The bear lumbers up to the troll. The troll, taken aback, flees over the bridge with a shriek."
-                return "The bear settles down at your side, glaring."
+                # If the bear is still attached, drop_chain on the
+                # bear FSM kicks off the troll-scaring path. After
+                # that the chain is just a free treasure.
+                if self.bear.get_state() == "following":
+                    self.bear.drop_chain()
+                    self.player.drop(self.CHAIN_ID)
+                    # Hand the Treasure FSM the same drop —
+                    # well house ⇒ Deposited, anywhere else ⇒
+                    # InRoom (visible).
+                    var outcome_b: String = self.chain.try_drop(room)
+                    if room == self.TROLL_ROOM and self.troll.is_blocking_bridge():
+                        self.troll.scared_off()
+                        return "The bear lumbers up to the troll. The troll, taken aback, flees over the bridge with a shriek."
+                    if outcome_b == "deposited":
+                        self.endgame.treasure_deposited()
+                        self.score_treasures = self.score_treasures + self.chain.get_value()
+                        self.real_score = self.real_score + self.chain.get_value()
+                        return "Safely stowed in the well house. A fine treasure indeed!"
+                    return "The bear settles down at your side, glaring."
+                # Bear no longer following — chain is a regular
+                # treasure carry. Standard try_drop semantics.
+                if self.chain.get_state() != "carried":
+                    return "You aren't carrying the chain."
+                var outcome: String = self.chain.try_drop(room)
+                self.player.drop(self.CHAIN_ID)
+                if outcome == "deposited":
+                    self.endgame.treasure_deposited()
+                    self.score_treasures = self.score_treasures + self.chain.get_value()
+                    self.real_score = self.real_score + self.chain.get_value()
+                    return "Safely stowed in the well house. A fine treasure indeed!"
+                return "Dropped."
             # Treasures
             return self._drop_treasure_by_name(noun)
         }
@@ -3476,7 +3773,18 @@
                 item_id = self.PEARL_ID
                 value = self.pearl.get_value()
             elif name == "vase":
-                outcome = self.vase.try_drop(room)
+                # Canon: vase survives only when it lands on the
+                # velvet pillow. Pillow-in-current-room → soft
+                # landing. Otherwise the standard try_drop runs
+                # the fragile-shatter branch.
+                var pillow_here: bool = (
+                    not self.pillow_carried
+                    and self.pillow_location == room
+                )
+                if pillow_here:
+                    outcome = self.vase.try_drop_soft(room)
+                else:
+                    outcome = self.vase.try_drop(room)
                 item_id = self.VASE_ID
                 value = self.vase.get_value()
             elif name == "eggs":
@@ -3532,6 +3840,8 @@
                 self.score_treasures = self.score_treasures + value
                 self.real_score = self.real_score + value
                 return "Safely stowed in the well house. A fine treasure indeed!"
+            if outcome == "dropped_soft":
+                return "The vase comes to rest, delicately, on the velvet pillow."
             return "Dropped."
         }
 
@@ -3542,6 +3852,12 @@
                 return "There is no bear here."
             if self.bear.get_state() != "hungry":
                 return "The bear isn't interested."
+            # Canon: feeding requires the food item. Consume on use.
+            if not self.food_carried:
+                return "You have nothing to feed the bear."
+            self.food_carried = false
+            self.food_location = -1                       # consumed
+            self.player.drop(self.FOOD_ID)
             self.bear.feed()
             return "The bear eats the food eagerly and looks much friendlier."
         }
@@ -3649,7 +3965,16 @@
             # THROW is mostly for axes at dwarves. Routes to
             # the same attack-dwarf-in-room logic the dispatch
             # interface exposes; it just reads more naturally.
+            # Canon: requires the axe item — picked up after a
+            # dwarf throws and misses (or kills the player).
             if noun == "axe":
+                if not self.axe_carried:
+                    return "You have no axe to throw."
+                # Axe leaves the player's hand and lands in the
+                # current room regardless of hit/miss.
+                self.axe_carried = false
+                self.axe_location = self.player.get_room()
+                self.player.drop(self.AXE_ID)
                 return self._attack_dwarf_in_current()
             return "I don't know how to throw that."
         }
@@ -3690,30 +4015,66 @@
             return self.grate.lock()
         }
 
+        _verb_break(noun: String): String {
+            # Canon: BREAK CLAM (or OPEN CLAM / OPEN OYSTER) is
+            # the puzzle action. Requires the rod to crack the
+            # shell. Clam → Oyster (immobile) at the same room,
+            # and the pearl falls out at the same room. Pearl
+            # is dynamic — its location was 0 until this moment.
+            if noun == "oyster":
+                return "The oyster is already open."
+            if noun != "clam":
+                return "It is beyond your power to do that."
+            if not self.clam_carried and (self.clam_location <= 0 or self.player.get_room() != self.clam_location):
+                return "There is no clam here."
+            if not self.rod_carried:
+                return "You'll need a rod or a tool to crack the clam open."
+            var here: int = self.player.get_room()
+            # Drop the clam from inventory (if carried) and
+            # convert it to an oyster at the player's room.
+            if self.clam_carried:
+                self.clam_carried = false
+                self.player.drop(self.CLAM_ID)
+            self.clam_location = -1
+            self.oyster_location = here
+            # Pearl spawns at the same room as InRoom — same as
+            # any treasure that's been dropped (callback into
+            # the Treasure FSM).
+            self.pearl.reappear(here)
+            return "A glistening pearl falls out of the clam and rolls away."
+        }
+
         _verb_insert(noun: String): String {
-            # Insert coins into the vending machine. Cross-FSM
-            # choreography: VendingMachine handles its own state
-            # transition; Adventure removes the coins from the
-            # player and refreshes the lamp on success.
+            # Canon split:
+            #   INSERT COINS  → vending machine dispenses BATTERIES
+            #   INSERT BATTERIES (or USE BATTERIES) → refresh lamp
+            if noun == "batteries" or noun == "battery":
+                if not self.batteries_carried:
+                    return "You don't have any batteries."
+                self.batteries_carried = false
+                # Used up — remove from world entirely.
+                self.player.drop(self.BATTERIES_ID)
+                self.lamp.refresh()
+                return "You replace the lamp's old batteries with the fresh ones. The lamp is now full."
             if noun != "coins" and noun != "coin":
                 return "You can't insert that."
             if self.player.get_room() != self.VENDING_ROOM:
                 return "There's nothing here to insert into."
             # Defer to the vending FSM. We snapshot the
             # before-state so we can detect a successful
-            # transition vs an already-empty machine. The FSM's
-            # message itself is canonical for both branches.
+            # transition vs an already-empty machine.
             var was_loaded: bool = self.vending.is_loaded()
             var carrying_coins: bool = self.player.carrying(self.COINS_ID)
             var msg: String = self.vending.insert(carrying_coins)
             if was_loaded and carrying_coins and not self.vending.is_loaded():
-                # Successful trade. Consume the coins (drop from
-                # inventory and relocate to room 0 — out of
-                # bounds, no overlay, not deposited) and refresh
-                # the lamp.
+                # Successful trade. Consume the coins and drop
+                # the new batteries at the vending room — canon:
+                # "vending machine clanks twice and dispenses a
+                # fresh set of lamp batteries". Player must take
+                # them and INSERT BATTERIES to refresh the lamp.
                 self.player.drop(self.COINS_ID)
                 self.coins.reappear(0)
-                self.lamp.refresh()
+                self.batteries_location = self.VENDING_ROOM
             return msg
         }
 
@@ -3728,30 +4089,44 @@
             return false
         }
 
+        # Canonical CCA places the Pool of Oil in a dead-end
+        # off the volcano area. OIL_SOURCE_ROOM (in the domain
+        # block) is the port-pragmatic stand-in.
+        _at_oil_source(): bool {
+            @@:(self.player.get_room() == self.OIL_SOURCE_ROOM)
+        }
+
         _verb_fill(noun: String): String {
-            if noun != "bottle":
-                return "You can't fill that."
-            if not self.bottle_carried:
-                return "You don't have the bottle."
-            return self.bottle.fill(self._at_water_source())
+            if noun == "bottle" or noun == "":
+                if not self.bottle_carried:
+                    return "You don't have the bottle."
+                # Canon: same FILL verb takes either source. If
+                # an oil pool is here, that beats water — the
+                # player wouldn't normally be standing in both at
+                # once, but the precedence keeps the puzzle clean.
+                if self._at_oil_source():
+                    return self.bottle.fill_oil(true)
+                return self.bottle.fill(self._at_water_source())
+            return "You can't fill that."
         }
 
         _verb_pour(noun: String): String {
-            # POUR with no noun, or POUR WATER, or POUR BOTTLE —
-            # all pour the bottle's contents at the player's
-            # location. Special case: at the West Pit (room 23)
-            # the water is absorbed by the plant, growing it.
-            # Anywhere else it just spills.
-            if noun != "" and noun != "bottle" and noun != "water":
+            # POUR with no noun, or POUR WATER, POUR OIL, POUR
+            # BOTTLE — all pour the bottle's contents at the
+            # player's location. Special case: at the West Pit
+            # (canon 25) water grows the plant. Oil at the
+            # rusty-iron-door room would lubricate the door —
+            # canon room 94, not yet wired. Otherwise spills.
+            if noun != "" and noun != "bottle" and noun != "water" and noun != "oil":
                 return "You can't pour that."
             if not self.bottle_carried:
                 return "You don't have the bottle."
-            if not self.bottle.has_water():
+            if not self.bottle.has_water() and not self.bottle.has_oil():
                 return "The bottle is empty."
             var r: int = self.player.get_room()
-            # Empty the bottle regardless of where the water lands.
+            var was_water: bool = self.bottle.has_water()
             var msg: String = self.bottle.pour()
-            if r == self.WEST_PIT_ROOM:
+            if was_water and r == self.WEST_PIT_ROOM:
                 # Cross-FSM: water the plant.
                 var grow_msg: String = self.plant.water()
                 return "The water soaks into the soil. " + grow_msg
@@ -3982,9 +4357,9 @@
         # target. Earlier port values (5/10/15) under-scored.
         gold      = @@Treasure(18, 14)   # Low room w/ steps note — canon 18
         silver    = @@Treasure(28, 14)   # low n/s passage at hole — canon 28
-        diamonds  = @@Treasure(71, 14)   # scorched cavern (with dragon, rug)
+        diamonds  = @@Treasure(27, 14)   # West side of fissure in Hall of Mists — canon 27
         jewelry   = @@Treasure(29, 14)   # south side chamber — canon 29
-        pearl     = @@Treasure(100,14)   # Plover Room canon 100 (only via PLOVER magic)
+        pearl     = @@Treasure(0,  14)   # canon: dynamic — falls out of the oyster on BREAK CLAM
         vase      = @@Treasure(97, 14, true)   # Oriental Room canon 97 — fragile!
         eggs      = @@Treasure(92, 14)   # Giant Room (canon 92)
         # Treasures whose canonical home rooms aren't yet
@@ -3993,12 +4368,13 @@
         # canonical-room placement.
         trident   = @@Treasure(95, 14)   # Magnificent Cavern canon 95 (waterfall)
         emerald   = @@Treasure(100,14)   # Plover Room canon 100 (per advent.dat section 7)
-        spices    = @@Treasure(40, 14)   # Alcove
-        chest     = @@Treasure(132,14)   # Pirate's chest cavern (interpolated)
-        pyramid   = @@Treasure(133,14)   # Pyramid Chamber (interpolated)
-        rug       = @@Treasure(71, 14)   # under dragon (drops once dragon dies)
+        spices    = @@Treasure(127,14)   # Chamber of Boulders — canon 127
+        chest     = @@Treasure(0,  14)   # canon: dynamic — placed by pirate on first steal
+        pyramid   = @@Treasure(101,14)   # Dark-room — canon 101
+        rug       = @@Treasure(119,14)   # Secret canyon (dragon) — canon 119; visible once dragon dies
         coins     = @@Treasure(30, 14)   # West side chamber Hall of Mt King — canon 30
-        statuette = @@Treasure(135,14)   # Sloping Passage (interpolated)
+        chain     = @@Treasure(130,14)   # Barren Room — canon 130 (15th canon treasure, with bear)
+        statuette = @@Treasure(135,14)   # Sloping Passage (port-only flavor; not a canon treasure)
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
@@ -4028,9 +4404,9 @@
         # take numbers in the 130-139 gap zone above the canon
         # repository (140) so they don't collide.
         BIRD_HOME_ROOM: int = 13      # bird chamber
-        SNAKE_ROOM: int = 47          # secret east-west canyon
-        DRAGON_ROOM: int = 71         # scorched cavern
-        BEAR_HOME_ROOM: int = 65      # bear chamber (canon 65 Bedquilt; canon-true bear is at 130 Barren Room)
+        SNAKE_ROOM: int = 19          # Hall of Mountain King — canon 19
+        DRAGON_ROOM: int = 119        # Secret canyon (dragon) — canon 119
+        BEAR_HOME_ROOM: int = 130     # Barren Room — canon 130 (bear chamber)
         TROLL_ROOM: int = 117         # troll bridge
         CHEST_ROOM: int = 132         # pirate's chest cavern (interpolated)
         DEPOSIT_ROOM: int = 3         # well house — must match Treasure.DEPOSIT_ROOM
@@ -4041,12 +4417,71 @@
         GRATE_ROOM: int = 8           # depression with the steel grate
         KEYS_HOME_ROOM: int = 3       # well house
         VENDING_ROOM: int = 140       # vending machine room (canon 140 DEAD END per advent.dat section 7)
-        WEST_PIT_ROOM: int = 23       # plant lives here
+        WEST_PIT_ROOM: int = 25       # bottom of western pit — canon 25 (plant home)
         BOTTLE_ID: int = 132
         BOTTLE_HOME_ROOM: int = 3     # well house
+        OIL_SOURCE_ROOM: int = 105    # canon Pool of Oil (port stand-in)
         ROD_HOME_ROOM: int = 11       # debris room — same as gold
         ROD_ID: int = 130
         KEYS_ID: int = 131
+        # Canon CCA distinguishes two rods:
+        #   - ROD with a STAR — the magic one (summons the
+        #     crystal bridge over the fissure).
+        #   - ROD with a MARK — a decoy / dwarf trinket. Visually
+        #     identical, but waving it at the fissure does
+        #     nothing. Drops dynamically from a slain dwarf.
+        # Port-canon split:
+        #   - The existing ROD_ID is the STAR rod (bridge summon).
+        #   - MARK_ROD_ID is a separate item; mark_rod_location
+        #     starts at -1 (not in world) and gets dropped at the
+        #     player's room when the player kills any dwarf.
+        MARK_ROD_ID: int = 141
+        # CAGE: canonically lives in the Cobble Crawl (canon
+        # room 10) and is required to take the bird. The bird
+        # won't approach without it; releasing the bird at the
+        # right room transfers the bird out of the cage but the
+        # cage stays in the player's inventory.
+        CAGE_ID: int = 133
+        CAGE_HOME_ROOM: int = 10      # cobble crawl — canon 10
+        # FOOD (tasty viands): canonically lives at the well
+        # house (canon 3) and is required to tame the bear.
+        # FEED BEAR consumes it (sets carried=false, location=-1).
+        FOOD_ID: int = 134
+        FOOD_HOME_ROOM: int = 3       # well house — canon 3
+        # PILLOW (velvet): canonically lives in the Soft Room
+        # (canon 96) and saves the Ming vase from shattering.
+        # Drop the pillow at the well house first, then drop
+        # the vase on top — the vase lands InRoom rather than
+        # broken. Adventure brokers the soft-landing path.
+        PILLOW_ID: int = 135
+        PILLOW_HOME_ROOM: int = 96    # Soft Room — canon 96
+        # AXE: comes into the world only when a dwarf throws.
+        # Initial axe_location = -1 (not in world). Once a dwarf
+        # rolls a throw — hit or miss — the axe is dropped at
+        # the player's room. Player can take it and THROW it
+        # back at dwarves; the throw verb requires axe_carried.
+        AXE_ID: int = 136
+        # CLAM (and OYSTER): canon clam lives in the Shell Room
+        # (canon 103). BREAK CLAM with the rod converts it into
+        # an OYSTER (immobile), and the pearl falls out at the
+        # same room. The oyster is, canonically, far too heavy
+        # to carry away.
+        CLAM_ID: int = 137
+        CLAM_HOME_ROOM: int = 103     # Shell Room — canon 103
+        OYSTER_ID: int = 138
+        # BATTERIES: dispensed by the vending machine in exchange
+        # for the rare coins. Canon: insert coins → batteries
+        # appear (takeable item). USE / INSERT BATTERIES then
+        # refreshes the lamp's charge. Insert-coins no longer
+        # short-circuits straight to lamp refresh.
+        BATTERIES_ID: int = 139
+        # MAGAZINE ("Spelunker Today"): canonical bookkeeping
+        # treasure-of-sorts. Lives in the Anteroom (canon 106)
+        # and earns a single bonus point when dropped at Witt's
+        # End (canon 108). Reading it just yields a flavor joke.
+        MAGAZINE_ID: int = 140
+        MAGAZINE_HOME_ROOM: int = 106     # Anteroom — canon 106
+        WITTS_END_ROOM: int = 108         # Witt's End — canon 108
 
         # The rod's runtime state. Carried as a domain bool +
         # location int rather than a full FSM, because the rod
@@ -4058,6 +4493,24 @@
         keys_location: int = 3    # well house (matches KEYS_HOME_ROOM)
         bottle_carried: bool = false
         bottle_location: int = 3  # well house (matches BOTTLE_HOME_ROOM)
+        cage_carried: bool = false
+        cage_location: int = 10   # cobble crawl (matches CAGE_HOME_ROOM)
+        food_carried: bool = false
+        food_location: int = 3    # well house (matches FOOD_HOME_ROOM); -1 once eaten
+        pillow_carried: bool = false
+        pillow_location: int = 96 # Soft Room (matches PILLOW_HOME_ROOM)
+        axe_carried: bool = false
+        axe_location: int = -1    # not in world until a dwarf throws
+        clam_carried: bool = false
+        clam_location: int = 103  # Shell Room (matches CLAM_HOME_ROOM); -1 once broken
+        oyster_location: int = -1 # not in world until clam is broken; immobile thereafter
+        batteries_carried: bool = false
+        batteries_location: int = -1  # not in world until vending dispenses them
+        magazine_carried: bool = false
+        magazine_location: int = 106  # Anteroom (matches MAGAZINE_HOME_ROOM)
+        witts_end_bonus: int = 0      # +1 once magazine dropped at canon 108
+        mark_rod_carried: bool = false
+        mark_rod_location: int = -1   # not in world until a dwarf is killed
 
         # Tick counter (advances every tick(), not every
         # do_command). Some commands are free; others tick.

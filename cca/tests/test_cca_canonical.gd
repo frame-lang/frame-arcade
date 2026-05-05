@@ -111,6 +111,14 @@ func _run_stage(stage: Dictionary) -> void:
             # Bare tick — drives endgame timer, lamp drain,
             # hint observation. No command dispatch.
             adv.tick()
+        elif verb == "spawn_chest":
+            # Test rig: force the canonical chest to materialise
+            # at CHEST_ROOM. Canon CCA spawns it when the pirate
+            # makes its first steal; that roll is RNG and isn't
+            # guaranteed to fire by the time this stage runs.
+            # Mirrors what the pirate would do — keeps the rest
+            # of the playthrough on its canon timeline.
+            adv.chest.reappear(adv.CHEST_ROOM)
         elif verb == "detonate":
             # detonate_marker is a top-level Adventure event,
             # not a verb the parser routes through. Mirrors
@@ -207,16 +215,20 @@ func _stages() -> Array:
             "asserts":    _assert_room(9),
             "checkpoint": "below_grate",
         },
+        # Cobble Crawl (canon 10) carries the wicker cage. Canon
+        # bird-take fails without it, so the take here is on the
+        # critical path — feeds every later bird-using stage.
         {
-            "name":       "cobbles",
+            "name":       "cobbles_with_cage",
             "from":       "below_grate",
-            "actions":    [["go", "west"]],
-            "asserts":    _assert_room(10),
+            "actions":    [["go", "west"], ["take", "cage"]],
+            "asserts":    _assert_cage_carried_at_cobbles,
+            "checkpoint": "carrying_cage",
         },
         {
             "name":       "debris_room",
-            "from":       "below_grate",
-            "actions":    [["go", "west"], ["go", "west"]],
+            "from":       "carrying_cage",
+            "actions":    [["go", "west"]],          # 10 → 11
             "asserts":    _assert_room(11),
             "checkpoint": "debris_room",
         },
@@ -280,12 +292,19 @@ func _stages() -> Array:
             "asserts":    _assert_bird_and_rod_carried,
             "checkpoint": "carrying_bird_rod",
         },
-        # ----- Snake passage -----
-        # Y2 (33) east → snake passage (47).
+        # ----- Snake at canon 19 (Hall of Mountain King) -----
+        # Path from bird chamber (13) → up 33 → north 14 → down
+        # 15 → west 19. Snake blocks the canyon exits north (to
+        # canon 30 / coins) and south (to canon 29 / jewelry).
         {
             "name":       "at_snake_passage",
             "from":       "carrying_bird_rod",
-            "actions":    [["go", "up"], ["go", "east"]],
+            "actions":    [
+                ["go", "up"],              # 13 → 33
+                ["go", "north"],           # 33 → 14
+                ["go", "down"],            # 14 → 15
+                ["go", "west"],            # 15 → 19 (Hall of Mt King)
+            ],
             "asserts":    _assert_at_snake_passage,
             "checkpoint": "snake_blocking",
         },
@@ -296,11 +315,32 @@ func _stages() -> Array:
             "asserts":    _assert_snake_cleared,
             "checkpoint": "snake_cleared",
         },
-        # ----- Dragon -----
+        # ----- Dragon at canon 119 (Secret canyon) -----
+        # Canonical CCA places the dragon in a secret canyon
+        # reached from Bedquilt via the long sloping-corridor /
+        # Soft Room / steep canyon / brink-of-cliff chain. From
+        # snake_cleared at 19: east 15 → up 14 → south 33 → west
+        # 65 (Bedquilt) → north 72 → north 73 → down 74 → north
+        # 75 → north 76 → north 77 → east 78 → north 87 → down
+        # 119 (DRAGON).
         {
             "name":       "at_dragon",
             "from":       "snake_cleared",
-            "actions":    [["go", "east"]],
+            "actions":    [
+                ["go", "east"],            # 19 → 15
+                ["go", "up"],              # 15 → 14
+                ["go", "south"],           # 14 → 33
+                ["go", "west"],            # 33 → 65
+                ["go", "north"],           # 65 → 72
+                ["go", "north"],           # 72 → 73
+                ["go", "down"],            # 73 → 74
+                ["go", "north"],           # 74 → 75
+                ["go", "north"],           # 75 → 76
+                ["go", "north"],           # 76 → 77
+                ["go", "east"],            # 77 → 78
+                ["go", "north"],           # 78 → 87 (brink of cliff)
+                ["go", "down"],            # 87 → 119 (DRAGON)
+            ],
             "asserts":    _assert_at_dragon,
             "checkpoint": "facing_dragon",
         },
@@ -311,24 +351,53 @@ func _stages() -> Array:
             "asserts":    _assert_dragon_dead,
             "checkpoint": "dragon_dead",
         },
-        # ----- Treasure haul: diamonds + rug -----
-        # Dragon dead → diamonds and rug both visible at 71.
-        # Walk back via 47 (snake gone) → 33 → plugh (magic
-        # word that pairs 1 ↔ 33) → in to well house → drop.
+        # ----- Treasure haul: rug at 119, diamonds at canon 27 -----
+        # Canon: rug is under dragon at canon 119; diamonds live
+        # at room 27 (west bank fissure in Hall of Mists),
+        # entirely separate from dragon. After the kill, rug is
+        # taken at 119; then walk back the long way to 27 via
+        # 87 → 78 → 77 → ... → 33 → north 14 → north 17 → west
+        # 27 to take the diamonds.
         {
-            "name":       "diamonds_rug_taken",
+            "name":       "rug_taken",
             "from":       "dragon_dead",
-            "actions":    [["take", "diamonds"], ["take", "rug"]],
-            "asserts":    _assert_diamonds_rug_taken,
+            "actions":    [["take", "rug"]],
+            "asserts":    _assert_rug_carried_at_119,
+            "checkpoint": "carrying_rug",
+        },
+        {
+            "name":       "diamonds_taken_at_west_bank",
+            "from":       "carrying_rug",
+            "actions":    [
+                # Walk back 119 → 87 → 78 → 77 → 76 → 75 → 74 →
+                # 73 → 72 → 65 → 33, then to fissure 27.
+                ["go", "up"],              # 119 → 87
+                ["go", "south"],           # 87 → 78
+                ["go", "west"],            # 78 → 77
+                ["go", "south"],           # 77 → 76
+                ["go", "south"],           # 76 → 75
+                ["go", "south"],           # 75 → 74
+                ["go", "up"],              # 74 → 73
+                ["go", "south"],           # 73 → 72
+                ["go", "south"],           # 72 → 65
+                ["go", "west"],            # 65 → 33 (asymmetric "west")
+                ["go", "north"],           # 33 → 14
+                ["go", "north"],           # 14 → 17 (east bank fissure)
+                ["go", "west"],            # 17 → 27 (west bank — diamonds)
+                ["take", "diamonds"],
+            ],
+            "asserts":    _assert_diamonds_rug_carried,
             "checkpoint": "carrying_first_haul",
         },
         {
             "name":       "deposit_first_haul",
             "from":       "carrying_first_haul",
             "actions":    [
-                ["go", "west"],            # 71 → 47
-                ["go", "west"],            # 47 → 33
-                ["plugh", ""],              # 1 → 3 well house
+                # Walk back from 27 → 17 → 14 → 33 → plugh → 3.
+                ["go", "east"],            # 27 → 17
+                ["go", "south"],           # 17 → 14
+                ["go", "south"],           # 14 → 33
+                ["plugh", ""],             # 33 → 3 well house
                 ["drop", "diamonds"],
                 ["drop", "rug"],
                 ["drop", "gold"],
@@ -363,30 +432,41 @@ func _stages() -> Array:
             "checkpoint": "after_silver",
         },
         # ----- Pearl + Emerald from Plover Room -----
-        # PLOVER pairs 33 ↔ 100. The Plover Room is otherwise
-        # unreachable (its map exits don't lead back through
-        # 33). Canon: BOTH pearl and emerald live in the Plover
-        # Room (advent.dat section 7 places emerald at 100 and
-        # pearl is dynamic — picked up from the oyster — but
-        # the port still treats pearl as a static placement at
-        # the Plover Room until the clam/oyster mechanic lands).
+        # Canon: emerald lives in the Plover Room (canon 100),
+        # but pearl is dynamic — extracted by BREAKing the clam
+        # (canon 103) with the rod. The pearl falls out at the
+        # break room. We do clam → oyster → pearl first, then
+        # the PLOVER trip for the emerald.
         {
             "name":       "take_pearl_emerald",
             "from":       "after_silver",
             "actions":    [
+                # Pearl via clam-break.
                 ["plugh", ""],             # 3 → 33
-                ["plover", ""],            # 33 → 100
+                ["go", "north"],           # 33 → 14
+                ["go", "down"],            # 14 → 15
+                ["go", "east"],            # 15 → 16 (east end of mists)
+                ["go", "east"],            # 16 → 103 (Shell Room)
+                ["take", "clam"],
+                ["go", "west"],            # 103 → 16
+                ["break", "clam"],         # spawns oyster + pearl at 16
                 ["take", "pearl"],
+                # Walk back to 33 for the PLOVER trip.
+                ["go", "west"],            # 16 → 15
+                ["go", "up"],              # 15 → 14
+                ["go", "south"],           # 14 → 33
+                # Emerald via PLOVER round trip.
+                ["plover", ""],            # 33 → 100
                 ["take", "emerald"],
+                ["plover", ""],            # 100 → 33
             ],
-            "asserts":    _assert_pearl_emerald_at_plover,
+            "asserts":    _assert_pearl_emerald_carried,
             "checkpoint": "carrying_pearl_emerald",
         },
         {
             "name":       "deposit_pearl_emerald",
             "from":       "carrying_pearl_emerald",
             "actions":    [
-                ["plover", ""],            # 100 → 33
                 ["plugh", ""],             # 33 → 3
                 ["drop", "pearl"],
                 ["drop", "emerald"],
@@ -395,18 +475,24 @@ func _stages() -> Array:
             "checkpoint": "after_pearl",
         },
         # ----- Bear → troll bridge → jewelry -----
-        # Y2 (33) west → Bedquilt (65). Bear lives there with
-        # chain attached. Feed to tame, take chain to lure,
-        # walk to troll bridge, drop chain. Bear stays at 117
-        # and scares the troll.
+        # Bear canonically lives at canon 130 (Barren Room).
+        # Path: 33 (after plugh) → west 65 → down 130. Feed bear
+        # to tame, take chain to lure. Walk back up to 65 then
+        # east to troll bridge (117), drop chain — bear stays at
+        # 117 and scares the troll.
         {
             "name":       "at_bear_chamber",
             "from":       "after_pearl",
             "actions":    [
-                ["plugh", ""],             # 1 → 33
-                ["go", "west"],            # 33 → 65
+                # Canon FOOD lives at the well house. Pick it up
+                # here on the way to the bear — the inventory cap
+                # earlier in the run can't fit it.
+                ["take", "food"],
+                ["plugh", ""],             # 3 → 33
+                ["go", "west"],            # 33 → 65 Bedquilt
+                ["go", "down"],            # 65 → 130 Barren Room
             ],
-            "asserts":    _assert_room_and_bear(65, "hungry"),
+            "asserts":    _assert_room_and_bear(130, "hungry"),
             "checkpoint": "at_bear_chamber",
         },
         {
@@ -420,6 +506,7 @@ func _stages() -> Array:
             "name":       "troll_vanished",
             "from":       "bear_following",
             "actions":    [
+                ["go", "up"],              # 130 → 65 back to Bedquilt
                 ["go", "east"],            # 65 → 117 troll bridge
                 ["drop", "chain"],
             ],
@@ -510,40 +597,102 @@ func _stages() -> Array:
             "asserts":    _assert_treasures_deposited(10),
             "checkpoint": "after_batch_a",
         },
-        # ----- Batch B: spices, chest, pyramid -----
-        # Path 3 → 1 → 33 → 65 → 117 → 118 → 120 → 97 → 92 →
-        # 95 → 131 → 40 (Alcove). 1 west + 8 east = 9 nav.
+        # ----- Batch B: chest (deep cave) + spices (canon 127) + pyramid (canon 101) -----
+        # Three separate excursions now that spices and pyramid
+        # have moved to their canonical homes:
+        #   - chest: deep-cave east-chain → 132 (still port)
+        #   - spices: anteroom-to-volcano-to-boulders chain → 127
+        #   - pyramid: PLOVER round-trip → 100 → north → 101
+        # Chest excursion path: 3 → plugh → 33 → west 65 → east
+        # 117/118/120/97/92/95/131/40 → east 132. Take chest. End at 132.
         {
             "name":       "deep_cave_batch_b_takes",
             "from":       "after_batch_a",
             "actions":    [
+                # Canon: chest is dynamic — spawned by the
+                # pirate. The pirate's first roll isn't seeded
+                # to fire by this point in the test, so use the
+                # spawn_chest test rig to materialise it now.
+                ["spawn_chest", ""],
                 ["plugh", ""],
                 ["go", "west"],
                 ["go", "east"], ["go", "east"], ["go", "east"],
                 ["go", "east"], ["go", "east"], ["go", "east"],
-                ["go", "east"], ["go", "east"],   # 8 easts → at 40
-                ["take", "spices"],
-                ["go", "east"],            # 40 → 132
+                ["go", "east"], ["go", "east"], ["go", "east"],
+                                                # 9 easts → at 132
                 ["take", "chest"],
-                ["go", "east"],            # 132 → 133
-                ["take", "pyramid"],
             ],
-            "asserts":    _assert_batch_b_carried,
+            "asserts":    _assert_batch_b_partial_carried,
             "checkpoint": "carrying_batch_b",
         },
-        # End of batch_b takes: at 133. Reverse: 11 wests +
-        # plugh + in.
+        # End of batch_b takes: at 132 with chest only. Reverse:
+        # 9 wests + plugh, drop chest, then two more excursions
+        # for spices (canon 127) and pyramid (canon 101).
+        # Spices excursion path: 3 → plugh → 33 → west 65 → north
+        # 72 → north 73 → down 74 → north 75 → north 76 → north 77
+        # → east 78 → north 87 → down 119 → down 121 → north 123
+        # → north 126 → north 127. Take spices, then reverse the
+        # 14 commands back to 33, plugh → 3.
         {
             "name":       "deposit_batch_b",
             "from":       "carrying_batch_b",
             "actions":    [
+                # Walk back from 132 → 33 (10 wests: 132 → 40 → 131
+                # → 95 → 92 → 97 → 120 → 118 → 117 → 65 → 33), then
+                # plugh 33 → 3.
                 ["go", "west"], ["go", "west"], ["go", "west"],
                 ["go", "west"], ["go", "west"], ["go", "west"],
                 ["go", "west"], ["go", "west"], ["go", "west"],
-                ["go", "west"], ["go", "west"],
+                ["go", "west"],
                 ["plugh", ""],
-                ["drop", "spices"],
                 ["drop", "chest"],
+                # Spices excursion: 3 → 33 → 65 → 72 → 73 → 74 →
+                # 75 → 76 → 77 → 78 → 87 → 119 → 121 → 123 → 126
+                # → 127.
+                ["plugh", ""],             # 3 → 33
+                ["go", "west"],            # 33 → 65
+                ["go", "north"],           # 65 → 72
+                ["go", "north"],           # 72 → 73
+                ["go", "down"],            # 73 → 74
+                ["go", "north"],           # 74 → 75
+                ["go", "north"],           # 75 → 76
+                ["go", "north"],           # 76 → 77
+                ["go", "east"],            # 77 → 78
+                ["go", "north"],           # 78 → 87
+                ["go", "down"],            # 87 → 119
+                ["go", "down"],            # 119 → 121
+                ["go", "north"],           # 121 → 123
+                ["go", "north"],           # 123 → 126
+                ["go", "north"],           # 126 → 127 (Chamber of Boulders)
+                ["take", "spices"],
+                # Reverse to 3.
+                ["go", "south"],           # 127 → 126
+                ["go", "south"],           # 126 → 123
+                ["go", "south"],           # 123 → 121
+                ["go", "up"],              # 121 → 119
+                ["go", "up"],              # 119 → 87
+                ["go", "south"],           # 87 → 78
+                ["go", "west"],            # 78 → 77
+                ["go", "south"],           # 77 → 76
+                ["go", "south"],           # 76 → 75
+                ["go", "south"],           # 75 → 74
+                ["go", "up"],              # 74 → 73
+                ["go", "south"],           # 73 → 72
+                ["go", "south"],           # 72 → 65
+                ["go", "west"],            # 65 → 33 (asymmetric "west": both
+                                           # 33 west → 65 and 65 west → 33)
+                ["plugh", ""],             # 33 → 3
+                ["drop", "spices"],
+                # Pyramid via PLOVER: 3 → plugh → 33 → plover →
+                # 100 → north → 101 (Dark-room). Take pyramid,
+                # back south → 100 → plover → 33 → plugh → 3.
+                ["plugh", ""],             # 3 → 33
+                ["plover", ""],            # 33 → 100
+                ["go", "north"],           # 100 → 101 (Dark-room)
+                ["take", "pyramid"],
+                ["go", "south"],           # 101 → 100
+                ["plover", ""],            # 100 → 33
+                ["plugh", ""],             # 33 → 3
                 ["drop", "pyramid"],
             ],
             "asserts":    _assert_treasures_deposited(13),
@@ -575,31 +724,27 @@ func _stages() -> Array:
                 ["go", "east"],            # 19 → 15
                 ["go", "up"],              # 15 → 14
                 ["go", "south"],           # 14 → 33
-                # --- Statuette via deep cave ---
+                # --- Chain pick-up at troll bridge (canon 15th
+                # treasure). Bear has long since lumbered off, so
+                # the chain is just a free treasure on the bridge.
                 ["go", "west"],            # 33 → 65
-                ["go", "east"], ["go", "east"], ["go", "east"],
-                ["go", "east"], ["go", "east"], ["go", "east"],
-                ["go", "east"], ["go", "east"], ["go", "east"],
-                ["go", "east"], ["go", "east"], ["go", "east"],   # 12 east → at 135
-                ["take", "statuette"],
+                ["go", "east"],            # 65 → 117 troll bridge
+                ["take", "chain"],
             ],
             "asserts":    _assert_batch_c_carried,
             "checkpoint": "carrying_batch_c",
         },
-        # End of batch_c takes: at 135. Reverse: 13 wests +
-        # plugh + in.
+        # End of batch_c takes: at 117. Reverse: west 117→65,
+        # west 65→33, plugh → 3 — drop coins + chain.
         {
             "name":       "deposit_batch_c",
             "from":       "carrying_batch_c",
             "actions":    [
-                ["go", "west"], ["go", "west"], ["go", "west"],
-                ["go", "west"], ["go", "west"], ["go", "west"],
-                ["go", "west"], ["go", "west"], ["go", "west"],
-                ["go", "west"], ["go", "west"], ["go", "west"],
-                ["go", "west"],
-                ["plugh", ""],
+                ["go", "west"],            # 117 → 65
+                ["go", "west"],            # 65 → 33 (asymmetric)
+                ["plugh", ""],             # 33 → 3
                 ["drop", "coins"],
-                ["drop", "statuette"],
+                ["drop", "chain"],
             ],
             "asserts":    _assert_all_15_deposited,
             "checkpoint": "all_deposited",
@@ -749,7 +894,7 @@ func _stages() -> Array:
                 ["go", "north"],            # 33 → 14
                 ["go", "down"],             # 14 → 15
                 ["go", "north"],            # 15 → 21
-                ["go", "west"],             # 21 → 23 West Pit
+                ["go", "west"],             # 21 → 25 (canon West Pit, plant home)
                 ["water", "plant"],
             ],
             "asserts":    _assert_plant_tall,
@@ -808,6 +953,10 @@ func _assert_grate_unlocked(adv, t) -> void:
 func _assert_room(want: int) -> Callable:
     return func(adv, t): t._expect("player_room", adv.player_room(), want)
 
+func _assert_cage_carried_at_cobbles(adv, t) -> void:
+    t._expect("cage carried", adv.player.carrying(adv.CAGE_ID), true)
+    t._expect("at cobbles",   adv.player_room(),            10)
+
 func _assert_rod_carried(adv, t) -> void:
     t._expect("rod carried",  adv.rod_in_inventory(),       true)
     t._expect("at debris",    adv.player_room(),            11)
@@ -823,26 +972,33 @@ func _assert_bird_and_rod_carried(adv, t) -> void:
     t._expect("at bird room", adv.player_room(),         13)
 
 func _assert_at_snake_passage(adv, t) -> void:
-    t._expect("at snake passage", adv.player_room(),    47)
+    t._expect("at snake room",    adv.player_room(),    19)
     t._expect("snake state",      adv.snake_state(),    "blocking")
     t._expect("bird carried",     adv.player.carrying(100), true)
 
 func _assert_snake_cleared(adv, t) -> void:
     t._expect("snake state",  adv.snake_state(),  "gone")
-    t._expect("at room 47",   adv.player_room(),  47)
+    t._expect("at room 19",   adv.player_room(),  19)
 
 func _assert_at_dragon(adv, t) -> void:
-    t._expect("player_room",   adv.player_room(),  71)
+    t._expect("player_room",   adv.player_room(),  119)
     t._expect("dragon alive",  adv.dragon_alive(), true)
 
 func _assert_dragon_dead(adv, t) -> void:
     t._expect("dragon state",  adv.dragon_state(), "dead")
     t._expect("dragon alive",  adv.dragon_alive(), false)
 
-func _assert_diamonds_rug_taken(adv, t) -> void:
+func _assert_rug_carried_at_119(adv, t) -> void:
+    t._expect("rug carried",       adv.player.carrying(122), true)
+    t._expect("at dragon canyon",  adv.player_room(),        119)
+    t._expect("diamonds not yet",  adv.player.carrying(112), false)
+
+func _assert_diamonds_rug_carried(adv, t) -> void:
+    # Diamonds canonically taken at room 27 (west bank fissure),
+    # rug taken earlier at 71.
     t._expect("diamonds carried", adv.player.carrying(112), true)
     t._expect("rug carried",      adv.player.carrying(122), true)
-    t._expect("at scorched",      adv.player_room(),        71)
+    t._expect("at west bank",     adv.player_room(),        27)
 
 func _assert_three_treasures_deposited(adv, t) -> void:
     t._expect("at well house",        adv.player_room(),         3)
@@ -864,8 +1020,10 @@ func _assert_pearl_at_plover(adv, t) -> void:
     t._expect("at Plover Room",  adv.player_room(),         100)
     t._expect("pearl carried",   adv.player.carrying(114), true)
 
-func _assert_pearl_emerald_at_plover(adv, t) -> void:
-    t._expect("at Plover Room",   adv.player_room(),         100)
+func _assert_pearl_emerald_carried(adv, t) -> void:
+    # After the clam-break + plover round trip the player is at
+    # Y2 (33) with both treasures in hand.
+    t._expect("at Y2",            adv.player_room(),         33)
     t._expect("pearl carried",    adv.player.carrying(114),  true)
     t._expect("emerald carried",  adv.player.carrying(118),  true)
 
@@ -877,7 +1035,7 @@ func _assert_room_and_bear(want_room: int, want_bear: String) -> Callable:
 func _assert_bear_following(adv, t) -> void:
     t._expect("bear state",     adv.bear_state(),         "following")
     t._expect("chain carried",  adv.player.carrying(101), true)
-    t._expect("at bear chamber", adv.player_room(),       65)
+    t._expect("at bear chamber", adv.player_room(),       130)
 
 func _assert_troll_vanished(adv, t) -> void:
     t._expect("troll state",   adv.troll_state(),         "vanished")
@@ -895,14 +1053,16 @@ func _assert_batch_a_carried(adv, t) -> void:
     # Emerald moved to canon Plover Room — taken in the
     # take_pearl_emerald stage upstream, not here.
 
-func _assert_batch_b_carried(adv, t) -> void:
-    t._expect("spices carried",  adv.player.carrying(119), true)
+func _assert_batch_b_partial_carried(adv, t) -> void:
+    # Spices moved to canon 127 (Chamber of Boulders) and pyramid
+    # to canon 101 (Dark-room) — both taken in separate excursions
+    # inside deposit_batch_b, so deep_cave_batch_b_takes carries
+    # only the chest.
     t._expect("chest carried",   adv.player.carrying(120), true)
-    t._expect("pyramid carried", adv.player.carrying(121), true)
 
 func _assert_batch_c_carried(adv, t) -> void:
     t._expect("coins carried",     adv.player.carrying(123), true)
-    t._expect("statuette carried", adv.player.carrying(124), true)
+    t._expect("chain carried",     adv.player.carrying(adv.CHAIN_ID), true)
 
 func _assert_all_15_deposited(adv, t) -> void:
     # Endgame state at this point is "in_repository" — real
@@ -957,7 +1117,7 @@ func _assert_plant_tall(adv, t) -> void:
     t._expect("plant tall",   adv.plant_is_tall(),       true)
     t._expect("plant huge",   adv.plant_is_huge(),       false)
     t._expect("bottle empty", adv.bottle_has_water(),    false)
-    t._expect("at west pit",  adv.player_room(),         23)
+    t._expect("at west pit",  adv.player_room(),         25)
 
 func _assert_dwarves_living(adv, t) -> void:
     t._expect("living dwarves", adv.living_dwarves(), 5)

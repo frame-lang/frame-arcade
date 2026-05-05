@@ -80,8 +80,8 @@ func _init():
     _expect("bottle has water",    adv.bottle_has_water(),       true)
 
     # --- POUR on plant at West Pit grows it ---
-    print("POUR at the West Pit (23) — plant grows:")
-    adv.player.move_to(23)
+    print("POUR at the West Pit (canon 25) — plant grows:")
+    adv.player.move_to(25)
     var r6 = adv.do_command("pour", "")
     _expect_contains("grow msg",      r6, "grows ten feet")
     _expect("plant tall",          adv.plant_is_tall(),          true)
@@ -104,7 +104,7 @@ func _init():
 
     # --- Second pour grows plant to Huge ---
     print("Second POUR — plant becomes huge:")
-    adv.player.move_to(23)
+    adv.player.move_to(25)
     var r7 = adv.do_command("pour", "")
     _expect_contains("grow huge",     r7, "fifty feet")
     _expect("plant huge",          adv.plant_is_huge(),          true)
@@ -113,7 +113,7 @@ func _init():
     print("Third POUR — plant already enormous:")
     adv.player.move_to(4)
     adv.do_command("fill", "bottle")
-    adv.player.move_to(23)
+    adv.player.move_to(25)
     var r8 = adv.do_command("pour", "")
     _expect_contains("already huge",  r8, "already enormous")
 
@@ -124,7 +124,7 @@ func _init():
     adv_w.player.move_to(3)
     adv_w.do_command("take", "bottle")
     adv_w.do_command("fill", "bottle")
-    adv_w.player.move_to(23)
+    adv_w.player.move_to(25)
     var r9 = adv_w.do_command("water", "plant")
     _expect_contains("water msg",     r9, "grows ten feet")
     _expect("water grew plant",    adv_w.plant_is_tall(),        true)

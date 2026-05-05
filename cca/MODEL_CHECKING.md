@@ -361,3 +361,147 @@ Phase 1 commits: `13f9584` (state explorer), `e4e657f`
 version). Phase 2 ablation absorbed into this section
 without a new commit — the experiment didn't earn one.
 21 tests green.
+
+---
+
+## Phase 3 — canon-conformance dashboard
+
+The state explorer and the monkey both answer "is the FSM
+graph well-formed?" Neither answers **"does this FSM graph
+match canon?"** That second question turned out to need a
+different shape of test, and it's the one that drove the
+final ~20 commits to 100% canon fidelity.
+
+### The shape
+
+`tests/test_cca_canon.gd` is a passing-by-default test
+script that produces a one-page report rather than an
+assertion failure. The report lists every canon row as
+`ok` or `FAIL`, plus a percentage, plus an open-delta
+count. The script always exits 0; it's informational.
+
+```text
+=== CCA canon conformance ===
+Treasure homes:
+  ok     gold      home
+  ok     silver    home
+  FAIL   diamonds  home    port=71 canon=27
+  ...
+NPC + key-room constants:
+  ok     BIRD_HOME_ROOM
+  FAIL   SNAKE_ROOM            port=47 canon=19
+  ...
+Magic-word teleport pairs:
+  ok     xyzzy  @   3 →  11
+  ...
+Architecture / mechanism deltas:
+  FAIL   cage required to take bird    port: bird directly takeable
+  ...
+
+Canon conformance: 45.9%  (17 / 37 checks passing)
+Open deltas: 20
+```
+
+Three structural groups:
+
+1. **Treasure-home table** — a `dict[name → canon_room]`.
+   The probe pulls each treasure FSM by name, reads
+   `get_location()`, compares. `canon_room == 0` means
+   "canon places dynamically" and the probe expects
+   `port_loc <= 0`.
+2. **NPC / key-room constants** — a `dict[constant_name →
+   canon_value]`. The probe reads `adv.get(name)` and
+   compares.
+3. **Architecture / mechanism probes** — a list of
+   `[label, probe_func_name, open_message]`. Each probe
+   is a small live-Adventure scenario. Two-arm probes
+   are common: refused-without-X *and* succeeds-with-X,
+   so the test can't pass by accidentally rejecting
+   everything.
+
+### The development loop the dashboard enabled
+
+The Phase 5 + 6 work followed a single rhythm, ~20
+times in a row:
+
+1. Read the dashboard. Note one open delta.
+2. Make the smallest change that should close it.
+3. Run all tests. Run the dashboard.
+4. Either the percentage ticked up by one row (the
+   delta closed and no scenario test broke), or
+   something regressed. The diagnosis is local because
+   the change was small.
+5. Commit. Repeat.
+
+This is fundamentally **TDD with a multi-row red bar**.
+The dashboard isn't 0/1 pass/fail — it's a 38-row checklist
+displayed as a percentage. A change either advances the
+percentage or it doesn't, and the row that flipped names
+the work it represents.
+
+The state explorer and the monkey are guard rails — they
+catch regressions across the whole architecture, but they
+don't tell you what to build next. The dashboard tells you
+what to build next, in priority order, with a single number
+for the team's status display. Three different tools,
+three different jobs.
+
+### What a probe-driven dashboard catches that scripted tests don't
+
+`test_cca_full.gd` walks the canonical solve path and
+checks the win condition. It can pass while the bird is
+takeable without a cage, the bear is feedable without
+food, the pearl is statically placed at the Plover Room
+instead of falling out of an oyster, etc. — because
+none of those facts is asserted by the scripted path.
+The scripted path only asserts that the path *runs*.
+
+The dashboard asserts the *facts*. "Is the cage required
+to take the bird?" is a yes/no question about the
+architecture, independent of any specific play sequence.
+Once the question is in the dashboard, every commit is
+measured against it.
+
+That separation is the methodological win. Scripted tests
+verify "it works on this path." Probes verify "the
+architecture has property P." Both are cheap to write
+once the substrate exists, but they catch different
+classes of regression.
+
+### Why probes worked here when monkey didn't reach canon-fidelity
+
+The CCA canon-completion problem isn't *bug-shaped* — it
+isn't "rare states aren't reachable" or "the FSM crashes
+on unusual input." It's *spec-shaped*: 38 yes/no claims
+about how the world should look, written down. Random
+fuzzing can't tell you whether the chain is canonically
+the 15th treasure; that's not a randomly-discoverable
+fact. It's a fact you assert in code and check
+mechanically.
+
+Once the deltas were turned into probes, the monkey and
+state explorer kept doing their job (catch crashes and
+soft-locks), the scenario tests kept doing theirs (verify
+canonical paths play), and the dashboard kept doing
+*its* (move the canon-conformance percentage one row at
+a time). The three layers compose; replacing any one
+with the others would lose information.
+
+### Cost of the dashboard
+
+The full dashboard is ~370 lines including all 10
+architecture probes. Each probe averages 15-25 lines:
+build a fresh Adventure, drive a 5-10 step scenario,
+read the resulting world state. Total time-to-write was
+about as long as writing one ordinary scenario test —
+the probes are scenario tests, just oriented around
+asserting *features* instead of *paths*.
+
+Per-run cost is sub-second; one Adventure per probe with
+short scenarios. The dashboard pays back its own cost
+the first time a refactor flips a row and the diff
+points at exactly the regression.
+
+Phase 3 commit: `8403aab` (initial dashboard).
+The Phase 5 + 6 closure spans the next ~25 commits,
+each closing one row.

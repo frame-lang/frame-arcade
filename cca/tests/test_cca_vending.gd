@@ -75,6 +75,12 @@ func _init():
     _expect("vending empty",       adv.vending_loaded(),     false)
     _expect("not carrying coins",  adv.player.carrying(adv.COINS_ID), false)
     _expect("coins consumed (loc 0)", adv.coins.get_location(), 0)
+    # Canon: vending dispenses BATTERIES (an item). Player must
+    # take and insert them to refresh the lamp.
+    _expect("batteries at vending",  adv.batteries_location,    140)
+    adv.do_command("take", "batteries")
+    _expect("carrying batteries",  adv.player.carrying(adv.BATTERIES_ID), true)
+    adv.do_command("insert", "batteries")
     _expect("lamp refreshed",      adv.battery_left(),       330)
 
     # --- Re-insert deflects (machine is now empty) ---

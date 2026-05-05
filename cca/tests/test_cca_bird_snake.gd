@@ -52,6 +52,11 @@ func _init():
     _expect("take bird wrong room", r1, "There is no bird here.")
     _expect("bird still free",      adv.bird_state(), "free")
 
+    print("Take cage at cobbles (canon 10) — required to take bird:")
+    adv.player.move_to(10)
+    adv.do_command("take", "cage")
+    _expect("cage carried",   adv.player.carrying(adv.CAGE_ID), true)
+
     print("Move to bird home (13), look, take:")
     adv.player.move_to(13)
     var r2 = adv.do_command("look", "")
@@ -62,8 +67,8 @@ func _init():
     _expect("bird location",  adv.bird_location(),  -1)
     _expect("player carrying", adv.player.carrying(100), true)
 
-    print("Move to snake room (47), look:")
-    adv.player.move_to(47)
+    print("Move to snake room (canon 19, Hall of Mt King), look:")
+    adv.player.move_to(19)
     var r4 = adv.do_command("look", "")
     _expect("snake mentioned",      r4.contains("snake"), true)
 
@@ -82,13 +87,15 @@ func _init():
     # Path B: dragon eats bird (separate adventure)
     # ---------------------------------------------------------
     print()
-    print("Fresh adventure — release bird in dragon room (71):")
+    print("Fresh adventure — release bird in dragon room (canon 119):")
     var adv2 = Cca.new()
     adv2.setup_default_aspects()
     adv2.light_lamp()
+    adv2.player.move_to(10)
+    adv2.do_command("take", "cage")
     adv2.player.move_to(13)
     adv2.do_command("take", "bird")
-    adv2.player.move_to(71)
+    adv2.player.move_to(119)
     var r7 = adv2.do_command("release", "bird")
     _expect("release at dragon",   r7.contains("dragon"), true)
     _expect("bird state",          adv2.bird_state(),     "dead")
@@ -101,6 +108,8 @@ func _init():
     var adv3 = Cca.new()
     adv3.setup_default_aspects()
     adv3.light_lamp()
+    adv3.player.move_to(10)
+    adv3.do_command("take", "cage")
     adv3.player.move_to(13)
     adv3.do_command("take", "bird")
     adv3.player.move_to(33)
@@ -120,6 +129,8 @@ func _init():
     var adv_p = Cca.new()
     adv_p.setup_default_aspects()
     adv_p.light_lamp()
+    adv_p.player.move_to(10)
+    adv_p.do_command("take", "cage")
     adv_p.player.move_to(13)               # bird chamber
     adv_p.do_command("take", "bird")
     _expect("bird carried pre-plover",   adv_p.player.carrying(100), true)
@@ -144,7 +155,7 @@ func _init():
     adv4.restore_state(bytes)
     _expect("restored bird state",  adv4.bird_state(),     "released")
     _expect("restored snake state", adv4.snake_state(),    "gone")
-    _expect("restored room",        adv4.player_room(),    47)
+    _expect("restored room",        adv4.player_room(),    19)
     # Look in the restored snake room — should still NOT mention snake
     var r9 = adv4.do_command("look", "")
     _expect("restored look no snake", r9.contains("snake"), false)

@@ -85,10 +85,10 @@ const ROOMS: Dictionary = {
     33:  {"up": 12, "south": 28, "down": 13, "east": 47, "west": 65, "north": 14},
     28:  {"north": 33},                                                  # Low n/s passage at hole — canon 28 (silver home)
     13:  {"up": 33, "out": 33},
-    100: {"north": 42},                      # Plover Room (canon 100) — magic exits + north to dark room
+    100: {"north": 101},                     # Plover Room (canon 100) — north to canon Dark-room (101)
     47:  {"west": 33, "east": 71, "up": 44}, # snake-east gated; up to secret canyon side branch
     71:  {"west": 47, "north": 65},
-    65:  {"south": 71, "east": 117, "west": 33, "north": 72},            # Bedquilt (canon 65) — bear lives here in port (canon: bear at 130)
+    65:  {"south": 71, "east": 117, "west": 33, "north": 72, "down": 130}, # Bedquilt (canon 65) — down to canon 130 (Barren Room, bear)
     117: {"west": 65, "east": 118},          # troll-east gated below
     118: {"west": 117, "east": 120},
     # Deep cave loop — accessible after crossing troll bridge.
@@ -104,6 +104,7 @@ const ROOMS: Dictionary = {
     134: {"west": 133, "east": 135},
     135: {"west": 134},
     136: {},                                 # Repository — terminal endgame room
+    130: {"up": 65, "out": 65},              # Barren Room — canon 130 (BEAR_HOME_ROOM); up/out back to Bedquilt
     # Rod-puzzle branch: hangs off Y2 (33) to the north. The
     # fissure (17) is the gate; crossing east requires the
     # crystal bridge (waved up by the rod).
@@ -119,16 +120,16 @@ const ROOMS: Dictionary = {
     # the rock-jumble junction (30) and is largely a dead-end
     # for atmosphere.
     15:  {"up": 14, "east": 16, "west": 19, "south": 18, "north": 21},   # Hall of Mists
-    16:  {"west": 15, "north": 206, "up": 17},                           # East end of mists
+    16:  {"west": 15, "north": 206, "up": 17, "east": 103},              # East end of mists; east to canon 103 Shell Room
     19:  {"east": 15, "north": 30, "south": 29},                        # Hall of Mt King — north canon-30, south canon-29
     20:  {"north": 19},                                                  # South entry (port-orphan; canon 20 is broken-neck death msg)
     29:  {"north": 19},                                                  # South side chamber — canon 29 (jewelry home)
     30:  {"south": 19},                                                  # West side chamber Hall of Mt King — canon 30 (coins home)
-    21:  {"south": 15, "east": 22, "west": 23},                          # Two-pit room
+    21:  {"south": 15, "east": 22, "west": 25},                          # Two-pit room — canon-aligned: west to canon 25 (Bottom of west pit, plant)
     22:  {"out": 21, "up": 21},                                          # East pit (dead-end)
-    23:  {"out": 21, "up": 24, "climb": 24},                             # West pit
-    24:  {"down": 23, "up": 25, "climb": 25},                            # Plant — middle
-    25:  {"down": 24},                                                   # Plant — top
+    25:  {"out": 21, "up": 24, "climb": 24},                             # Bottom of west pit — canon 25 (plant home)
+    24:  {"down": 25, "up": 23, "climb": 23},                            # Mid-beanstalk
+    23:  {"down": 24},                                                   # Top of vast crack (port-synth name; reachable up the beanstalk)
     26:  {"south": 19, "north": 204},                                    # Narrow corridor
     204: {"south": 26, "north": 205, "west": 50},                       # Above immense passage (port-synth; canon 27 = west fissure)
     205: {"south": 204, "east": 206},                                   # Immense passage (port-synth; canon 29 is south side chamber)
@@ -139,15 +140,15 @@ const ROOMS: Dictionary = {
     35:  {"south": 34, "north": 36},                                     # Sloping corridor
     36:  {"south": 35, "west": 37},                                      # Above slab
     37:  {"east": 36},                                                   # Slab room (dead-end)
-    # --- Side passages (39, 42-49) ---
-    # 39 hangs off the Oriental Room (97) to the north. 42 is the
-    # "dark room after Plover" — reachable from Plover (100) via
+    # --- Side passages (39, 101 + 43-49) ---
+    # 39 hangs off the Oriental Room (97) to the north. 101 is the
+    # canon Dark-room — reachable from Plover (100) via
     # north (a one-way exit; you can't go back through Plover
     # without the magic word). 43-49 form a side branch off the
     # snake passage (47).
     39:  {"south": 97},                                                  # Misty cavern
-    42:  {"south": 100, "out": 100, "north": 43},                        # Dark room after Plover
-    43:  {"south": 42, "north": 44},                                     # Wide place
+    101: {"south": 100, "out": 100, "north": 43},                       # Dark-room — canon 101 (pyramid home)
+    43:  {"south": 101, "north": 44},                                    # Wide place
     44:  {"south": 43, "north": 45, "down": 47},                         # Secret canyon
     45:  {"south": 44, "east": 46},                                      # Tight place
     46:  {"west": 45, "east": 48},                                       # Tall E/W passage
@@ -241,19 +242,20 @@ const ROOMS: Dictionary = {
     # --- Phase F: iconic remainder ---
     # Decorated chamber (88), different soft passage (202), Vending
     # Machine Room (canon 140) — canon CCA's pre-endgame Easter egg with
-    # the "BATTERIES — 25 CENTS" sign. Plus more forest variants
-    # (101-103) and miscellaneous passages.
+    # the "BATTERIES — 25 CENTS" sign. Plus a couple of forest
+    # variants (102-103) and miscellaneous passages. (Port-101
+    # was a forest filler; it has been removed because canon 101
+    # is the Dark-room — see canon-101 entry above.)
     88:  {"east": 76, "south": 90},                                      # Decorated chamber
     202: {"south": 91, "east": 140},                                    # Different soft passage (port-synth; canon 92 is Giant Room)
     140: {"west": 202, "down": 116},                                    # Vending Machine Room (canon 140 — DEAD END w/ vending)
-    101: {"west": 96},                                                   # Forest far east
     102: {"north": 201},                                                 # Forest far south
-    103: {"east": 99},                                                   # Forest far west
+    103: {"west": 16},                                                   # Shell Room — canon 103 (clam home)
     109: {"east": 113},                                                  # Low passage (curving west)
     113: {"west": 109, "down": 121},                                     # Wide chamber
     122: {"north": 121},                                                 # Anteroom — basalt
     124: {"east": 121},                                                  # Anteroom — red stone
-    126: {"south": 123},                                                 # Anteroom — fireplace
+    126: {"south": 123, "north": 127},                                  # Breath-taking view (canon 126; north to canon 127 Chamber of Boulders)
     # --- Round 10: canon-completion fillers (104-107, 110-114, 127-129, 137-139) ---
     # Forest grid completion + inner-anteroom cluster + the
     # final pre-Repository corridor. These bring the room
@@ -266,7 +268,7 @@ const ROOMS: Dictionary = {
     111: {"south": 110, "east": 112, "down": 114},                       # Different secret canyon
     112: {"west": 111, "north": 113},                                    # Tall canyon
     114: {"up": 111},                                                    # Crystal grotto (dead-end)
-    127: {"south": 126, "east": 128},                                    # Inner anteroom
+    127: {"south": 126, "east": 128},                                    # Chamber of Boulders — canon 127 (spices home)
     128: {"west": 127, "down": 129},                                     # Different inner anteroom
     129: {"up": 128},                                                    # Polished slab chamber (dead-end)
     137: {"north": 116, "down": 138},                                    # Antechamber outside Repository
@@ -279,16 +281,23 @@ const ROOMS: Dictionary = {
 # Adventure exposes snake/troll blocking via accessor; the
 # driver checks them before letting the player through.
 const GATES: Dictionary = {
-    "47:east":   {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
+    # Snake at canon 19 (Hall of Mountain King) blocks the
+    # canyon exits north (to canon 30, coins) and south (to
+    # canon 29, jewelry). East back to 15 is unguarded — that's
+    # how the player retreats. Bird-release at 19 sends snake
+    # away.
+    "19:north":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
+    "19:south":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
     "117:east":  {"check": "troll",  "msg": "The troll bars your way until you pay tribute."},
     "17:east":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
-    # Beanstalk climb gates: 23→24 needs at least $Tall; 24→25
-    # needs $Huge. Without water the plant is just a tiny shoot
-    # murmuring "water, water" — no climbing.
-    "23:up":     {"check": "plant_tall", "msg": "There is nothing here to climb. The plant is a tiny shoot, struggling for water."},
-    "23:climb":  {"check": "plant_tall", "msg": "There is nothing here to climb. The plant is a tiny shoot, struggling for water."},
+    # Beanstalk climb gates: 25→24 (canon West Pit → mid-beanstalk)
+    # needs at least $Tall; 24→23 (mid → top of crack) needs $Huge.
+    # Without water the plant is just a tiny shoot murmuring
+    # "water, water" — no climbing.
+    "25:up":     {"check": "plant_tall", "msg": "There is nothing here to climb. The plant is a tiny shoot, struggling for water."},
+    "25:climb":  {"check": "plant_tall", "msg": "There is nothing here to climb. The plant is a tiny shoot, struggling for water."},
     "24:up":     {"check": "plant_huge", "msg": "The plant is too feeble to support your weight any higher."},
     "24:climb":  {"check": "plant_huge", "msg": "The plant is too feeble to support your weight any higher."},
 }

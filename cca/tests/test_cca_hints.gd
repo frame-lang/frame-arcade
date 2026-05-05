@@ -78,7 +78,7 @@ func _init():
     print("Save mid-streak, mutate, restore:")
     var adv2 = Cca.new()
     adv2.setup_default_aspects()
-    adv2.player.move_to(47)             # snake room
+    adv2.player.move_to(19)             # snake room (canon 19 — Hall of Mt King)
     # snake_hint observes (room == SNAKE_ROOM and snake.is_blocking())
     adv2.tick()
     adv2.tick()
