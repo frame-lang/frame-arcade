@@ -116,6 +116,18 @@ func _run_stage(stage: Dictionary) -> void:
             # not a verb the parser routes through. Mirrors
             # test_cca_full.gd's direct call.
             adv.detonate_marker()
+        elif verb == "die":
+            # FSM event called by various in-game causes
+            # (dwarf axe, bear maul, dark-room pit-fall).
+            # Used in resurrection-cycle stages to exercise
+            # the state machine directly without setting up
+            # a fresh trigger each time.
+            adv.player.die()
+        elif verb == "revive":
+            # FSM event the driver calls when the user types
+            # "yes" at the resurrection prompt. Resets player
+            # to START_ROOM with empty inventory.
+            adv.player.revive()
         else:
             adv.do_command(verb, arg)
             adv.tick()
@@ -562,6 +574,79 @@ func _stages() -> Array:
             "asserts":    _assert_won,
             "checkpoint": "won",
         },
+        # ============================================================
+        # Failure-mode forks
+        # ============================================================
+        # These stages don't continue the canonical path — they fork
+        # off existing checkpoints to exercise alternate branches the
+        # winning playthrough can't cover. Each one ends in an
+        # asserted state (broken / dead / declined) and doesn't feed
+        # into a downstream stage.
+        # ============================================================
+
+        # Dragon decline: at facing_dragon, attack but say no.
+        # Dragon returns to $Sleeping; player can re-attack later.
+        {
+            "name":       "dragon_declined",
+            "from":       "facing_dragon",
+            "actions":    [["attack", "dragon"], ["no", ""]],
+            "asserts":    _assert_dragon_sleeping,
+            "checkpoint": "dragon_declined",
+        },
+        {
+            "name":       "dragon_killed_after_decline",
+            "from":       "dragon_declined",
+            "actions":    [["attack", "dragon"], ["yes", ""]],
+            "asserts":    _assert_dragon_dead,
+        },
+        # Fragile vase shatter: at carrying_batch_a we have the
+        # vase. Drop it anywhere except the well house (deposit
+        # room) → $Broken. Tested in isolation by
+        # test_cca_fragile_vase.gd; here we verify it from the
+        # canonical mid-game state, not a synthetic setup.
+        {
+            "name":       "vase_shattered_mid_game",
+            "from":       "carrying_batch_a",
+            "actions":    [["drop", "vase"]],
+            "asserts":    _assert_vase_broken,
+            "checkpoint": "vase_shattered",
+        },
+        # Bear-mauling: at at_bear_chamber, take chain WITHOUT
+        # feeding the bear → bear goes $Attacking and player
+        # dies. The "feed first" rule encoded as state.
+        {
+            "name":       "bear_maul",
+            "from":       "at_bear_chamber",
+            "actions":    [["take", "chain"]],
+            "asserts":    _assert_player_dead_bear_attacking,
+            "checkpoint": "after_first_bear_death",
+        },
+        # Resurrection cycle: from after_first_bear_death we
+        # have death #1. Direct die/revive from there — the
+        # FSM is the system under test, not the trigger
+        # mechanism. Three more deaths → $Permadead.
+        {
+            "name":       "second_death",
+            "from":       "after_first_bear_death",
+            "actions":    [["revive", ""], ["die", ""]],
+            "asserts":    _assert_dead_count(2),
+        },
+        {
+            "name":       "third_death",
+            "from":       "after_first_bear_death",
+            "actions":    [["revive", ""], ["die", ""], ["revive", ""], ["die", ""]],
+            "asserts":    _assert_dead_count(3),
+        },
+        {
+            "name":       "permadead_after_fourth",
+            "from":       "after_first_bear_death",
+            "actions":    [
+                ["revive", ""], ["die", ""],
+                ["revive", ""], ["die", ""],
+                ["revive", ""], ["die", ""],
+            ],
+            "asserts":    _assert_permadead,
+        },
     ]
 
 # A "tick" pseudo-action: emit ["tick", ""] N times. The
@@ -707,6 +792,29 @@ func _assert_won(adv, t) -> void:
     t._expect("endgame won",      adv.endgame_won(),    true)
     t._expect("endgame state",    adv.endgame_state(),  "won")
     t._expect("endgame component", adv.endgame_score(), 50)
+
+func _assert_dragon_sleeping(adv, t) -> void:
+    t._expect("dragon state", adv.dragon_state(), "sleeping")
+    t._expect("dragon alive", adv.dragon_alive(), true)
+
+func _assert_vase_broken(adv, t) -> void:
+    t._expect("vase state",   adv.vase.get_state(), "broken")
+    t._expect("vase value 0", adv.vase.get_value(), 0)
+    t._expect("vase carried", adv.player.carrying(115), false)
+
+func _assert_player_dead_bear_attacking(adv, t) -> void:
+    t._expect("player state", adv.player_state(), "dead")
+    t._expect("bear state",   adv.bear_state(),   "attacking")
+    t._expect("deaths == 1",  adv.player.get_deaths(), 1)
+
+func _assert_dead_count(want: int) -> Callable:
+    return func(adv, t):
+        t._expect("player state", adv.player_state(),       "dead")
+        t._expect("deaths",       adv.player.get_deaths(),  want)
+
+func _assert_permadead(adv, t) -> void:
+    t._expect("player state", adv.player_state(),       "permadead")
+    t._expect("deaths == 4",  adv.player.get_deaths(),  4)
 
 # ------------------------------------------------------------
 func _init():
