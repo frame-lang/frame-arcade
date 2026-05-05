@@ -103,8 +103,8 @@ func _init():
     _expect_contains("took diamonds", r11, "Taken")
 
     print("North to bear chamber, feed bear, take chain:")
-    adv.do_command("move", "70")
-    _expect("at bear room",     adv.player_room(),  70)
+    adv.do_command("move", "65")
+    _expect("at bear room",     adv.player_room(),  65)
     var r12 = adv.do_command("feed", "bear")
     _expect_contains("fed bear",   r12, "eats")
     var r13 = adv.do_command("take", "chain")

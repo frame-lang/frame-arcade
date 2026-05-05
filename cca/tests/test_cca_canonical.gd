@@ -361,7 +361,7 @@ func _stages() -> Array:
             "checkpoint": "after_pearl",
         },
         # ----- Bear → troll bridge → jewelry -----
-        # Y2 (33) west → Bedquilt (70). Bear lives there with
+        # Y2 (33) west → Bedquilt (65). Bear lives there with
         # chain attached. Feed to tame, take chain to lure,
         # walk to troll bridge, drop chain. Bear stays at 117
         # and scares the troll.
@@ -370,9 +370,9 @@ func _stages() -> Array:
             "from":       "after_pearl",
             "actions":    [
                 ["plugh", ""],             # 1 → 33
-                ["go", "west"],            # 33 → 70
+                ["go", "west"],            # 33 → 65
             ],
-            "asserts":    _assert_room_and_bear(70, "hungry"),
+            "asserts":    _assert_room_and_bear(65, "hungry"),
             "checkpoint": "at_bear_chamber",
         },
         {
@@ -386,7 +386,7 @@ func _stages() -> Array:
             "name":       "troll_vanished",
             "from":       "bear_following",
             "actions":    [
-                ["go", "east"],            # 70 → 117 troll bridge
+                ["go", "east"],            # 65 → 117 troll bridge
                 ["drop", "chain"],
             ],
             "asserts":    _assert_troll_vanished,
@@ -413,15 +413,15 @@ func _stages() -> Array:
             "from":       "carrying_jewelry",
             "actions":    [
                 ["go", "west"],            # 118 → 117
-                ["go", "west"],            # 117 → 70
-                ["go", "west"],            # 70 → 33
+                ["go", "west"],            # 117 → 65
+                ["go", "west"],            # 65 → 33
                 ["plugh", ""],              # 1 → 3
                 ["drop", "jewelry"],
             ],
             "asserts":    _assert_treasures_deposited(6),
             "checkpoint": "after_jewelry",
         },
-        # Walk back to the deep cave: 3 → 1 (plugh) → 33 → 70
+        # Walk back to the deep cave: 3 → 1 (plugh) → 33 → 65
         # → 117 (bear+troll already cleared, bridge passable)
         # → 118 → 120 → 97 (Oriental, vase). Long traversal;
         # keep as one stage since each transition is just "go".
@@ -430,8 +430,8 @@ func _stages() -> Array:
             "from":       "after_jewelry",
             "actions":    [
                 ["plugh", ""],             # 1 → 33
-                ["go", "west"],            # 33 → 70
-                ["go", "east"],            # 70 → 117
+                ["go", "west"],            # 33 → 65
+                ["go", "east"],            # 65 → 117
                 ["go", "east"],            # 117 → 118
                 ["go", "east"],            # 118 → 120
                 ["go", "east"],            # 120 → 97
@@ -456,8 +456,8 @@ func _stages() -> Array:
                 ["go", "west"],            # 97 → 120
                 ["go", "west"],            # 120 → 118
                 ["go", "west"],            # 118 → 117
-                ["go", "west"],            # 117 → 70
-                ["go", "west"],            # 70 → 33
+                ["go", "west"],            # 117 → 65
+                ["go", "west"],            # 65 → 33
                 ["plugh", ""],              # 1 → 3
                 ["drop", "vase"],
                 ["drop", "eggs"],
@@ -468,7 +468,7 @@ func _stages() -> Array:
             "checkpoint": "after_batch_a",
         },
         # ----- Batch B: spices, chest, pyramid -----
-        # Path 3 → 1 → 33 → 70 → 117 → 118 → 120 → 97 → 92 →
+        # Path 3 → 1 → 33 → 65 → 117 → 118 → 120 → 97 → 92 →
         # 130 → 131 → 40 (Alcove). 1 west + 8 east = 9 nav.
         {
             "name":       "deep_cave_batch_b_takes",
@@ -507,7 +507,7 @@ func _stages() -> Array:
             "checkpoint": "after_batch_b",
         },
         # ----- Batch C: coins, statuette -----
-        # Path 3 → 1 → 33 → 70 → 117 → 118 → 120 → 97 → 92 →
+        # Path 3 → 1 → 33 → 65 → 117 → 118 → 120 → 97 → 92 →
         # 130 → 131 → 40 → 132 → 133 → 134 (Coin Niche).
         # 1 west + 11 east = 12 nav.
         {
@@ -809,7 +809,7 @@ func _assert_room_and_bear(want_room: int, want_bear: String) -> Callable:
 func _assert_bear_following(adv, t) -> void:
     t._expect("bear state",     adv.bear_state(),         "following")
     t._expect("chain carried",  adv.player.carrying(101), true)
-    t._expect("at bear chamber", adv.player_room(),       70)
+    t._expect("at bear chamber", adv.player_room(),       65)
 
 func _assert_troll_vanished(adv, t) -> void:
     t._expect("troll state",   adv.troll_state(),         "vanished")

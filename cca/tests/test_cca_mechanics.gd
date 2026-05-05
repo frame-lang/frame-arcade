@@ -97,7 +97,7 @@ func _init():
     print("Take chain from hungry bear → player dies:")
     var adv_e = Cca.new()
     adv_e.setup_default_aspects()
-    adv_e.player.move_to(70)
+    adv_e.player.move_to(65)
     var rd = adv_e.do_command("take", "chain")
     _expect_contains("bear lunges",   rd, "killed")
     _expect("bear attacking",         adv_e.bear_state(),     "attacking")
@@ -144,7 +144,7 @@ func _init():
     print("Save / restore mid-resurrect-prompt preserves death state:")
     var adv_h = Cca.new()
     adv_h.setup_default_aspects()
-    adv_h.player.move_to(70)
+    adv_h.player.move_to(65)
     adv_h.do_command("take", "chain")          # die
     var bytes = adv_h.save_state()
     adv_h.player.revive()                       # mutate after save

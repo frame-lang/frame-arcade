@@ -41,7 +41,7 @@
 #   100 Plover Room                       (lit; pearl; magic-word access only)
 #    47 Snake passage (secret E-W canyon) (dark; snake blocking east)
 #    69 Hall of Mirrors                   (dark; far side of fissure)
-#    70 Bedquilt / bear chamber           (dark; bear, chain)
+#    65 Bedquilt / bear chamber           (dark; bear, chain) — canon 65 (port keeps bear here pending Barren-Room move to canon 130)
 #    71 Scorched cavern                   (dark; dragon, diamonds, rug)
 #   117 Troll bridge                      (dark; troll blocking east)
 #   118 Cliff with ledge (beyond bridge)  (dark; jewelry)
@@ -80,13 +80,13 @@ const ROOMS: Dictionary = {
     10:  {"east": 9, "west": 11},                   # Cobbles (canon surface entry)
     11:  {"out": 1, "up": 1, "north": 12, "east": 12}, # Debris room
     12:  {"up": 1, "down": 33, "north": 33, "south": 11, "west": 11}, # Awkward canyon
-    33:  {"up": 12, "south": 12, "down": 13, "east": 47, "west": 70, "north": 14},
+    33:  {"up": 12, "south": 12, "down": 13, "east": 47, "west": 65, "north": 14},
     13:  {"up": 33, "out": 33},
     100: {"north": 42},                      # Plover Room (canon 100) — magic exits + north to dark room
     47:  {"west": 33, "east": 71, "up": 44}, # snake-east gated; up to secret canyon side branch
-    71:  {"west": 47, "north": 70},
-    70:  {"south": 71, "east": 117, "west": 33, "north": 72},
-    117: {"west": 70, "east": 118},          # troll-east gated below
+    71:  {"west": 47, "north": 65},
+    65:  {"south": 71, "east": 117, "west": 33, "north": 72},            # Bedquilt (canon 65) — bear lives here in port (canon: bear at 130)
+    117: {"west": 65, "east": 118},          # troll-east gated below
     118: {"west": 117, "east": 120},
     # Deep cave loop — accessible after crossing troll bridge.
     # Linear chain east-west with each room hosting a treasure.
@@ -167,16 +167,18 @@ const ROOMS: Dictionary = {
     55:  {"east": 51, "south": 57},
     56:  {"west": 52, "north": 54},
     57:  {"north": 55, "south": 53, "east": 50},
-    # --- Maze of twisty passages, all different (58-65) ---
+    # --- Maze of twisty passages, all different (58-64 + 203) ---
     # Entry from rock-jumble junction (30) via east.
+    # Synthesized terminal room moved 65 → 203 to free canon
+    # room 65 (Bedquilt).
     58:  {"west": 30, "east": 59, "south": 60},
     59:  {"west": 58, "east": 61, "north": 62},
     60:  {"north": 58, "east": 63},
     61:  {"west": 59, "east": 64},
-    62:  {"south": 59, "east": 65},
+    62:  {"south": 59, "east": 203},
     63:  {"west": 60, "east": 64},
-    64:  {"west": 63, "north": 65, "east": 66},
-    65:  {"south": 64, "west": 62},
+    64:  {"west": 63, "north": 203, "east": 66},
+    203: {"south": 64, "west": 62},                                      # port-synth maze terminal (canon 65 = Bedquilt)
     # --- Witt's End trio (66-68) ---
     66:  {"west": 64, "east": 67, "down": 68},
     67:  {"west": 66},                                                   # Witt's End — apparent dead-end
@@ -184,8 +186,8 @@ const ROOMS: Dictionary = {
     # --- Phase E: Bedquilt extensions, reservoir, treasury,
     # cliff-and-ladder descent, post-cave outdoors, forest grid ---
     # 72-86: deeper passages, soft room, reservoir, barren room.
-    # Most chain off Bedquilt (70) or each other.
-    72:  {"south": 70, "north": 73},                                     # Sloping corridor
+    # Most chain off Bedquilt (65) or each other.
+    72:  {"south": 65, "north": 73},                                     # Sloping corridor
     73:  {"south": 72, "down": 74},                                      # Sloping room above large round chamber
     74:  {"up": 73, "north": 75, "south": 80},                           # Large low room
     75:  {"south": 74, "north": 76},                                     # Sloping corridor

@@ -2492,7 +2492,7 @@
                 self.dwarf1.wake_up(12)   # awkward canyon
                 self.dwarf2.wake_up(33)   # Y2 marker
                 self.dwarf3.wake_up(47)   # snake passage
-                self.dwarf4.wake_up(70)   # bedquilt / bear chamber
+                self.dwarf4.wake_up(65)   # bedquilt / bear chamber (canon 65)
                 self.dwarf5.wake_up(118)  # cliff with ledge (beyond bridge)
             }
 
@@ -2912,7 +2912,7 @@
                 base = "You are at the end of a long passage. The floor is chiseled smooth."
             elif r == 71:
                 base = "You are in a cavern with massive stalactites overhead. A wide Persian rug covers the floor."
-            elif r == 70:
+            elif r == 65:
                 base = "You are in the Bedquilt, a great chamber. A passage descends to the east."
             elif r == 117:
                 base = "You are at the troll bridge, a rickety span over a yawning chasm."
@@ -3045,7 +3045,7 @@
                 base = "You are in a twisty little maze of passages, all different."
             elif r == 64:
                 base = "You are in a twisty maze of little passages, all different."
-            elif r == 65:
+            elif r == 203:
                 base = "You are in a little twisty maze of passages, all different."
             elif r == 66:
                 base = "You are at one of the exits from the labyrinth, where a long passage stretches east."
@@ -4022,7 +4022,7 @@
         BIRD_HOME_ROOM: int = 13      # bird chamber
         SNAKE_ROOM: int = 47          # secret east-west canyon
         DRAGON_ROOM: int = 71         # scorched cavern
-        BEAR_HOME_ROOM: int = 70      # bear chamber
+        BEAR_HOME_ROOM: int = 65      # bear chamber (canon 65 Bedquilt; canon-true bear is at 130 Barren Room)
         TROLL_ROOM: int = 117         # troll bridge
         CHEST_ROOM: int = 132         # pirate's chest cavern (interpolated)
         DEPOSIT_ROOM: int = 3         # well house — must match Treasure.DEPOSIT_ROOM

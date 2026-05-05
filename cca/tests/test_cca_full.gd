@@ -79,7 +79,7 @@ func _init():
     _deposit(adv, "rug", 71)
 
     print("Bear → Troll bridge unlock:")
-    adv.player.move_to(70)              # bedquilt / bear chamber
+    adv.player.move_to(65)              # bedquilt / bear chamber
     adv.do_command("feed", "bear")
     adv.do_command("take", "chain")
     adv.do_command("move", "117")       # troll bridge

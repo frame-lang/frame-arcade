@@ -35,7 +35,7 @@ func _init():
     _expect("bear state",       adv.bear_state(),    "hungry")
 
     print("Move to bear room (70), look:")
-    adv.player.move_to(70)
+    adv.player.move_to(65)
     var r1 = adv.do_command("look", "")
     _expect("look mentions bear",  r1.contains("bear"), true)
 
@@ -71,7 +71,7 @@ func _init():
     var adv2 = Cca.new()
     adv2.setup_default_aspects()
     adv2.light_lamp()
-    adv2.player.move_to(70)
+    adv2.player.move_to(65)
     var r6 = adv2.do_command("take", "chain")
     _expect("hostile response",    r6.contains("lunges"),    true)
     _expect("bear attacking",      adv2.bear_state(),         "attacking")
@@ -96,7 +96,7 @@ func _init():
     var adv4 = Cca.new()
     adv4.setup_default_aspects()
     adv4.light_lamp()
-    adv4.player.move_to(70)
+    adv4.player.move_to(65)
     adv4.do_command("feed", "bear")
     adv4.do_command("take", "chain")
     adv4.player.move_to(117)
