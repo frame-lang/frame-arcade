@@ -128,6 +128,12 @@ func _run_stage(stage: Dictionary) -> void:
             # "yes" at the resurrection prompt. Resets player
             # to START_ROOM with empty inventory.
             adv.player.revive()
+        elif verb == "wake_dwarves":
+            # Top-level Adventure event. Activates the five
+            # dwarf instances from $Hidden to $Stalking. Used
+            # in dwarf-specific stages that fork late and
+            # exercise the axe-throw / kill-with-axe paths.
+            adv.wake_dwarves()
         else:
             adv.do_command(verb, arg)
             adv.tick()
@@ -647,6 +653,72 @@ func _stages() -> Array:
             ],
             "asserts":    _assert_permadead,
         },
+
+        # ============================================================
+        # Cross-system regressions
+        # ============================================================
+        # Behaviours that span more than one FSM. Single-system
+        # tests don't catch these because the bug only surfaces
+        # when two FSMs coordinate via Adventure's brokering.
+        # ============================================================
+
+        # Eggs incantation: FEE FIE FOE FOO chant resets the eggs
+        # back to the Giant Room (28) regardless of where they
+        # were — including from $Deposited. test_cca_full doesn't
+        # exercise this; the Treasure $Deposited.reappear branch
+        # is canon-bug intentional ("you can re-deposit and
+        # double-score").
+        {
+            "name":       "eggs_summoned_back",
+            "from":       "after_batch_a",
+            "actions":    [
+                ["fee", ""], ["fie", ""], ["foe", ""], ["foo", ""],
+            ],
+            "asserts":    _assert_eggs_back_at_giant,
+        },
+
+        # Plant beanstalk: bottle + plant cross-FSM. From an
+        # already-grate-unlocked checkpoint, fill the bottle at
+        # the well house water source, walk down through the
+        # cave to the West Pit (room 23), pour. plant.water()
+        # transitions $Tiny → $Tall; bottle.pour() empties the
+        # bottle. Both side-effects must land for the canonical
+        # plant puzzle to work.
+        {
+            "name":       "plant_watered_to_tall",
+            "from":       "after_first_deposit",
+            "actions":    [
+                ["fill", "bottle"],         # at room 3 — water source
+                ["go", "out"],              # 3 → 1
+                ["go", "east"],             # 1 → 8
+                ["go", "down"],             # 8 → 9 (grate already unlocked)
+                ["go", "west"],             # 9 → 10
+                ["go", "west"],             # 10 → 11
+                ["go", "east"],             # 11 → 12
+                ["go", "north"],            # 12 → 33
+                ["go", "north"],            # 33 → 14
+                ["go", "down"],             # 14 → 15
+                ["go", "north"],            # 15 → 21
+                ["go", "west"],             # 21 → 23 West Pit
+                ["water", "plant"],
+            ],
+            "asserts":    _assert_plant_tall,
+        },
+
+        # ============================================================
+        # Dwarves
+        # ============================================================
+        # The canonical playthrough deliberately doesn't call
+        # wake_dwarves() so axe-throwing doesn't inject seed-
+        # dependent deaths into the win path. This stage forks
+        # late, wakes them, and exercises the activation logic.
+        # ============================================================
+        {
+            "name":       "dwarves_woken",
+            "from":       "after_first_deposit",
+            "actions":    [["wake_dwarves", ""]],
+            "asserts":    _assert_dwarves_living,
+        },
     ]
 
 # A "tick" pseudo-action: emit ["tick", ""] N times. The
@@ -815,6 +887,20 @@ func _assert_dead_count(want: int) -> Callable:
 func _assert_permadead(adv, t) -> void:
     t._expect("player state", adv.player_state(),       "permadead")
     t._expect("deaths == 4",  adv.player.get_deaths(),  4)
+
+func _assert_eggs_back_at_giant(adv, t) -> void:
+    t._expect("eggs state",    adv.eggs.get_state(),     "in_room")
+    t._expect("eggs at giant", adv.eggs.get_location(),  28)
+    t._expect("eggs not deposited", adv.eggs.is_deposited(), false)
+
+func _assert_plant_tall(adv, t) -> void:
+    t._expect("plant tall",   adv.plant_is_tall(),       true)
+    t._expect("plant huge",   adv.plant_is_huge(),       false)
+    t._expect("bottle empty", adv.bottle_has_water(),    false)
+    t._expect("at west pit",  adv.player_room(),         23)
+
+func _assert_dwarves_living(adv, t) -> void:
+    t._expect("living dwarves", adv.living_dwarves(), 5)
 
 # ------------------------------------------------------------
 func _init():
