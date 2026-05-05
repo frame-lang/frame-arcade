@@ -52,7 +52,7 @@ func _init():
     adv.do_command("take", "gold")
     _deposit(adv, "gold", 11)
 
-    adv.player.move_to(33)              # Y2
+    adv.player.move_to(28)              # silver canon room
     adv.do_command("take", "silver")
     _deposit(adv, "silver", 33)
 

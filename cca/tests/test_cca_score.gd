@@ -49,7 +49,7 @@ func _init():
     _expect("inventory at limit", adv.player.inventory_size(), 7)
 
     var pre_cmds_2: int = adv.commands_seen()
-    adv.player.move_to(33)                # silver here
+    adv.player.move_to(28)                # silver canon room (28)
     adv.do_command("take", "silver")    # consumed by BackpackLimit, ledger not observed
     _expect("backpack blocked",     adv.backpack_blocked_count(),    1)
     _expect("commands unchanged",   adv.commands_seen(),             pre_cmds_2)

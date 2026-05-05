@@ -2924,6 +2924,8 @@
                 base = "You are in a long, narrow passage of polished stone, twisting east-west. This is one of many transit corridors in the deep cave."
             elif r == 97:
                 base = "You are in the Oriental Room. Strange Asian artifacts surround you."
+            elif r == 28:
+                base = "You are in a low n/s passage at a hole in the floor. The hole goes down to an east/west passage."
             elif r == 92:
                 base = "You are in the Giant Room. The walls are streaked with silver, and a faint hum echoes from above."
             elif r == 95:
@@ -3975,7 +3977,7 @@
         # the dominant component of the canonical 350-point
         # target. Earlier port values (5/10/15) under-scored.
         gold      = @@Treasure(18, 14)   # Low room w/ steps note — canon 18
-        silver    = @@Treasure(33, 14)   # Y2 marker
+        silver    = @@Treasure(28, 14)   # low n/s passage at hole — canon 28
         diamonds  = @@Treasure(71, 14)   # scorched cavern (with dragon, rug)
         jewelry   = @@Treasure(118,14)   # cliff with ledge (beyond troll bridge)
         pearl     = @@Treasure(100,14)   # Plover Room canon 100 (only via PLOVER magic)

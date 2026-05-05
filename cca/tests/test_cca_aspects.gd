@@ -50,7 +50,7 @@ func _init():
     _expect("inventory at limit",  adv.player.inventory_size(), 7)
 
     print("Take 8th item via bus — BackpackLimit consumes:")
-    adv.player.move_to(33)                             # Y2 — silver here
+    adv.player.move_to(28)                             # silver canon room (28)
     var r2 = adv.do_command("take", "silver")
     _expect("take consumed",       r2, "You can't carry that many things at once.")
     _expect("inventory unchanged", adv.player.inventory_size(), 7)

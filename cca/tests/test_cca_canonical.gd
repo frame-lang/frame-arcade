@@ -336,12 +336,16 @@ func _stages() -> Array:
             "asserts":    _assert_three_treasures_deposited,
             "checkpoint": "after_first_deposit",
         },
-        # ----- Silver from Y2 -----
+        # ----- Silver from low-n/s passage (canon 28) -----
+        # Canon: silver at room 28, reached from Y2 (33) south.
+        # Walk: PLUGH (3 → 33) → south (33 → 28) → take silver
+        # → north (28 → 33) for return PLUGH.
         {
             "name":       "take_silver",
             "from":       "after_first_deposit",
             "actions":    [
-                ["plugh", ""],             # 1 → 33
+                ["plugh", ""],             # 3 → 33
+                ["go", "south"],           # 33 → 28
                 ["take", "silver"],
             ],
             "asserts":    _assert_silver_carried,
@@ -351,7 +355,8 @@ func _stages() -> Array:
             "name":       "deposit_silver",
             "from":       "carrying_silver",
             "actions":    [
-                ["plugh", ""],              # 1 → 3
+                ["go", "north"],           # 28 → 33
+                ["plugh", ""],             # 33 → 3
                 ["drop", "silver"],
             ],
             "asserts":    _assert_treasures_deposited(4),
@@ -820,7 +825,7 @@ func _assert_three_treasures_deposited(adv, t) -> void:
 
 func _assert_silver_carried(adv, t) -> void:
     t._expect("silver carried", adv.player.carrying(111), true)
-    t._expect("at Y2",          adv.player_room(),        33)
+    t._expect("at canon-28",    adv.player_room(),        28)
 
 func _assert_treasures_deposited(want: int) -> Callable:
     return func(adv, t):

@@ -82,7 +82,8 @@ const ROOMS: Dictionary = {
     10:  {"east": 9, "west": 11},                   # Cobbles (canon surface entry)
     11:  {"out": 1, "up": 1, "north": 12, "east": 12}, # Debris room
     12:  {"up": 1, "down": 33, "north": 33, "south": 11, "west": 11}, # Awkward canyon
-    33:  {"up": 12, "south": 12, "down": 13, "east": 47, "west": 65, "north": 14},
+    33:  {"up": 12, "south": 28, "down": 13, "east": 47, "west": 65, "north": 14},
+    28:  {"north": 33},                                                  # Low n/s passage at hole — canon 28 (silver home)
     13:  {"up": 33, "out": 33},
     100: {"north": 42},                      # Plover Room (canon 100) — magic exits + north to dark room
     47:  {"west": 33, "east": 71, "up": 44}, # snake-east gated; up to secret canyon side branch
