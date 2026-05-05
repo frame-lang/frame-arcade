@@ -72,7 +72,7 @@ func _init():
     print("Eggs (non-fragile) dropped non-deposit go back to in_room:")
     var adv2 = Cca.new()
     adv2.setup_default_aspects()
-    adv2.player.move_to(28)
+    adv2.player.move_to(92)
     adv2.do_command("take", "eggs")
     _expect("eggs carried",        adv2.eggs.get_state(),     "carried")
     adv2.player.move_to(33)

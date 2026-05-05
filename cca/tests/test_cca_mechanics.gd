@@ -60,7 +60,7 @@ func _init():
     var adv_c = Cca.new()
     adv_c.setup_default_aspects()
     adv_c.do_command("light", "")
-    adv_c.player.move_to(28)
+    adv_c.player.move_to(92)
     adv_c.do_command("take", "eggs")
     adv_c.player.move_to(3)
     adv_c.do_command("drop", "eggs")
@@ -75,7 +75,7 @@ func _init():
     var r4 = adv_c.do_command("foo", "")
     _expect_contains("foo response",  r4, "appeared elsewhere")
     _expect("eggs back in giant room", adv_c.eggs.get_state(), "in_room")
-    _expect("eggs at giant room",    adv_c.eggs.get_location(), 28)
+    _expect("eggs at giant room",    adv_c.eggs.get_location(), 92)
 
     # --- Eggs incantation — broken chant ---
     print("Broken chant resets to idle:")

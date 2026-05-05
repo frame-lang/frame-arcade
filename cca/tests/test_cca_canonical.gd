@@ -436,9 +436,9 @@ func _stages() -> Array:
                 ["go", "east"],            # 118 → 120
                 ["go", "east"],            # 120 → 97
                 ["take", "vase"],
-                ["go", "east"],            # 97 → 28
+                ["go", "east"],            # 97 → 92
                 ["take", "eggs"],
-                ["go", "east"],            # 28 → 130
+                ["go", "east"],            # 92 → 130
                 ["take", "trident"],
                 ["go", "east"],            # 130 → 131
                 ["take", "emerald"],
@@ -451,8 +451,8 @@ func _stages() -> Array:
             "from":       "carrying_batch_a",
             "actions":    [
                 ["go", "west"],            # 131 → 130
-                ["go", "west"],            # 130 → 28
-                ["go", "west"],            # 28 → 97
+                ["go", "west"],            # 130 → 92
+                ["go", "west"],            # 92 → 97
                 ["go", "west"],            # 97 → 120
                 ["go", "west"],            # 120 → 118
                 ["go", "west"],            # 118 → 117
@@ -468,7 +468,7 @@ func _stages() -> Array:
             "checkpoint": "after_batch_a",
         },
         # ----- Batch B: spices, chest, pyramid -----
-        # Path 3 → 1 → 33 → 70 → 117 → 118 → 120 → 97 → 28 →
+        # Path 3 → 1 → 33 → 70 → 117 → 118 → 120 → 97 → 92 →
         # 130 → 131 → 40 (Alcove). 1 west + 8 east = 9 nav.
         {
             "name":       "deep_cave_batch_b_takes",
@@ -507,7 +507,7 @@ func _stages() -> Array:
             "checkpoint": "after_batch_b",
         },
         # ----- Batch C: coins, statuette -----
-        # Path 3 → 1 → 33 → 70 → 117 → 118 → 120 → 97 → 28 →
+        # Path 3 → 1 → 33 → 70 → 117 → 118 → 120 → 97 → 92 →
         # 130 → 131 → 40 → 132 → 133 → 134 (Coin Niche).
         # 1 west + 11 east = 12 nav.
         {
@@ -654,7 +654,7 @@ func _stages() -> Array:
         # ============================================================
 
         # Eggs incantation: FEE FIE FOE FOO chant resets the eggs
-        # back to the Giant Room (28) regardless of where they
+        # back to the Giant Room (92) regardless of where they
         # were — including from $Deposited. test_cca_full doesn't
         # exercise this; the Treasure $Deposited.reappear branch
         # is canon-bug intentional ("you can re-deposit and
@@ -881,7 +881,7 @@ func _assert_permadead(adv, t) -> void:
 
 func _assert_eggs_back_at_giant(adv, t) -> void:
     t._expect("eggs state",    adv.eggs.get_state(),     "in_room")
-    t._expect("eggs at giant", adv.eggs.get_location(),  28)
+    t._expect("eggs at giant", adv.eggs.get_location(),  92)
     t._expect("eggs not deposited", adv.eggs.is_deposited(), false)
 
 func _assert_plant_tall(adv, t) -> void:
