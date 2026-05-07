@@ -94,6 +94,31 @@ func _init():
     _expect("bridge open",         adv3.troll_blocking(), false)
 
     # ---------------------------------------------------------
+    # Path E: canon throw-treasure-at-troll (bridge toll via THROW verb)
+    # ---------------------------------------------------------
+    print()
+    print("Canon throw-treasure path:")
+    var adv6 = Cca.new()
+    adv6.setup_default_aspects()
+    adv6.light_lamp()
+    # Pick up gold and walk to the troll bridge.
+    adv6.player.move_to(18)        # canon stash room
+    adv6.do_command("take", "gold")
+    adv6.player.move_to(117)
+    _expect("troll blocking",      adv6.troll_blocking(), true)
+    _expect("carrying gold",       adv6.player.carrying(110), true)
+    var rt = adv6.do_command("throw", "gold")
+    _expect("throw response",      rt.contains("scurries away"), true)
+    _expect("troll vanished",      adv6.troll_blocking(), false)
+    _expect("gold consumed",       adv6.player.carrying(110), false)
+    _expect("gold vanished state", adv6.gold.is_vanished(), true)
+    _expect("gold worth zero",     adv6.gold.get_value(), 0)
+    # Throwing a non-treasure should bounce.
+    adv6.player.move_to(11)
+    var rb = adv6.do_command("throw", "rock")
+    _expect("rock bounces",        rb.contains("don't know how"), true)
+
+    # ---------------------------------------------------------
     # Path D: full save/restore mid-Following with bear at troll
     # ---------------------------------------------------------
     print()

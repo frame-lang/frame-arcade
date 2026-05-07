@@ -1573,11 +1573,13 @@
         try_drop(at_room: int): String     # "dropped" / "deposited" / "broken" / error
         try_drop_soft(at_room: int): String # canonical soft landing — fragile survives (used by vase-on-pillow)
         reappear(at_room: int)              # used by Eggs incantation reset
+        consume()                            # canon troll-toll: treasure thrown to troll vanishes irrevocably
         get_state(): String
         get_location(): int                # current room or -1 if carried
         get_value(): int
         is_deposited(): bool
         is_broken(): bool
+        is_vanished(): bool
 
     machine:
 
@@ -1598,11 +1600,17 @@
                 self.location_room = at_room
                 # already $InRoom; just relocate
             }
+            consume() {
+                # Troll-toll path (or any future canon
+                # destruction): treasure leaves the world entirely.
+                -> $Vanished
+            }
             get_state(): String      { @@:("in_room") }
             get_location(): int      { @@:(self.location_room) }
             get_value(): int         { @@:(self.value) }
             is_deposited(): bool     { @@:(false) }
             is_broken(): bool        { @@:(false) }
+            is_vanished(): bool      { @@:(false) }
         }
 
         $Carried {
@@ -1642,11 +1650,19 @@
                 self.location_room = at_room
                 -> $InRoom
             }
+            consume() {
+                # Throwing a carried treasure to the troll
+                # vanishes it from the world. Adventure layer
+                # remains responsible for self.player.drop()
+                # and the troll.scared_off().
+                -> $Vanished
+            }
             get_state(): String      { @@:("carried") }
             get_location(): int      { @@:(-1) }
             get_value(): int         { @@:(self.value) }
             is_deposited(): bool     { @@:(false) }
             is_broken(): bool        { @@:(false) }
+            is_vanished(): bool      { @@:(false) }
         }
 
         $Deposited {
@@ -1669,11 +1685,15 @@
                 self.location_room = at_room
                 -> $InRoom
             }
+            consume() {
+                # No-op: a deposited treasure is locked in.
+            }
             get_state(): String      { @@:("deposited") }
             get_location(): int      { @@:(self.DEPOSIT_ROOM) }
             get_value(): int         { @@:(self.value) }
             is_deposited(): bool     { @@:(true) }
             is_broken(): bool        { @@:(false) }
+            is_vanished(): bool      { @@:(false) }
         }
 
         $Broken {
@@ -1689,11 +1709,34 @@
             reappear(at_room: int) {
                 # Incantation can't un-break a thing.
             }
+            consume() {}
             get_state(): String      { @@:("broken") }
             get_location(): int      { @@:(self.location_room) }
             get_value(): int         { @@:(0) }
             is_deposited(): bool     { @@:(false) }
             is_broken(): bool        { @@:(true) }
+            is_vanished(): bool      { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $Vanished — terminal state for treasures the troll
+        # caught (canon bridge-toll). The Eggs-incantation
+        # `reappear(at_room)` deliberately doesn't pull a
+        # vanished treasure back; canonically, what the troll
+        # takes is gone for good.
+        # ------------------------------------------------------------
+        $Vanished {
+            try_take(at_room: int): bool        { @@:(false) }
+            try_drop(at_room: int): String      { @@:("vanished") }
+            try_drop_soft(at_room: int): String { @@:("vanished") }
+            reappear(at_room: int)              {}
+            consume()                            {}
+            get_state(): String       { @@:("vanished") }
+            get_location(): int       { @@:(-1) }
+            get_value(): int          { @@:(0) }
+            is_deposited(): bool      { @@:(false) }
+            is_broken(): bool         { @@:(false) }
+            is_vanished(): bool       { @@:(true) }
         }
 
     domain:
@@ -4077,11 +4120,10 @@
         }
 
         _verb_throw(noun: String): String {
-            # THROW is mostly for axes at dwarves. Routes to
-            # the same attack-dwarf-in-room logic the dispatch
-            # interface exposes; it just reads more naturally.
-            # Canon: requires the axe item — picked up after a
-            # dwarf throws and misses (or kills the player).
+            # THROW handles two canon cases:
+            #   1. axe at dwarves (picked up after one throws + misses)
+            #   2. treasure at the troll on the bridge (room 117) —
+            #      troll catches, vanishes irrevocably with the loot.
             if noun == "axe":
                 if not self.axe_item.is_carried():
                     return "You have no axe to throw."
@@ -4090,7 +4132,67 @@
                 self.axe_item.try_drop(self.player.get_room())
                 self.player.drop(self.AXE_ID)
                 return self._attack_dwarf_in_current()
-            return "I don't know how to throw that."
+            return self._throw_treasure_at_troll(noun)
+        }
+
+        _throw_treasure_at_troll(noun: String): String {
+            # Canon: the troll demands tribute. Throw any treasure
+            # at him on the bridge and he scurries off, treasure
+            # consumed. Outside the troll bridge it's a flat no-op.
+            var here: int = self.player.get_room()
+            if here != self.TROLL_ROOM or not self.troll.is_blocking_bridge():
+                return "I don't know how to throw that."
+            # Match treasure name → (treasure FSM, item id, value).
+            # On a hit, drop from inventory and consume the FSM.
+            if noun == "gold" and self.player.carrying(self.GOLD_ID):
+                self.player.drop(self.GOLD_ID)
+                self.gold.consume()
+            elif noun == "silver" and self.player.carrying(self.SILVER_ID):
+                self.player.drop(self.SILVER_ID)
+                self.silver.consume()
+            elif noun == "diamonds" and self.player.carrying(self.DIAMONDS_ID):
+                self.player.drop(self.DIAMONDS_ID)
+                self.diamonds.consume()
+            elif noun == "jewelry" and self.player.carrying(self.JEWELRY_ID):
+                self.player.drop(self.JEWELRY_ID)
+                self.jewelry.consume()
+            elif noun == "pearl" and self.player.carrying(self.PEARL_ID):
+                self.player.drop(self.PEARL_ID)
+                self.pearl.consume()
+            elif noun == "vase" and self.player.carrying(self.VASE_ID):
+                self.player.drop(self.VASE_ID)
+                self.vase.consume()
+            elif noun == "eggs" and self.player.carrying(self.EGGS_ID):
+                self.player.drop(self.EGGS_ID)
+                self.eggs.consume()
+            elif noun == "trident" and self.player.carrying(self.TRIDENT_ID):
+                self.player.drop(self.TRIDENT_ID)
+                self.trident.consume()
+            elif noun == "emerald" and self.player.carrying(self.EMERALD_ID):
+                self.player.drop(self.EMERALD_ID)
+                self.emerald.consume()
+            elif noun == "spices" and self.player.carrying(self.SPICES_ID):
+                self.player.drop(self.SPICES_ID)
+                self.spices.consume()
+            elif noun == "chest" and self.player.carrying(self.CHEST_ID):
+                self.player.drop(self.CHEST_ID)
+                self.chest.consume()
+            elif noun == "pyramid" and self.player.carrying(self.PYRAMID_ID):
+                self.player.drop(self.PYRAMID_ID)
+                self.pyramid.consume()
+            elif noun == "rug" and self.player.carrying(self.RUG_ID):
+                self.player.drop(self.RUG_ID)
+                self.rug.consume()
+            elif noun == "coins" and self.player.carrying(self.COINS_ID):
+                self.player.drop(self.COINS_ID)
+                self.coins.consume()
+            elif noun == "chain" and self.player.carrying(self.CHAIN_ID):
+                self.player.drop(self.CHAIN_ID)
+                self.chain.consume()
+            else:
+                return "You aren't carrying that."
+            self.troll.scared_off()
+            return "The troll catches your " + noun + " and scurries away out of sight."
         }
 
         _verb_wave(noun: String): String {
