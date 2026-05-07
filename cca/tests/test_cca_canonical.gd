@@ -693,17 +693,15 @@ func _stages() -> Array:
             "asserts":    _assert_treasures_deposited(13),
             "checkpoint": "after_batch_b",
         },
-        # ----- Batch C: coins (canon 30) + statuette (port 135) -----
-        # Coins moved to canon 30 (West side chamber Hall of Mt
-        # King) per advent.dat. Take coins first via canon route,
-        # then statuette via port deep cave.
+        # ----- Batch C: coins (canon 30) + chain (canon 130) -----
+        # Coins live at canon 30 (West side chamber Hall of Mt
+        # King) per advent.dat. Then pick up the chain at the
+        # troll bridge (130 was the bear's room; the chain is
+        # left behind once the bear is fed and lumbers off).
         # Coins trip: 3 → plugh → 33 → north 14 → down 15 →
         # west 19 → north 30, take, back via south → east → up
-        # → south → 33 → plugh → 3.
-        # Statuette trip: 3 → plugh → 33 → west 65 → east 117
-        # → east 118 → east 120 → east 97 → east 92 → east 95
-        # → east 131 → east 40 → east 132 → east 133 → east 134
-        # → east 135. (Coin Niche at 134 now empty.)
+        # → south → 33.
+        # Chain trip: from 33 → west 65 → east 117 (troll bridge).
         {
             "name":       "deep_cave_batch_c_takes",
             "from":       "after_batch_b",

@@ -2889,10 +2889,6 @@
                     self.player.drop(self.COINS_ID)
                     self.coins.reappear(self.CHEST_ROOM)
                     @@:return("A bearded pirate appears, snatches your coins, and vanishes!")
-                if self.player.carrying(self.STATUETTE_ID):
-                    self.player.drop(self.STATUETTE_ID)
-                    self.statuette.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your statuette, and vanishes!")
                 # Pirate rolled a steal but the player wasn't
                 # carrying anything stash-able. The roll is
                 # consumed (Pirate is now $Vanished); we just
@@ -3486,8 +3482,6 @@
                 base = base + " A magnificent Persian rug lies on the floor."
             if self.coins.get_location() == r and self.coins.get_state() == "in_room":
                 base = base + " A pile of rare coins glints here."
-            if self.statuette.get_location() == r and self.statuette.get_state() == "in_room":
-                base = base + " A delicate jade statuette rests in the corner."
             # Rod overlay — not a treasure (no point value), but
             # visible in its room when not carried, same as the
             # treasures above.
@@ -3866,11 +3860,6 @@
                     self.player.take(self.COINS_ID)
                     return "OK"
                 return "There are no coins here."
-            elif name == "statuette":
-                if self.statuette.try_take(room):
-                    self.player.take(self.STATUETTE_ID)
-                    return "OK"
-                return "There is no statuette here."
             return "I don't see that here."
         }
 
@@ -3943,10 +3932,6 @@
                 outcome = self.coins.try_drop(room)
                 item_id = self.COINS_ID
                 value = self.coins.get_value()
-            elif name == "statuette":
-                outcome = self.statuette.try_drop(room)
-                item_id = self.STATUETTE_ID
-                value = self.statuette.get_value()
             else:
                 return "You aren't carrying that."
 
@@ -4495,7 +4480,6 @@
         rug       = @@Treasure(119,14)   # Secret canyon (dragon) — canon 119; visible once dragon dies
         coins     = @@Treasure(30, 14)   # West side chamber Hall of Mt King — canon 30
         chain     = @@Treasure(130,14)   # Barren Room — canon 130 (15th canon treasure, with bear)
-        statuette = @@Treasure(135,14)   # Sloping Passage (port-only flavor; not a canon treasure)
 
         # World-layout constants. Must match Bird's domain
         # SNAKE_ROOM / DRAGON_ROOM to keep cross-system logic
@@ -4518,7 +4502,6 @@
         PYRAMID_ID: int = 121
         RUG_ID: int = 122
         COINS_ID: int = 123
-        STATUETTE_ID: int = 124
         # Canonical Crowther/Woods 1977 room numbering. Where a
         # room name has a canonical analog, we use that number;
         # interpolated rooms (treasure-side-rooms not in canon)

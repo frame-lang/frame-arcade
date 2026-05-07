@@ -53,7 +53,20 @@ const CHEST_ID := 120
 const PYRAMID_ID := 121
 const RUG_ID := 122
 const COINS_ID := 123
-const STATUETTE_ID := 124
+# Phase 6 mechanism items (cage / food / pillow / clam / oyster /
+# axe / mark-rod / batteries / magazine). These IDs match the
+# values declared on Adventure's domain (cca.fgd lines 4540-4590).
+# Keeping them in lock-step lets Player.carrying(<id>) lookups
+# work from the driver side.
+const CAGE_ID := 133
+const FOOD_ID := 134
+const PILLOW_ID := 135
+const AXE_ID := 136
+const CLAM_ID := 137
+const OYSTER_ID := 138
+const BATTERIES_ID := 139
+const MAGAZINE_ID := 140
+const MARK_ROD_ID := 141
 # Non-treasure carriables (mirror Adventure.ROD_ID / KEYS_ID /
 # BOTTLE_ID in cca/frame/cca.fgd).
 const ROD_ID := 130
@@ -419,10 +432,21 @@ func _build_ui() -> void:
     bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(bg)
 
+    # MarginContainer keeps the output log and input row away
+    # from the viewport edges. Without this, the prompt text
+    # sits hard against the bottom-left corner and the whole
+    # screen reads like an untrimmed terminal dump.
+    var margins := MarginContainer.new()
+    margins.set_anchors_preset(Control.PRESET_FULL_RECT)
+    margins.add_theme_constant_override("margin_left", 24)
+    margins.add_theme_constant_override("margin_right", 24)
+    margins.add_theme_constant_override("margin_top", 16)
+    margins.add_theme_constant_override("margin_bottom", 16)
+    add_child(margins)
+
     var vbox := VBoxContainer.new()
-    vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
     vbox.add_theme_constant_override("separation", 4)
-    add_child(vbox)
+    margins.add_child(vbox)
 
     output = RichTextLabel.new()
     output.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -451,6 +475,18 @@ func _build_ui() -> void:
     input.add_theme_font_size_override("font_size", 16)
     input.placeholder_text = "type a command (LOOK, NORTH, TAKE GOLD, HELP, ...)"
     input.text_submitted.connect(_on_text_submitted)
+    # Strip the default boxy LineEdit chrome so the prompt
+    # reads as a single terminal line — `> ` label flowing
+    # straight into the typed text. Without these overrides
+    # the LineEdit carries a grey form-style border that looks
+    # out of place against the dark terminal background.
+    var transparent_box := StyleBoxEmpty.new()
+    input.add_theme_stylebox_override("normal",   transparent_box)
+    input.add_theme_stylebox_override("focus",    transparent_box)
+    input.add_theme_stylebox_override("read_only", transparent_box)
+    input.add_theme_color_override("font_color", Color(0.92, 0.95, 0.6))
+    input.add_theme_color_override("font_placeholder_color", Color(0.55, 0.55, 0.55))
+    input.add_theme_color_override("caret_color", Color(0.92, 0.95, 0.6))
     # Godot 4.4+ added `keep_editing_on_text_submit`, defaulting
     # to false — every Enter press kicks the LineEdit out of
     # editing mode even though it stays focused. Without this
@@ -680,7 +716,7 @@ func _check_pirate_steal() -> void:
     var msg: String = fsm.pirate_attempt_steal()
     if msg != "":
         _pirate_already_stole = true
-        _println("[color=#cc8855][i]%s[/color][/i]" % msg)
+        _println("[color=#cc8855][i]%s[/i][/color]" % msg)
 
 func _check_lamp_warnings() -> void:
     var msg: String = fsm.get_lamp_message()
@@ -761,30 +797,72 @@ func _print_room() -> void:
 # Inventory
 # ============================================================
 func _format_inventory() -> String:
+    # Canon-aligned inventory (Don Woods 1977 short-name strings,
+    # one item per line, "You are currently holding the following:"
+    # header). Item-name strings are taken verbatim from the
+    # canonical INVENTORY output where they exist; the few items
+    # without a canon counterpart (statuette is port-only) keep
+    # the port label.
     var items: Array = []
-    if fsm.player.carrying(BIRD_ID):      items.append("a small bird")
-    if fsm.player.carrying(CHAIN_ID):     items.append("the bear's chain")
-    if fsm.player.carrying(ROD_ID):       items.append("a black rod with a rusty star")
-    if fsm.player.carrying(KEYS_ID):      items.append("a set of brass keys")
-    if fsm.player.carrying(BOTTLE_ID):    items.append("a small glass bottle" + (" of water" if fsm.bottle_has_water() else ", empty"))
-    if fsm.player.carrying(GOLD_ID):      items.append("a gold nugget")
-    if fsm.player.carrying(SILVER_ID):    items.append("silver bars")
-    if fsm.player.carrying(DIAMONDS_ID):  items.append("diamonds")
-    if fsm.player.carrying(JEWELRY_ID):   items.append("fine jewelry")
-    if fsm.player.carrying(PEARL_ID):     items.append("a pearl")
-    if fsm.player.carrying(VASE_ID):      items.append("a Ming vase")
-    if fsm.player.carrying(EGGS_ID):      items.append("a nest of golden eggs")
-    if fsm.player.carrying(TRIDENT_ID):   items.append("a jewel-encrusted trident")
-    if fsm.player.carrying(EMERALD_ID):   items.append("an enormous emerald")
-    if fsm.player.carrying(SPICES_ID):    items.append("rare spices")
-    if fsm.player.carrying(CHEST_ID):     items.append("a treasure chest")
-    if fsm.player.carrying(PYRAMID_ID):   items.append("a golden pyramid")
-    if fsm.player.carrying(RUG_ID):       items.append("a Persian rug")
-    if fsm.player.carrying(COINS_ID):     items.append("rare coins")
-    if fsm.player.carrying(STATUETTE_ID): items.append("a jade statuette")
+
+    # Bird + cage compound: canon shows "Little bird in cage" as
+    # one entry when both are held, instead of listing the bare
+    # cage and the bird separately. The cage stays in the
+    # player's inventory after a release, so once the bird is
+    # gone the player still carries the wicker cage.
+    var has_bird: bool = fsm.player.carrying(BIRD_ID)
+    var has_cage: bool = fsm.player.carrying(CAGE_ID)
+    if has_bird and has_cage:
+        items.append("  Little bird in cage")
+    elif has_bird:
+        items.append("  Little bird")
+    elif has_cage:
+        items.append("  Wicker cage")
+
+    # The two black rods. Canon shows them with the same short
+    # name on purpose (the player has to WAVE to tell them apart);
+    # we keep the distinguishing tail so saves stay legible
+    # without forcing the player to remember which they took.
+    if fsm.player.carrying(ROD_ID):
+        items.append("  Black rod with a rusty star on the end")
+    if fsm.player.carrying(MARK_ROD_ID):
+        items.append("  Black rod with a rusty mark on the end")
+
+    if fsm.player.carrying(KEYS_ID):     items.append("  Set of keys")
+    if fsm.player.carrying(BOTTLE_ID):   items.append("  Small bottle")
+    if fsm.player.carrying(FOOD_ID):     items.append("  Tasty food")
+    if fsm.player.carrying(PILLOW_ID):   items.append("  Velvet pillow")
+    if fsm.player.carrying(AXE_ID):      items.append("  Dwarf's axe")
+    if fsm.player.carrying(CLAM_ID):     items.append("  Giant clam")
+    if fsm.player.carrying(MAGAZINE_ID): items.append("  \"Spelunker Today\" magazine")
+    if fsm.player.carrying(BATTERIES_ID): items.append("  Fresh batteries")
+
+    # Treasures (canon names exactly).
+    if fsm.player.carrying(GOLD_ID):     items.append("  Large gold nugget")
+    if fsm.player.carrying(SILVER_ID):   items.append("  Bars of silver")
+    if fsm.player.carrying(DIAMONDS_ID): items.append("  Several diamonds")
+    if fsm.player.carrying(JEWELRY_ID):  items.append("  Precious jewelry")
+    if fsm.player.carrying(PEARL_ID):    items.append("  Glistening pearl")
+    # Vase has a $Broken state — show the canon "Worthless shards
+    # of pottery" line in that case rather than the intact label.
+    if fsm.player.carrying(VASE_ID):
+        if fsm.vase.is_broken():
+            items.append("  Worthless shards of pottery")
+        else:
+            items.append("  Ming vase")
+    if fsm.player.carrying(EGGS_ID):     items.append("  Nest of golden eggs")
+    if fsm.player.carrying(TRIDENT_ID):  items.append("  Jeweled trident")
+    if fsm.player.carrying(EMERALD_ID):  items.append("  Egg-sized emerald")
+    if fsm.player.carrying(SPICES_ID):   items.append("  Rare spices")
+    if fsm.player.carrying(CHEST_ID):    items.append("  Treasure chest")
+    if fsm.player.carrying(PYRAMID_ID):  items.append("  Platinum pyramid")
+    if fsm.player.carrying(RUG_ID):      items.append("  Persian rug")
+    if fsm.player.carrying(COINS_ID):    items.append("  Rare coins")
+    if fsm.player.carrying(CHAIN_ID):    items.append("  Golden chain")
+
     if items.is_empty():
-        return "You aren't carrying anything."
-    return "You are carrying: " + ", ".join(items) + "."
+        return "You're not carrying anything."
+    return "You are currently holding the following:\n" + "\n".join(items)
 
 # ============================================================
 # Save / load
