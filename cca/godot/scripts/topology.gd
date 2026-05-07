@@ -13,10 +13,32 @@
 #           crystal bridge, grate, plant) before the move
 #           resolves.
 #
-# Numbering follows Crowther+Woods 1977 canon where possible;
-# 130-139 are interpolated treasure side-rooms, 136 is the
-# endgame Repository, 96-107 fill out the surface forest grid,
-# 137-139 the final pre-Repository corridor.
+# Numbering follows Crowther+Woods 1977 canon. After Phase 7 the
+# room IDs match advent.dat's section 1 layout: 1-130 are canon
+# rooms with verbatim ALL-CAPS prose, 131-139 host the canonical
+# "twisty maze, all DIFFERENT", 115/116 are the cave-closing
+# Repository (teleport-only after Phase 7i), and the port-synth
+# 200-series + statuette + port endgame chain were removed in
+# Phases 7d-7e.
+#
+# Deferred — known port-vs-canon topology drift (~594 deltas
+# enumerated by /tmp/topology_audit.py against canon's section 2
+# room-exit table):
+#   - The plant beanstalk is modeled as a 3-room climb (25→24→23)
+#     instead of canon's 1-jump (25→23 with plant gating).
+#   - Most rooms use only cardinal compass directions; canon
+#     supports NE/SE/NW/SW via verbs 45-48 plus IN/OUT/UP/DOWN
+#     as object-named alternatives.
+#   - Both mazes (50-57 first, 131-139 second) use simplified
+#     linear-chain exits; canon scrambles 10 exits per maze room
+#     into a deliberately disorienting layout.
+#   - Canon section 2 occasionally has multiple verbs to the same
+#     destination (e.g., HILL + W + N from end-of-road); we keep
+#     just the canonical compass direction.
+# These are intentional simplifications that preserve gameplay
+# without sacrificing the canon prose. Closing them is a future
+# polish item; the canon conformance dashboard tracks story-
+# affecting mechanics rather than per-direction exit equivalence.
 #
 # Mapping intent:
 #     1 End of road / outside building   (lit, surface)
