@@ -2693,6 +2693,15 @@
                 # Canon hint #180/181: Witt's End hint at canon
                 # room 108 — the "DON'T GO WEST" advice.
                 self.witts_hint.observe(r == self.WITTS_END_ROOM)
+                # Canon dwarf-awakening: dwarves activate after the
+                # player has spent ~13 turns in the deep cave. We
+                # mirror that with an auto-wake counter; tests can
+                # still call wake_dwarves() explicitly to bypass.
+                if r >= 14 and r <= 130 and not self.dwarves_auto_woken:
+                    self.deep_cave_turns = self.deep_cave_turns + 1
+                    if self.deep_cave_turns >= self.DWARF_WAKE_THRESHOLD:
+                        self.dwarves_auto_woken = true
+                        self.wake_dwarves()
                 # Pirate observes treasure carry-count; activates
                 # at threshold, then has a per-turn chance to
                 # steal. The driver checks pirate_try_steal()
@@ -4821,4 +4830,13 @@
         # across save/restore so a restored late-endgame run doesn't
         # re-teleport.
         repository_teleport_done: bool = false
+        # Canon dwarf-awakening counter — tracks ticks the player
+        # has spent in the deep cave (room 14-130). Once it crosses
+        # DWARF_WAKE_THRESHOLD the dwarves auto-wake (mirroring
+        # canon's "you've been in the cave long enough; trouble
+        # finds you" trigger). Tests bypass this by calling
+        # wake_dwarves() directly.
+        deep_cave_turns: int = 0
+        dwarves_auto_woken: bool = false
+        DWARF_WAKE_THRESHOLD: int = 13   # canon ≈ 13 deep-cave turns
 }

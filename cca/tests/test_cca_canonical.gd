@@ -80,6 +80,11 @@ func _run_stage(stage: Dictionary) -> void:
     # depositing treasures. We defer the teleport with a high value,
     # then explicitly drain the timer at the in_repository stage.
     adv.endgame.CLOSING_DURATION = 1000
+    # Defer canon's deep-cave-turn dwarf auto-wake so the long
+    # walk-driven playthrough doesn't get axed mid-batch. Tests
+    # that specifically need stalking dwarves call wake_dwarves()
+    # explicitly.
+    adv.DWARF_WAKE_THRESHOLD = 9999
     # NB: wake_dwarves() deliberately not called. Dwarves are
     # canonically activated by deep-cave entry; on this test
     # path their random axe-throwing would inject seed-dependent
