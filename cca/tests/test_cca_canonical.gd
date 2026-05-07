@@ -598,13 +598,12 @@ func _stages() -> Array:
             "checkpoint": "after_batch_a",
         },
         # ----- Batch B: chest (deep cave) + spices (canon 127) + pyramid (canon 101) -----
-        # Three separate excursions now that spices and pyramid
-        # have moved to their canonical homes:
-        #   - chest: deep-cave east-chain → 132 (still port)
+        # Three separate excursions on canonical homes:
+        #   - chest: pirate's stash at canon 18 (low room w/ steps note)
         #   - spices: anteroom-to-volcano-to-boulders chain → 127
         #   - pyramid: PLOVER round-trip → 100 → north → 101
-        # Chest excursion path: 3 → plugh → 33 → west 65 → east
-        # 117/118/120/97/92/95/131/40 → east 132. Take chest. End at 132.
+        # Chest excursion path: 3 → plugh → 33 → north 14 → down 15
+        # → south 18. Take chest. End at 18.
         {
             "name":       "deep_cave_batch_b_takes",
             "from":       "after_batch_a",
@@ -614,20 +613,18 @@ func _stages() -> Array:
                 # to fire by this point in the test, so use the
                 # spawn_chest test rig to materialise it now.
                 ["spawn_chest", ""],
-                ["plugh", ""],
-                ["go", "west"],
-                ["go", "east"], ["go", "east"], ["go", "east"],
-                ["go", "east"], ["go", "east"], ["go", "east"],
-                ["go", "east"], ["go", "east"], ["go", "east"],
-                                                # 9 easts → at 132
+                ["plugh", ""],          # 3 → 33 (Y2)
+                ["go", "north"],        # 33 → 14 (top of small pit)
+                ["go", "down"],         # 14 → 15 (Hall of Mists east end)
+                ["go", "south"],        # 15 → 18 (low room, canon stash)
                 ["take", "chest"],
             ],
             "asserts":    _assert_batch_b_partial_carried,
             "checkpoint": "carrying_batch_b",
         },
-        # End of batch_b takes: at 132 with chest only. Reverse:
-        # 9 wests + plugh, drop chest, then two more excursions
-        # for spices (canon 127) and pyramid (canon 101).
+        # End of batch_b takes: at 18 with chest only. Reverse to
+        # well house, drop chest, then two more excursions for
+        # spices (canon 127) and pyramid (canon 101).
         # Spices excursion path: 3 → plugh → 33 → west 65 → north
         # 72 → north 73 → down 74 → north 75 → north 76 → north 77
         # → east 78 → north 87 → down 119 → down 121 → north 123
@@ -637,14 +634,12 @@ func _stages() -> Array:
             "name":       "deposit_batch_b",
             "from":       "carrying_batch_b",
             "actions":    [
-                # Walk back from 132 → 33 (10 wests: 132 → 40 → 131
-                # → 95 → 92 → 97 → 120 → 118 → 117 → 65 → 33), then
-                # plugh 33 → 3.
-                ["go", "west"], ["go", "west"], ["go", "west"],
-                ["go", "west"], ["go", "west"], ["go", "west"],
-                ["go", "west"], ["go", "west"], ["go", "west"],
-                ["go", "west"],
-                ["plugh", ""],
+                # Walk back from 18 → 3 (north 18 → 15, up 15 → 14,
+                # south 14 → 33, plugh 33 → 3).
+                ["go", "north"],           # 18 → 15
+                ["go", "up"],              # 15 → 14
+                ["go", "south"],           # 14 → 33
+                ["plugh", ""],             # 33 → 3
                 ["drop", "chest"],
                 # Spices excursion: 3 → 33 → 65 → 72 → 73 → 74 →
                 # 75 → 76 → 77 → 78 → 87 → 119 → 121 → 123 → 126

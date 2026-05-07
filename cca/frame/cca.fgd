@@ -4529,7 +4529,8 @@
         DRAGON_ROOM: int = 119        # Secret canyon (dragon) — canon 119
         BEAR_HOME_ROOM: int = 130     # Barren Room — canon 130 (bear chamber)
         TROLL_ROOM: int = 117         # troll bridge
-        CHEST_ROOM: int = 132         # pirate's chest cavern (interpolated)
+        CHEST_ROOM: int = 18          # canon: low room with "you won't get it up the steps" note —
+                                       # pirate's stash in 1977. Replaces port-synth room 132.
         DEPOSIT_ROOM: int = 3         # well house — must match Treasure.DEPOSIT_ROOM
         # Fissure / rod-puzzle rooms. The rod starts in the
         # debris room (its canonical CCA home) and can be carried

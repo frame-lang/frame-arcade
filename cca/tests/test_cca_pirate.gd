@@ -66,12 +66,12 @@ func _init():
     print("Stolen treasure now lives in the chest room (18):")
     _expect("gold not carried",      adv.player.carrying(adv.GOLD_ID), false)
     _expect("gold state",            adv.gold.get_state(),  "in_room")
-    _expect("gold location",         adv.gold.get_location(), 132)
+    _expect("gold location",         adv.gold.get_location(), 18)
 
     # --- Player retrieves the gold from the chest room ---
     print("Player travels to chest room and takes the gold back:")
     adv.do_command("light", "")
-    adv.player.move_to(132)
+    adv.player.move_to(18)
     var r = adv.do_command("take", "gold")
     _expect_contains("take response", r, "OK")
     _expect("gold carried again",    adv.player.carrying(adv.GOLD_ID), true)
@@ -98,7 +98,7 @@ func _init():
     adv3.tick()
     var msg3: String = _drive_to_steal(adv3)
     _expect_contains("silver stolen",msg3,                  "snatches your silver")
-    _expect("silver in chest room",  adv3.silver.get_location(), 132)
+    _expect("silver in chest room",  adv3.silver.get_location(), 18)
 
     # --- Pirate sees empty hands ---
     print("Pirate rolls a steal but player carries nothing:")
@@ -119,18 +119,18 @@ func _init():
     adv5.player.take(adv5.DIAMONDS_ID)
     adv5.tick()
     _drive_to_steal(adv5)
-    _expect("gold in chest pre-save", adv5.gold.get_location(), 132)
+    _expect("gold in chest pre-save", adv5.gold.get_location(), 18)
     var bytes = adv5.save_state()
 
     # Mutate after save: take the gold back
-    adv5.player.move_to(132)
+    adv5.player.move_to(18)
     adv5.do_command("light", "")
     adv5.do_command("take", "gold")
     _expect("gold carried post-mutate", adv5.gold.get_state(), "carried")
 
     var adv6 = Cca.new()
     adv6.restore_state(bytes)
-    _expect("restored gold in chest",   adv6.gold.get_location(), 132)
+    _expect("restored gold in chest",   adv6.gold.get_location(), 18)
     _expect("restored gold state",      adv6.gold.get_state(),    "in_room")
     _expect("restored pirate vanished", adv6.pirate_state(),      "vanished")
 

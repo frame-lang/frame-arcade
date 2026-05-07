@@ -115,8 +115,8 @@ func _init():
     # Canonical room IDs of the remaining deep-cave treasures
     # (emerald moved to Plover Room canon 100, taken alongside pearl):
     #   97 oriental(vase), 92 giant(eggs), 95 magnificent_cavern(trident),
-    #   127 chamber-of-boulders(spices), 132 chest(chest),
-    #   101 dark-room(pyramid), 30 west-side-chamber(coins), 135 statuette.
+    #   127 chamber-of-boulders(spices), 18 chest(chest, canon stash),
+    #   101 dark-room(pyramid), 30 west-side-chamber(coins).
     var batch_a: Array = [[97, "vase"], [92, "eggs"], [95, "trident"]]
     for entry in batch_a:
         adv.player.move_to(entry[0])
@@ -128,7 +128,7 @@ func _init():
     # Canon: chest is dynamic — spawn it at CHEST_ROOM before
     # batch_b walks past it.
     adv.chest.reappear(adv.CHEST_ROOM)
-    var batch_b: Array = [[127,"spices"], [132,"chest"], [101,"pyramid"]]
+    var batch_b: Array = [[127,"spices"], [18,"chest"], [101,"pyramid"]]
     for entry in batch_b:
         adv.player.move_to(entry[0])
         adv.do_command("take", entry[1])
