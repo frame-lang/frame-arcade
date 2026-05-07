@@ -2215,8 +2215,9 @@
                 @@:("The bottle is full of water — empty it first.")
             }
             pour(): String           {
+                # Canon msg #77: "YOUR BOTTLE IS EMPTY AND THE GROUND IS WET."
                 -> $Empty
-                @@:return("You pour the water out.")
+                @@:return("Your bottle is empty and the ground is wet.")
             }
             drink(): String          {
                 -> $Empty
