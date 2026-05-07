@@ -3500,6 +3500,11 @@
                     base = base + " A friendly-looking bear sits chained, its tongue lolling."
             if r == self.TROLL_ROOM and self.troll.is_blocking_bridge():
                 base = base + " A burly troll stands guard at the bridge, demanding tribute."
+            elif r == self.TROLL_ROOM and self.bear.get_state() == "released":
+                # Canon: after the bear scares the troll, the bear
+                # "wanders back" and stays in the troll's old room
+                # alongside the player.
+                base = base + " A contented-looking bear is wandering about nearby."
             if r == self.DRAGON_ROOM and self.dragon.is_alive():
                 base = base + " A huge green dragon dozes on a Persian rug."
             # Treasure overlays — for each treasure, if it's
@@ -3812,7 +3817,8 @@
                     var outcome_b: String = self.chain.try_drop(room)
                     if room == self.TROLL_ROOM and self.troll.is_blocking_bridge():
                         self.troll.scared_off()
-                        return "The bear lumbers up to the troll. The troll, taken aback, flees over the bridge with a shriek."
+                        # Canon msg #163, verbatim.
+                        return "The bear lumbers toward the troll, who lets out a startled shriek and scurries away. The bear soon gives up the pursuit and wanders back."
                     if outcome_b == "deposited":
                         self.endgame.treasure_deposited()
                         self.score_treasures = self.score_treasures + self.chain.get_value()

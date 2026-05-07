@@ -62,7 +62,7 @@ func _init():
 
     print("Drop chain → bear scares troll (cross-FSM):")
     var r5 = adv.do_command("drop", "chain")
-    _expect("drop response",       r5.contains("flees"), true)
+    _expect("drop response",       r5.contains("scurries away"), true)
     _expect("bear state",          adv.bear_state(),    "released")
     _expect("troll state",         adv.troll_state(),   "vanished")
     _expect("bridge open",         adv.troll_blocking(), false)
@@ -146,7 +146,7 @@ func _init():
 
     # And the FSM still works post-restore
     var r7 = adv5.do_command("drop", "chain")
-    _expect("post-restore drop",   r7.contains("flees"), true)
+    _expect("post-restore drop",   r7.contains("scurries away"), true)
     _expect("post-restore troll",  adv5.troll_state(),   "vanished")
 
     print()

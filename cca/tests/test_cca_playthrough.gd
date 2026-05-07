@@ -131,7 +131,7 @@ func _init():
     _expect("at troll bridge",  adv.player_room(),  117)
     _expect("troll blocking",   adv.troll.is_blocking_bridge(), true)
     var r14 = adv.do_command("drop", "chain")
-    _expect_contains("flees",      r14, "flees")
+    _expect_contains("scurries away", r14, "scurries away")
     _expect("troll gone",       adv.troll.is_blocking_bridge(), false)
 
     print("Jewelry now at south side chamber (canon 29):")
