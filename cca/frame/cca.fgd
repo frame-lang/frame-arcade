@@ -2610,6 +2610,12 @@
             tick() {
                 self.lamp.tick()
                 self.endgame.tick()
+                # Cave-closing teleport will move the player to
+                # REPOSITORY_ROOM once endgame transitions to
+                # $InRepository — wired in a follow-up step
+                # alongside a canonical-test rewrite (the current
+                # test deposits 5 treasures past the closing
+                # threshold, which canon doesn't allow).
                 # Per-turn hint observation. Each hint watches
                 # a different world condition; Adventure
                 # decides what each hint cares about and
@@ -3165,8 +3171,6 @@
                 base = "You are in a coin niche, a small space tucked into the wall."
             elif r == 135:
                 base = "You are in a sloping passage. The walls are smooth and curved."
-            elif r == 136:
-                base = "You are in the Repository. All your treasures lie at your feet, plus a stick of dynamite."
             elif r == 14:
                 base = "AT YOUR FEET IS A SMALL PIT BREATHING TRACES OF WHITE MIST.  AN EAST PASSAGE ENDS HERE EXCEPT FOR A SMALL CRACK LEADING ON."
             # --- Mist + King hall + Two-pit + Slab area ---
@@ -3424,12 +3428,6 @@
                 base = "YOU ARE WALKING ALONG A GENTLY SLOPING NORTH/SOUTH PASSAGE LINED WITH ODDLY SHAPED LIMESTONE FORMATIONS."
             elif r == 129:
                 base = "YOU ARE STANDING AT THE ENTRANCE TO A LARGE, BARREN ROOM.  A SIGN POSTED ABOVE THE ENTRANCE READS:  \"CAUTION!  BEAR IN ROOM!\""
-            elif r == 137:
-                base = "You are in an antechamber outside the Repository. A solemn weight presses on you here."
-            elif r == 138:
-                base = "You are in a final corridor, the air still and cold. The Repository lies just ahead."
-            elif r == 139:
-                base = "You are in a small chamber adjoining the Repository. A single brass plaque on the wall reads 'EXIT'."
             elif r == 17:
                 base = "YOU ARE ON THE EAST BANK OF A FISSURE SLICING CLEAR ACROSS THE HALL. THE MIST IS QUITE THICK HERE, AND THE FISSURE IS TOO WIDE TO JUMP."
                 if self.crystal_bridge.is_built():
@@ -4515,6 +4513,7 @@
         CHEST_ROOM: int = 18          # canon: low room with "you won't get it up the steps" note —
                                        # pirate's stash in 1977. Replaces port-synth room 132.
         DEPOSIT_ROOM: int = 3         # well house — must match Treasure.DEPOSIT_ROOM
+        REPOSITORY_ROOM: int = 116    # canon: SW Repository — the cave-closing teleport target
         # Fissure / rod-puzzle rooms. The rod starts in the
         # debris room (its canonical CCA home) and can be carried
         # to the fissure to summon the crystal bridge.

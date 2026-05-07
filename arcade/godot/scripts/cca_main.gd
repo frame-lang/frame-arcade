@@ -160,7 +160,6 @@ var room_exits: Dictionary = {
     133: {"west": 132, "east": 134},
     134: {"west": 133, "east": 135},
     135: {"west": 134},
-    136: {},                                 # Repository — terminal endgame room
     # Rod-puzzle branch: hangs off Y2 (33) to the north. The
     # fissure (17) is the gate; crossing east requires the
     # crystal bridge (waved up by the rod).
@@ -281,7 +280,10 @@ var room_exits: Dictionary = {
     # endgame approach.
     108: {"east": 115, "north": 67},                                     # Fork
     115: {"west": 108, "east": 116},                                     # End of corridor
-    116: {"west": 115, "down": 136},                                     # Pre-Repository
+    # Canon 115/116 = NE/SW Repository — cave-closing teleport target.
+    # The 108→115→116 walking corridor is a non-canon shortcut; canon
+    # only routes here via Adventure.tick()'s in_repository teleport.
+    116: {"west": 115},                                                  # SW Repository — terminal endgame room
     # 119, 121-129: cliff-and-ladder descent + sub-anteroom area.
     119: {"up": 87, "down": 121},                                        # Cliff face with ladder
     121: {"up": 119, "north": 123, "east": 125, "south": 122, "west": 124}, # Bottom of ladder
@@ -294,7 +296,7 @@ var room_exits: Dictionary = {
     # (101-103) and miscellaneous passages.
     88:  {"east": 76, "south": 90},                                      # Decorated chamber
     92:  {"south": 91, "east": 95},                                      # Different soft passage
-    95:  {"west": 92, "down": 116},                                      # Vending Machine Room
+    95:  {"west": 92},                                                   # Magnificent Cavern (canon 95) — port-only east-chain to repository removed
     101: {"west": 96},                                                   # Forest far east
     102: {"north": 97},                                                  # Forest far south
     103: {"east": 99},                                                   # Forest far west
@@ -303,10 +305,8 @@ var room_exits: Dictionary = {
     122: {"north": 121},                                                 # Anteroom — basalt
     124: {"east": 121},                                                  # Anteroom — red stone
     126: {"south": 123},                                                 # Anteroom — fireplace
-    # --- Round 10: canon-completion fillers (104-107, 110-114, 127-129, 137-139) ---
-    # Forest grid completion + inner-anteroom cluster + the
-    # final pre-Repository corridor. These bring the room
-    # total to ~140 (canon scope).
+    # --- Round 10: canon-completion fillers (104-107, 110-114, 127-129) ---
+    # Forest grid completion + inner-anteroom cluster.
     104: {"south": 96, "east": 105},                                     # Dense forest
     105: {"west": 104, "south": 97, "east": 106},                        # Scrub forest
     106: {"west": 105, "north": 107},                                    # Forest clearing (water source flavor)
@@ -318,9 +318,6 @@ var room_exits: Dictionary = {
     127: {"south": 126, "east": 128},                                    # Inner anteroom
     128: {"west": 127, "down": 129},                                     # Different inner anteroom
     129: {"up": 128},                                                    # Polished slab chamber (dead-end)
-    137: {"north": 116, "down": 138},                                    # Antechamber outside Repository
-    138: {"up": 137, "east": 139, "south": 136},                         # Final corridor
-    139: {"west": 138},                                                  # EXIT plaque chamber (dead-end)
 }
 
 # Movements that require a clear NPC to traverse. Each entry:

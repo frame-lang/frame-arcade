@@ -103,7 +103,6 @@ const ROOMS: Dictionary = {
     133: {"west": 132, "east": 134},
     134: {"west": 133, "east": 135},
     135: {"west": 134},
-    136: {},                                 # Repository — terminal endgame room
     130: {"up": 65, "out": 65},              # Barren Room — canon 130 (BEAR_HOME_ROOM); up/out back to Bedquilt
     # Rod-puzzle branch: hangs off Y2 (33) to the north. The
     # fissure (17) is the gate; crossing east requires the
@@ -232,8 +231,12 @@ const ROOMS: Dictionary = {
     # Threads from snake passage / rear of dragon area into the
     # endgame approach.
     108: {"east": 115, "north": 67},                                     # Fork
-    115: {"west": 108, "east": 116},                                     # End of corridor
-    116: {"west": 115, "down": 136},                                     # Pre-Repository
+    # Canon 115/116 = NE/SW Repository — the cave-closing teleport
+    # destination. Reached non-canon via the 108→115→116 corridor for
+    # walking access; the canonical route is the Adventure.tick()
+    # teleport that fires when endgame transitions to $InRepository.
+    115: {"west": 108, "east": 116},                                     # NE Repository
+    116: {"west": 115},                                                  # SW Repository — terminal endgame room
     # 119, 121-129: cliff-and-ladder descent + sub-anteroom area.
     119: {"up": 87, "down": 121},                                        # Cliff face with ladder
     121: {"up": 119, "north": 123, "east": 125, "south": 122, "west": 124}, # Bottom of ladder
@@ -248,7 +251,7 @@ const ROOMS: Dictionary = {
     # is the Dark-room — see canon-101 entry above.)
     88:  {"east": 76, "south": 90},                                      # Decorated chamber
     202: {"south": 91, "east": 140},                                    # Different soft passage (port-synth; canon 92 is Giant Room)
-    140: {"west": 202, "down": 116},                                    # Vending Machine Room (canon 140 — DEAD END w/ vending)
+    140: {"west": 202},                                                  # Vending Machine Room (port-synth at canon 140 — handled in Phase 7e)
     102: {"north": 201},                                                 # Forest far south
     103: {"west": 16},                                                   # Shell Room — canon 103 (clam home)
     109: {"east": 113},                                                  # Low passage (curving west)
@@ -256,10 +259,8 @@ const ROOMS: Dictionary = {
     122: {"north": 121},                                                 # Anteroom — basalt
     124: {"east": 121},                                                  # Anteroom — red stone
     126: {"south": 123, "north": 127},                                  # Breath-taking view (canon 126; north to canon 127 Chamber of Boulders)
-    # --- Round 10: canon-completion fillers (104-107, 110-114, 127-129, 137-139) ---
-    # Forest grid completion + inner-anteroom cluster + the
-    # final pre-Repository corridor. These bring the room
-    # total to ~140 (canon scope).
+    # --- Round 10: canon-completion fillers (104-107, 110-114, 127-129) ---
+    # Forest grid completion + inner-anteroom cluster.
     104: {"south": 96, "east": 105},                                     # Dense forest
     105: {"west": 104, "south": 201, "east": 106},                       # Scrub forest
     106: {"west": 105, "north": 107},                                    # Forest clearing (water source flavor)
@@ -271,9 +272,6 @@ const ROOMS: Dictionary = {
     127: {"south": 126, "east": 128},                                    # Chamber of Boulders — canon 127 (spices home)
     128: {"west": 127, "down": 129},                                     # Different inner anteroom
     129: {"up": 128},                                                    # Polished slab chamber (dead-end)
-    137: {"north": 116, "down": 138},                                    # Antechamber outside Repository
-    138: {"up": 137, "east": 139, "south": 136},                         # Final corridor
-    139: {"west": 138},                                                  # EXIT plaque chamber (dead-end)
 }
 
 # Movements that require a clear NPC to traverse. Each entry:
