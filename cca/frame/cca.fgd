@@ -3104,63 +3104,63 @@
             # puzzle would mean another full FSM, and we already
             # demonstrate the locked-door pattern with CrystalBridge.
             if r == 1:
-                base = "You are at the end of a road in front of a small brick building. Around you is a forest. A small stream flows out of the building and down a gully."
+                base = "YOU ARE STANDING AT THE END OF A ROAD BEFORE A SMALL BRICK BUILDING. AROUND YOU IS A FOREST.  A SMALL STREAM FLOWS OUT OF THE BUILDING AND DOWN A GULLY."
             elif r == 2:
-                base = "You have walked up a hill, still in the forest. The road slopes back down the other side. A building is visible through the trees, far below."
+                base = "YOU HAVE WALKED UP A HILL, STILL IN THE FOREST.  THE ROAD SLOPES BACK DOWN THE OTHER SIDE OF THE HILL.  THERE IS A BUILDING IN THE DISTANCE."
             elif r == 3:
-                base = "You are inside a building, a well house for a large spring. Water bubbles out of the spring with a quiet murmur."
+                base = "YOU ARE INSIDE A BUILDING, A WELL HOUSE FOR A LARGE SPRING."
             elif r == 4:
-                base = "You are in a valley in the forest beside a stream tumbling along a rocky bed."
+                base = "YOU ARE IN A VALLEY IN THE FOREST BESIDE A STREAM TUMBLING ALONG A ROCKY BED."
             elif r == 5:
-                base = "You are in open forest, with a deep valley to one side."
+                base = "YOU ARE IN OPEN FOREST, WITH A DEEP VALLEY TO ONE SIDE."
             elif r == 6:
-                base = "You are in open forest near both a valley and a road. The trees thin out to the east."
+                base = "YOU ARE IN OPEN FOREST NEAR BOTH A VALLEY AND A ROAD."
             elif r == 7:
-                base = "At your feet all the water of the stream splashes into a 2-inch slit in the rock. Downstream the streambed is bare rock."
+                base = "AT YOUR FEET ALL THE WATER OF THE STREAM SPLASHES INTO A 2-INCH SLIT IN THE ROCK.  DOWNSTREAM THE STREAMBED IS BARE ROCK."
             elif r == 8:
-                base = "You are in a 20-foot depression floored with bare dirt. Set into the dirt is a strong steel grate mounted in concrete, currently swung open. A dry streambed leads into the depression from the north."
+                base = "YOU ARE IN A 20-FOOT DEPRESSION FLOORED WITH BARE DIRT.  SET INTO THE DIRT IS A STRONG STEEL GRATE MOUNTED IN CONCRETE.  A DRY STREAMBED LEADS INTO THE DEPRESSION."
             elif r == 9:
-                base = "You are in a small chamber beneath a 3x3 steel grate to the surface. A low crawl over cobbles leads inward to the west."
+                base = "YOU ARE IN A SMALL CHAMBER BENEATH A 3X3 STEEL GRATE TO THE SURFACE. A LOW CRAWL OVER COBBLES LEADS INWARD TO THE WEST."
             elif r == 11:
-                base = "You are in a debris-filled room, with a low passage to the north. Old food cans and clutter line the floor."
+                base = "YOU ARE IN A DEBRIS ROOM FILLED WITH STUFF WASHED IN FROM THE SURFACE. A LOW WIDE PASSAGE WITH COBBLES BECOMES PLUGGED WITH MUD AND DEBRIS HERE, BUT AN AWKWARD CANYON LEADS UPWARD AND WEST.  A NOTE ON THE WALL SAYS \"MAGIC WORD XYZZY\"."
             elif r == 12:
-                base = "You are in an awkward sloping east/west canyon."
+                base = "YOU ARE IN AN AWKWARD SLOPING EAST/WEST CANYON."
             elif r == 33:
-                base = "You are in a large room with passages off in all directions. A sign reads 'Y2'."
+                base = "YOU ARE IN A LARGE ROOM, WITH A PASSAGE TO THE SOUTH, A PASSAGE TO THE WEST, AND A WALL OF BROKEN ROCK TO THE EAST.  THERE IS A LARGE \"Y2\" ON A ROCK IN THE ROOM'S CENTER."
             elif r == 13:
-                base = "You are in a chamber filled with the chirping of birds, alive with motion."
+                base = "YOU ARE IN A SPLENDID CHAMBER THIRTY FEET HIGH.  THE WALLS ARE FROZEN RIVERS OF ORANGE STONE.  AN AWKWARD CANYON AND A GOOD PASSAGE EXIT FROM EAST AND WEST SIDES OF THE CHAMBER."
             elif r == 100:
-                base = "You are in the Plover Room, an alcove with rough walls and a curiously-cut floor."
+                base = "YOU'RE IN A SMALL CHAMBER LIT BY AN EERIE GREEN LIGHT.  AN EXTREMELY NARROW TUNNEL EXITS TO THE WEST.  A DARK CORRIDOR LEADS NE."
             elif r == 47:
-                base = "You are at the end of a long passage. The floor is chiseled smooth."
+                base = "DEAD END"
             elif r == 71:
-                base = "You are in a secret canyon at a junction of three canyons, bearing north, south, and southwest. (Port-synth; canon dragon now at canon 119.)"
+                base = "YOU ARE IN A SECRET CANYON AT A JUNCTION OF THREE CANYONS, BEARING NORTH, SOUTH, AND SE.  THE NORTH ONE IS AS TALL AS THE OTHER TWO COMBINED."
             elif r == 65:
-                base = "You are in the Bedquilt, a great chamber. A passage descends to the east."
+                base = "YOU ARE IN BEDQUILT, A LONG EAST/WEST PASSAGE WITH HOLES EVERYWHERE. TO EXPLORE AT RANDOM SELECT NORTH, SOUTH, UP, OR DOWN."
             elif r == 130:
-                base = "You are in a Barren Room. The walls are featureless and the floor is dusty rock."
+                base = "YOU ARE INSIDE A BARREN ROOM.  THE CENTER OF THE ROOM IS COMPLETELY EMPTY EXCEPT FOR SOME DUST.  MARKS IN THE DUST LEAD AWAY TOWARD THE FAR END OF THE ROOM.  THE ONLY EXIT IS THE WAY YOU CAME IN."
             elif r == 103:
-                base = "You are in a splendid chamber thirty feet high. The walls are frozen rivers of orange stone. An awkward canyon and a small window can be seen elsewhere."
+                base = "YOU'RE IN A LARGE ROOM CARVED OUT OF SEDIMENTARY ROCK.  THE FLOOR AND WALLS ARE LITTERED WITH BITS OF SHELLS IMBEDDED IN THE STONE.  A SHALLOW PASSAGE PROCEEDS DOWNWARD, AND A SOMEWHAT STEEPER ONE LEADS UP.  A LOW HANDS AND KNEES PASSAGE ENTERS FROM THE SOUTH."
             elif r == 117:
-                base = "You are at the troll bridge, a rickety span over a yawning chasm."
+                base = "YOU ARE ON ONE SIDE OF A LARGE, DEEP CHASM.  A HEAVY WHITE MIST RISING UP FROM BELOW OBSCURES ALL VIEW OF THE FAR SIDE.  A SW PATH LEADS AWAY FROM THE CHASM INTO A WINDING CORRIDOR."
             elif r == 118:
-                base = "You are on a cliff with a narrow ledge, on the far side of the bridge."
+                base = "YOU ARE IN A LONG WINDING CORRIDOR SLOPING OUT OF SIGHT IN BOTH DIRECTIONS."
             elif r == 10:
-                base = "You crawl over the cobbles. Stone arches lead to the east, while a low passage continues to the west toward a dimly-lit hole."
+                base = "YOU ARE CRAWLING OVER COBBLES IN A LOW PASSAGE.  THERE IS A DIM LIGHT AT THE EAST END OF THE PASSAGE."
             elif r == 120:
-                base = "You are in a long, narrow passage of polished stone, twisting east-west. This is one of many transit corridors in the deep cave."
+                base = "YOU ARE IN A SECRET CANYON WHICH EXITS TO THE NORTH AND EAST."
             elif r == 97:
-                base = "You are in the Oriental Room. Strange Asian artifacts surround you."
+                base = "THIS IS THE ORIENTAL ROOM.  ANCIENT ORIENTAL CAVE DRAWINGS COVER THE WALLS.  A GENTLY SLOPING PASSAGE LEADS UPWARD TO THE NORTH, ANOTHER PASSAGE LEADS SE, AND A HANDS AND KNEES CRAWL LEADS WEST."
             elif r == 28:
-                base = "You are in a low n/s passage at a hole in the floor. The hole goes down to an east/west passage."
+                base = "YOU ARE IN A LOW N/S PASSAGE AT A HOLE IN THE FLOOR.  THE HOLE GOES DOWN TO AN E/W PASSAGE."
             elif r == 92:
-                base = "You are in the Giant Room. The walls are streaked with silver, and a faint hum echoes from above."
+                base = "YOU ARE IN THE GIANT ROOM.  THE CEILING HERE IS TOO HIGH UP FOR YOUR LAMP TO SHOW IT.  CAVERNOUS PASSAGES LEAD EAST, NORTH, AND SOUTH.  ON THE WEST WALL IS SCRAWLED THE INSCRIPTION, \"FEE FIE FOE FOO\" [SIC]."
             elif r == 95:
-                base = "You are in a hall paved with sapphire-blue stone."
+                base = "YOU ARE IN A MAGNIFICENT CAVERN WITH A RUSHING STREAM, WHICH CASCADES OVER A SPARKLING WATERFALL INTO A ROARING WHIRLPOOL WHICH DISAPPEARS THROUGH A HOLE IN THE FLOOR.  PASSAGES EXIT TO THE SOUTH AND WEST."
             elif r == 131:
                 base = "You are in a vast hall stretching out of sight."
             elif r == 40:
-                base = "You are in an alcove. A small passage exits to the east. (Port-synth; canon spices are at canon 127.)"
+                base = "YOU HAVE CRAWLED THROUGH A VERY LOW WIDE PASSAGE PARALLEL TO AND NORTH OF THE HALL OF MISTS."
             elif r == 132:
                 base = "You are in a chest cavern. The pirate's loot is hidden here."
             elif r == 133:
@@ -3172,68 +3172,70 @@
             elif r == 136:
                 base = "You are in the Repository. All your treasures lie at your feet, plus a stick of dynamite."
             elif r == 14:
-                base = "You are in a small pit breathing strange vapor. Crawl-ways lead off in many directions."
+                base = "AT YOUR FEET IS A SMALL PIT BREATHING TRACES OF WHITE MIST.  AN EAST PASSAGE ENDS HERE EXCEPT FOR A SMALL CRACK LEADING ON."
             # --- Mist + King hall + Two-pit + Slab area ---
             # Reachable from room 14 (top of small pit) by going
             # down into the Hall of Mists. The Hall is the canonical
             # hub for the western branch of the cave; the king hall,
             # two-pit room, and beanstalk plant rooms hang off it.
             elif r == 15:
-                base = "You are at the east end of a vast hall stretching west out of sight. To the south and east are low wide crawls. A wide stone staircase leads down."
+                base = "YOU ARE AT ONE END OF A VAST HALL STRETCHING FORWARD OUT OF SIGHT TO THE WEST.  THERE ARE OPENINGS TO EITHER SIDE.  NEARBY, A WIDE STONE STAIRCASE LEADS DOWNWARD.  THE HALL IS FILLED WITH WISPS OF WHITE MIST SWAYING TO AND FRO ALMOST AS IF ALIVE.  A COLD WIND BLOWS UP THE STAIRCASE.  THERE IS A PASSAGE AT THE TOP OF A DOME BEHIND YOU."
             elif r == 16:
-                base = "You are in the east end of the Hall of Mists. A low wide crawl continues east, and a passage goes north into the gloom."
+                base = "THE CRACK IS FAR TOO SMALL FOR YOU TO FOLLOW."
             elif r == 18:
-                base = "This is a low room with a crude note on the wall. The note says, \"You won't get it up the steps\"."
+                base = "THIS IS A LOW ROOM WITH A CRUDE NOTE ON THE WALL.  THE NOTE SAYS, \"YOU WON'T GET IT UP THE STEPS\"."
             elif r == 27:
-                base = "You are on the west side of the fissure in the Hall of Mists. A narrow path leads west to the Hall of the Mountain King."
+                base = "YOU ARE ON THE WEST SIDE OF THE FISSURE IN THE HALL OF MISTS."
             elif r == 19:
-                base = "You are in the Hall of the Mountain King, with passages off in all directions. The roof is so high it cannot be seen."
+                base = "YOU ARE IN THE HALL OF THE MOUNTAIN KING, WITH PASSAGES OFF IN ALL DIRECTIONS."
             elif r == 20:
-                base = "You are at the south end of the Hall of the Mountain King. Above you the ceiling swirls in mist."
+                base = "YOU ARE AT THE BOTTOM OF THE PIT WITH A BROKEN NECK."
             elif r == 21:
-                base = "You are in the Two-Pit Room. Two pits drop into darkness; the eastern pit is shallow, the western yawning."
+                base = "YOU DIDN'T MAKE IT."
             elif r == 22:
-                base = "You are at the bottom of the eastern pit. A small dry hole leads on into nothingness."
+                base = "THE DOME IS UNCLIMBABLE."
             elif r == 25:
-                # Plant description tracks growth. Tiny is the
-                # default; canonical CCA player won't get past
-                # this room without watering the plant. Canon
-                # room 25 = bottom of west pit (plant home).
+                # Plant description tracks growth. Canon static
+                # text + canonical plant-state object descriptions
+                # (advent.dat section "*PLANT" object messages).
+                base = "YOU ARE AT THE BOTTOM OF THE WESTERN PIT IN THE TWOPIT ROOM.  THERE IS A LARGE HOLE IN THE WALL ABOUT 25 FEET ABOVE YOU."
                 var ps: String = self.plant.get_state()
                 if ps == "tiny":
-                    base = "You are at the bottom of the western pit. There is a tiny plant in the pit, murmuring 'Water, water, ...'"
+                    base = base + "  THERE IS A TINY LITTLE PLANT IN THE PIT, MURMURING \"WATER, WATER, ...\""
                 elif ps == "tall":
-                    base = "You are at the bottom of the western pit. There is a 12-foot-tall beanstalk stretching up out of the pit, bellowing 'Water!! Water!!'"
+                    base = base + "  THERE IS A 12-FOOT-TALL BEANSTALK STRETCHING UP OUT OF THE PIT, BELLOWING \"WATER!!  WATER!!\""
                 else:
-                    base = "You are at the bottom of the western pit. There is a gigantic beanstalk stretching all the way up to the hole."
+                    base = base + "  THERE IS A GIGANTIC BEANSTALK STRETCHING ALL THE WAY UP TO THE HOLE."
             elif r == 24:
-                base = "You are about 10 feet above the bottom of the pit. There is a thick beanstalk to one side."
+                base = "YOU ARE AT THE BOTTOM OF THE EASTERN PIT IN THE TWOPIT ROOM.  THERE IS A SMALL POOL OF OIL IN ONE CORNER OF THE PIT."
             elif r == 23:
-                base = "You are at the top of a vast crack in the rock, with the giant beanstalk vanishing into the gloom below. The crack twists upward but is barely wide enough to crawl through."
+                base = "YOU ARE AT THE WEST END OF THE TWOPIT ROOM.  THERE IS A LARGE HOLE IN THE WALL ABOVE THE PIT AT THIS END OF THE ROOM."
             elif r == 26:
-                base = "You are in a long, narrow corridor stretching out of sight east-west. The walls are smooth and damp."
+                base = "YOU CLAMBER UP THE PLANT AND SCURRY THROUGH THE HOLE AT THE TOP."
             elif r == 204:
                 base = "You are at one end of an immense north/south passage."
             elif r == 29:
-                base = "You are in the south side chamber."
+                base = "YOU ARE IN THE SOUTH SIDE CHAMBER."
             elif r == 205:
                 base = "You are in the deep middle of an immense north/south passage. Stalactites loom overhead at impossible angles."
             elif r == 30:
-                base = "You are in the west side chamber of the Hall of the Mountain King."
+                base = "YOU ARE IN THE WEST SIDE CHAMBER OF THE HALL OF THE MOUNTAIN KING. A PASSAGE CONTINUES WEST AND UP HERE."
             elif r == 206:
                 base = "You are in a complex rock-jumble junction. Crawls and passages branch off in several directions."
             elif r == 31:
-                base = "You're at a low window overlooking a huge pit. The bottom is shrouded in mist."
+                # Canon advent.dat has ">$<" (no long form) for room 31;
+                # the engine falls back to the short "PIT". We honor that.
+                base = "PIT"
             elif r == 32:
-                base = "You're at a high window above the same pit, this side. The view is dizzying."
+                base = "YOU CAN'T GET BY THE SNAKE."
             elif r == 34:
-                base = "You are in a low chamber with dust deep on the floor. Each footfall raises a small cloud."
+                base = "YOU ARE IN A JUMBLE OF ROCK, WITH CRACKS EVERYWHERE."
             elif r == 35:
-                base = "You are in a sloping corridor. The walls curve smoothly toward a dim glimmer above."
+                base = "YOU'RE AT A LOW WINDOW OVERLOOKING A HUGE PIT, WHICH EXTENDS UP OUT OF SIGHT.  A FLOOR IS INDISTINCTLY VISIBLE OVER 50 FEET BELOW.  TRACES OF WHITE MIST COVER THE FLOOR OF THE PIT, BECOMING THICKER TO THE RIGHT. MARKS IN THE DUST AROUND THE WINDOW WOULD SEEM TO INDICATE THAT SOMEONE HAS BEEN HERE RECENTLY.  DIRECTLY ACROSS THE PIT FROM YOU AND 25 FEET AWAY THERE IS A SIMILAR WINDOW LOOKING INTO A LIGHTED ROOM.  A SHADOWY FIGURE CAN BE SEEN THERE PEERING BACK AT YOU."
             elif r == 36:
-                base = "You are above a large room that drops away below to the south. A flat slab of stone juts out into the void."
+                base = "YOU ARE IN A DIRTY BROKEN PASSAGE.  TO THE EAST IS A CRAWL.  TO THE WEST IS A LARGE PASSAGE.  ABOVE YOU IS A HOLE TO ANOTHER PASSAGE."
             elif r == 37:
-                base = "You are in a large low circular chamber whose floor is a slab of stone. Above, the rock-jumble continues."
+                base = "YOU ARE ON THE BRINK OF A SMALL CLEAN CLIMBABLE PIT.  A CRAWL LEADS WEST."
             # --- Snake/dragon side passages, the two mazes, Witt's End ---
             # Canonical Crowther+Woods has the maze of twisty
             # passages all alike (8 rooms with identical text but
@@ -3242,124 +3244,140 @@
             # actually confusing requires a non-Euclidean room
             # mechanic that would be a sub-system of its own).
             elif r == 39:
-                base = "You are in a small misty cavern. Walls and ceiling are slick with damp; water drips ceaselessly somewhere out of sight."
+                base = "YOU ARE IN A LARGE ROOM FULL OF DUSTY ROCKS.  THERE IS A BIG HOLE IN THE FLOOR.  THERE ARE CRACKS EVERYWHERE, AND A PASSAGE LEADING EAST."
             elif r == 101:
-                base = "You're in the Dark-room. A corridor leading south is the only exit."
+                base = "YOU'RE IN THE DARK-ROOM.  A CORRIDOR LEADING SOUTH IS THE ONLY EXIT."
             elif r == 43:
-                base = "You are in a relatively wide spot in the passage. The east wall has bands of dark and light stone."
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
             elif r == 44:
-                base = "You are in a secret canyon. The walls overhang above and meet to form a narrow ribbon of stars."
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
             elif r == 45:
-                base = "The passage here is so tight you can barely squeeze through. There's a narrow opening to the east."
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
             elif r == 46:
-                base = "You are in a tall east/west passage. The roof is lost in shadows above."
+                base = "DEAD END"
             elif r == 48:
-                base = "You are in a boulder-strewn passage, with stones the size of small houses lying about."
+                base = "DEAD END"
             elif r == 49:
-                base = "You are in a passage of polished limestone, smoothly weathered by ages of dripping water."
-            # Maze of twisty little passages, all alike (50-57).
-            # Each room shares the canonical text. Canonically the
-            # maze is mapped by dropping items to mark visited
-            # rooms. Our linear topology removes that puzzle but
-            # preserves the iconic flavor.
-            elif r >= 50 and r <= 57:
-                base = "You are in a maze of twisty little passages, all alike."
-            # Maze of twisty passages, all different (58-65). Same
-            # iconic text, rearranged words to keep the player on
-            # their toes.
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
+            # First maze (50-57): the iconic "twisty little passages,
+            # all alike" cluster. Canon mixes in two DEAD ENDs (54, 56)
+            # and the orange-column pit (57); the rest share the maze
+            # text. Canonically the maze is mapped by dropping items
+            # to mark visited rooms.
+            elif r == 50:
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
+            elif r == 51:
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
+            elif r == 52:
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
+            elif r == 53:
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
+            elif r == 54:
+                base = "DEAD END"
+            elif r == 55:
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
+            elif r == 56:
+                base = "DEAD END"
+            elif r == 57:
+                base = "YOU ARE ON THE BRINK OF A THIRTY FOOT PIT WITH A MASSIVE ORANGE COLUMN DOWN ONE WALL.  YOU COULD CLIMB DOWN HERE BUT YOU COULD NOT GET BACK UP.  THE MAZE CONTINUES AT THIS LEVEL."
+            # Rooms 58-65 in canon are NOT the second maze — that's
+            # at 131-139. These are an assortment: dead end (58),
+            # parallel low passage (59), long featureless hall (60-61),
+            # crossover (62), dead end (63), complex junction (64),
+            # Bedquilt (65).
             elif r == 58:
-                base = "You are in a maze of twisty little passages, all different."
+                base = "DEAD END"
             elif r == 59:
-                base = "You are in a maze of twisting little passages, all different."
+                base = "YOU HAVE CRAWLED THROUGH A VERY LOW WIDE PASSAGE PARALLEL TO AND NORTH OF THE HALL OF MISTS."
             elif r == 60:
-                base = "You are in a little maze of twisty passages, all different."
+                base = "YOU ARE AT THE EAST END OF A VERY LONG HALL APPARENTLY WITHOUT SIDE CHAMBERS.  TO THE EAST A LOW WIDE CRAWL SLANTS UP.  TO THE NORTH A ROUND TWO FOOT HOLE SLANTS DOWN."
             elif r == 61:
-                base = "You are in a twisting maze of little passages, all different."
+                base = "YOU ARE AT THE WEST END OF A VERY LONG FEATURELESS HALL.  THE HALL JOINS UP WITH A NARROW NORTH/SOUTH PASSAGE."
             elif r == 62:
-                base = "You are in a twisting little maze of passages, all different."
+                base = "YOU ARE AT A CROSSOVER OF A HIGH N/S PASSAGE AND A LOW E/W ONE."
             elif r == 63:
-                base = "You are in a twisty little maze of passages, all different."
+                base = "DEAD END"
             elif r == 64:
-                base = "You are in a twisty maze of little passages, all different."
+                base = "YOU ARE AT A COMPLEX JUNCTION.  A LOW HANDS AND KNEES PASSAGE FROM THE NORTH JOINS A HIGHER CRAWL FROM THE EAST TO MAKE A WALKING PASSAGE GOING WEST.  THERE IS ALSO A LARGE ROOM ABOVE.  THE AIR IS DAMP HERE."
             elif r == 203:
                 base = "You are in a little twisty maze of passages, all different."
             elif r == 66:
-                base = "You are at one of the exits from the labyrinth, where a long passage stretches east."
+                base = "YOU ARE IN A ROOM WHOSE WALLS RESEMBLE SWISS CHEESE.  OBVIOUS PASSAGES GO WEST, EAST, NE, AND NW.  PART OF THE ROOM IS OCCUPIED BY A LARGE BEDROCK BLOCK."
             elif r == 67:
-                base = "You are at Witt's End. Passages lead off in all directions but most are barely visible, and most of those that are visible appear to lead nowhere useful."
+                base = "YOU ARE AT THE EAST END OF THE TWOPIT ROOM.  THE FLOOR HERE IS LITTERED WITH THIN ROCK SLABS, WHICH MAKE IT EASY TO DESCEND THE PITS. THERE IS A PATH HERE BYPASSING THE PITS TO CONNECT PASSAGES FROM EAST AND WEST.  THERE ARE HOLES ALL OVER, BUT THE ONLY BIG ONE IS ON THE WALL DIRECTLY OVER THE WEST PIT WHERE YOU CAN'T GET TO IT."
             elif r == 68:
-                base = "You are at the bottom of a smoothly polished cone of limestone, with a steep climb back the way you came."
+                base = "YOU ARE IN A LARGE LOW CIRCULAR CHAMBER WHOSE FLOOR IS AN IMMENSE SLAB FALLEN FROM THE CEILING (SLAB ROOM).  EAST AND WEST THERE ONCE WERE LARGE PASSAGES, BUT THEY ARE NOW FILLED WITH BOULDERS.  LOW SMALL PASSAGES GO NORTH AND SOUTH, AND THE SOUTH ONE QUICKLY BENDS WEST AROUND THE BOULDERS."
             # --- Phase E: Bedquilt extensions, reservoir, treasury,
             # cliff-and-ladder descent, post-cave outdoors, forest grid.
             elif r == 72:
-                base = "You are in a long, sloping corridor that descends gently into the rock."
+                base = "YOU ARE IN A LARGE LOW ROOM.  CRAWLS LEAD NORTH, SE, AND SW."
             elif r == 73:
-                base = "You are in a sloping room above a large round chamber. The drop is sheer."
+                base = "DEAD END CRAWL."
             elif r == 74:
-                base = "You are in a large low room. Crawls lead north, southeast, and southwest."
+                base = "YOU ARE IN A SECRET CANYON WHICH HERE RUNS E/W.  IT CROSSES OVER A VERY TIGHT CANYON 15 FEET BELOW.  IF YOU GO DOWN YOU MAY NOT BE ABLE TO GET BACK UP."
             elif r == 75:
-                base = "You are in a sloping corridor with a smooth ramp of stone underfoot."
+                base = "YOU ARE AT A WIDE PLACE IN A VERY TIGHT N/S CANYON."
             elif r == 76:
-                base = "You are in the Soft Room. The walls are covered with a heavy curtain that muffles all sound."
+                base = "THE CANYON HERE BECOMES TOO TIGHT TO GO FURTHER SOUTH."
             elif r == 77:
-                base = "You are in a steep canyon. The walls overhang above you and meet to form a narrow ribbon of darkness."
+                base = "YOU ARE IN A TALL E/W CANYON.  A LOW TIGHT CRAWL GOES 3 FEET NORTH AND SEEMS TO OPEN UP."
             elif r == 78:
-                base = "You are in a different secret canyon, twisting east-west. The walls bear faint runes."
+                base = "THE CANYON RUNS INTO A MASS OF BOULDERS -- DEAD END."
             elif r == 79:
-                base = "You are in a steep passage that descends sharply to the north."
+                base = "THE STREAM FLOWS OUT THROUGH A PAIR OF 1 FOOT DIAMETER SEWER PIPES. IT WOULD BE ADVISABLE TO USE THE EXIT."
             elif r == 80:
-                base = "You are in a dirty passage. Soot stains the walls, and your feet leave clear tracks in the dust."
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
             elif r == 81:
-                base = "You are in a wet room. Drip-formations cover the floor like inverted stalactites."
+                base = "DEAD END"
             elif r == 82:
-                base = "You are in a different cobble crawl, low and twisty. The cobbles here glitter faintly with mica."
+                base = "DEAD END"
             elif r == 83:
-                base = "You are at the edge of a vast underground reservoir. Black water laps quietly against a stone shelf."
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
             elif r == 84:
-                base = "You are wading in a small underground stream. The water is icy-cold and crystal-clear."
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
             elif r == 85:
-                base = "You are in front of a barren room, with the entrance arching low to the east."
+                base = "DEAD END"
             elif r == 86:
-                base = "You are in a barren room, the floor and walls smooth and untouched."
+                base = "DEAD END"
             elif r == 87:
-                base = "You are at the brink of a thirty-foot cliff. A passage continues to the east; below, a ledge runs along the cliff face."
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE."
             elif r == 89:
-                base = "You are inside a cylindrical canyon. The walls rise smoothly to a band of grey light far above."
+                base = "THERE IS NOTHING HERE TO CLIMB.  USE \"UP\" OR \"OUT\" TO LEAVE THE PIT."
             elif r == 90:
-                base = "You are in a smooth passage of polished stone, walls unbroken and ceiling low."
+                base = "YOU HAVE CLIMBED UP THE PLANT AND OUT OF THE PIT."
             elif r == 91:
-                base = "You are in a different soft passage. Moss covers everything in a green carpet."
+                base = "YOU ARE AT THE TOP OF A STEEP INCLINE ABOVE A LARGE ROOM.  YOU COULD CLIMB DOWN HERE, BUT YOU WOULD NOT BE ABLE TO CLIMB UP.  THERE IS A PASSAGE LEADING BACK TO THE NORTH."
             elif r == 93:
-                base = "You are on the south side of a different fissure, deeper and narrower than the first."
+                base = "THE PASSAGE HERE IS BLOCKED BY A RECENT CAVE-IN."
             elif r == 94:
-                base = "You are in the Treasury. Glittering valuables line every shelf — long since looted, but the residue still sparkles."
+                base = "YOU ARE AT ONE END OF AN IMMENSE NORTH/SOUTH PASSAGE."
             elif r == 96:
-                base = "You are in a different forest, far to the north of the road. The trees here stand taller and darker."
+                base = "YOU ARE IN THE SOFT ROOM.  THE WALLS ARE COVERED WITH HEAVY CURTAINS, THE FLOOR WITH A THICK PILE CARPET.  MOSS COVERS THE CEILING."
             elif r == 201:
                 base = "You are in a different forest, to the northeast."
             elif r == 98:
-                base = "You are in a different forest, to the southeast."
+                base = "YOU ARE FOLLOWING A WIDE PATH AROUND THE OUTER EDGE OF A LARGE CAVERN. FAR BELOW, THROUGH A HEAVY WHITE MIST, STRANGE SPLASHING NOISES CAN BE HEARD.  THE MIST RISES UP THROUGH A FISSURE IN THE CEILING.  THE PATH EXITS TO THE SOUTH AND WEST."
             elif r == 99:
-                base = "You are in a different forest, to the southwest."
+                base = "YOU ARE IN AN ALCOVE.  A SMALL NW PATH SEEMS TO WIDEN AFTER A SHORT DISTANCE.  AN EXTREMELY TIGHT TUNNEL LEADS EAST.  IT LOOKS LIKE A VERY TIGHT SQUEEZE.  AN EERIE LIGHT CAN BE SEEN AT THE OTHER END."
             elif r == 100:
-                base = "You are in a different forest, to the northwest."
+                base = "YOU'RE IN A SMALL CHAMBER LIT BY AN EERIE GREEN LIGHT.  AN EXTREMELY NARROW TUNNEL EXITS TO THE WEST.  A DARK CORRIDOR LEADS NE."
             elif r == 108:
-                base = "You are at a fork in the path. One branch leads east into shadow; the other curves back to the north."
+                base = "YOU ARE AT WITT'S END.  PASSAGES LEAD OFF IN *ALL* DIRECTIONS."
             elif r == 115:
-                base = "You are at the end of a long corridor. Far ahead, a faint glow promises an exit."
+                base = "YOU ARE AT THE NORTHEAST END OF AN IMMENSE ROOM, EVEN LARGER THAN THE GIANT ROOM.  IT APPEARS TO BE A REPOSITORY FOR THE \"ADVENTURE\" PROGRAM.  MASSIVE TORCHES FAR OVERHEAD BATHE THE ROOM WITH SMOKY YELLOW LIGHT.  SCATTERED ABOUT YOU CAN BE SEEN A PILE OF BOTTLES (ALL OF THEM EMPTY), A NURSERY OF YOUNG BEANSTALKS MURMURING QUIETLY, A BED OF OYSTERS, A BUNDLE OF BLACK RODS WITH RUSTY STARS ON THEIR ENDS, AND A COLLECTION OF BRASS LANTERNS.  OFF TO ONE SIDE A GREAT MANY DWARVES ARE SLEEPING ON THE FLOOR, SNORING LOUDLY.  A SIGN NEARBY READS: \"DO NOT DISTURB THE DWARVES!\"  AN IMMENSE MIRROR IS HANGING AGAINST ONE WALL, AND STRETCHES TO THE OTHER END OF THE ROOM, WHERE VARIOUS OTHER SUNDRY OBJECTS CAN BE GLIMPSED DIMLY IN THE DISTANCE."
             elif r == 116:
-                base = "You are in a pre-repository chamber, where the cave compels you onward but provides no path back."
+                base = "YOU ARE AT THE SOUTHWEST END OF THE REPOSITORY.  TO ONE SIDE IS A PIT FULL OF FIERCE GREEN SNAKES.  ON THE OTHER SIDE IS A ROW OF SMALL WICKER CAGES, EACH OF WHICH CONTAINS A LITTLE SULKING BIRD.  IN ONE CORNER IS A BUNDLE OF BLACK RODS WITH RUSTY MARKS ON THEIR ENDS.  A LARGE NUMBER OF VELVET PILLOWS ARE SCATTERED ABOUT ON THE FLOOR.  A VAST MIRROR STRETCHES OFF TO THE NORTHEAST.  AT YOUR FEET IS A LARGE STEEL GRATE, NEXT TO WHICH IS A SIGN WHICH READS, \"TREASURE VAULT. KEYS IN MAIN OFFICE.\""
             elif r == 119:
-                base = "You are in a secret canyon which exits to the north and east."
+                base = "YOU ARE IN A SECRET CANYON WHICH EXITS TO THE NORTH AND EAST."
             elif r == 121:
-                base = "You are at the bottom of the iron ladder, on a stone landing. Passages lead in several directions."
+                base = "YOU ARE IN A SECRET CANYON WHICH EXITS TO THE NORTH AND EAST."
             elif r == 123:
-                base = "You are in an anteroom carved with crude pictographs of strange beasts."
+                base = "YOU'RE IN A LONG EAST/WEST CORRIDOR.  A FAINT RUMBLING NOISE CAN BE HEARD IN THE DISTANCE."
             elif r == 125:
-                base = "You are in a small antechamber with niches set into each wall."
+                base = "THE WALLS ARE QUITE WARM HERE.  FROM THE NORTH CAN BE HEARD A STEADY ROAR, SO LOUD THAT THE ENTIRE CAVE SEEMS TO BE TREMBLING.  ANOTHER PASSAGE LEADS SOUTH, AND A LOW CRAWL GOES EAST."
             # --- Phase F: iconic remainder ---
             elif r == 88:
-                base = "You are in a decorated chamber whose walls are inlaid with strange carvings of dragons, beasts, and constellations."
+                base = "YOU ARE IN A LONG, NARROW CORRIDOR STRETCHING OUT OF SIGHT TO THE WEST.  AT THE EASTERN END IS A HOLE THROUGH WHICH YOU CAN SEE A PROFUSION OF LEAVES."
             elif r == 202:
                 base = "You are in a different soft passage. The floor is sand; your footfalls leave no echo."
             elif r == 140:
@@ -3369,47 +3387,47 @@
                 else:
                     base = base + " A second hand-lettered sign over the slot now reads: 'OUT OF BATTERIES'."
             elif r == 101:
-                base = "You are in a different forest, far to the east. The trees are unfamiliar."
+                base = "YOU'RE IN THE DARK-ROOM.  A CORRIDOR LEADING SOUTH IS THE ONLY EXIT."
             elif r == 102:
-                base = "You are in a different forest, far to the south. A small spring trickles between the roots of an ancient tree."
+                base = "YOU ARE IN AN ARCHED HALL.  A CORAL PASSAGE ONCE CONTINUED UP AND EAST FROM HERE, BUT IS NOW BLOCKED BY DEBRIS.  THE AIR SMELLS OF SEA WATER."
             elif r == 103:
-                base = "You are in a different forest, far to the west. The light is greenish and the air close."
+                base = "YOU'RE IN A LARGE ROOM CARVED OUT OF SEDIMENTARY ROCK.  THE FLOOR AND WALLS ARE LITTERED WITH BITS OF SHELLS IMBEDDED IN THE STONE.  A SHALLOW PASSAGE PROCEEDS DOWNWARD, AND A SOMEWHAT STEEPER ONE LEADS UP.  A LOW HANDS AND KNEES PASSAGE ENTERS FROM THE SOUTH."
             elif r == 109:
-                base = "You are in a low passage which curves westward. The ceiling is so low you must crawl."
+                base = "YOU ARE IN A NORTH/SOUTH CANYON ABOUT 25 FEET ACROSS.  THE FLOOR IS COVERED BY WHITE MIST SEEPING IN FROM THE NORTH.  THE WALLS EXTEND UPWARD FOR WELL OVER 100 FEET.  SUSPENDED FROM SOME UNSEEN POINT FAR ABOVE YOU, AN ENORMOUS TWO-SIDED MIRROR IS HANGING PARALLEL TO AND MIDWAY BETWEEN THE CANYON WALLS.  (THE MIRROR IS OBVIOUSLY PROVIDED FOR THE USE OF THE DWARVES, WHO AS YOU KNOW, ARE EXTREMELY VAIN.)  A SMALL WINDOW CAN BE SEEN IN EITHER WALL, SOME FIFTY FEET UP."
             elif r == 113:
-                base = "You are in a wide chamber with cracked walls. A dim light filters in from somewhere above."
+                base = "YOU ARE AT THE EDGE OF A LARGE UNDERGROUND RESERVOIR.  AN OPAQUE CLOUD OF WHITE MIST FILLS THE ROOM AND RISES RAPIDLY UPWARD.  THE LAKE IS FED BY A STREAM, WHICH TUMBLES OUT OF A HOLE IN THE WALL ABOUT 10 FEET OVERHEAD AND SPLASHES NOISILY INTO THE WATER SOMEWHERE WITHIN THE MIST.  THE ONLY PASSAGE GOES BACK TOWARD THE SOUTH."
             elif r == 122:
-                base = "You are in an anteroom of polished basalt. Your footfalls ring sharply."
+                base = "YOU ARE ON THE FAR SIDE OF THE CHASM.  A NE PATH LEADS AWAY FROM THE CHASM ON THIS SIDE."
             elif r == 124:
-                base = "You are in an anteroom carved from soft red stone. Faint torch-marks streak the walls."
+                base = "THE PATH FORKS HERE.  THE LEFT FORK LEADS NORTHEAST.  A DULL RUMBLING SEEMS TO GET LOUDER IN THAT DIRECTION.  THE RIGHT FORK LEADS SOUTHEAST DOWN A GENTLE SLOPE.  THE MAIN CORRIDOR ENTERS FROM THE WEST."
             elif r == 126:
-                base = "You are on the edge of a breath-taking view. Far below you is an active volcano, from which great gouts of molten lava come surging out, cascading back down into the depths."
+                base = "YOU ARE ON THE EDGE OF A BREATH-TAKING VIEW.  FAR BELOW YOU IS AN ACTIVE VOLCANO, FROM WHICH GREAT GOUTS OF MOLTEN LAVA COME SURGING OUT, CASCADING BACK DOWN INTO THE DEPTHS.  THE GLOWING ROCK FILLS THE FARTHEST REACHES OF THE CAVERN WITH A BLOOD-RED GLARE, GIVING EVERY- THING AN EERIE, MACABRE APPEARANCE.  THE AIR IS FILLED WITH FLICKERING SPARKS OF ASH AND A HEAVY SMELL OF BRIMSTONE.  THE WALLS ARE HOT TO THE TOUCH, AND THE THUNDERING OF THE VOLCANO DROWNS OUT ALL OTHER SOUNDS.  EMBEDDED IN THE JAGGED ROOF FAR OVERHEAD ARE MYRIAD TWISTED FORMATIONS COMPOSED OF PURE WHITE ALABASTER, WHICH SCATTER THE MURKY LIGHT INTO SINISTER APPARITIONS UPON THE WALLS.  TO ONE SIDE IS A DEEP GORGE, FILLED WITH A BIZARRE CHAOS OF TORTURED ROCK WHICH SEEMS TO HAVE BEEN CRAFTED BY THE DEVIL HIMSELF.  AN IMMENSE RIVER OF FIRE CRASHES OUT FROM THE DEPTHS OF THE VOLCANO, BURNS ITS WAY THROUGH THE GORGE, AND PLUMMETS INTO A BOTTOMLESS PIT FAR OFF TO YOUR LEFT.  TO THE RIGHT, AN IMMENSE GEYSER OF BLISTERING STEAM ERUPTS CONTINUOUSLY FROM A BARREN ISLAND IN THE CENTER OF A SULFUROUS LAKE, WHICH BUBBLES OMINOUSLY.  THE FAR RIGHT WALL IS AFLAME WITH AN INCANDESCENCE OF ITS OWN, WHICH LENDS AN ADDITIONAL INFERNAL SPLENDOR TO THE ALREADY HELLISH SCENE.  A DARK, FOREBODING PASSAGE EXITS TO THE SOUTH."
             # --- Final canon-completion rooms (Round 10) ---
             # Forest grid completion + inner anteroom cluster +
             # pre-Repository corridor branches. Brings the room
             # total up to ~140 (canon scope).
             elif r == 104:
-                base = "You are in dense forest, the canopy thick enough to cast everything in green twilight."
+                base = "YOU ARE IN A LONG SLOPING CORRIDOR WITH RAGGED SHARP WALLS."
             elif r == 105:
-                base = "You are in scrub forest, with low brush snagging at your ankles. A faint path winds eastward."
+                base = "YOU ARE IN A CUL-DE-SAC ABOUT EIGHT FEET ACROSS."
             elif r == 106:
-                base = "You are in a forest clearing. A small spring trickles up from beneath a flat slab of stone."
+                base = "YOU ARE IN AN ANTEROOM LEADING TO A LARGE PASSAGE TO THE EAST.  SMALL PASSAGES GO WEST AND UP.  THE REMNANTS OF RECENT DIGGING ARE EVIDENT. A SIGN IN MIDAIR HERE SAYS \"CAVE UNDER CONSTRUCTION BEYOND THIS POINT. PROCEED AT OWN RISK.  [WITT CONSTRUCTION COMPANY]\""
             elif r == 107:
-                base = "You are in a path through the forest. Ferns brush your shoulders on either side."
+                base = "YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL DIFFERENT."
             elif r == 110:
-                base = "You are in a low passage with a curiously-shaped ceiling. The walls bear claw-marks."
+                base = "YOU'RE AT A LOW WINDOW OVERLOOKING A HUGE PIT, WHICH EXTENDS UP OUT OF SIGHT.  A FLOOR IS INDISTINCTLY VISIBLE OVER 50 FEET BELOW.  TRACES OF WHITE MIST COVER THE FLOOR OF THE PIT, BECOMING THICKER TO THE LEFT. MARKS IN THE DUST AROUND THE WINDOW WOULD SEEM TO INDICATE THAT SOMEONE HAS BEEN HERE RECENTLY.  DIRECTLY ACROSS THE PIT FROM YOU AND 25 FEET AWAY THERE IS A SIMILAR WINDOW LOOKING INTO A LIGHTED ROOM.  A SHADOWY FIGURE CAN BE SEEN THERE PEERING BACK AT YOU."
             elif r == 111:
-                base = "You are in a different secret canyon. A cool draft blows from somewhere ahead."
+                base = "A LARGE STALACTITE EXTENDS FROM THE ROOF AND ALMOST REACHES THE FLOOR BELOW.  YOU COULD CLIMB DOWN IT, AND JUMP FROM IT TO THE FLOOR, BUT HAVING DONE SO YOU WOULD BE UNABLE TO REACH IT TO CLIMB BACK UP."
             elif r == 112:
-                base = "You are in a tall canyon, narrow and impossibly high. Stars seem to glimmer in the rock above."
+                base = "YOU ARE IN A LITTLE MAZE OF TWISTING PASSAGES, ALL DIFFERENT."
             elif r == 114:
-                base = "You are in a crystal grotto. Walls and ceiling are studded with small clear crystals refracting your lamplight into hundreds of pinpoints."
+                base = "DEAD END"
             elif r == 127:
-                base = "You are in a small chamber filled with large boulders. The walls are very warm, causing the air in the room to be almost stifling from the heat. The only exit is south."
+                base = "YOU ARE IN A SMALL CHAMBER FILLED WITH LARGE BOULDERS.  THE WALLS ARE VERY WARM, CAUSING THE AIR IN THE ROOM TO BE ALMOST STIFLING FROM THE HEAT.  THE ONLY EXIT IS A CRAWL HEADING WEST, THROUGH WHICH IS COMING A LOW RUMBLING."
             elif r == 128:
-                base = "You are in a different inner anteroom, with a low arch leading deeper in."
+                base = "YOU ARE WALKING ALONG A GENTLY SLOPING NORTH/SOUTH PASSAGE LINED WITH ODDLY SHAPED LIMESTONE FORMATIONS."
             elif r == 129:
-                base = "You are in a chamber whose floor is one polished slab of stone, smooth enough to reflect your lamp."
+                base = "YOU ARE STANDING AT THE ENTRANCE TO A LARGE, BARREN ROOM.  A SIGN POSTED ABOVE THE ENTRANCE READS:  \"CAUTION!  BEAR IN ROOM!\""
             elif r == 137:
                 base = "You are in an antechamber outside the Repository. A solemn weight presses on you here."
             elif r == 138:
@@ -3417,11 +3435,11 @@
             elif r == 139:
                 base = "You are in a small chamber adjoining the Repository. A single brass plaque on the wall reads 'EXIT'."
             elif r == 17:
-                base = "You are at the edge of a deep, narrow fissure. The walls drop away to nothing far below."
+                base = "YOU ARE ON THE EAST BANK OF A FISSURE SLICING CLEAR ACROSS THE HALL. THE MIST IS QUITE THICK HERE, AND THE FISSURE IS TOO WIDE TO JUMP."
                 if self.crystal_bridge.is_built():
                     base = base + " A glittering crystal bridge spans the fissure."
             elif r == 69:
-                base = "You are in a hall of mirrors on the far side of the fissure. Cool air drifts in from somewhere unseen."
+                base = "YOU ARE IN A SECRET N/S CANYON ABOVE A LARGE ROOM."
             # NPC presence overlays.
             if r == self.bird.get_location() and self.bird.get_state() == "free":
                 base = base + " A small bird flutters nearby."
@@ -3531,60 +3549,60 @@
                 return "You catch the bird in your hand."
             if noun == "rod":
                 if self.rod_item.is_carried():
-                    return "You already have the rod."
+                    return "You are already carrying it!"
                 if not self.rod_item.try_take(self.player.get_room()):
                     return "There is no rod here."
                 self.player.take(self.ROD_ID)
-                return "Taken."
+                return "OK"
             if noun == "keys" or noun == "key":
                 if self.keys_item.is_carried():
-                    return "You already have the keys."
+                    return "You are already carrying it!"
                 if not self.keys_item.try_take(self.player.get_room()):
                     return "There are no keys here."
                 self.player.take(self.KEYS_ID)
-                return "Taken."
+                return "OK"
             if noun == "bottle":
                 if self.bottle_item.is_carried():
-                    return "You already have the bottle."
+                    return "You are already carrying it!"
                 if not self.bottle_item.try_take(self.player.get_room()):
                     return "There is no bottle here."
                 self.player.take(self.BOTTLE_ID)
-                return "Taken."
+                return "OK"
             if noun == "cage":
                 if self.cage_item.is_carried():
-                    return "You already have the cage."
+                    return "You are already carrying it!"
                 if not self.cage_item.try_take(self.player.get_room()):
                     return "There is no cage here."
                 self.player.take(self.CAGE_ID)
-                return "Taken."
+                return "OK"
             if noun == "food":
                 if self.food_item.is_carried():
-                    return "You already have the food."
+                    return "You are already carrying it!"
                 if not self.food_item.try_take(self.player.get_room()):
                     return "There is no food here."
                 self.player.take(self.FOOD_ID)
-                return "Taken."
+                return "OK"
             if noun == "pillow" or noun == "velvet":
                 if self.pillow_item.is_carried():
-                    return "You already have the pillow."
+                    return "You are already carrying it!"
                 if not self.pillow_item.try_take(self.player.get_room()):
                     return "There is no pillow here."
                 self.player.take(self.PILLOW_ID)
-                return "Taken."
+                return "OK"
             if noun == "axe":
                 if self.axe_item.is_carried():
-                    return "You already have the axe."
+                    return "You are already carrying it!"
                 if not self.axe_item.try_take(self.player.get_room()):
                     return "There is no axe here."
                 self.player.take(self.AXE_ID)
-                return "Taken."
+                return "OK"
             if noun == "clam":
                 if self.clam_item.is_carried():
-                    return "You already have the clam."
+                    return "You are already carrying it!"
                 if not self.clam_item.try_take(self.player.get_room()):
                     return "There is no clam here."
                 self.player.take(self.CLAM_ID)
-                return "Taken."
+                return "OK"
             if noun == "oyster":
                 # Canonically the oyster is too heavy to carry.
                 if self.oyster_item.is_in_room(self.player.get_room()):
@@ -3592,25 +3610,25 @@
                 return "There is no oyster here."
             if noun == "batteries" or noun == "battery":
                 if self.batteries_item.is_carried():
-                    return "You already have the batteries."
+                    return "You are already carrying it!"
                 if not self.batteries_item.try_take(self.player.get_room()):
                     return "There are no batteries here."
                 self.player.take(self.BATTERIES_ID)
-                return "Taken."
+                return "OK"
             if noun == "magazine":
                 if self.magazine_item.is_carried():
-                    return "You already have the magazine."
+                    return "You are already carrying it!"
                 if not self.magazine_item.try_take(self.player.get_room()):
                     return "There is no magazine here."
                 self.player.take(self.MAGAZINE_ID)
-                return "Taken."
+                return "OK"
             if noun == "mark" or noun == "mark-rod" or noun == "stick":
                 if self.mark_rod_item.is_carried():
-                    return "You already have the rod with a mark."
+                    return "You are already carrying it!"
                 if not self.mark_rod_item.try_take(self.player.get_room()):
                     return "There is no second rod here."
                 self.player.take(self.MARK_ROD_ID)
-                return "Taken."
+                return "OK"
             if noun == "chain":
                 # Two paths:
                 #   1) at the bear's home — bear is still chained.
@@ -3640,7 +3658,7 @@
                 # standard treasure take pathway.
                 if self.chain.try_take(room):
                     self.player.take(self.CHAIN_ID)
-                    return "Taken."
+                    return "OK"
                 return "There is no chain here."
             # Treasures
             return self._take_treasure_by_name(noun)
@@ -3655,25 +3673,25 @@
             # bear→troll consequence chain.
             if noun == "rod":
                 if not self.rod_item.is_carried():
-                    return "You aren't carrying the rod."
+                    return "You aren't carrying it!"
                 self.rod_item.try_drop(self.player.get_room())
                 self.player.drop(self.ROD_ID)
-                return "Dropped."
+                return "OK"
             if noun == "keys" or noun == "key":
                 if not self.keys_item.is_carried():
-                    return "You aren't carrying the keys."
+                    return "You aren't carrying it!"
                 self.keys_item.try_drop(self.player.get_room())
                 self.player.drop(self.KEYS_ID)
-                return "Dropped."
+                return "OK"
             if noun == "bottle":
                 if not self.bottle_item.is_carried():
-                    return "You aren't carrying the bottle."
+                    return "You aren't carrying it!"
                 self.bottle_item.try_drop(self.player.get_room())
                 self.player.drop(self.BOTTLE_ID)
-                return "Dropped."
+                return "OK"
             if noun == "cage":
                 if not self.cage_item.is_carried():
-                    return "You aren't carrying the cage."
+                    return "You aren't carrying it!"
                 # If the bird is currently caged, dropping the
                 # cage drops a bird-with-cage. Canon CCA actually
                 # treats them separately (you can release the
@@ -3684,40 +3702,40 @@
                     return "(Releasing the bird first — see RELEASE BIRD.)"
                 self.cage_item.try_drop(self.player.get_room())
                 self.player.drop(self.CAGE_ID)
-                return "Dropped."
+                return "OK"
             if noun == "food":
                 if not self.food_item.is_carried():
-                    return "You aren't carrying the food."
+                    return "You aren't carrying it!"
                 self.food_item.try_drop(self.player.get_room())
                 self.player.drop(self.FOOD_ID)
-                return "Dropped."
+                return "OK"
             if noun == "pillow" or noun == "velvet":
                 if not self.pillow_item.is_carried():
-                    return "You aren't carrying the pillow."
+                    return "You aren't carrying it!"
                 self.pillow_item.try_drop(self.player.get_room())
                 self.player.drop(self.PILLOW_ID)
-                return "Dropped."
+                return "OK"
             if noun == "axe":
                 if not self.axe_item.is_carried():
-                    return "You aren't carrying the axe."
+                    return "You aren't carrying it!"
                 self.axe_item.try_drop(self.player.get_room())
                 self.player.drop(self.AXE_ID)
-                return "Dropped."
+                return "OK"
             if noun == "clam":
                 if not self.clam_item.is_carried():
-                    return "You aren't carrying the clam."
+                    return "You aren't carrying it!"
                 self.clam_item.try_drop(self.player.get_room())
                 self.player.drop(self.CLAM_ID)
-                return "Dropped."
+                return "OK"
             if noun == "batteries" or noun == "battery":
                 if not self.batteries_item.is_carried():
-                    return "You aren't carrying the batteries."
+                    return "You aren't carrying it!"
                 self.batteries_item.try_drop(self.player.get_room())
                 self.player.drop(self.BATTERIES_ID)
-                return "Dropped."
+                return "OK"
             if noun == "magazine":
                 if not self.magazine_item.is_carried():
-                    return "You aren't carrying the magazine."
+                    return "You aren't carrying it!"
                 var here: int = self.player.get_room()
                 self.magazine_item.try_drop(here)
                 self.player.drop(self.MAGAZINE_ID)
@@ -3728,13 +3746,13 @@
                     self.witts_end_bonus = 1
                     self.real_score = self.real_score + 1
                     return "Dropped — and what a fitting place to leave it."
-                return "Dropped."
+                return "OK"
             if noun == "mark" or noun == "mark-rod" or noun == "stick":
                 if not self.mark_rod_item.is_carried():
-                    return "You aren't carrying that rod."
+                    return "You aren't carrying it!"
                 self.mark_rod_item.try_drop(self.player.get_room())
                 self.player.drop(self.MARK_ROD_ID)
-                return "Dropped."
+                return "OK"
             if noun == "chain":
                 var room: int = self.player.get_room()
                 # If the bear is still attached, drop_chain on the
@@ -3759,7 +3777,7 @@
                 # Bear no longer following — chain is a regular
                 # treasure carry. Standard try_drop semantics.
                 if self.chain.get_state() != "carried":
-                    return "You aren't carrying the chain."
+                    return "You aren't carrying it!"
                 var outcome: String = self.chain.try_drop(room)
                 self.player.drop(self.CHAIN_ID)
                 if outcome == "deposited":
@@ -3767,7 +3785,7 @@
                     self.score_treasures = self.score_treasures + self.chain.get_value()
                     self.real_score = self.real_score + self.chain.get_value()
                     return "Safely stowed in the well house. A fine treasure indeed!"
-                return "Dropped."
+                return "OK"
             # Treasures
             return self._drop_treasure_by_name(noun)
         }
@@ -3777,62 +3795,62 @@
             if name == "gold":
                 if self.gold.try_take(room):
                     self.player.take(self.GOLD_ID)
-                    return "Taken."
+                    return "OK"
                 return "There is no gold here."
             elif name == "silver":
                 if self.silver.try_take(room):
                     self.player.take(self.SILVER_ID)
-                    return "Taken."
+                    return "OK"
                 return "There is no silver here."
             elif name == "diamonds":
                 if self.diamonds.try_take(room):
                     self.player.take(self.DIAMONDS_ID)
-                    return "Taken."
+                    return "OK"
                 return "There are no diamonds here."
             elif name == "jewelry":
                 if self.jewelry.try_take(room):
                     self.player.take(self.JEWELRY_ID)
-                    return "Taken."
+                    return "OK"
                 return "There is no jewelry here."
             elif name == "pearl":
                 if self.pearl.try_take(room):
                     self.player.take(self.PEARL_ID)
-                    return "Taken."
+                    return "OK"
                 return "There is no pearl here."
             elif name == "vase":
                 if self.vase.try_take(room):
                     self.player.take(self.VASE_ID)
-                    return "Taken. (handle with care.)"
+                    return "OK"
                 return "There is no vase here."
             elif name == "eggs":
                 if self.eggs.try_take(room):
                     self.player.take(self.EGGS_ID)
-                    return "Taken."
+                    return "OK"
                 return "There are no eggs here."
             elif name == "trident":
                 if self.trident.try_take(room):
                     self.player.take(self.TRIDENT_ID)
-                    return "Taken."
+                    return "OK"
                 return "There is no trident here."
             elif name == "emerald":
                 if self.emerald.try_take(room):
                     self.player.take(self.EMERALD_ID)
-                    return "Taken."
+                    return "OK"
                 return "There is no emerald here."
             elif name == "spices":
                 if self.spices.try_take(room):
                     self.player.take(self.SPICES_ID)
-                    return "Taken."
+                    return "OK"
                 return "There are no spices here."
             elif name == "chest":
                 if self.chest.try_take(room):
                     self.player.take(self.CHEST_ID)
-                    return "Taken."
+                    return "OK"
                 return "There is no chest here."
             elif name == "pyramid":
                 if self.pyramid.try_take(room):
                     self.player.take(self.PYRAMID_ID)
-                    return "Taken."
+                    return "OK"
                 return "There is no pyramid here."
             elif name == "rug":
                 # The rug is under the dragon. Only takeable
@@ -3841,17 +3859,17 @@
                     return "The dragon is sleeping on the rug. You'd best deal with it first."
                 if self.rug.try_take(room):
                     self.player.take(self.RUG_ID)
-                    return "Taken. The Persian rug is exquisite."
+                    return "OK"
                 return "There is no rug here."
             elif name == "coins":
                 if self.coins.try_take(room):
                     self.player.take(self.COINS_ID)
-                    return "Taken."
+                    return "OK"
                 return "There are no coins here."
             elif name == "statuette":
                 if self.statuette.try_take(room):
                     self.player.take(self.STATUETTE_ID)
-                    return "Taken."
+                    return "OK"
                 return "There is no statuette here."
             return "I don't see that here."
         }
@@ -3948,7 +3966,7 @@
                 return "Safely stowed in the well house. A fine treasure indeed!"
             if outcome == "dropped_soft":
                 return "The vase comes to rest, delicately, on the velvet pillow."
-            return "Dropped."
+            return "OK"
         }
 
         _verb_feed(noun: String): String {
@@ -4305,7 +4323,7 @@
             if noun != "bird":
                 return "I don't know how to release that."
             if not self.player.carrying(self.BIRD_ID):
-                return "You aren't carrying the bird."
+                return "You aren't carrying it!"
             var room: int = self.player.get_room()
             self.bird.release(room)
             self.player.drop(self.BIRD_ID)

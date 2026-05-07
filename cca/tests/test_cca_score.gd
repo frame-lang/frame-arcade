@@ -41,7 +41,7 @@ func _init():
     var pre_cmds: int = adv.commands_seen()
     var r = adv.do_command("take", "gold")  # player at room 11 (debris), gold is here
     _expect("take observed (no consume)", adv.commands_seen(), pre_cmds + 1)
-    _expect("take returned 'Taken'",      r.contains("Taken"),  true)
+    _expect("take returned 'Taken'",      r.contains("OK"),  true)
 
     print("Fill to limit by direct stuffing, then attempt one more take:")
     for i in range(101, 107):

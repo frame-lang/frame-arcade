@@ -55,7 +55,7 @@ func _init():
     print("Take keys from the well house:")
     adv.player.move_to(3)
     var r3 = adv.do_command("take", "keys")
-    _expect_contains("take response", r3, "Taken")
+    _expect_contains("take response", r3, "OK")
     _expect("keys carried",        adv.keys_in_inventory(),  true)
 
     # --- Move to grate, UNLOCK ---
@@ -82,7 +82,7 @@ func _init():
     # --- Drop keys, leave them at depression ---
     print("Drop keys at the depression:")
     var r6 = adv.do_command("drop", "keys")
-    _expect_contains("drop response", r6, "Dropped")
+    _expect_contains("drop response", r6, "OK")
     _expect("keys not carried",    adv.keys_in_inventory(),  false)
     _expect("keys at depression",  adv.keys_item.get_location(),        8)
 

@@ -47,7 +47,7 @@ func _init():
     print("Take bottle from well house:")
     adv.player.move_to(3)
     var r1 = adv.do_command("take", "bottle")
-    _expect_contains("take response", r1, "Taken")
+    _expect_contains("take response", r1, "OK")
     _expect("bottle carried",      adv.bottle_in_inventory(),    true)
 
     # --- FILL at water source ---

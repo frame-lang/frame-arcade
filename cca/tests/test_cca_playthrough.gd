@@ -35,7 +35,7 @@ func _init():
     _expect("not dark",       adv.room_is_dark_now(), false)
 
     var r1 = adv.do_command("look", "")
-    _expect_contains("look mentions building", r1, "building")
+    _expect_contains("look mentions building", r1, "BUILDING")
 
     print("Move north → well house (3):")
     adv.do_command("move", "3")     # driver-translated direction
@@ -58,7 +58,7 @@ func _init():
 
     print("Take gold:")
     var r5 = adv.do_command("take", "gold")
-    _expect_contains("take gold response", r5, "Taken")
+    _expect_contains("take gold response", r5, "OK")
     _expect("carrying gold", adv.player.carrying(110), true)
 
     print("Teleport back to well house, drop gold:")
@@ -109,7 +109,7 @@ func _init():
     print("Diamonds canonically live at room 27 (west bank fissure):")
     adv.player.move_to(27)
     var r11 = adv.do_command("take", "diamonds")
-    _expect_contains("took diamonds", r11, "Taken")
+    _expect_contains("took diamonds", r11, "OK")
     adv.player.move_to(119)              # back to dragon canyon for next leg
 
     print("Detour to well house for food (canon 3):")
@@ -138,7 +138,7 @@ func _init():
     adv.player.move_to(29)
     _expect("at south chamber", adv.player_room(),  29)
     var r15 = adv.do_command("take", "jewelry")
-    _expect_contains("took jewelry", r15, "Taken")
+    _expect_contains("took jewelry", r15, "OK")
 
     print("Save / restore mid-game:")
     var bytes = adv.save_state()

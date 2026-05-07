@@ -51,7 +51,7 @@ func _init():
     adv.do_command("light", "")
     adv.player.move_to(11)
     var r2 = adv.do_command("take", "rod")
-    _expect_contains("take response", r2, "Taken")
+    _expect_contains("take response", r2, "OK")
     _expect("rod carried",           adv.rod_in_inventory(),       true)
 
     # --- Wave-with-rod-elsewhere ---
@@ -97,7 +97,7 @@ func _init():
     # --- Drop the rod, leave it in the fissure room ---
     print("Drop the rod — it stays where dropped:")
     var r7 = adv2.do_command("drop", "rod")
-    _expect_contains("drop response", r7, "Dropped")
+    _expect_contains("drop response", r7, "OK")
     _expect("rod not carried",       adv2.rod_in_inventory(),       false)
     _expect("rod at fissure",        adv2.rod_item.get_location(),             17)
 

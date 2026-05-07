@@ -38,7 +38,7 @@ func _init():
 
     print("look in lit room (passes bus, base handles):")
     var r1 = adv.do_command("look", "")
-    _expect("look response contains 'building'", r1.contains("building"), true)
+    _expect("look response contains 'BUILDING'", r1.contains("BUILDING"), true)
     _expect("darkness consumed",   adv.darkness_consumed_count(), 0)
 
     print("Move into the cave (debris room, dark with lamp off):")
@@ -61,7 +61,7 @@ func _init():
     _expect("lamp lit?",           adv.is_lit(),                  true)
     _expect("dark now?",           adv.room_is_dark_now(),        false)
     var r4 = adv.do_command("look", "")
-    _expect("look response (lit) contains 'debris'", r4.contains("debris"), true)
+    _expect("look response (lit) contains 'DEBRIS'", r4.contains("DEBRIS"), true)
     _expect("darkness consumed",   adv.darkness_consumed_count(), 2)
 
     print("save mid-state, mutate, restore:")
@@ -79,7 +79,7 @@ func _init():
     _expect("restored lamp lit",   adv2.is_lit(),                  true)
     _expect("restored consumed",   adv2.darkness_consumed_count(), 2)
     var r5 = adv2.do_command("look", "")
-    _expect("restored look contains 'debris'", r5.contains("debris"), true)
+    _expect("restored look contains 'DEBRIS'", r5.contains("DEBRIS"), true)
     _expect("restored consumed++", adv2.darkness_consumed_count(), 2)
 
     print("Player death/revive lifecycle on a fresh adventure:")

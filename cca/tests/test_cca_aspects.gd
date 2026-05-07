@@ -38,7 +38,7 @@ func _init():
     adv.do_command("light", "")
     adv.player.move_to(18)                              # debris room — gold
     var r1 = adv.do_command("take", "gold")
-    _expect("take response contains 'Taken'", r1.contains("Taken"), true)
+    _expect("take response contains 'Taken'", r1.contains("OK"), true)
     _expect("inventory size",      adv.player.inventory_size(), 1)
 
     print("Fill inventory to 7 by direct stuffing (skip the parser):")
@@ -59,7 +59,7 @@ func _init():
     print("Drop one, take again (passes again):")
     adv.player.drop(106)
     var r3 = adv.do_command("take", "silver")
-    _expect("take after drop contains 'Taken'", r3.contains("Taken"), true)
+    _expect("take after drop contains 'Taken'", r3.contains("OK"), true)
     _expect("inventory size",      adv.player.inventory_size(), 7)
     _expect("backpack still 1",    adv.backpack_blocked_count(), 1)
 

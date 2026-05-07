@@ -73,7 +73,7 @@ func _init():
     adv.do_command("light", "")
     adv.player.move_to(132)
     var r = adv.do_command("take", "gold")
-    _expect_contains("take response", r, "Taken")
+    _expect_contains("take response", r, "OK")
     _expect("gold carried again",    adv.player.carrying(adv.GOLD_ID), true)
     _expect("gold state again",      adv.gold.get_state(),  "carried")
 
