@@ -2610,12 +2610,16 @@
             tick() {
                 self.lamp.tick()
                 self.endgame.tick()
-                # Cave-closing teleport will move the player to
-                # REPOSITORY_ROOM once endgame transitions to
-                # $InRepository — wired in a follow-up step
-                # alongside a canonical-test rewrite (the current
-                # test deposits 5 treasures past the closing
-                # threshold, which canon doesn't allow).
+                # Cave-closing teleport. Canon CCA whisks the player
+                # to the SW Repository (canon room 116) the moment
+                # endgame's closing-timer drains. Rising-edge guard
+                # — fires on the first tick after $Closing → $InRepository
+                # transitions, then leaves the player free to move within
+                # 115/116 (canonically the cave seals around them, but
+                # we don't enforce that here).
+                if self.endgame.in_repository() and not self.repository_teleport_done:
+                    self.player.move_to(self.REPOSITORY_ROOM)
+                    self.repository_teleport_done = true
                 # Per-turn hint observation. Each hint watches
                 # a different world condition; Adventure
                 # decides what each hint cares about and
@@ -4639,4 +4643,10 @@
         # when a dwarf hits and read+cleared via dwarf_threw_axe().
         # Domain bool so @@[persist] round-trips it across saves.
         dwarf_axe_flag: bool = false
+        # Rising-edge guard for the cave-closing teleport. Set true
+        # the first tick after endgame transitions to $InRepository
+        # (when self.player.move_to(REPOSITORY_ROOM) fires). Persists
+        # across save/restore so a restored late-endgame run doesn't
+        # re-teleport.
+        repository_teleport_done: bool = false
 }

@@ -74,6 +74,12 @@ func _run_stage(stage: Dictionary) -> void:
 
     var adv = Cca.new()
     adv.setup_default_aspects()
+    # Test-only: bump CLOSING_DURATION so the cave-closing teleport
+    # doesn't fire mid-stage. Canon CLOSING_DURATION is 30 ticks,
+    # which our long playthrough exceeds while still walking around
+    # depositing treasures. We defer the teleport with a high value,
+    # then explicitly drain the timer at the in_repository stage.
+    adv.endgame.CLOSING_DURATION = 1000
     # NB: wake_dwarves() deliberately not called. Dwarves are
     # canonically activated by deep-cave entry; on this test
     # path their random axe-throwing would inject seed-dependent
@@ -119,6 +125,17 @@ func _run_stage(stage: Dictionary) -> void:
             # Mirrors what the pirate would do — keeps the rest
             # of the playthrough on its canon timeline.
             adv.chest.reappear(adv.CHEST_ROOM)
+        elif verb == "force_in_repository":
+            # Test rig: drain the closing timer until endgame
+            # transitions to $InRepository. Mirrors the canonical
+            # 30 ticks of cave-closing — we deferred them earlier
+            # by setting CLOSING_DURATION = 1000 so the teleport
+            # wouldn't fire mid-batch. Each adv.tick() also fires
+            # the rising-edge teleport once endgame flips.
+            var safety = 2000
+            while not adv.endgame.in_repository() and safety > 0:
+                adv.tick()
+                safety -= 1
         elif verb == "detonate":
             # detonate_marker is a top-level Adventure event,
             # not a verb the parser routes through. Mirrors
@@ -743,21 +760,17 @@ func _stages() -> Array:
             "checkpoint": "all_deposited",
         },
         # ----- Endgame -----
-        # The canonical playthrough deposits the 10th treasure
-        # in deposit_batch_a, which transitions Endgame $Active
-        # → $Closing (CLOSING_DURATION = 30 ticks). Real-command
-        # navigation between batches uses many more than 30
-        # ticks, so by the time the 15th treasure is deposited
-        # we've already drained $Closing → $InRepository. This
-        # is correct: test_cca_full uses player.move_to setter
-        # teleports that don't tick, so it explicitly drives 30
-        # ticks afterward; our stage DAG arrives at in_repository
-        # naturally. detonate_marker then crowns the run with
-        # the 50-point bonus.
+        # We bumped CLOSING_DURATION = 1000 at test setup so the
+        # cave-closing teleport wouldn't fire while we walked the
+        # canon paths to deposit treasures 11-15. Now drain the
+        # timer explicitly via the force_in_repository test rig,
+        # which ticks until $Closing → $InRepository transitions.
+        # The Adventure tick handler then teleports the player to
+        # REPOSITORY_ROOM (canon 116) on the rising edge.
         {
             "name":       "in_repository",
             "from":       "all_deposited",
-            "actions":    [],
+            "actions":    [["force_in_repository", ""]],
             "asserts":    _assert_in_repository,
             "checkpoint": "in_repository",
         },
@@ -1072,6 +1085,7 @@ func _assert_closing_phase(adv, t) -> void:
 
 func _assert_in_repository(adv, t) -> void:
     t._expect("endgame state", adv.endgame_state(), "in_repository")
+    t._expect("player teleported to canon Repository", adv.player_room(), 116)
 
 func _assert_won(adv, t) -> void:
     t._expect("endgame won",      adv.endgame_won(),    true)
