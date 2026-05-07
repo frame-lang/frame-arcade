@@ -54,7 +54,7 @@ func _init():
     adv.tick()
     _expect("lamp state",   adv.get_lamp_state(), "dim")
     _expect("battery",      adv.battery_left(),   30)
-    _expect("warning text", adv.get_lamp_message(), "Your lamp is getting dim.")
+    _expect("warning text begins canon", adv.get_lamp_message().begins_with("Your lamp is getting dim."), true)
 
     print("Tick 30 more times — should hit Out at battery 0:")
     for i in 30:

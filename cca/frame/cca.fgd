@@ -302,7 +302,8 @@
                 if self.battery <= 0:
                     -> $Out
                 elif self.battery <= self.DIM_THRESHOLD:
-                    self.last_warning = "Your lamp is getting dim."
+                    # Canon msg #183 verbatim.
+                    self.last_warning = "Your lamp is getting dim. You'd best start wrapping this up, unless you can find some fresh batteries. I seem to recall there's a vending machine in the maze. Bring some coins with you."
                     -> $Dim
             }
 
@@ -319,9 +320,8 @@
         $Dim => $On {
             $>() {
                 # Surface the dim warning once on entry so the
-                # driver can pick it up and print "Your lamp is
-                # getting dim." then clear it next tick.
-                self.last_warning = "Your lamp is getting dim."
+                # driver can pick it up. Canon msg #183 verbatim.
+                self.last_warning = "Your lamp is getting dim. You'd best start wrapping this up, unless you can find some fresh batteries. I seem to recall there's a vending machine in the maze. Bring some coins with you."
             }
 
             tick() {
@@ -350,6 +350,7 @@
         # ------------------------------------------------------------
         $Out => $On {
             $>() {
+                # Canon msg #184 verbatim.
                 self.last_warning = "Your lamp has run out of power."
             }
 
