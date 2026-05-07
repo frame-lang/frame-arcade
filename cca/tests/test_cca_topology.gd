@@ -39,8 +39,16 @@ const VERB_TO_DIR := {
     6:  "forest",    7:  "forward",  8:  "back",     9:  "valley",
     10: "stairs",    12: "building", 13: "gully",    14: "stream",
     15: "rock",      16: "bed",      17: "crawl",    18: "cobbles",
-    20: "surface",   23: "passage",  39: "jump",     41: "over",
-    42: "across",    56: "climb",
+    20: "surface",   22: "dark",     23: "passage",  24: "low",
+    25: "canyon",    26: "awkward",  27: "giant",    28: "view",
+    31: "pit",       32: "outdoors", 33: "crack",    34: "steps",
+    35: "dome",      36: "left",     37: "right",    38: "hall",
+    39: "jump",      40: "barren",   41: "over",     42: "across",
+    51: "debris",    52: "hole",     53: "wall",     54: "broken",   56: "climb",
+    58: "floor",     59: "room",     60: "slit",     61: "slab",
+    63: "depression",64: "entrance", 67: "cave",     69: "cross",
+    70: "bedquilt",  72: "oriental", 73: "cavern",   74: "shell",
+    75: "reservoir", 76: "office",   77: "fork",
 }
 
 # Canon special-handler rows (dest >= 300) encode gated exits
@@ -59,8 +67,14 @@ const CANON_GATED := {
     "99:east":  100,  # alcove → plover (squeeze gate)
     "100:west": 99,
     "117:east": 118,  # troll bridge → cliff (troll gate)
-    "19:north": 30,   # mountain king → west side chamber (snake gate)
+    "19:north": 28,   # mountain king → silver passage (snake gate)
     "19:south": 29,   # mountain king → south side chamber (snake gate)
+    "19:west":  30,   # mountain king → west side chamber (snake gate)
+    # Crack — canon's `16 14 1` "any-verb→14" handler (transition
+    # message) needs a concrete escape direction in our model.
+    "16:east":  14,
+    "16:out":   14,
+    "16:back":  14,
 }
 
 var passed: int = 0
@@ -105,14 +119,23 @@ func _audit_room(rid: int, canon: Dictionary, port: Dictionary) -> void:
     # matching destination.
     for direction in canon:
         var canon_dest: int = canon[direction]
+        var key: String = "%d:%s" % [rid, direction]
         if not port.has(direction):
             room_lines.append("  MISSING canon: %s → %d" % [direction, canon_dest])
             failed += 1
             room_failed = true
         elif port[direction] != canon_dest:
-            room_lines.append("  MISMATCH:      %s canon→%d port→%d" % [direction, canon_dest, port[direction]])
-            failed += 1
-            room_failed = true
+            # Canon's section-2 entry may be a transition-message
+            # room (snake-block, fall-into-pit, etc.) that the
+            # engine overrides via a conditional row. If the port
+            # routes that direction to the conditional destination
+            # listed in CANON_GATED, accept it.
+            if CANON_GATED.has(key) and CANON_GATED[key] == port[direction]:
+                passed += 1
+            else:
+                room_lines.append("  MISMATCH:      %s canon→%d port→%d" % [direction, canon_dest, port[direction]])
+                failed += 1
+                room_failed = true
         else:
             passed += 1
 

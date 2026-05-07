@@ -97,7 +97,7 @@ const ROOMS: Dictionary = {
     1:   {"north": 5, "south": 4, "east": 3, "west": 2,
           "up": 2, "down": 4, "in": 3, "enter": 3,
           "hill": 2, "forest": 5, "stream": 4, "gully": 4,
-          "building": 3, "downstream": 4},
+          "building": 3, "downstream": 4, "depression": 8},
     # Hill in road — canon row `2 1 2 12 7 43 45 30` (HILL/BUILD/
     # FORWARD/E/N/DOWN→1), `2 5 6 45 46` (FOREST/N/S→5).
     2:   {"north": 1, "south": 5, "east": 1, "down": 1,
@@ -106,11 +106,11 @@ const ROOMS: Dictionary = {
     # → 1), `3 79 5 14` (DOWNSTREAM/STREAM → 79). Magic words
     # XYZZY (62) → 11 and PLUGH (65) → 33 are handled by the
     # MagicWordTeleport aspect, not these tables.
-    3:   {"west": 1, "out": 1, "enter": 1, "stream": 79, "downstream": 79},
+    3:   {"west": 1, "out": 1, "enter": 1, "stream": 79, "downstream": 79, "outdoors": 1},
     # Valley — canon row `4 1 4 12 45` (UPSTR/BUILD/N→1),
     # `4 5 6 43 44 29` (FOREST/E/W/UP→5), `4 7 5 46 30` (DOWNS/S/DOWN→7).
     4:   {"north": 1, "south": 7, "east": 5, "west": 5, "up": 5, "down": 7,
-          "upstream": 1, "building": 1, "forest": 5, "downstream": 7},
+          "upstream": 1, "building": 1, "forest": 5, "downstream": 7, "depression": 8},
     # Forest 1 — canon row `5 4 9 43 30` (VALLEY/E/DOWN→4),
     # `5 6 6` (FOREST→6), `5 5 44 46` (W/S→5; "lost in forest"
     # self-loop). Port-only "north → 96" shortcut to Soft Room
@@ -144,18 +144,36 @@ const ROOMS: Dictionary = {
     # the cave entry crawl. Port-only "up": 8 / "out": 8 removed
     # for canon faithfulness; the player can still type UP and
     # get a "you can't go that way" deflection from the parser.
-    9:   {"west": 10, "in": 10, "crawl": 10, "cobbles": 10},
+    9:   {"west": 10, "in": 10, "crawl": 10, "cobbles": 10, "pit": 14, "debris": 11},
     # Cobbles — canon row `10 9 11 17 18 20 43`
     # (E/OUT/CRAWL/COBBL/SURFA→9), `10 11 17 18 19 23 44`
     # (W/IN/CRAWL/COBBL/PASSA→11). Note "crawl" and "cobbles"
     # appear on both sides; canon's first-row-wins picks the
     # west/in destination for those words.
-    10:  {"east": 9, "west": 11, "in": 11, "out": 9, "surface": 9},
-    11:  {"out": 1, "up": 1, "north": 12, "east": 12}, # Debris room
-    12:  {"up": 1, "down": 33, "north": 33, "south": 11, "west": 11}, # Awkward canyon
+    10:  {"east": 9, "west": 11, "in": 11, "out": 9, "surface": 9,
+          "dark": 11, "debris": 11, "pit": 14},
+    # Debris room — canon row `11 9 64` (ENTRANCE→9),
+    # `11 10 17 18 23 24 43` (CRAWL/COBBL/PASSAGE/LOW/E→10),
+    # `11 12 25 19 29 44` (CANYON/IN/UP/W→12), `11 14 31`
+    # (PIT→14). XYZZY (62) → 3 is handled by MagicWordTeleport.
+    11:  {"east": 10, "west": 12, "up": 12, "in": 12,
+          "crawl": 10, "cobbles": 10, "passage": 10, "low": 10,
+          "canyon": 12, "pit": 14, "entrance": 9},
+    # Awkward sloping E/W canyon — canon row `12 9 64`
+    # (ENTRANCE→9), `12 11 30 43 51` (DOWN/E/DEBRIS→11),
+    # `12 13 19 29 44` (IN/UP/W→13), `12 14 31` (PIT→14).
+    # Removed port-only N→33, S→11; canon has neither.
+    12:  {"east": 11, "west": 13, "up": 13, "down": 11, "in": 13,
+          "pit": 14, "entrance": 9, "debris": 11},
     33:  {"up": 12, "south": 28, "down": 13, "east": 47, "west": 65, "north": 14},
     28:  {"north": 33},                                                  # Low n/s passage at hole — canon 28 (silver home)
-    13:  {"up": 33, "out": 33},
+    # Bird chamber — canon row `13 9 64` (ENTRANCE→9),
+    # `13 11 51` (DEBRIS→11), `13 12 25 43` (CANYON/E→12),
+    # `13 14 23 31 44` (PASSAGE/PIT/W→14). XYZZY/PLUGH/PLOVER
+    # access is via magic word, not a direct exit. Port-only
+    # UP/OUT→33 removed for canon faithfulness.
+    13:  {"east": 12, "west": 14, "passage": 14, "pit": 14,
+          "canyon": 12, "entrance": 9, "debris": 11},
     # Plover Room — canon 100. West to alcove (99) via tight
     # tunnel (gated on emerald-only inventory); north to Dark-room
     # (port-direction; canon NE). PLOVER chant teleports to 33.
@@ -191,9 +209,23 @@ const ROOMS: Dictionary = {
     # Rod-puzzle branch: hangs off Y2 (33) to the north. The
     # fissure (17) is the gate; crossing east requires the
     # crystal bridge (waved up by the rod).
-    14:  {"south": 33, "north": 17, "down": 15},  # top of small pit
-    17:  {"south": 14, "east": 69, "west": 27},   # fissure — east gated; west to other side
-    18:  {"north": 15},                            # Low room w/ "won't get it up the steps" sign — canon 18 (gold home)
+    # Top of small pit — canon row `14 9 64` (ENTRANCE→9),
+    # `14 11 51` (DEBRIS→11), `14 13 23 43` (PASSAGE/E→13),
+    # `14 15 30` (DOWN→15), `14 16 33 44` (CRACK/W→16). The
+    # canon special-handler row `14 150020 ...` is the
+    # fall-into-pit branch handled by gameplay logic, not these
+    # tables. Port-only S→33 / N→17 removed.
+    14:  {"east": 13, "west": 16, "down": 15,
+          "passage": 13, "entrance": 9, "debris": 11, "crack": 16},
+    # East bank of fissure — canon row `17 15 38 43`
+    # (HALL/E→15), `17 27 41` (OVER→27 gated by bridge). Canon
+    # has no W or S exit; port-only `west: 27` and `south: 14`
+    # removed for canon faithfulness.
+    17:  {"east": 15, "hall": 15, "over": 27},
+    # Low room w/ "won't get it up the steps" sign — canon 18.
+    # Canon row `18 15 38 11 45` (HALL/OUT/N→15). Pirate's
+    # stash spawns here (CHEST_ROOM = 18).
+    18:  {"north": 15, "out": 15, "hall": 15},
     27:  {"east": 17, "west": 19},                # West bank of fissure — canon 27
     69:  {"west": 17},                            # hall of mirrors (across)
     # Mist + King hall + two-pit + plant + slab area. Hangs off
@@ -202,10 +234,41 @@ const ROOMS: Dictionary = {
     # the western centerpoint. The slab area (34-37) hangs off
     # the rock-jumble junction (30) and is largely a dead-end
     # for atmosphere.
-    15:  {"up": 14, "east": 16, "west": 19, "south": 18, "north": 21},   # Hall of Mists
-    16: {"west": 15, "up": 17, "east": 103},              # East end of mists; east to canon 103 Shell Room
-    19:  {"east": 15, "north": 30, "south": 29},                        # Hall of Mt King — north canon-30, south canon-29
-    20:  {"north": 19},                                                  # South entry (port-orphan; canon 20 is broken-neck death msg)
+    # Hall of Mists east end — canon 15. Canon row `15 18 36 46`
+    # (LEFT/S→18), `15 17 7 38 44` (FORWARD/HALL/W→17),
+    # `15 19 10 30 45` (STAIRS/DOWN/N→19), `15 14 29` (UP→14),
+    # `15 34 55` (Y2 magic word→34 — handled by MagicWordTeleport).
+    # Special-handler row `15 150022 ...` is the rod-puzzle pit
+    # check; encoded via gameplay logic.
+    15:  {"up": 14, "west": 17, "south": 18, "north": 19, "down": 19,
+          "left": 18, "forward": 17, "hall": 17, "stairs": 19},
+    # Crack — canon 16. Canon row `16 14 1` is the engine
+    # "any-verb-falls-back-to-14" handler that prints the
+    # transition message ("the crack is far too small to
+    # follow") then bounces the player back to 14. Without
+    # canon's NULL-verb handling, we add a single explicit
+    # OUT/EAST/BACK route to 14 so the player can escape.
+    16:  {"east": 14, "out": 14, "back": 14},
+    # Hall of the Mountain King — canon 19. Canon row
+    # `19 15 10 29 43` (STAIRS/UP/E→15), `19 32 45` (N→32 is the
+    # snake-block message room, fired when condition fails),
+    # `19 311028 45 36` (N/LEFT→28 silver passage when snake gone),
+    # `19 311029 46 37` (S/RIGHT→29 jewelry when snake gone),
+    # `19 311030 44 7` (W/FORWARD→30 coins when snake gone),
+    # `19 74 66` (SECRET→74 different secret canyon).
+    # GATES handles the snake-blocking condition; we encode the
+    # destinations directly so canon-aligned walking works once
+    # the bird has driven the snake off.
+    19:  {"east": 15, "stairs": 15, "up": 15,
+          "north": 28, "left": 28,
+          "south": 29, "right": 29,
+          "west": 30, "forward": 30,
+          "secret": 74},
+    # Canon 20 is the "YOU ARE AT THE BOTTOM OF THE PIT WITH A
+    # BROKEN NECK." death message room — canon row `20 0 1` is
+    # the engine's "kill the player and skip" handler. No walking
+    # exits in canon. Port-only `north: 19` removed.
+    20:  {},
     29:  {"north": 19},                                                  # South side chamber — canon 29 (jewelry home)
     30:  {"south": 19},                                                  # West side chamber Hall of Mt King — canon 30 (coins home)
     21:  {"south": 15, "east": 22, "west": 25},                          # Two-pit room — canon-aligned: west to canon 25 (Bottom of west pit, plant)
@@ -362,6 +425,10 @@ const GATES: Dictionary = {
     # away.
     "19:north":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
     "19:south":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
+    "19:west":   {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
+    "19:left":   {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
+    "19:right":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
+    "19:forward":{"check": "snake",  "msg": "The snake glares at you and refuses to move."},
     "117:east":  {"check": "troll",  "msg": "The troll bars your way until you pay tribute."},
     "17:east":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
