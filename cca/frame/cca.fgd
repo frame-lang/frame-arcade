@@ -1706,6 +1706,142 @@
 
 
 # ------------------------------------------------------------
+# Item (parameterized × N — non-treasure carryables)
+# ------------------------------------------------------------
+# Generic carryable-or-fixture object. Sister aspect to
+# Treasure: same $InRoom / $Carried shape, but no $Deposited
+# / fragile semantics. Adds a $Consumed terminal for items
+# that get eaten (food → bear), used up (batteries → lamp),
+# or destroyed (clam → broken when player BREAKs it).
+#
+# Replaces twelve hand-rolled `*_carried: bool + *_location:
+# int` pairs that used to be scattered across Adventure's
+# domain. Each item is now one parameterized instance:
+#
+#     rod        = @@Item(11)           # debris room
+#     keys       = @@Item(3)            # well house
+#     bottle     = @@Item(3)            # well house
+#     cage       = @@Item(10)           # cobble crawl
+#     food       = @@Item(3)            # well house
+#     pillow     = @@Item(96)           # Soft Room
+#     clam       = @@Item(103)          # Shell Room
+#     magazine   = @@Item(106)          # Anteroom
+#     axe        = @@Item(-1)           # not in world (dwarf-thrown)
+#     mark_rod   = @@Item(-1)           # not in world (slain dwarf)
+#     batteries  = @@Item(-1)           # not in world (vending dispensed)
+#     oyster     = @@Item(-1)           # not in world (clam-broken)
+#
+# Items with home_room <= 0 sit in $InRoom with location <= 0
+# — that's the "not yet in the world" representation. The
+# `place(at_room)` event puts them somewhere; `try_take` will
+# only succeed once they're in a real room.
+#
+# Events:
+#   try_take(at_room) → bool  — true if successfully taken
+#   try_drop(at_room) → bool  — true if successfully dropped
+#   place(at_room)            — relocate (dwarf throw, vending
+#                              dispense, clam break); valid in
+#                              any state, transitions to $InRoom
+#   consume()                 — terminal, removes from world
+#                              (food eaten, batteries used,
+#                              clam broken)
+#
+# The bottle's contents (Empty / Water / Oil) stay on the
+# Bottle FSM; only the carry/location dimension migrates here.
+# ------------------------------------------------------------
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
+@@system Item(home_room: int = -1) : RefCounted {
+
+    interface:
+        try_take(at_room: int): bool
+        try_drop(at_room: int): bool
+        place(at_room: int)
+        consume()
+        is_carried(): bool
+        is_in_room(r: int): bool
+        get_state(): String
+        get_location(): int
+
+    machine:
+
+        $InRoom {
+            try_take(at_room: int): bool {
+                if self.location > 0 and at_room == self.location:
+                    -> $Carried
+                    @@:return(true)
+                @@:(false)
+            }
+            try_drop(at_room: int): bool {
+                @@:(false)
+            }
+            place(at_room: int) {
+                self.location = at_room
+            }
+            consume() {
+                self.location = -1
+                -> $Consumed
+            }
+            is_carried(): bool       { @@:(false) }
+            is_in_room(r: int): bool { @@:(self.location > 0 and r == self.location) }
+            get_state(): String      { @@:("in_room") }
+            get_location(): int      { @@:(self.location) }
+        }
+
+        $Carried {
+            try_take(at_room: int): bool {
+                @@:(false)
+            }
+            try_drop(at_room: int): bool {
+                self.location = at_room
+                -> $InRoom
+                @@:return(true)
+            }
+            place(at_room: int) {
+                self.location = at_room
+                -> $InRoom
+            }
+            consume() {
+                self.location = -1
+                -> $Consumed
+            }
+            is_carried(): bool       { @@:(true) }
+            is_in_room(r: int): bool { @@:(false) }
+            get_state(): String      { @@:("carried") }
+            get_location(): int      { @@:(-1) }
+        }
+
+        $Consumed {
+            try_take(at_room: int): bool {
+                @@:(false)
+            }
+            try_drop(at_room: int): bool {
+                @@:(false)
+            }
+            place(at_room: int) {
+                self.location = at_room
+                -> $InRoom
+            }
+            consume() {}
+            is_carried(): bool       { @@:(false) }
+            is_in_room(r: int): bool { @@:(false) }
+            get_state(): String      { @@:("consumed") }
+            get_location(): int      { @@:(-1) }
+        }
+
+    domain:
+        # `home_room` is mirrored as a domain field so that the
+        # codegen'd save/restore can pass it back to `Item.new()`
+        # on rehydrate. Treasure does the same with its three
+        # construction parameters; following that pattern keeps
+        # @@[persist] round-tripping clean.
+        home_room: int = home_room
+        location: int = home_room
+}
+
+
+# ------------------------------------------------------------
 # EggsIncantation
 # ------------------------------------------------------------
 # CCA's most parser-poetic mechanic: the player chants
@@ -1975,11 +2111,11 @@
 # ------------------------------------------------------------
 # Bottle
 # ------------------------------------------------------------
-# The water bottle from the well house. A 2-state container
-# tracking whether it currently holds water. The bottle is also
-# an inventory item — its location/carry state lives in
-# Adventure (`bottle_carried` / `bottle_location`). The FSM
-# here just tracks contents.
+# The water bottle from the well house. A 3-state container
+# tracking whether it currently holds water, oil, or nothing.
+# The bottle is also an inventory item — its location/carry
+# state lives on Adventure as `bottle_item` (an `Item`
+# parameterized FSM). The FSM here just tracks contents.
 #
 # State diagram:
 #
@@ -2562,31 +2698,31 @@
                 if self.dwarf1.get_state() == "stalking" and self.dwarf1.get_room() == r:
                     self.dwarf1.attack()
                     if self.dwarf1.get_state() == "dead":
-                        self.mark_rod_location = r
+                        self.mark_rod_item.place(r)
                         @@:return("You killed dwarf 1.")
                     @@:return("Your axe missed dwarf 1.")
                 elif self.dwarf2.get_state() == "stalking" and self.dwarf2.get_room() == r:
                     self.dwarf2.attack()
                     if self.dwarf2.get_state() == "dead":
-                        self.mark_rod_location = r
+                        self.mark_rod_item.place(r)
                         @@:return("You killed dwarf 2.")
                     @@:return("Your axe missed dwarf 2.")
                 elif self.dwarf3.get_state() == "stalking" and self.dwarf3.get_room() == r:
                     self.dwarf3.attack()
                     if self.dwarf3.get_state() == "dead":
-                        self.mark_rod_location = r
+                        self.mark_rod_item.place(r)
                         @@:return("You killed dwarf 3.")
                     @@:return("Your axe missed dwarf 3.")
                 elif self.dwarf4.get_state() == "stalking" and self.dwarf4.get_room() == r:
                     self.dwarf4.attack()
                     if self.dwarf4.get_state() == "dead":
-                        self.mark_rod_location = r
+                        self.mark_rod_item.place(r)
                         @@:return("You killed dwarf 4.")
                     @@:return("Your axe missed dwarf 4.")
                 elif self.dwarf5.get_state() == "stalking" and self.dwarf5.get_room() == r:
                     self.dwarf5.attack()
                     if self.dwarf5.get_state() == "dead":
-                        self.mark_rod_location = r
+                        self.mark_rod_item.place(r)
                         @@:return("You killed dwarf 5.")
                     @@:return("Your axe missed dwarf 5.")
                 @@:("There's no dwarf here.")
@@ -2765,13 +2901,13 @@
             }
 
             bridge_built(): bool       { @@:(self.crystal_bridge.is_built()) }
-            rod_in_inventory(): bool   { @@:(self.rod_carried) }
+            rod_in_inventory(): bool   { @@:(self.rod_item.is_carried()) }
             grate_locked(): bool       { @@:(self.grate.is_locked()) }
-            keys_in_inventory(): bool  { @@:(self.keys_carried) }
+            keys_in_inventory(): bool  { @@:(self.keys_item.is_carried()) }
             vending_loaded(): bool     { @@:(self.vending.is_loaded()) }
             plant_is_tall(): bool      { @@:(self.plant.is_tall()) }
             plant_is_huge(): bool      { @@:(self.plant.is_huge()) }
-            bottle_in_inventory(): bool { @@:(self.bottle_carried) }
+            bottle_in_inventory(): bool { @@:(self.bottle_item.is_carried()) }
             bottle_has_water(): bool   { @@:(self.bottle.has_water()) }
 
             treasures_deposited(): int {
@@ -2824,43 +2960,41 @@
             # message; the player dies via player.die() which
             # routes through the standard $Alive → $Dead path.
             # Canon: every throw — hit or miss — leaves the axe
-            # in the room. Adventure tracks axe_location.
+            # in the room. The Item FSM's `place(at_room)` event
+            # handles "appear in world at this room" cleanly
+            # whether the axe was already there ($InRoom) or
+            # never existed yet ($InRoom with location -1).
             if self.dwarf1.get_state() == "stalking" and self.dwarf1.get_room() == room:
                 var d1_hit: bool = self.dwarf1.try_throw_axe()
-                self.axe_location = room
-                self.axe_carried = false
+                self.axe_item.place(room)
                 if d1_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
             if self.dwarf2.get_state() == "stalking" and self.dwarf2.get_room() == room:
                 var d2_hit: bool = self.dwarf2.try_throw_axe()
-                self.axe_location = room
-                self.axe_carried = false
+                self.axe_item.place(room)
                 if d2_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
             if self.dwarf3.get_state() == "stalking" and self.dwarf3.get_room() == room:
                 var d3_hit: bool = self.dwarf3.try_throw_axe()
-                self.axe_location = room
-                self.axe_carried = false
+                self.axe_item.place(room)
                 if d3_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
             if self.dwarf4.get_state() == "stalking" and self.dwarf4.get_room() == room:
                 var d4_hit: bool = self.dwarf4.try_throw_axe()
-                self.axe_location = room
-                self.axe_carried = false
+                self.axe_item.place(room)
                 if d4_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
             if self.dwarf5.get_state() == "stalking" and self.dwarf5.get_room() == room:
                 var d5_hit: bool = self.dwarf5.try_throw_axe()
-                self.axe_location = room
-                self.axe_carried = false
+                self.axe_item.place(room)
                 if d5_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
@@ -3339,32 +3473,32 @@
             # Rod overlay — not a treasure (no point value), but
             # visible in its room when not carried, same as the
             # treasures above.
-            if not self.rod_carried and self.rod_location == r:
+            if self.rod_item.is_in_room(r):
                 base = base + " A small black rod with a rusty star at one end lies on the ground."
-            if not self.keys_carried and self.keys_location == r:
+            if self.keys_item.is_in_room(r):
                 base = base + " A set of brass keys lies on the floor."
-            if not self.bottle_carried and self.bottle_location == r:
+            if self.bottle_item.is_in_room(r):
                 if self.bottle.has_water():
                     base = base + " A small glass bottle, full of water, sits on a wooden shelf."
                 else:
                     base = base + " A small empty glass bottle sits on a wooden shelf."
-            if not self.cage_carried and self.cage_location == r:
+            if self.cage_item.is_in_room(r):
                 base = base + " There is a small wicker cage discarded nearby."
-            if not self.food_carried and self.food_location > 0 and self.food_location == r:
+            if self.food_item.is_in_room(r):
                 base = base + " There is tasty food here."
-            if not self.pillow_carried and self.pillow_location == r:
+            if self.pillow_item.is_in_room(r):
                 base = base + " A small velvet pillow lies on the floor."
-            if not self.axe_carried and self.axe_location > 0 and self.axe_location == r:
+            if self.axe_item.is_in_room(r):
                 base = base + " There is a little axe lying here."
-            if not self.clam_carried and self.clam_location > 0 and self.clam_location == r:
+            if self.clam_item.is_in_room(r):
                 base = base + " There is an enormous clam here with its shell tightly closed."
-            if self.oyster_location > 0 and self.oyster_location == r:
+            if self.oyster_item.is_in_room(r):
                 base = base + " A massive oyster sits open on the floor — far too heavy to carry."
-            if not self.batteries_carried and self.batteries_location > 0 and self.batteries_location == r:
+            if self.batteries_item.is_in_room(r):
                 base = base + " A fresh set of lamp batteries lies in the dispenser tray."
-            if not self.magazine_carried and self.magazine_location > 0 and self.magazine_location == r:
+            if self.magazine_item.is_in_room(r):
                 base = base + " A few recent issues of \"Spelunker Today\" magazine are scattered about."
-            if not self.mark_rod_carried and self.mark_rod_location > 0 and self.mark_rod_location == r:
+            if self.mark_rod_item.is_in_room(r):
                 base = base + " A small black rod with a rusty mark on the end lies nearby."
             # Grate state overlay — only at the depression itself.
             if r == self.GRATE_ROOM:
@@ -3390,106 +3524,91 @@
                 # Canon: bird won't approach without a cage. The
                 # rod separately scares it (existing port rule);
                 # the cage is the carry container.
-                if not self.cage_carried:
+                if not self.cage_item.is_carried():
                     return "You can catch the bird, but you cannot carry it."
                 self.bird.capture()
                 self.player.take(self.BIRD_ID)
                 return "You catch the bird in your hand."
             if noun == "rod":
-                if self.rod_carried:
+                if self.rod_item.is_carried():
                     return "You already have the rod."
-                if self.player.get_room() != self.rod_location:
+                if not self.rod_item.try_take(self.player.get_room()):
                     return "There is no rod here."
-                self.rod_carried = true
                 self.player.take(self.ROD_ID)
                 return "Taken."
             if noun == "keys" or noun == "key":
-                if self.keys_carried:
+                if self.keys_item.is_carried():
                     return "You already have the keys."
-                if self.player.get_room() != self.keys_location:
+                if not self.keys_item.try_take(self.player.get_room()):
                     return "There are no keys here."
-                self.keys_carried = true
                 self.player.take(self.KEYS_ID)
                 return "Taken."
             if noun == "bottle":
-                if self.bottle_carried:
+                if self.bottle_item.is_carried():
                     return "You already have the bottle."
-                if self.player.get_room() != self.bottle_location:
+                if not self.bottle_item.try_take(self.player.get_room()):
                     return "There is no bottle here."
-                self.bottle_carried = true
                 self.player.take(self.BOTTLE_ID)
                 return "Taken."
             if noun == "cage":
-                if self.cage_carried:
+                if self.cage_item.is_carried():
                     return "You already have the cage."
-                if self.player.get_room() != self.cage_location:
+                if not self.cage_item.try_take(self.player.get_room()):
                     return "There is no cage here."
-                self.cage_carried = true
                 self.player.take(self.CAGE_ID)
                 return "Taken."
             if noun == "food":
-                if self.food_carried:
+                if self.food_item.is_carried():
                     return "You already have the food."
-                if self.food_location <= 0 or self.player.get_room() != self.food_location:
+                if not self.food_item.try_take(self.player.get_room()):
                     return "There is no food here."
-                self.food_carried = true
                 self.player.take(self.FOOD_ID)
                 return "Taken."
             if noun == "pillow" or noun == "velvet":
-                if self.pillow_carried:
+                if self.pillow_item.is_carried():
                     return "You already have the pillow."
-                if self.player.get_room() != self.pillow_location:
+                if not self.pillow_item.try_take(self.player.get_room()):
                     return "There is no pillow here."
-                self.pillow_carried = true
                 self.player.take(self.PILLOW_ID)
                 return "Taken."
             if noun == "axe":
-                if self.axe_carried:
+                if self.axe_item.is_carried():
                     return "You already have the axe."
-                if self.axe_location <= 0 or self.player.get_room() != self.axe_location:
+                if not self.axe_item.try_take(self.player.get_room()):
                     return "There is no axe here."
-                self.axe_carried = true
-                self.axe_location = -1
                 self.player.take(self.AXE_ID)
                 return "Taken."
             if noun == "clam":
-                if self.clam_carried:
+                if self.clam_item.is_carried():
                     return "You already have the clam."
-                if self.clam_location <= 0 or self.player.get_room() != self.clam_location:
+                if not self.clam_item.try_take(self.player.get_room()):
                     return "There is no clam here."
-                self.clam_carried = true
                 self.player.take(self.CLAM_ID)
                 return "Taken."
             if noun == "oyster":
                 # Canonically the oyster is too heavy to carry.
-                if self.oyster_location > 0 and self.player.get_room() == self.oyster_location:
+                if self.oyster_item.is_in_room(self.player.get_room()):
                     return "You can't be serious — that oyster weighs a ton."
                 return "There is no oyster here."
             if noun == "batteries" or noun == "battery":
-                if self.batteries_carried:
+                if self.batteries_item.is_carried():
                     return "You already have the batteries."
-                if self.batteries_location <= 0 or self.player.get_room() != self.batteries_location:
+                if not self.batteries_item.try_take(self.player.get_room()):
                     return "There are no batteries here."
-                self.batteries_carried = true
-                self.batteries_location = -1
                 self.player.take(self.BATTERIES_ID)
                 return "Taken."
             if noun == "magazine":
-                if self.magazine_carried:
+                if self.magazine_item.is_carried():
                     return "You already have the magazine."
-                if self.magazine_location <= 0 or self.player.get_room() != self.magazine_location:
+                if not self.magazine_item.try_take(self.player.get_room()):
                     return "There is no magazine here."
-                self.magazine_carried = true
-                self.magazine_location = -1
                 self.player.take(self.MAGAZINE_ID)
                 return "Taken."
             if noun == "mark" or noun == "mark-rod" or noun == "stick":
-                if self.mark_rod_carried:
+                if self.mark_rod_item.is_carried():
                     return "You already have the rod with a mark."
-                if self.mark_rod_location <= 0 or self.player.get_room() != self.mark_rod_location:
+                if not self.mark_rod_item.try_take(self.player.get_room()):
                     return "There is no second rod here."
-                self.mark_rod_carried = true
-                self.mark_rod_location = -1
                 self.player.take(self.MARK_ROD_ID)
                 return "Taken."
             if noun == "chain":
@@ -3535,28 +3654,25 @@
             # in the current room, and Adventure brokers the
             # bear→troll consequence chain.
             if noun == "rod":
-                if not self.rod_carried:
+                if not self.rod_item.is_carried():
                     return "You aren't carrying the rod."
-                self.rod_carried = false
-                self.rod_location = self.player.get_room()
+                self.rod_item.try_drop(self.player.get_room())
                 self.player.drop(self.ROD_ID)
                 return "Dropped."
             if noun == "keys" or noun == "key":
-                if not self.keys_carried:
+                if not self.keys_item.is_carried():
                     return "You aren't carrying the keys."
-                self.keys_carried = false
-                self.keys_location = self.player.get_room()
+                self.keys_item.try_drop(self.player.get_room())
                 self.player.drop(self.KEYS_ID)
                 return "Dropped."
             if noun == "bottle":
-                if not self.bottle_carried:
+                if not self.bottle_item.is_carried():
                     return "You aren't carrying the bottle."
-                self.bottle_carried = false
-                self.bottle_location = self.player.get_room()
+                self.bottle_item.try_drop(self.player.get_room())
                 self.player.drop(self.BOTTLE_ID)
                 return "Dropped."
             if noun == "cage":
-                if not self.cage_carried:
+                if not self.cage_item.is_carried():
                     return "You aren't carrying the cage."
                 # If the bird is currently caged, dropping the
                 # cage drops a bird-with-cage. Canon CCA actually
@@ -3566,64 +3682,57 @@
                 # canon "you have the bird" guard.
                 if self.player.carrying(self.BIRD_ID):
                     return "(Releasing the bird first — see RELEASE BIRD.)"
-                self.cage_carried = false
-                self.cage_location = self.player.get_room()
+                self.cage_item.try_drop(self.player.get_room())
                 self.player.drop(self.CAGE_ID)
                 return "Dropped."
             if noun == "food":
-                if not self.food_carried:
+                if not self.food_item.is_carried():
                     return "You aren't carrying the food."
-                self.food_carried = false
-                self.food_location = self.player.get_room()
+                self.food_item.try_drop(self.player.get_room())
                 self.player.drop(self.FOOD_ID)
                 return "Dropped."
             if noun == "pillow" or noun == "velvet":
-                if not self.pillow_carried:
+                if not self.pillow_item.is_carried():
                     return "You aren't carrying the pillow."
-                self.pillow_carried = false
-                self.pillow_location = self.player.get_room()
+                self.pillow_item.try_drop(self.player.get_room())
                 self.player.drop(self.PILLOW_ID)
                 return "Dropped."
             if noun == "axe":
-                if not self.axe_carried:
+                if not self.axe_item.is_carried():
                     return "You aren't carrying the axe."
-                self.axe_carried = false
-                self.axe_location = self.player.get_room()
+                self.axe_item.try_drop(self.player.get_room())
                 self.player.drop(self.AXE_ID)
                 return "Dropped."
             if noun == "clam":
-                if not self.clam_carried:
+                if not self.clam_item.is_carried():
                     return "You aren't carrying the clam."
-                self.clam_carried = false
-                self.clam_location = self.player.get_room()
+                self.clam_item.try_drop(self.player.get_room())
                 self.player.drop(self.CLAM_ID)
                 return "Dropped."
             if noun == "batteries" or noun == "battery":
-                if not self.batteries_carried:
+                if not self.batteries_item.is_carried():
                     return "You aren't carrying the batteries."
-                self.batteries_carried = false
-                self.batteries_location = self.player.get_room()
+                self.batteries_item.try_drop(self.player.get_room())
                 self.player.drop(self.BATTERIES_ID)
                 return "Dropped."
             if noun == "magazine":
-                if not self.magazine_carried:
+                if not self.magazine_item.is_carried():
                     return "You aren't carrying the magazine."
-                self.magazine_carried = false
-                self.magazine_location = self.player.get_room()
+                var here: int = self.player.get_room()
+                self.magazine_item.try_drop(here)
                 self.player.drop(self.MAGAZINE_ID)
                 # Canon: dropping the magazine at Witt's End
                 # earns one bonus point. Once-per-game (don't
                 # re-award on subsequent drops in the same room).
-                if self.magazine_location == self.WITTS_END_ROOM and self.witts_end_bonus == 0:
+                if here == self.WITTS_END_ROOM and self.witts_end_bonus == 0:
                     self.witts_end_bonus = 1
                     self.real_score = self.real_score + 1
                     return "Dropped — and what a fitting place to leave it."
                 return "Dropped."
             if noun == "mark" or noun == "mark-rod" or noun == "stick":
-                if not self.mark_rod_carried:
+                if not self.mark_rod_item.is_carried():
                     return "You aren't carrying that rod."
-                self.mark_rod_carried = false
-                self.mark_rod_location = self.player.get_room()
+                self.mark_rod_item.try_drop(self.player.get_room())
                 self.player.drop(self.MARK_ROD_ID)
                 return "Dropped."
             if noun == "chain":
@@ -3777,10 +3886,7 @@
                 # velvet pillow. Pillow-in-current-room → soft
                 # landing. Otherwise the standard try_drop runs
                 # the fragile-shatter branch.
-                var pillow_here: bool = (
-                    not self.pillow_carried
-                    and self.pillow_location == room
-                )
+                var pillow_here: bool = self.pillow_item.is_in_room(room)
                 if pillow_here:
                     outcome = self.vase.try_drop_soft(room)
                 else:
@@ -3853,10 +3959,9 @@
             if self.bear.get_state() != "hungry":
                 return "The bear isn't interested."
             # Canon: feeding requires the food item. Consume on use.
-            if not self.food_carried:
+            if not self.food_item.is_carried():
                 return "You have nothing to feed the bear."
-            self.food_carried = false
-            self.food_location = -1                       # consumed
+            self.food_item.consume()                      # → $Consumed (terminal)
             self.player.drop(self.FOOD_ID)
             self.bear.feed()
             return "The bear eats the food eagerly and looks much friendlier."
@@ -3968,12 +4073,11 @@
             # Canon: requires the axe item — picked up after a
             # dwarf throws and misses (or kills the player).
             if noun == "axe":
-                if not self.axe_carried:
+                if not self.axe_item.is_carried():
                     return "You have no axe to throw."
                 # Axe leaves the player's hand and lands in the
                 # current room regardless of hit/miss.
-                self.axe_carried = false
-                self.axe_location = self.player.get_room()
+                self.axe_item.try_drop(self.player.get_room())
                 self.player.drop(self.AXE_ID)
                 return self._attack_dwarf_in_current()
             return "I don't know how to throw that."
@@ -3987,7 +4091,7 @@
             # the puzzle away outright.
             if noun != "rod":
                 return "Waving that around won't do much."
-            if not self.rod_carried:
+            if not self.rod_item.is_carried():
                 return "You don't have the rod."
             var r: int = self.player.get_room()
             if r != self.FISSURE_ROOM:
@@ -4004,7 +4108,7 @@
                 return "I don't see how to unlock that."
             if self.player.get_room() != self.GRATE_ROOM:
                 return "There is nothing here to unlock."
-            return self.grate.unlock(self.keys_carried)
+            return self.grate.unlock(self.keys_item.is_carried())
         }
 
         _verb_lock(noun: String): String {
@@ -4025,21 +4129,20 @@
                 return "The oyster is already open."
             if noun != "clam":
                 return "It is beyond your power to do that."
-            if not self.clam_carried and (self.clam_location <= 0 or self.player.get_room() != self.clam_location):
-                return "There is no clam here."
-            if not self.rod_carried:
-                return "You'll need a rod or a tool to crack the clam open."
             var here: int = self.player.get_room()
-            # Drop the clam from inventory (if carried) and
-            # convert it to an oyster at the player's room.
-            if self.clam_carried:
-                self.clam_carried = false
+            if not self.clam_item.is_carried() and not self.clam_item.is_in_room(here):
+                return "There is no clam here."
+            if not self.rod_item.is_carried():
+                return "You'll need a rod or a tool to crack the clam open."
+            # Drop the clam from inventory (if carried) — the player
+            # is no longer holding it once it shatters.
+            if self.clam_item.is_carried():
                 self.player.drop(self.CLAM_ID)
-            self.clam_location = -1
-            self.oyster_location = here
-            # Pearl spawns at the same room as InRoom — same as
-            # any treasure that's been dropped (callback into
-            # the Treasure FSM).
+            # Clam → $Consumed (terminal; never recoverable). Oyster
+            # spawns immobile at the break room. Pearl spawns there
+            # too via the Treasure FSM's reappear.
+            self.clam_item.consume()
+            self.oyster_item.place(here)
             self.pearl.reappear(here)
             return "A glistening pearl falls out of the clam and rolls away."
         }
@@ -4049,10 +4152,10 @@
             #   INSERT COINS  → vending machine dispenses BATTERIES
             #   INSERT BATTERIES (or USE BATTERIES) → refresh lamp
             if noun == "batteries" or noun == "battery":
-                if not self.batteries_carried:
+                if not self.batteries_item.is_carried():
                     return "You don't have any batteries."
-                self.batteries_carried = false
                 # Used up — remove from world entirely.
+                self.batteries_item.consume()
                 self.player.drop(self.BATTERIES_ID)
                 self.lamp.refresh()
                 return "You replace the lamp's old batteries with the fresh ones. The lamp is now full."
@@ -4074,7 +4177,7 @@
                 # them and INSERT BATTERIES to refresh the lamp.
                 self.player.drop(self.COINS_ID)
                 self.coins.reappear(0)
-                self.batteries_location = self.VENDING_ROOM
+                self.batteries_item.place(self.VENDING_ROOM)
             return msg
         }
 
@@ -4098,7 +4201,7 @@
 
         _verb_fill(noun: String): String {
             if noun == "bottle" or noun == "":
-                if not self.bottle_carried:
+                if not self.bottle_item.is_carried():
                     return "You don't have the bottle."
                 # Canon: same FILL verb takes either source. If
                 # an oil pool is here, that beats water — the
@@ -4119,7 +4222,7 @@
             # canon room 94, not yet wired. Otherwise spills.
             if noun != "" and noun != "bottle" and noun != "water" and noun != "oil":
                 return "You can't pour that."
-            if not self.bottle_carried:
+            if not self.bottle_item.is_carried():
                 return "You don't have the bottle."
             if not self.bottle.has_water() and not self.bottle.has_oil():
                 return "The bottle is empty."
@@ -4152,7 +4255,7 @@
             # too as a flavor response.
             if noun != "" and noun != "water" and noun != "bottle":
                 return "You can't drink that."
-            if not self.bottle_carried:
+            if not self.bottle_item.is_carried():
                 if self._at_water_source():
                     return "The water is wonderfully fresh and clear, but you have no way to carry any."
                 return "You have nothing to drink."
@@ -4432,9 +4535,10 @@
         #     nothing. Drops dynamically from a slain dwarf.
         # Port-canon split:
         #   - The existing ROD_ID is the STAR rod (bridge summon).
-        #   - MARK_ROD_ID is a separate item; mark_rod_location
-        #     starts at -1 (not in world) and gets dropped at the
-        #     player's room when the player kills any dwarf.
+        #   - MARK_ROD_ID is a separate item; the `mark_rod_item`
+        #     starts $InRoom with location=-1 (not in world) and
+        #     `attack_dwarf_in_room` calls `place(r)` to drop it
+        #     at the room where the dwarf was slain.
         MARK_ROD_ID: int = 141
         # CAGE: canonically lives in the Cobble Crawl (canon
         # room 10) and is required to take the bird. The bird
@@ -4445,7 +4549,7 @@
         CAGE_HOME_ROOM: int = 10      # cobble crawl — canon 10
         # FOOD (tasty viands): canonically lives at the well
         # house (canon 3) and is required to tame the bear.
-        # FEED BEAR consumes it (sets carried=false, location=-1).
+        # FEED BEAR calls `food_item.consume()` (terminal $Consumed).
         FOOD_ID: int = 134
         FOOD_HOME_ROOM: int = 3       # well house — canon 3
         # PILLOW (velvet): canonically lives in the Soft Room
@@ -4456,10 +4560,12 @@
         PILLOW_ID: int = 135
         PILLOW_HOME_ROOM: int = 96    # Soft Room — canon 96
         # AXE: comes into the world only when a dwarf throws.
-        # Initial axe_location = -1 (not in world). Once a dwarf
-        # rolls a throw — hit or miss — the axe is dropped at
-        # the player's room. Player can take it and THROW it
-        # back at dwarves; the throw verb requires axe_carried.
+        # `axe_item` starts $InRoom with location=-1 (not in
+        # world). Once a dwarf rolls a throw — hit or miss —
+        # `_maybe_dwarf_attack` calls `axe_item.place(room)` so
+        # the axe drops at the player's room. Player can then
+        # TAKE it and THROW it back; the throw verb requires
+        # `axe_item.is_carried()`.
         AXE_ID: int = 136
         # CLAM (and OYSTER): canon clam lives in the Shell Room
         # (canon 103). BREAK CLAM with the rod converts it into
@@ -4483,34 +4589,28 @@
         MAGAZINE_HOME_ROOM: int = 106     # Anteroom — canon 106
         WITTS_END_ROOM: int = 108         # Witt's End — canon 108
 
-        # The rod's runtime state. Carried as a domain bool +
-        # location int rather than a full FSM, because the rod
-        # has no behavior of its own — it's a key-with-no-lock.
-        # The bridge it summons is a separate FSM (crystal_bridge).
-        rod_carried: bool = false
-        rod_location: int = 11    # debris room (matches ROD_HOME_ROOM)
-        keys_carried: bool = false
-        keys_location: int = 3    # well house (matches KEYS_HOME_ROOM)
-        bottle_carried: bool = false
-        bottle_location: int = 3  # well house (matches BOTTLE_HOME_ROOM)
-        cage_carried: bool = false
-        cage_location: int = 10   # cobble crawl (matches CAGE_HOME_ROOM)
-        food_carried: bool = false
-        food_location: int = 3    # well house (matches FOOD_HOME_ROOM); -1 once eaten
-        pillow_carried: bool = false
-        pillow_location: int = 96 # Soft Room (matches PILLOW_HOME_ROOM)
-        axe_carried: bool = false
-        axe_location: int = -1    # not in world until a dwarf throws
-        clam_carried: bool = false
-        clam_location: int = 103  # Shell Room (matches CLAM_HOME_ROOM); -1 once broken
-        oyster_location: int = -1 # not in world until clam is broken; immobile thereafter
-        batteries_carried: bool = false
-        batteries_location: int = -1  # not in world until vending dispenses them
-        magazine_carried: bool = false
-        magazine_location: int = 106  # Anteroom (matches MAGAZINE_HOME_ROOM)
-        witts_end_bonus: int = 0      # +1 once magazine dropped at canon 108
-        mark_rod_carried: bool = false
-        mark_rod_location: int = -1   # not in world until a dwarf is killed
+        # Non-treasure carryable items, all wired through the
+        # parameterized `Item` aspect. Each one collapses what
+        # used to be a `*_carried: bool + *_location: int` pair
+        # into a single FSM with $InRoom / $Carried / $Consumed
+        # states. The `_item` suffix is purely to avoid colliding
+        # with other domain fields (e.g. the Bottle contents-FSM
+        # named `bottle`); semantically these are just "the rod",
+        # "the keys", etc.
+        rod_item       = @@Item(11)    # debris room (canon 11)
+        keys_item      = @@Item(3)     # well house (canon 3)
+        bottle_item    = @@Item(3)     # well house — carry only; contents FSM stays separate
+        cage_item      = @@Item(10)    # cobble crawl (canon 10)
+        food_item      = @@Item(3)     # well house (canon 3); consume() on FEED BEAR
+        pillow_item    = @@Item(96)    # Soft Room (canon 96)
+        clam_item      = @@Item(103)   # Shell Room (canon 103); consume() on BREAK
+        magazine_item  = @@Item(106)   # Anteroom (canon 106)
+        axe_item       = @@Item(-1)    # not in world until a dwarf throws
+        mark_rod_item  = @@Item(-1)    # not in world until a dwarf is killed
+        batteries_item = @@Item(-1)    # not in world until vending dispenses them
+        oyster_item    = @@Item(-1)    # not in world until clam is broken; immobile
+
+        witts_end_bonus: int = 0       # +1 once magazine dropped at canon 108
 
         # Tick counter (advances every tick(), not every
         # do_command). Some commands are free; others tick.

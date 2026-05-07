@@ -38,7 +38,7 @@ func _init():
     var adv = Cca.new()
     adv.setup_default_aspects()
     _expect("bottle state",        adv.bottle.get_state(),       "empty")
-    _expect("bottle in well house",adv.bottle_location,          3)
+    _expect("bottle in well house",adv.bottle_item.get_location(), 3)
     _expect("plant state",         adv.plant.get_state(),        "tiny")
     _expect("plant not tall",      adv.plant_is_tall(),          false)
     _expect("plant not huge",      adv.plant_is_huge(),          false)

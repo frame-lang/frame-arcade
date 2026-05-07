@@ -238,7 +238,7 @@ func _probe_food_required() -> bool:
     with_food.do_command("feed", "bear")
     var tamed: bool = with_food.bear_state() == "tame"
     # Food consumed on feed.
-    var consumed: bool = not with_food.food_carried
+    var consumed: bool = not with_food.food_item.is_carried()
 
     return refused and tamed and consumed
 
@@ -295,7 +295,7 @@ func _probe_axe_item() -> bool:
     var got_axe: bool = false
     for i in 30:
         with_axe.tick()
-        if with_axe.axe_location > 0 or with_axe.axe_carried:
+        if with_axe.axe_item.get_location() > 0 or with_axe.axe_item.is_carried():
             got_axe = true
             break
         if with_axe.player_state() == "dead":
@@ -329,7 +329,7 @@ func _probe_batteries_item() -> bool:
         adv.tick()
     var pre_insert: int = adv.battery_left()
     adv.do_command("insert", "coins")
-    var bat_at_room: bool = adv.batteries_location == adv.VENDING_ROOM
+    var bat_at_room: bool = adv.batteries_item.get_location() == adv.VENDING_ROOM
     var lamp_unchanged: bool = adv.battery_left() < pre_insert + 1
     adv.do_command("take", "batteries")
     var pre_refresh: int = adv.battery_left()
@@ -346,9 +346,9 @@ func _probe_two_rods() -> bool:
     adv.setup_default_aspects()
     adv.do_command("light", "")
     # STAR rod sits at the debris room from init.
-    var star_at_home: bool = adv.rod_location == 11 and not adv.rod_carried
+    var star_at_home: bool = adv.rod_item.get_location() == 11 and not adv.rod_item.is_carried()
     # MARK rod is not in the world yet.
-    var mark_absent: bool = adv.mark_rod_location <= 0 and not adv.mark_rod_carried
+    var mark_absent: bool = adv.mark_rod_item.get_location() <= 0 and not adv.mark_rod_item.is_carried()
     # The two IDs differ.
     var distinct: bool = adv.ROD_ID != adv.MARK_ROD_ID
     return star_at_home and mark_absent and distinct
@@ -403,7 +403,7 @@ func _probe_clam_oyster_pearl() -> bool:
     adv.player.move_to(16)
     adv.do_command("break", "clam")
     var pearl_here: bool = adv.pearl.get_location() == 16
-    var oyster_here: bool = adv.oyster_location == 16
+    var oyster_here: bool = adv.oyster_item.get_location() == 16
     return carries_clam and pearl_here and oyster_here
 
 func _probe_chain_treasure() -> bool:

@@ -36,7 +36,7 @@ func _init():
     _expect("grate locked",        adv.grate_locked(),       true)
     _expect("grate state",         adv.grate.get_state(),    "locked")
     _expect("keys not carried",    adv.keys_in_inventory(),  false)
-    _expect("keys location",       adv.keys_location,        3)
+    _expect("keys location",       adv.keys_item.get_location(),        3)
 
     # --- Unlock without keys ---
     print("UNLOCK without keys deflects:")
@@ -84,7 +84,7 @@ func _init():
     var r6 = adv.do_command("drop", "keys")
     _expect_contains("drop response", r6, "Dropped")
     _expect("keys not carried",    adv.keys_in_inventory(),  false)
-    _expect("keys at depression",  adv.keys_location,        8)
+    _expect("keys at depression",  adv.keys_item.get_location(),        8)
 
     # --- Save / restore mid-puzzle ---
     print("Save / restore mid-puzzle preserves state:")

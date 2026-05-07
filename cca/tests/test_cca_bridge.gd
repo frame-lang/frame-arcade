@@ -36,7 +36,7 @@ func _init():
     var adv = Cca.new()
     adv.setup_default_aspects()
     _expect("rod not carried",       adv.rod_in_inventory(),       false)
-    _expect("rod location",          adv.rod_location,             11)
+    _expect("rod location",          adv.rod_item.get_location(),             11)
     _expect("bridge not built",      adv.bridge_built(),           false)
     _expect("bridge state",          adv.crystal_bridge.get_state(), "no_bridge")
 
@@ -99,7 +99,7 @@ func _init():
     var r7 = adv2.do_command("drop", "rod")
     _expect_contains("drop response", r7, "Dropped")
     _expect("rod not carried",       adv2.rod_in_inventory(),       false)
-    _expect("rod at fissure",        adv2.rod_location,             17)
+    _expect("rod at fissure",        adv2.rod_item.get_location(),             17)
 
     print()
     if failures == 0:
