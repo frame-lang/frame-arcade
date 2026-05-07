@@ -3212,16 +3212,10 @@
                 base = "YOU ARE AT THE WEST END OF THE TWOPIT ROOM.  THERE IS A LARGE HOLE IN THE WALL ABOVE THE PIT AT THIS END OF THE ROOM."
             elif r == 26:
                 base = "YOU CLAMBER UP THE PLANT AND SCURRY THROUGH THE HOLE AT THE TOP."
-            elif r == 204:
-                base = "You are at one end of an immense north/south passage."
             elif r == 29:
                 base = "YOU ARE IN THE SOUTH SIDE CHAMBER."
-            elif r == 205:
-                base = "You are in the deep middle of an immense north/south passage. Stalactites loom overhead at impossible angles."
             elif r == 30:
                 base = "YOU ARE IN THE WEST SIDE CHAMBER OF THE HALL OF THE MOUNTAIN KING. A PASSAGE CONTINUES WEST AND UP HERE."
-            elif r == 206:
-                base = "You are in a complex rock-jumble junction. Crawls and passages branch off in several directions."
             elif r == 31:
                 # Canon advent.dat has ">$<" (no long form) for room 31;
                 # the engine falls back to the short "PIT". We honor that.
@@ -3299,8 +3293,6 @@
                 base = "DEAD END"
             elif r == 64:
                 base = "YOU ARE AT A COMPLEX JUNCTION.  A LOW HANDS AND KNEES PASSAGE FROM THE NORTH JOINS A HIGHER CRAWL FROM THE EAST TO MAKE A WALKING PASSAGE GOING WEST.  THERE IS ALSO A LARGE ROOM ABOVE.  THE AIR IS DAMP HERE."
-            elif r == 203:
-                base = "You are in a little twisty maze of passages, all different."
             elif r == 66:
                 base = "YOU ARE IN A ROOM WHOSE WALLS RESEMBLE SWISS CHEESE.  OBVIOUS PASSAGES GO WEST, EAST, NE, AND NW.  PART OF THE ROOM IS OCCUPIED BY A LARGE BEDROCK BLOCK."
             elif r == 67:
@@ -3353,8 +3345,6 @@
                 base = "YOU ARE AT ONE END OF AN IMMENSE NORTH/SOUTH PASSAGE."
             elif r == 96:
                 base = "YOU ARE IN THE SOFT ROOM.  THE WALLS ARE COVERED WITH HEAVY CURTAINS, THE FLOOR WITH A THICK PILE CARPET.  MOSS COVERS THE CEILING."
-            elif r == 201:
-                base = "You are in a different forest, to the northeast."
             elif r == 98:
                 base = "YOU ARE FOLLOWING A WIDE PATH AROUND THE OUTER EDGE OF A LARGE CAVERN. FAR BELOW, THROUGH A HEAVY WHITE MIST, STRANGE SPLASHING NOISES CAN BE HEARD.  THE MIST RISES UP THROUGH A FISSURE IN THE CEILING.  THE PATH EXITS TO THE SOUTH AND WEST."
             elif r == 99:
@@ -3378,8 +3368,6 @@
             # --- Phase F: iconic remainder ---
             elif r == 88:
                 base = "YOU ARE IN A LONG, NARROW CORRIDOR STRETCHING OUT OF SIGHT TO THE WEST.  AT THE EASTERN END IS A HOLE THROUGH WHICH YOU CAN SEE A PROFUSION OF LEAVES."
-            elif r == 202:
-                base = "You are in a different soft passage. The floor is sand; your footfalls leave no echo."
             elif r == 140:
                 base = "You are in a small chamber containing a battered vending machine with a hand-lettered sign: 'BATTERIES — 25 CENTS — IT WORKS NO REFUNDS'."
                 if self.vending.is_loaded():

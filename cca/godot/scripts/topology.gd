@@ -75,7 +75,7 @@ const ROOMS: Dictionary = {
     3:   {"south": 1, "out": 1, "down": 12},        # Well house
     4:   {"north": 1, "up": 1, "south": 7, "down": 7, "east": 5, "west": 6},  # Valley
     5:   {"east": 1, "west": 6, "north": 96},       # Forest 1
-    6:   {"east": 5, "west": 1, "north": 200},      # Forest 2
+    6: {"east": 5, "west": 1},      # Forest 2
     7:   {"north": 4, "up": 4},                     # Slit (too small to enter)
     8:   {"north": 1, "up": 1, "down": 9, "in": 9}, # Depression / outside grate
     9:   {"up": 8, "out": 8, "west": 10, "in": 10}, # Below grate
@@ -119,7 +119,7 @@ const ROOMS: Dictionary = {
     # the rock-jumble junction (30) and is largely a dead-end
     # for atmosphere.
     15:  {"up": 14, "east": 16, "west": 19, "south": 18, "north": 21},   # Hall of Mists
-    16:  {"west": 15, "north": 206, "up": 17, "east": 103},              # East end of mists; east to canon 103 Shell Room
+    16: {"west": 15, "up": 17, "east": 103},              # East end of mists; east to canon 103 Shell Room
     19:  {"east": 15, "north": 30, "south": 29},                        # Hall of Mt King — north canon-30, south canon-29
     20:  {"north": 19},                                                  # South entry (port-orphan; canon 20 is broken-neck death msg)
     29:  {"north": 19},                                                  # South side chamber — canon 29 (jewelry home)
@@ -129,13 +129,10 @@ const ROOMS: Dictionary = {
     25:  {"out": 21, "up": 24, "climb": 24},                             # Bottom of west pit — canon 25 (plant home)
     24:  {"down": 25, "up": 23, "climb": 23},                            # Mid-beanstalk
     23:  {"down": 24},                                                   # Top of vast crack (port-synth name; reachable up the beanstalk)
-    26:  {"south": 19, "north": 204},                                    # Narrow corridor
-    204: {"south": 26, "north": 205, "west": 50},                       # Above immense passage (port-synth; canon 27 = west fissure)
-    205: {"south": 204, "east": 206},                                   # Immense passage (port-synth; canon 29 is south side chamber)
-    206: {"south": 16, "west": 205, "north": 31, "down": 34, "east": 58},# Jumble of rock (port-synth; canon 30 = west side chamber)
-    31:  {"south": 206, "north": 32},                                    # Window on pit (low)
+    26: {"south": 19},                                    # Narrow corridor
+    31: {"north": 32},                                    # Window on pit (low)
     32:  {"south": 31},                                                  # Window on pit (high)
-    34:  {"up": 206, "north": 35},                                       # Low dust chamber
+    34: {"north": 35},                                       # Low dust chamber
     35:  {"south": 34, "north": 36},                                     # Sloping corridor
     36:  {"south": 35, "west": 37},                                      # Above slab
     37:  {"east": 36},                                                   # Slab room (dead-end)
@@ -154,7 +151,7 @@ const ROOMS: Dictionary = {
     48:  {"west": 46, "east": 49},                                       # Boulders cluster
     49:  {"west": 48},                                                   # Limestone passage (dead-end)
     # --- Maze of twisty little passages, all alike (50-57) ---
-    # Entry from "Above the immense passage" (204) via west. All
+    # All
     # 8 rooms share the same description ("a maze of twisty
     # little passages, all alike"), so the player can't tell
     # them apart from look. Exit topology is deliberately non-
@@ -165,7 +162,7 @@ const ROOMS: Dictionary = {
     # exit returns to room 204 (the way back out). Some
     # directions are missing to create dead-end "you can't go
     # that way" branches.
-    50:  {"east": 204, "north": 51, "south": 52, "west": 53},
+    50: {"north": 51, "south": 52, "west": 53},
     51:  {"north": 54, "south": 55, "west": 50},
     52:  {"east": 56, "north": 57, "south": 50},
     53:  {"east": 51, "south": 54},
@@ -173,18 +170,16 @@ const ROOMS: Dictionary = {
     55:  {"east": 51, "south": 57},
     56:  {"west": 52, "north": 54},
     57:  {"north": 55, "south": 53, "east": 50},
-    # --- Maze of twisty passages, all different (58-64 + 203) ---
-    # Entry from rock-jumble junction (30) via east.
-    # Synthesized terminal room moved 65 → 203 to free canon
-    # room 65 (Bedquilt).
-    58:  {"west": 206, "east": 59, "south": 60},
+    # --- Rooms 58-64: assorted passages (canon 58 = DEAD END,
+    # 59 = parallel low passage, 60-61 = long featureless hall,
+    # 62 = crossover, 63 = DEAD END, 64 = complex junction). ---
+    58: {"east": 59, "south": 60},
     59:  {"west": 58, "east": 61, "north": 62},
     60:  {"north": 58, "east": 63},
     61:  {"west": 59, "east": 64},
-    62:  {"south": 59, "east": 203},
+    62: {"south": 59},
     63:  {"west": 60, "east": 64},
-    64:  {"west": 63, "north": 203, "east": 66},
-    203: {"south": 64, "west": 62},                                      # port-synth maze terminal (canon 65 = Bedquilt)
+    64: {"west": 63, "east": 66},
     # --- Witt's End trio (66-68) ---
     66:  {"west": 64, "east": 67, "down": 68},
     67:  {"west": 66},                                                   # Witt's End — apparent dead-end
@@ -217,16 +212,11 @@ const ROOMS: Dictionary = {
     91:  {"west": 90, "north": 93},                                      # Different soft passage
     93:  {"south": 91, "east": 94},                                      # Different fissure
     94:  {"west": 93},                                                   # Treasury (dead-end)
-    # 96-99 + 200: forest grid on the surface — these chain off
-    # the existing forest rooms (5, 6) and the road/valley.
-    # Port-synthesized: canon has only forest rooms 5 and 6.
-    # The "Forest NW" room moved from 100 → 200 to free room
-    # 100 for canonical Plover Room.
-    96:  {"south": 5, "east": 201},                                      # Forest NE-of-road
-    201: {"west": 96, "south": 98},                                      # Forest SE-of-road (port-synth; canon 97 is Oriental Room)
-    98:  {"north": 201, "west": 99},                                     # Forest SE/SW
-    99:  {"east": 98, "north": 200},                                     # Forest SW-of-road
-    200: {"south": 99, "east": 6},                                       # Forest NW (port-synthesized; canon 100 is Plover Room — moved out of canon range)
+    # 96-99: canon forest grid surrounding the road/valley.
+    # All four are canonical (advent.dat "different forest, NE/SW/SE/NW").
+    96: {"south": 5},                                      # Forest NE-of-road
+    98: {"west": 99},                                     # Forest SE/SW
+    99: {"east": 98},                                     # Forest SW-of-road
     # 108, 115, 116: pre-repository corridor.
     # Threads from snake passage / rear of dragon area into the
     # endgame approach.
@@ -243,16 +233,14 @@ const ROOMS: Dictionary = {
     123: {"south": 121, "north": 126},                                   # Anteroom with pictographs
     125: {"west": 121},                                                  # Anteroom with niches
     # --- Phase F: iconic remainder ---
-    # Decorated chamber (88), different soft passage (202), Vending
-    # Machine Room (canon 140) — canon CCA's pre-endgame Easter egg with
-    # the "BATTERIES — 25 CENTS" sign. Plus a couple of forest
-    # variants (102-103) and miscellaneous passages. (Port-101
-    # was a forest filler; it has been removed because canon 101
-    # is the Dark-room — see canon-101 entry above.)
+    # Decorated chamber (88), Vending Machine Room (canon 140 —
+    # vending mechanic itself is a port-synth holdover from
+    # Adventure 2 / 550-point edition, scheduled for Phase 7e
+    # cleanup). Plus the canon Shell Room (103) and forest
+    # variant (102).
     88:  {"east": 76, "south": 90},                                      # Decorated chamber
-    202: {"south": 91, "east": 140},                                    # Different soft passage (port-synth; canon 92 is Giant Room)
-    140: {"west": 202},                                                  # Vending Machine Room (port-synth at canon 140 — handled in Phase 7e)
-    102: {"north": 201},                                                 # Forest far south
+    140: {},                                                  # Vending Machine Room (port-synth at canon 140 — handled in Phase 7e)
+    102: {},                                                 # Forest far south
     103: {"west": 16},                                                   # Shell Room — canon 103 (clam home)
     109: {"east": 113},                                                  # Low passage (curving west)
     113: {"west": 109, "down": 121},                                     # Wide chamber
@@ -262,9 +250,9 @@ const ROOMS: Dictionary = {
     # --- Round 10: canon-completion fillers (104-107, 110-114, 127-129) ---
     # Forest grid completion + inner-anteroom cluster.
     104: {"south": 96, "east": 105},                                     # Dense forest
-    105: {"west": 104, "south": 201, "east": 106},                       # Scrub forest
+    105: {"west": 104, "east": 106},                       # Scrub forest
     106: {"west": 105, "north": 107},                                    # Forest clearing (water source flavor)
-    107: {"south": 106, "west": 200},                                    # Forest path
+    107: {"south": 106},                                    # Forest path
     110: {"east": 109, "north": 111},                                    # Low passage with claw-marks
     111: {"south": 110, "east": 112, "down": 114},                       # Different secret canyon
     112: {"west": 111, "north": 113},                                    # Tall canyon

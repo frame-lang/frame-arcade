@@ -38,7 +38,7 @@ const Topology = preload("res://scripts/topology.gd")
 const SEED         := 42
 const MAX_STEPS    := 10000
 const MIN_ROOMS    := 30      # post-canon baseline drifts as canon moves land
-const MIN_FPS      := 525     # post-canon baseline 613
+const MIN_FPS      := 480     # post-7d baseline ~502 (down from 613 since 200-series deletion shrunk reachable space)
 const MIN_MOVES    := 3500    # post-canon baseline 4248
 const MAX_SOFTLOCK := 0       # ANY soft-lock candidate is a real finding
 
