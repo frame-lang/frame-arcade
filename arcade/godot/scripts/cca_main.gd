@@ -288,12 +288,12 @@ var room_exits: Dictionary = {
     # 108, 115, 116: pre-repository corridor.
     # Threads from snake passage / rear of dragon area into the
     # endgame approach.
-    108: {"east": 115, "north": 67},                                     # Fork
-    # Canon 115/116 = NE/SW Repository — the cave-closing teleport
-    # destination. Reached non-canon via the 108→115→116 corridor for
-    # walking access; the canonical route is the Adventure.tick()
-    # teleport that fires when endgame transitions to $InRepository.
-    115: {"west": 108, "east": 116},                                     # NE Repository
+    108: {"north": 67},                                                  # Witt's End fork — north back to Bedquilt cluster
+    # Canon 115/116 = NE/SW Repository — reachable ONLY via the
+    # cave-closing teleport that fires in Adventure.tick() when
+    # endgame transitions to $InRepository. Walking corridor from
+    # 108 was a port holdover removed in Phase 7i.
+    115: {"east": 116},                                                  # NE Repository
     116: {"west": 115},                                                  # SW Repository — terminal endgame room
     # 119, 121-129: cliff-and-ladder descent + sub-anteroom area.
     119: {"up": 87, "down": 121},                                        # Cliff face with ladder
