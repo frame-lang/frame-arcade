@@ -840,6 +840,7 @@ func _print_help() -> void:
 [b]Magic:[/b]   XYZZY, PLUGH, PLOVER (in the right places).
 [b]Chants:[/b]  FEE / FIE / FOE / FOO (in sequence).
 [b]Meta:[/b]    SAVE, LOAD, SCORE, HINT [name], QUIT.
+[b]Keys:[/b]    [b]F5[/b] quick-save, [b]F9[/b] quick-load, [b]Esc[/b] save/quit dialog.
 """)
 
 # ============================================================
@@ -856,6 +857,11 @@ func _print_help() -> void:
 #   Enter / Space  → confirm_save_quit (default — preserve work)
 #   Q              → confirm_quit (discard, return to menu)
 #   Esc            → cancel back to game
+#
+# Outside the dialog, F5 / F9 are the standard quick-save /
+# quick-load shortcuts (Half-Life / Skyrim convention). They
+# call the same _save_game() / _load_game() handlers the typed
+# SAVE / LOAD verbs do, so all three paths converge.
 # ============================================================
 func _input(event: InputEvent) -> void:
     if not (event is InputEventKey and event.pressed):
@@ -886,6 +892,17 @@ func _input(event: InputEvent) -> void:
         get_viewport().set_input_as_handled()
         exit_dialog.open()
         _show_exit_dialog()
+        return
+
+    if event.keycode == KEY_F5:
+        get_viewport().set_input_as_handled()
+        _save_game()
+        return
+
+    if event.keycode == KEY_F9:
+        get_viewport().set_input_as_handled()
+        _load_game()
+        return
 
 func _show_exit_dialog() -> void:
     label_exit_dialog.visible = true
