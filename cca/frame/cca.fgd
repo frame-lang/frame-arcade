@@ -3159,18 +3159,35 @@
                 base = "YOU ARE IN THE GIANT ROOM.  THE CEILING HERE IS TOO HIGH UP FOR YOUR LAMP TO SHOW IT.  CAVERNOUS PASSAGES LEAD EAST, NORTH, AND SOUTH.  ON THE WEST WALL IS SCRAWLED THE INSCRIPTION, \"FEE FIE FOE FOO\" [SIC]."
             elif r == 95:
                 base = "YOU ARE IN A MAGNIFICENT CAVERN WITH A RUSHING STREAM, WHICH CASCADES OVER A SPARKLING WATERFALL INTO A ROARING WHIRLPOOL WHICH DISAPPEARS THROUGH A HOLE IN THE FLOOR.  PASSAGES EXIT TO THE SOUTH AND WEST."
+            # --- Canon 2nd maze: rooms 131-139, "twisty maze, all
+            #     DIFFERENT" — nine rooms whose prose differs only
+            #     by word order. Canonically each has 10 exits to
+            #     siblings + entry points 107 and 112 with the
+            #     directions deliberately scrambled. We use a
+            #     simplified topology (linear chain, each room
+            #     readable as a hop further into the maze) but
+            #     preserve the verbatim canon prose so a `look`
+            #     reads correctly.
             elif r == 131:
-                base = "You are in a vast hall stretching out of sight."
+                base = "YOU ARE IN A MAZE OF TWISTING LITTLE PASSAGES, ALL DIFFERENT."
             elif r == 40:
                 base = "YOU HAVE CRAWLED THROUGH A VERY LOW WIDE PASSAGE PARALLEL TO AND NORTH OF THE HALL OF MISTS."
             elif r == 132:
-                base = "You are in a chest cavern. The pirate's loot is hidden here."
+                base = "YOU ARE IN A LITTLE MAZE OF TWISTY PASSAGES, ALL DIFFERENT."
             elif r == 133:
-                base = "You are in a quiet transit chamber. (Port-synth; canon pyramid is at canon 101.)"
+                base = "YOU ARE IN A TWISTING MAZE OF LITTLE PASSAGES, ALL DIFFERENT."
             elif r == 134:
-                base = "You are in a coin niche, a small space tucked into the wall."
+                base = "YOU ARE IN A TWISTING LITTLE MAZE OF PASSAGES, ALL DIFFERENT."
             elif r == 135:
-                base = "You are in a sloping passage. The walls are smooth and curved."
+                base = "YOU ARE IN A TWISTY LITTLE MAZE OF PASSAGES, ALL DIFFERENT."
+            elif r == 136:
+                base = "YOU ARE IN A TWISTY MAZE OF LITTLE PASSAGES, ALL DIFFERENT."
+            elif r == 137:
+                base = "YOU ARE IN A LITTLE TWISTY MAZE OF PASSAGES, ALL DIFFERENT."
+            elif r == 138:
+                base = "YOU ARE IN A MAZE OF LITTLE TWISTING PASSAGES, ALL DIFFERENT."
+            elif r == 139:
+                base = "YOU ARE IN A MAZE OF LITTLE TWISTY PASSAGES, ALL DIFFERENT."
             elif r == 14:
                 base = "AT YOUR FEET IS A SMALL PIT BREATHING TRACES OF WHITE MIST.  AN EAST PASSAGE ENDS HERE EXCEPT FOR A SMALL CRACK LEADING ON."
             # --- Mist + King hall + Two-pit + Slab area ---

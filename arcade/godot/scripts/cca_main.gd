@@ -154,12 +154,19 @@ var room_exits: Dictionary = {
     38:  {"west": 120, "east": 28, "north": 39},
     28:  {"west": 38, "east": 130},
     130: {"west": 28, "east": 131},
-    131: {"west": 130, "east": 40},
+    # Canon 2nd maze (131-139): "twisty maze, all DIFFERENT".
+    # Simplified topology — canon's exact 10-exits-per-room layout
+    # is a polish item; the canonical prose reads correctly on look.
+    131: {"west": 130, "east": 40, "north": 132, "south": 137},
     40:  {"west": 131, "east": 132},
-    132: {"west": 40, "east": 133},
-    133: {"west": 132, "east": 134},
-    134: {"west": 133, "east": 135},
-    135: {"west": 134},
+    132: {"west": 40, "east": 133, "south": 131, "north": 138},
+    133: {"west": 132, "east": 134, "south": 139},
+    134: {"west": 133, "east": 135, "north": 136},
+    135: {"west": 134, "east": 136},
+    136: {"west": 135, "south": 134, "east": 138},
+    137: {"north": 131, "east": 139},
+    138: {"south": 132, "west": 136, "east": 139},
+    139: {"west": 138, "north": 133, "south": 137},
     # Rod-puzzle branch: hangs off Y2 (33) to the north. The
     # fissure (17) is the gate; crossing east requires the
     # crystal bridge (waved up by the rod).

@@ -97,12 +97,22 @@ const ROOMS: Dictionary = {
     97:  {"west": 120, "east": 92, "north": 39},                         # Oriental Room (canon 97) — vase
     92:  {"west": 97, "east": 95},                                       # Giant Room (canon 92) — eggs
     95:  {"west": 92, "east": 131},                                      # Magnificent Cavern (canon 95) — trident, waterfall
-    131: {"west": 95, "east": 40},
+    # Canon 2nd maze (131-139): "twisty maze, all DIFFERENT". Canon
+    # gives each room 10 exits to siblings + entry points 107 / 112,
+    # with directions deliberately scrambled so a player can't tell
+    # one room from another. We use a simplified linear-chain
+    # topology (the canonical maze prose still reads correct on
+    # `look`) — full canon-exit encoding is a future polish step.
+    131: {"west": 95, "east": 40, "north": 132, "south": 137},
     40:  {"west": 131, "east": 132},
-    132: {"west": 40, "east": 133},
-    133: {"west": 132, "east": 134},
-    134: {"west": 133, "east": 135},
-    135: {"west": 134},
+    132: {"west": 40, "east": 133, "south": 131, "north": 138},
+    133: {"west": 132, "east": 134, "south": 139},
+    134: {"west": 133, "east": 135, "north": 136},
+    135: {"west": 134, "east": 136},
+    136: {"west": 135, "south": 134, "east": 138},
+    137: {"north": 131, "east": 139},
+    138: {"south": 132, "west": 136, "east": 139},
+    139: {"west": 138, "north": 133, "south": 137},
     130: {"up": 65, "out": 65},              # Barren Room — canon 130 (BEAR_HOME_ROOM); up/out back to Bedquilt
     # Rod-puzzle branch: hangs off Y2 (33) to the north. The
     # fissure (17) is the gate; crossing east requires the
