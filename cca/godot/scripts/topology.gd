@@ -85,7 +85,10 @@ const ROOMS: Dictionary = {
     33:  {"up": 12, "south": 28, "down": 13, "east": 47, "west": 65, "north": 14},
     28:  {"north": 33},                                                  # Low n/s passage at hole — canon 28 (silver home)
     13:  {"up": 33, "out": 33},
-    100: {"north": 101},                     # Plover Room (canon 100) — north to canon Dark-room (101)
+    # Plover Room — canon 100. West to alcove (99) via tight
+    # tunnel (gated on emerald-only inventory); north to Dark-room
+    # (port-direction; canon NE). PLOVER chant teleports to 33.
+    100: {"north": 101, "west": 99},
     47:  {"west": 33, "east": 71, "up": 44}, # snake-east gated; up to secret canyon side branch
     71:  {"west": 47, "north": 65},
     65:  {"south": 71, "east": 117, "west": 33, "north": 72, "down": 130}, # Bedquilt (canon 65) — down to canon 130 (Barren Room, bear)
@@ -226,7 +229,11 @@ const ROOMS: Dictionary = {
     # All four are canonical (advent.dat "different forest, NE/SW/SE/NW").
     96: {"south": 5},                                      # Forest NE-of-road
     98: {"west": 99},                                     # Forest SE/SW
-    99: {"east": 98},                                     # Forest SW-of-road
+    # Canon: 99 (alcove) is connected EAST to 100 (Plover Room)
+    # via a tight crawl gated on inventory. The forest connection
+    # to 98 moves to the canon "down" direction so both routes can
+    # coexist in a single-direction-key topology.
+    99: {"east": 100, "down": 98},                                       # Alcove — east to Plover via tight tunnel
     # 108, 115, 116: pre-repository corridor.
     # Threads from snake passage / rear of dragon area into the
     # endgame approach.
@@ -296,4 +303,9 @@ const GATES: Dictionary = {
     "25:climb":  {"check": "plant_tall", "msg": "There is nothing here to climb. The plant is a tiny shoot, struggling for water."},
     "24:up":     {"check": "plant_huge", "msg": "The plant is too feeble to support your weight any higher."},
     "24:climb":  {"check": "plant_huge", "msg": "The plant is too feeble to support your weight any higher."},
+    # Plover Room narrow tunnel — canon CCA permits only the
+    # emerald (small enough) or empty hands through the squeeze.
+    # Anything else and the player can't fit.
+    "99:east":   {"check": "plover_squeeze", "msg": "Something you're carrying won't fit through the tunnel with you. You'd best take inventory and drop something."},
+    "100:west":  {"check": "plover_squeeze", "msg": "Something you're carrying won't fit through the tunnel with you. You'd best take inventory and drop something."},
 }

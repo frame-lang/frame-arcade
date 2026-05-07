@@ -2582,6 +2582,12 @@
         plant_is_huge(): bool
         bottle_in_inventory(): bool
         bottle_has_water(): bool
+        # Canon Plover-tunnel squeeze gate: the alcove (99) ↔
+        # Plover Room (100) is a hand-and-knees crawl too tight
+        # to carry anything except the emerald (which is small
+        # enough). Returns true while the player is carrying
+        # disqualifying items.
+        plover_squeeze_blocked(): bool
 
     machine:
 
@@ -2959,6 +2965,20 @@
             plant_is_huge(): bool      { @@:(self.plant.is_huge()) }
             bottle_in_inventory(): bool { @@:(self.bottle_item.is_carried()) }
             bottle_has_water(): bool   { @@:(self.bottle.has_water()) }
+
+            plover_squeeze_blocked(): bool {
+                # Canon: through the tight tunnel between the
+                # alcove (99) and Plover Room (100) a player can
+                # carry only the emerald (or nothing). Anything
+                # else won't fit. We treat any non-emerald
+                # inventory entry as a block.
+                var size: int = self.player.inventory_size()
+                if size == 0:
+                    @@:return(false)
+                if size == 1 and self.player.carrying(self.EMERALD_ID):
+                    @@:return(false)
+                @@:(true)
+            }
 
             treasures_deposited(): int {
                 var n: int = 0

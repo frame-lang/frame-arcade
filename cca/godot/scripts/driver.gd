@@ -346,6 +346,9 @@ func _handle_movement(direction: String) -> void:
         if gate.check == "plant_huge" and not fsm.plant_is_huge():
             _println(gate.msg)
             return
+        if gate.check == "plover_squeeze" and fsm.plover_squeeze_blocked():
+            _println(gate.msg)
+            return
 
     # Plover Room special: when leaving room 6 normally without
     # PLOVER, you can't. Stuck unless you use the magic word.
