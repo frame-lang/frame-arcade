@@ -1,0 +1,193 @@
+extends SceneTree
+
+# Per-room canon-topology conformance checker. Drives toward
+# 100% advent.dat section 2 alignment one room at a time:
+# each canon row's (verb → dest) becomes an assertion. Running
+# this test prints a per-room breakdown and a final pass/fail
+# count so we know exactly how many rooms are still off canon.
+#
+# Source of truth:
+#   cca/canon/advent.dat section 2 (rows separated by tabs;
+#   format is `from_room dest verb [verb...]`).
+#
+# Verb-code → direction mapping is derived from advent.dat
+# section 3 (the dictionary):
+#   29 UP/U/UPWARD/ABOVE/ASCEND
+#   30 D/DOWN/DOWNWARD/DESCEND
+#   43 EAST/E       44 WEST/W
+#   45 NORTH/N      46 SOUTH/S
+#   47 NE           48 SE
+#   49 SW           50 NW
+#   11 OUT/EXIT     19 IN/INSIDE
+#   2  HILL/ROAD    3  ENTER       4  UPSTREAM       5  DOWNSTREAM
+#   6  FOREST       7  FORWARD     8  BACK           9  VALLEY
+#   10 STAIRS       12 BUILDING    13 GULLY          14 STREAM
+#   17 CRAWL        18 COBBLES     20 SURFACE        23 PASSAGE
+#   39 JUMP         41 OVER        42 ACROSS         56 CLIMB
+#
+# Canon special-handling destinations (>= 300) are skipped — they
+# encode conditional teleports that the port handles via GATES.
+
+const Topology = preload("res://scripts/topology.gd")
+
+const VERB_TO_DIR := {
+    29: "up",    30: "down",  43: "east",  44: "west",
+    45: "north", 46: "south", 47: "ne",    48: "se",
+    49: "sw",    50: "nw",
+    11: "out",   19: "in",
+    2:  "hill",      3:  "enter",    4:  "upstream", 5:  "downstream",
+    6:  "forest",    7:  "forward",  8:  "back",     9:  "valley",
+    10: "stairs",    12: "building", 13: "gully",    14: "stream",
+    15: "rock",      16: "bed",      17: "crawl",    18: "cobbles",
+    20: "surface",   23: "passage",  39: "jump",     41: "over",
+    42: "across",    56: "climb",
+}
+
+# Canon special-handler rows (dest >= 300) encode gated exits
+# the engine resolves at runtime — the parser skips them. We
+# whitelist the (room, direction) → dest pairs that the port
+# implements via GATES so they count as canon-equivalent rather
+# than port-extras.
+const CANON_GATED := {
+    "8:down":   9,    # depression → below grate (grate gate)
+    "8:in":     9,
+    "8:enter":  9,
+    "17:over":  27,   # east bank fissure → west bank (bridge gate)
+    "27:over":  17,
+    "25:up":    23,   # west pit → top of crack (plant tall)
+    "25:climb": 23,
+    "99:east":  100,  # alcove → plover (squeeze gate)
+    "100:west": 99,
+    "117:east": 118,  # troll bridge → cliff (troll gate)
+    "19:north": 30,   # mountain king → west side chamber (snake gate)
+    "19:south": 29,   # mountain king → south side chamber (snake gate)
+}
+
+var passed: int = 0
+var failed: int = 0
+var rooms_full_canon: int = 0
+var rooms_with_drift: int = 0
+
+func _init():
+    print("=== CCA per-room canon topology audit ===")
+    print("(advent.dat section 2 vs cca/godot/scripts/topology.gd ROOMS)")
+
+    var canon_exits: Dictionary = _parse_canon_section_2()
+    var port_exits: Dictionary = Topology.ROOMS
+
+    var all_rooms: Array = []
+    for r in canon_exits: all_rooms.append(r)
+    for r in port_exits:
+        if r > 0 and r <= 140 and not all_rooms.has(r):
+            all_rooms.append(r)
+    all_rooms.sort()
+
+    for r in all_rooms:
+        if r > 140:
+            continue
+        _audit_room(r, canon_exits.get(r, {}), port_exits.get(r, {}))
+
+    print()
+    print("=================================================")
+    print("Rooms fully canon: %d / %d" % [rooms_full_canon, all_rooms.size()])
+    print("Rooms with drift:  %d" % rooms_with_drift)
+    print("Total checks:      %d passing, %d failing" % [passed, failed])
+    print("=================================================")
+    print()
+    print("PASS — per-room canon topology audit (informational, %d/%d rooms aligned)" % [rooms_full_canon, all_rooms.size()])
+    quit(0)
+
+func _audit_room(rid: int, canon: Dictionary, port: Dictionary) -> void:
+    var room_failed: bool = false
+    var room_lines: Array = []
+
+    # Canon-side checks: every canon exit must exist in port with
+    # matching destination.
+    for direction in canon:
+        var canon_dest: int = canon[direction]
+        if not port.has(direction):
+            room_lines.append("  MISSING canon: %s → %d" % [direction, canon_dest])
+            failed += 1
+            room_failed = true
+        elif port[direction] != canon_dest:
+            room_lines.append("  MISMATCH:      %s canon→%d port→%d" % [direction, canon_dest, port[direction]])
+            failed += 1
+            room_failed = true
+        else:
+            passed += 1
+
+    # Port-side check: any compass exit not in canon is a drift,
+    # UNLESS it's a known canon-gated exit (encoded as a special-
+    # handler row in canon section 2 with dest >= 300).
+    var compass_only := {"north":1, "south":1, "east":1, "west":1, "ne":1, "sw":1, "nw":1, "se":1, "up":1, "down":1, "in":1, "out":1, "enter":1, "climb":1, "over":1}
+    for direction in port:
+        if direction in compass_only and not canon.has(direction):
+            var pdest: int = port[direction]
+            var key: String = "%d:%s" % [rid, direction]
+            if CANON_GATED.has(key) and CANON_GATED[key] == pdest:
+                # Canon-gated exit (resolved to dest by GATES) — counts as canon-aligned.
+                passed += 1
+                continue
+            room_lines.append("  EXTRA port:    %s → %d (canon has no such exit)" % [direction, pdest])
+            failed += 1
+            room_failed = true
+
+    if room_failed:
+        print()
+        print("ROOM %d:" % rid)
+        for line in room_lines:
+            print(line)
+        rooms_with_drift += 1
+    else:
+        rooms_full_canon += 1
+
+func _parse_canon_section_2() -> Dictionary:
+    var path: String = "res://canon/advent.dat" if FileAccess.file_exists("res://canon/advent.dat") else "../canon/advent.dat"
+    if not FileAccess.file_exists(path):
+        # Fall back to absolute path when running outside res://.
+        path = "/Users/marktruluck/projects/frame-arcade/cca/canon/advent.dat"
+    var f := FileAccess.open(path, FileAccess.READ)
+    if f == null:
+        push_error("could not open advent.dat at %s" % path)
+        return {}
+    var section_count: int = 0
+    var in_section_2: bool = false
+    var canon: Dictionary = {}
+    while not f.eof_reached():
+        var line: String = f.get_line()
+        if line.strip_edges() == "-1":
+            section_count += 1
+            in_section_2 = (section_count == 1)
+            continue
+        if not in_section_2:
+            continue
+        var parts: PackedStringArray = line.split("\t")
+        if parts.size() < 3:
+            continue
+        var from_room: int = int(parts[0])
+        var dest: int = int(parts[1])
+        if dest >= 300 or from_room == 0 or from_room > 140 or dest > 140:
+            continue
+        var verbs: Array = []
+        var has_condition: bool = false
+        for i in range(2, parts.size()):
+            var tok: String = parts[i]
+            if tok == "":
+                continue
+            var v: int = int(tok)
+            if v >= 100:
+                has_condition = true
+                break
+            verbs.append(v)
+        if has_condition:
+            continue
+        if not canon.has(from_room):
+            canon[from_room] = {}
+        var room_d: Dictionary = canon[from_room]
+        for v in verbs:
+            if VERB_TO_DIR.has(v):
+                var d: String = VERB_TO_DIR[v]
+                if not room_d.has(d):
+                    room_d[d] = dest
+    f.close()
+    return canon

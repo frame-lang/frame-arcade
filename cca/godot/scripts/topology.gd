@@ -91,17 +91,66 @@ const ROOMS: Dictionary = {
     # The grate is described but not currently gated (would need a
     # Grate FSM + keys handling — same shape as CrystalBridge, so
     # we don't add it just to demonstrate the same pattern again).
-    1:   {"north": 2, "up": 2, "south": 4, "down": 4, "east": 8,
-          "west": 5, "in": 3, "enter": 3},
-    2:   {"down": 1, "south": 1},                   # Hill in road
-    3:   {"south": 1, "out": 1, "down": 12},        # Well house
-    4:   {"north": 1, "up": 1, "south": 7, "down": 7, "east": 5, "west": 6},  # Valley
-    5:   {"east": 1, "west": 6, "north": 96},       # Forest 1
-    6: {"east": 5, "west": 1},      # Forest 2
-    7:   {"north": 4, "up": 4},                     # Slit (too small to enter)
-    8:   {"north": 1, "up": 1, "down": 9, "in": 9}, # Depression / outside grate
-    9:   {"up": 8, "out": 8, "west": 10, "in": 10}, # Below grate
-    10:  {"east": 9, "west": 11},                   # Cobbles (canon surface entry)
+    # End of road — canon row `1 2 2 44 29` (HILL/W/UP→2),
+    # `1 3 3 12 19 43` (ENTER/BUILDING/IN/E→3), `1 4 5 13 14 46 30`
+    # (DOWNS/GULLY/STREAM/S/DOWN→4), `1 5 6 45 ...` (FOREST/N→5).
+    1:   {"north": 5, "south": 4, "east": 3, "west": 2,
+          "up": 2, "down": 4, "in": 3, "enter": 3,
+          "hill": 2, "forest": 5, "stream": 4, "gully": 4,
+          "building": 3, "downstream": 4},
+    # Hill in road — canon row `2 1 2 12 7 43 45 30` (HILL/BUILD/
+    # FORWARD/E/N/DOWN→1), `2 5 6 45 46` (FOREST/N/S→5).
+    2:   {"north": 1, "south": 5, "east": 1, "down": 1,
+          "hill": 1, "building": 1, "forward": 1, "forest": 5},
+    # Well house — canon row `3 1 3 11 32 44` (ENTER/OUT/SURFACE/W
+    # → 1), `3 79 5 14` (DOWNSTREAM/STREAM → 79). Magic words
+    # XYZZY (62) → 11 and PLUGH (65) → 33 are handled by the
+    # MagicWordTeleport aspect, not these tables.
+    3:   {"west": 1, "out": 1, "enter": 1, "stream": 79, "downstream": 79},
+    # Valley — canon row `4 1 4 12 45` (UPSTR/BUILD/N→1),
+    # `4 5 6 43 44 29` (FOREST/E/W/UP→5), `4 7 5 46 30` (DOWNS/S/DOWN→7).
+    4:   {"north": 1, "south": 7, "east": 5, "west": 5, "up": 5, "down": 7,
+          "upstream": 1, "building": 1, "forest": 5, "downstream": 7},
+    # Forest 1 — canon row `5 4 9 43 30` (VALLEY/E/DOWN→4),
+    # `5 6 6` (FOREST→6), `5 5 44 46` (W/S→5; "lost in forest"
+    # self-loop). Port-only "north → 96" shortcut to Soft Room
+    # removed for canon faithfulness.
+    5:   {"south": 5, "east": 4, "west": 5, "down": 4, "forest": 6, "valley": 4},
+    # Forest 2 — canon row `6 1 2 45` (HILL/N→1), `6 4 9 43 44 30`
+    # (VALLEY/E/W/DOWN→4), `6 5 6 46` (FOREST/S→5).
+    6:   {"north": 1, "south": 5, "east": 4, "west": 4, "down": 4,
+          "hill": 1, "forest": 5, "valley": 4},
+    # Slit in streambed — canon row `7 1 12` (BUILDING→1),
+    # `7 4 4 45` (UPSTR/N→4), `7 5 6 43 44` (FOREST/E/W→5),
+    # `7 8 5 15 16 46` (DOWNS/ROCK/BED/S→8). The slit itself
+    # is "too small to enter" (canon msg #60 special handler);
+    # the regular exits remain.
+    7:   {"north": 4, "south": 8, "east": 5, "west": 5,
+          "forest": 5, "building": 1, "upstream": 4,
+          "downstream": 8, "rock": 8, "bed": 8},
+    # Depression / outside grate — canon row `8 5 6 43 44 46`
+    # (FOREST/E/W/S→5), `8 1 12` (BUILDING→1), `8 7 4 13 45`
+    # (UPSTR/GULLY/N→7). Plus canon special-handler row
+    # `8 303009 3 19 30` for ENTER/IN/DOWN→9 gated by the grate
+    # (encoded in our GATES dict, with the destination=9 added
+    # explicitly here so the unconditional path resolves to 9
+    # when the grate is unlocked).
+    8:   {"north": 7, "south": 5, "east": 5, "west": 5,
+          "forest": 5, "gully": 7, "building": 1, "upstream": 7,
+          "down": 9, "in": 9, "enter": 9},
+    # Below grate — canon row `9 10 11 17 18 19 44`
+    # (W/IN/CRAWL/COBBLES→10). Canon has no UP/OUT path back to
+    # the surface — once you're under the grate you commit to
+    # the cave entry crawl. Port-only "up": 8 / "out": 8 removed
+    # for canon faithfulness; the player can still type UP and
+    # get a "you can't go that way" deflection from the parser.
+    9:   {"west": 10, "in": 10, "crawl": 10, "cobbles": 10},
+    # Cobbles — canon row `10 9 11 17 18 20 43`
+    # (E/OUT/CRAWL/COBBL/SURFA→9), `10 11 17 18 19 23 44`
+    # (W/IN/CRAWL/COBBL/PASSA→11). Note "crawl" and "cobbles"
+    # appear on both sides; canon's first-row-wins picks the
+    # west/in destination for those words.
+    10:  {"east": 9, "west": 11, "in": 11, "out": 9, "surface": 9},
     11:  {"out": 1, "up": 1, "north": 12, "east": 12}, # Debris room
     12:  {"up": 1, "down": 33, "north": 33, "south": 11, "west": 11}, # Awkward canyon
     33:  {"up": 12, "south": 28, "down": 13, "east": 47, "west": 65, "north": 14},

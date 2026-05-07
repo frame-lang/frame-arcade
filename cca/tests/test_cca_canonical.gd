@@ -218,7 +218,13 @@ func _stages() -> Array:
         {
             "name":       "outside_grate",
             "from":       "lamp_lit",
-            "actions":    [["go", "out"], ["go", "east"]],
+            # Canon walking from well-house (3) to depression (8):
+            # 3 → out → 1 (end of road), 1 → S → 4 (valley),
+            # 4 → S → 7 (slit), 7 → S → 8 (depression). Canon
+            # has no surface shortcut from end-of-road to the
+            # depression — that's the four-step descent the
+            # player must do to reach the grate.
+            "actions":    [["go", "out"], ["go", "south"], ["go", "south"], ["go", "south"]],
             "asserts":    _assert_at_depression,
             "checkpoint": "at_depression",
         },
@@ -895,8 +901,10 @@ func _stages() -> Array:
             "from":       "after_first_deposit",
             "actions":    [
                 ["fill", "bottle"],         # at room 3 — water source
-                ["go", "out"],              # 3 → 1
-                ["go", "east"],             # 1 → 8
+                ["go", "out"],              # 3 → 1 (canon: out)
+                ["go", "south"],            # 1 → 4 (canon: S)
+                ["go", "south"],            # 4 → 7 (canon: S)
+                ["go", "south"],            # 7 → 8 (canon: S)
                 ["go", "down"],             # 8 → 9 (grate already unlocked)
                 ["go", "west"],             # 9 → 10
                 ["go", "west"],             # 10 → 11
