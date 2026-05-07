@@ -398,6 +398,10 @@ var output: RichTextLabel
 var input: LineEdit
 var _last_room: int = -1
 var _save_path: String = "user://cca.save"     # cabinet convention: matches Arcade.save_path("cca")
+# 5-character-truncated verb-synonym lookup, populated in _ready()
+# from verb_synonyms. Mirrors canon's "first five letters" parser
+# rule (Don Woods 1977 startup banner).
+var _verb_synonyms_5: Dictionary = {}
 
 # Pirate-stalking starts only after the player has carried
 # treasures past a threshold. We track that the pirate has
@@ -427,6 +431,7 @@ func _ready() -> void:
     fsm.setup_default_aspects()
     fsm.wake_dwarves()
     exit_dialog = ExitDialogScript.new()
+    _build_verb_synonyms_5()
     _build_ui()
     # If a save file is on disk, the cabinet menu's Continue/New
     # prompt has already routed us here with the player's choice
@@ -652,17 +657,17 @@ func _process_input(text: String) -> void:
 # Parsing
 # ============================================================
 func _parse(text: String) -> Array:
-    # Split on whitespace; first token = verb, rest = noun.
-    # Apply synonym table to the verb only.
+    # Canon: parser examines only the first 5 chars of each verb
+    # token (Don Woods 1977 startup banner). Truncate, then look
+    # up in a pre-truncated synonym table that resolves back to
+    # the canonical form for FSM dispatch.
     var parts: PackedStringArray = text.split(" ", false)
     if parts.is_empty():
         return ["", ""]
-    var raw_verb: String = parts[0]
-    var canonical: String = verb_synonyms.get(raw_verb, raw_verb)
+    var raw_verb: String = _truncate5(parts[0])
+    var canonical: String = _verb_synonyms_5.get(raw_verb, raw_verb)
     var noun: String = ""
     if parts.size() > 1:
-        # Allow synonyms on the noun too (e.g. "the bird" → "bird").
-        # Strip articles and join the rest.
         var rest: PackedStringArray = parts.slice(1)
         var filtered: Array = []
         for w in rest:
@@ -670,6 +675,18 @@ func _parse(text: String) -> Array:
                 filtered.append(w)
         noun = " ".join(filtered)
     return [canonical, noun]
+
+func _truncate5(s: String) -> String:
+    if s.length() > 5:
+        return s.substr(0, 5)
+    return s
+
+func _build_verb_synonyms_5() -> void:
+    for key in verb_synonyms.keys():
+        _verb_synonyms_5[_truncate5(key)] = verb_synonyms[key]
+    for canon_verb in ["extinguish", "release", "attack", "examine",
+                       "unlock", "insert", "plover", "inventory"]:
+        _verb_synonyms_5[_truncate5(canon_verb)] = canon_verb
 
 # ============================================================
 # Movement

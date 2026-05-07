@@ -133,14 +133,36 @@ var _awaiting_revive: bool = false
 # either exits the game or cancels.
 var _quit_pending: bool = false
 
+# 5-character-truncated verb-synonym lookup. Derived from
+# verb_synonyms at _ready() so canon's "first five letters" parser
+# rule (Don Woods 1977 startup banner) lands correctly on
+# multi-character verbs like INVENTORY → "inven", EXTINGUISH →
+# "extin", etc.
+var _verb_synonyms_5: Dictionary = {}
+
 # ============================================================
 func _ready() -> void:
     fsm = CcaFSM.new()
     fsm.setup_default_aspects()
     fsm.wake_dwarves()
+    _build_verb_synonyms_5()
     _build_ui()
     _print_welcome()
     _print_room()
+
+func _build_verb_synonyms_5() -> void:
+    # Pre-truncate verb_synonyms keys to 5 chars so the canon
+    # "first five letters" parser rule lands correctly on long
+    # verbs (INVENTORY, EXTINGUISH, RESTORE, SUSPEND).
+    for key in verb_synonyms.keys():
+        _verb_synonyms_5[_truncate5(key)] = verb_synonyms[key]
+    # Identity mappings for canonical FSM verbs > 5 chars whose
+    # truncated form would otherwise miss the dispatch table.
+    # Canonical form preserved so the FSM checks like
+    # `if verb == "extinguish"` keep matching.
+    for canon_verb in ["extinguish", "release", "attack", "examine",
+                       "unlock", "insert", "plover", "inventory"]:
+        _verb_synonyms_5[_truncate5(canon_verb)] = canon_verb
 
 func _build_ui() -> void:
     set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -325,13 +347,22 @@ func _process_input(text: String) -> void:
 # Parsing
 # ============================================================
 func _parse(text: String) -> Array:
-    # Split on whitespace; first token = verb, rest = noun.
-    # Apply synonym table to the verb only.
+    # Canon: the parser examines only the first 5 characters of
+    # each verb (Don Woods 1977 startup banner: "I LOOK AT ONLY
+    # THE FIRST FIVE LETTERS OF EACH WORD, SO YOU'LL HAVE TO ENTER
+    # 'NORTHEAST' AS 'NE' TO DISTINGUISH IT FROM 'NORTH'."). We
+    # mirror that for the verb token by truncating to 5 chars and
+    # looking up against a pre-truncated synonym table, so the
+    # canonical form dispatched downstream is still the full word.
+    # Noun-side 5-char truncation is a separate sub-pass (the FSM
+    # checks against full-word noun strings throughout, so adding
+    # noun truncation safely requires a dedicated noun-canonical
+    # expansion map — wired in 7v alongside object-name verbs).
     var parts: PackedStringArray = text.split(" ", false)
     if parts.is_empty():
         return ["", ""]
-    var raw_verb: String = parts[0]
-    var canonical: String = verb_synonyms.get(raw_verb, raw_verb)
+    var raw_verb: String = _truncate5(parts[0])
+    var canonical: String = _verb_synonyms_5.get(raw_verb, raw_verb)
     var noun: String = ""
     if parts.size() > 1:
         # Allow synonyms on the noun too (e.g. "the bird" → "bird").
@@ -343,6 +374,11 @@ func _parse(text: String) -> Array:
                 filtered.append(w)
         noun = " ".join(filtered)
     return [canonical, noun]
+
+func _truncate5(s: String) -> String:
+    if s.length() > 5:
+        return s.substr(0, 5)
+    return s
 
 # ============================================================
 # Movement
