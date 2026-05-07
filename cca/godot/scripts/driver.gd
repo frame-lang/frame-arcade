@@ -95,8 +95,11 @@ var verb_synonyms: Dictionary = {
     "y": "yes",                            # n is north; "no" must be typed
     "quit": "quit", "exit": "quit",
     "save": "save", "restore": "load", "load": "load",
+    # Canon SUSPEND / PAUSE map to SAVE per msg #142 INFO text.
+    "suspend": "save", "pause": "save",
     "score": "score",
     "help": "help", "?": "help",
+    "info": "info",
     "hint": "hint",
 }
 
@@ -125,6 +128,10 @@ var _pirate_already_stole: bool = false
 # prints the resurrection prompt, and pauses normal verb
 # processing until the player answers yes/no.
 var _awaiting_revive: bool = false
+# Canon QUIT confirmation latch (msg #22 "DO YOU REALLY WANT TO
+# QUIT NOW?"). Set when QUIT is typed; the next yes/no answer
+# either exits the game or cancels.
+var _quit_pending: bool = false
 
 # ============================================================
 func _ready() -> void:
@@ -219,6 +226,21 @@ func _process_input(text: String) -> void:
     # accept while the player is dead is yes/no. (We don't go
     # through the normal verb dispatcher because the dragon
     # also uses yes/no and we don't want a state collision.)
+    if _quit_pending:
+        if verb == "yes":
+            _quit_pending = false
+            _println("Goodbye.")
+            await get_tree().create_timer(0.5).timeout
+            get_tree().quit()
+            return
+        if verb == "no":
+            _quit_pending = false
+            _println("OK.")
+            return
+        _quit_pending = false
+        # Fall through to normal processing — canon: any non-yes
+        # answer cancels the quit prompt.
+
     if _awaiting_revive:
         if verb == "yes":
             fsm.player.revive()
@@ -241,10 +263,13 @@ func _process_input(text: String) -> void:
         "help":
             _print_help()
             return
+        "info":
+            _print_info()
+            return
         "quit":
-            _println("Goodbye.")
-            await get_tree().create_timer(0.5).timeout
-            get_tree().quit()
+            # Canon msg #22 verbatim — confirm before exit.
+            _quit_pending = true
+            _println("Do you really want to quit now?")
             return
         "score":
             _println("[b]Score: %d[/b] — treasures %d (%d/15 deposited), visits %d, hints %d, endgame %d" % [
@@ -569,17 +594,12 @@ func _print_welcome() -> void:
     _println("Built on the Frame state machine DSL. Type [b]HELP[/b] for a list of commands.")
 
 func _print_help() -> void:
-    _println("""
-[b]Movement:[/b] NORTH/SOUTH/EAST/WEST, UP/DOWN, IN/OUT, or N/S/E/W/U/D.
-[b]Looking:[/b] LOOK (L), EXAMINE <thing> (X), READ <thing>.
-[b]Items:[/b]   TAKE <thing>, DROP <thing>, INVENTORY (I).
-[b]Combat:[/b]  ATTACK <foe>, THROW AXE.
-[b]Special:[/b] LIGHT (lamp), EXTINGUISH, FEED BEAR, RELEASE BIRD, WAVE ROD, UNLOCK GRATE, INSERT COINS.
-[b]Bottle:[/b]  TAKE BOTTLE, FILL BOTTLE (at water), POUR / WATER PLANT, DRINK.
-[b]Magic:[/b]   XYZZY, PLUGH, PLOVER (in the right places).
-[b]Chants:[/b]  FEE / FIE / FOE / FOO (in sequence).
-[b]Meta:[/b]    SAVE, LOAD, SCORE, HINT [name], QUIT.
-""")
+    # Canon msg #51 verbatim — Don Woods 1977 HELP output.
+    _println("I know of places, actions, and things. Most of my vocabulary describes places and is used to move you there. To move, try words like FOREST, BUILDING, DOWNSTREAM, ENTER, EAST, WEST, NORTH, SOUTH, UP, or DOWN. I know about a few special objects, like a black rod hidden in the cave. These objects can be manipulated using some of the action words that I know. Usually you will need to give both the object and action words (in either order), but sometimes I can infer the object from the verb alone. Some objects also imply verbs; in particular, \"INVENTORY\" implies \"TAKE INVENTORY\", which causes me to give you a list of what you're carrying. The objects have side effects; for instance, the rod scares the bird. Usually people having trouble moving just need to try a few more words. Usually people trying unsuccessfully to manipulate an object are attempting something beyond their (or my!) capabilities and should try a completely different tack. To speed the game you can sometimes move long distances with a single word. For example, \"BUILDING\" usually gets you to the building from anywhere above ground except when lost in the forest. Also, note that cave passages turn a lot, and that leaving a room to the north does not guarantee entering the next from the south. Good luck!")
+
+func _print_info() -> void:
+    # Canon msg #142 verbatim — Don Woods 1977 INFO output.
+    _println("If you want to end your adventure early, say \"QUIT\". To suspend your adventure such that you can continue later, say \"SUSPEND\" (or \"PAUSE\" or \"SAVE\"). To see what hours the cave is normally open, say \"HOURS\". To see how well you're doing, say \"SCORE\". To get full credit for a treasure, you must have left it safely in the building, though you get partial credit just for locating it. You lose points for getting killed, or for quitting, though the former costs you more. There are also points based on how much (if any) of the cave you've managed to explore; in particular, there is a large bonus just for getting in (to distinguish the beginners from the rest of the pack), and there are other ways to determine whether you've been through some of the more harrowing sections. If you think you've found all the treasures, just keep exploring for a while. If nothing interesting happens, you haven't found them all yet. If something interesting *does* happen, it means you're getting a bonus and have an opportunity to garner many more points in the master's section. I may occasionally offer hints if you seem to be having trouble. If I do, I'll warn you in advance how much it will affect your score to accept the hints. Finally, to save paper, you may specify \"BRIEF\", which tells me never to repeat the full description of a place unless you explicitly ask me to.")
 
 # When the application window regains focus (alt-tab back, click
 # on a different app and return, etc.), Godot doesn't restore
