@@ -64,7 +64,7 @@ func _init():
     # --- DRINK empties it ---
     print("DRINK empties the bottle:")
     var r4 = adv.do_command("drink", "")
-    _expect_contains("drink response",r4, "fresh and clear")
+    _expect_contains("drink response",r4, "bottle of water is now empty")
     _expect("bottle empty",        adv.bottle_has_water(),       false)
 
     # --- FILL away from water deflects ---

@@ -2221,8 +2221,12 @@
                 @@:return("Your bottle is empty and the ground is wet.")
             }
             drink(): String          {
+                # Canon: drinking from the bottle drains it. Canon
+                # msg #74 verbatim. Stream-drink (msg #73) is
+                # rendered separately when player drinks at a
+                # water source instead of from the bottle.
                 -> $Empty
-                @@:return("The water is wonderfully fresh and clear.")
+                @@:return("The bottle of water is now empty.")
             }
             get_state(): String      { @@:("water") }
             has_water(): bool        { @@:(true) }
@@ -3148,10 +3152,13 @@
             elif verb == "light":
                 self.lamp.light()
                 if self.lamp.get_state() == "out":
-                    return "Your lamp won't light — the battery is dead."
+                    # Canon msg #184 derivative — lamp won't relight if dead.
+                    return "Your lamp has run out of power."
+                # Canon msg #39 verbatim.
                 return "Your lamp is now on."
             elif verb == "extinguish":
                 self.lamp.extinguish()
+                # Canon msg #40 verbatim.
                 return "Your lamp is now off."
             elif verb == "move":
                 return self._verb_move(noun)
@@ -3893,7 +3900,7 @@
                         self.endgame.treasure_deposited()
                         self.score_treasures = self.score_treasures + self.chain.get_value()
                         self.real_score = self.real_score + self.chain.get_value()
-                        return "Safely stowed in the well house. A fine treasure indeed!"
+                        return "OK"
                     return "The bear settles down at your side, glaring."
                 # Bear no longer following — chain is a regular
                 # treasure carry. Standard try_drop semantics.
@@ -3905,7 +3912,7 @@
                     self.endgame.treasure_deposited()
                     self.score_treasures = self.score_treasures + self.chain.get_value()
                     self.real_score = self.real_score + self.chain.get_value()
-                    return "Safely stowed in the well house. A fine treasure indeed!"
+                    return "OK"
                 return "OK"
             # Treasures
             return self._drop_treasure_by_name(noun)
@@ -4075,7 +4082,7 @@
                 self.endgame.treasure_deposited()
                 self.score_treasures = self.score_treasures + value
                 self.real_score = self.real_score + value
-                return "Safely stowed in the well house. A fine treasure indeed!"
+                return "OK"
             if outcome == "dropped_soft":
                 return "The vase comes to rest, delicately, on the velvet pillow."
             return "OK"

@@ -65,7 +65,7 @@ func _init():
     adv.player.move_to(3)
     _expect("at deposit room", adv.player_room(),    3)
     var r6 = adv.do_command("drop", "gold")
-    _expect_contains("deposited",     r6, "stowed")
+    _expect_contains("deposited",     r6, "OK")
     _expect("treasures deposited", adv.treasures_deposited(), 1)
     _expect("score",          adv.total_score(),    14)
 
