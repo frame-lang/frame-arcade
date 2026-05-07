@@ -471,7 +471,7 @@ func _build_ui() -> void:
     label_exit_dialog.size = Vector2(440, 120)
     label_exit_dialog.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     label_exit_dialog.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    label_exit_dialog.text = "Save before quitting?\n\n[Enter] Quit (default)    [S] Save and quit\n[Esc] Cancel"
+    label_exit_dialog.text = "Leaving the cave?\n\n[Enter] Save and quit (default)    [Q] Quit without saving\n[Esc] Cancel"
     label_exit_dialog.visible = false
     add_child(label_exit_dialog)
 
@@ -514,7 +514,11 @@ func _process_input(text: String) -> void:
             _awaiting_revive = false
             _println("[color=#cc4444]Then this is the end of you. Goodbye.[/color]")
             await get_tree().create_timer(2.0).timeout
-            get_tree().quit()
+            # Game-over: return to the cabinet menu rather than
+            # killing the whole cabinet. The dead-player state
+            # isn't worth saving, so skip the exit dialog and
+            # leave straight away.
+            Arcade.return_to_menu()
             return
         _println("Please answer yes or no.")
         return
@@ -525,9 +529,14 @@ func _process_input(text: String) -> void:
             _print_help()
             return
         "quit":
-            _println("Goodbye.")
-            await get_tree().create_timer(0.5).timeout
-            get_tree().quit()
+            # Typed QUIT / EXIT mirrors the Esc keypress: open
+            # the same Save+quit / Quit / Cancel dialog so the
+            # player gets the chance to save their progress, and
+            # leaving the chapter goes through Arcade.return_to_menu()
+            # rather than killing the whole cabinet.
+            if not exit_dialog.is_open():
+                exit_dialog.open()
+                _show_exit_dialog()
             return
         "score":
             _println("[b]Score: %d[/b] — treasures %d (%d/15 deposited), visits %d, hints %d, endgame %d" % [
@@ -695,7 +704,7 @@ func _check_player_death() -> void:
     elif s == "permadead":
         _println("[color=#cc4444][b]You have used up your three resurrections. This is the end.[/b][/color]")
         await get_tree().create_timer(2.0).timeout
-        get_tree().quit()
+        Arcade.return_to_menu()
 
 var _last_endgame_state: String = "active"
 # Track which closing-warning thresholds have already fired so
@@ -842,9 +851,10 @@ func _print_help() -> void:
 #   - feeds key events as confirm_quit / confirm_save_quit /
 #     cancel based on which key was pressed
 #   - reads last_action() after each event and acts on it
-# Key bindings:
-#   Enter / Space  → confirm_quit (default)
-#   S              → confirm_save_quit
+# Key bindings (cabinet-wide convention — Enter is the SAFE
+# default everywhere):
+#   Enter / Space  → confirm_save_quit (default — preserve work)
+#   Q              → confirm_quit (discard, return to menu)
 #   Esc            → cancel back to game
 # ============================================================
 func _input(event: InputEvent) -> void:
@@ -854,9 +864,9 @@ func _input(event: InputEvent) -> void:
     if exit_dialog.is_open():
         get_viewport().set_input_as_handled()
         if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER or event.keycode == KEY_SPACE:
-            exit_dialog.confirm_quit()
-        elif event.keycode == KEY_S:
             exit_dialog.confirm_save_quit()
+        elif event.keycode == KEY_Q:
+            exit_dialog.confirm_quit()
         elif event.keycode == KEY_ESCAPE:
             exit_dialog.cancel()
         else:

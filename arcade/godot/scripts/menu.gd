@@ -46,6 +46,13 @@ var _save_prompt_game_index: int = -1
 var _save_prompt_selection: int = 0
 var label_prompt: Label
 
+# --- Quit-cabinet prompt ------------------------------------
+#
+# Esc on the main menu opens a confirmation overlay rather than
+# killing the cabinet outright. Same overlay slot as the save
+# prompt (only one is ever visible) so we share `label_prompt`.
+var _quit_prompt_active: bool = false
+
 # Edge-detected input
 var _up_was_down: bool = false
 var _down_was_down: bool = false
@@ -185,6 +192,12 @@ func _process(_delta: float) -> void:
             _confirm_save_prompt()
         if escape and not _escape_was_down:
             _hide_save_prompt()
+    elif _quit_prompt_active:
+        # Sub-mode: confirm quit. Enter quits, Esc cancels.
+        if enter and not _enter_was_down:
+            get_tree().quit()
+        if escape and not _escape_was_down:
+            _hide_quit_prompt()
     else:
         # Main game-list navigation.
         if up and not _up_was_down:
@@ -196,7 +209,7 @@ func _process(_delta: float) -> void:
         if enter and not _enter_was_down:
             _on_game_selected(selected_index)
         if escape and not _escape_was_down:
-            get_tree().quit()
+            _show_quit_prompt()
         # Number-key shortcuts: 1-9 jump straight to the matching
         # game (1-indexed in the menu, 0-indexed in GAMES). Edge-
         # detected so a held key doesn't fire repeatedly. Goes
@@ -234,12 +247,12 @@ func _check_number_shortcuts() -> void:
 # saved run exists, same path as Enter on a keyboard-selected row).
 func _on_row_input(event: InputEvent, index: int) -> void:
     if event is InputEventMouseMotion:
-        if not _save_prompt_active and selected_index != index:
+        if not _save_prompt_active and not _quit_prompt_active and selected_index != index:
             selected_index = index
             _refresh_selection()
         return
     if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-        if _save_prompt_active:
+        if _save_prompt_active or _quit_prompt_active:
             return
         selected_index = index
         _refresh_selection()
@@ -307,6 +320,31 @@ func _confirm_save_prompt() -> void:
         # so the driver's _ready() sees no save and starts fresh.
         Arcade.delete_save(entry.name)
     Arcade.launch_game(idx)
+
+# --- Quit-cabinet prompt sub-mode ---------------------------
+
+func _show_quit_prompt() -> void:
+    _quit_prompt_active = true
+    _set_list_visible(false)
+    label_prompt.visible = true
+    _refresh_quit_prompt()
+    # Same edge-detector arm trick as the save prompt: we don't
+    # want the same Esc that opened the dialog to count as a
+    # cancel on the very next frame.
+    _enter_was_down = true
+    _escape_was_down = true
+
+func _hide_quit_prompt() -> void:
+    _quit_prompt_active = false
+    label_prompt.visible = false
+    _set_list_visible(true)
+
+func _refresh_quit_prompt() -> void:
+    var lines := PackedStringArray()
+    lines.append("QUIT CABINET?")
+    lines.append("")
+    lines.append("[Enter] Quit    [Esc] Cancel")
+    label_prompt.text = "\n".join(lines)
 
 func _refresh_selection() -> void:
     for i in range(game_labels.size()):
