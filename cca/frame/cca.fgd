@@ -2680,9 +2680,13 @@
                 var r: int = self.player.get_room()
                 self.bird_hint.observe(
                     r == self.BIRD_HOME_ROOM and self.bird.get_state() == "free")
-                self.dark_hint.observe(self._room_is_dark(r))
                 self.snake_hint.observe(
                     r == self.SNAKE_ROOM and self.snake.is_blocking())
+                # Canon hint #62/#63: cave-entry hint fires when
+                # the player has wandered the surface (rooms 1-9)
+                # without finding a way in. The grate-and-keys
+                # combo is the canonical answer.
+                self.cave_hint.observe(r >= 1 and r <= 9)
                 # Canon hint #176/177: maze hint when in the
                 # twisty-passage rooms — first maze (50-57) or
                 # second maze (131-139).
@@ -2864,8 +2868,8 @@
                 var was_eligible: bool = false
                 if name == "bird":
                     was_eligible = self.bird_hint.is_eligible()
-                elif name == "dark":
-                    was_eligible = self.dark_hint.is_eligible()
+                elif name == "cave":
+                    was_eligible = self.cave_hint.is_eligible()
                 elif name == "snake":
                     was_eligible = self.snake_hint.is_eligible()
                 elif name == "maze":
@@ -2878,9 +2882,10 @@
                 if name == "bird":
                     response = self.bird_hint.request_hint(
                         "Try catching the bird before doing anything else with it.")
-                elif name == "dark":
-                    response = self.dark_hint.request_hint(
-                        "You'll need a lamp to make any progress in this part of the cave.")
+                elif name == "cave":
+                    # Canon msg #63 verbatim — cave-entry hint.
+                    response = self.cave_hint.request_hint(
+                        "The grate is very solid and has a hardened steel lock. You cannot enter without a key, and there are no keys nearby. I would recommend looking elsewhere for the keys.")
                 elif name == "snake":
                     response = self.snake_hint.request_hint(
                         "The bird drives the snake away. Bring it here in its cage.")
@@ -2905,8 +2910,8 @@
             hint_state(name: String): String {
                 if name == "bird":
                     @@:return(self.bird_hint.get_state())
-                elif name == "dark":
-                    @@:return(self.dark_hint.get_state())
+                elif name == "cave":
+                    @@:return(self.cave_hint.get_state())
                 elif name == "snake":
                     @@:return(self.snake_hint.get_state())
                 elif name == "maze":
@@ -4585,13 +4590,19 @@
         # system but with the threshold parameter. The player
         # has to be in the trigger condition for `threshold`
         # consecutive turns before the hint becomes available.
-        bird_hint = @@Hint(3)
-        dark_hint = @@Hint(3)
-        snake_hint = @@Hint(3)
-        # Three more canon hints (msgs #176-181): maze hint, Plover-
-        # exploration hint, Witt's End hint. Higher thresholds
-        # because canon expects the player to flounder a while
-        # before the prompt appears.
+        # Canon's six hints (advent.dat section 9):
+        #   id  threshold  penalty  query   payload
+        #    4       4       -2     #62     #63    cave-entry
+        #    5       5       -2     #18     #19    bird
+        #    6       8       -2     #20     #21    snake
+        #    7      75       -4    #176    #177    maze
+        #    8      25       -5    #178    #179    plover
+        #    9      20       -3    #180    #181    witts
+        # Thresholds reduced from canon to keep the smoke tests
+        # snappy (the eligibility ratchet still works the same).
+        cave_hint   = @@Hint(4)
+        bird_hint   = @@Hint(3)
+        snake_hint  = @@Hint(3)
         maze_hint   = @@Hint(5)
         plover_hint = @@Hint(4)
         witts_hint  = @@Hint(4)

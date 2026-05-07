@@ -91,7 +91,7 @@ var ARCHITECTURE_PROBES := [
     # Phase 7 canon-mechanic probes ----------------------------
     ["PLOVER tunnel gates non-emerald",       "_probe_plover_squeeze",     "port: no inventory gate on 99↔100"],
     ["throw treasure at troll vanishes it",   "_probe_troll_throw",        "port: troll only flees from bear"],
-    ["6 canon hints registered",              "_probe_six_hints",          "port: 3 hints (bird/dark/snake)"],
+    ["6 canon hints registered",              "_probe_six_hints",          "port: 3 hints (bird/cave/snake)"],
     ["dwarves auto-wake after deep dwell",    "_probe_dwarf_auto_wake",    "port: only manual wake_dwarves()"],
     ["cave-closing teleports to Repository",  "_probe_repository_teleport","port: in_repository state but no teleport"],
     ["statuette is not a treasure",           "_probe_no_statuette",       "port: 16th treasure (port-only)"],
@@ -467,11 +467,12 @@ func _probe_troll_throw() -> bool:
     return blocking_pre and vanished and value_zero and troll_gone
 
 func _probe_six_hints() -> bool:
-    # Canon: 6 progressive hints (bird, dark, snake, maze, plover,
-    # witts). Each must respond to hint_state() with a non-"unknown".
+    # Canon (advent.dat section 9, hint table): 6 active hints —
+    # cave, bird, snake, maze, plover, witts. Each must respond to
+    # hint_state() with a non-"unknown".
     var adv = Cca.new()
     adv.setup_default_aspects()
-    for name in ["bird", "dark", "snake", "maze", "plover", "witts"]:
+    for name in ["cave", "bird", "snake", "maze", "plover", "witts"]:
         if adv.hint_state(name) == "unknown":
             return false
     return true

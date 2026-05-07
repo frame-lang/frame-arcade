@@ -2,10 +2,10 @@ extends SceneTree
 
 # Smoke test for the Hint system (parallel parameterized × 3).
 # Verifies:
-#   - Three hints (bird, dark, snake) start in $Pending with
+#   - Three hints (bird, cave, snake) start in $Pending with
 #     streak 0.
 #   - Hints advance independently — observing the bird-room
-#     condition doesn't affect the dark-room hint's streak.
+#     condition doesn't affect the cave-entry hint's streak.
 #   - Streak resets when condition becomes false.
 #   - Threshold crossing transitions $Pending → $Eligible.
 #   - request_hint() in $Eligible returns the hint text and
@@ -35,7 +35,7 @@ func _init():
 
     print("Initial state — all three pending:")
     _expect("bird_hint state",  adv.hint_state("bird"),  "pending")
-    _expect("dark_hint state",  adv.hint_state("dark"),  "pending")
+    _expect("cave_hint state",  adv.hint_state("cave"),  "pending")
     _expect("snake_hint state", adv.hint_state("snake"), "pending")
     _expect("bird_hint streak", adv.bird_hint.get_streak(), 0)
 
@@ -47,14 +47,14 @@ func _init():
     _expect("bird_hint streak", adv.bird_hint.get_streak(), 3)
     _expect("bird_hint state",  adv.hint_state("bird"),  "eligible")
     # Other hints unaffected — they observe their own conditions
-    _expect("dark_hint state",  adv.hint_state("dark"),  "pending")
+    _expect("cave_hint state",  adv.hint_state("cave"),  "pending")
     _expect("snake_hint state", adv.hint_state("snake"), "pending")
 
     print("Request the bird hint:")
     var r1 = adv.request_hint("bird")
     _expect("bird hint message",   r1.contains("bird"), true)
     _expect("bird_hint now offered", adv.hint_state("bird"), "offered")
-    _expect("dark_hint untouched", adv.hint_state("dark"), "pending")
+    _expect("cave_hint untouched", adv.hint_state("cave"), "pending")
 
     print("Re-request bird hint — already given:")
     var r2 = adv.request_hint("bird")
@@ -65,11 +65,12 @@ func _init():
     adv.tick()                         # bird condition now false
     adv.player.move_to(13)             # back to bird room
     adv.tick()
-    # Note: bird is still free at room 13 because we never
-    # took it. dark_hint observes is_dark which is false (room
-    # 1 is lit, lamp on). So dark_hint streak should be 0.
-    _expect("dark_hint state",  adv.hint_state("dark"),  "pending")
-    _expect("dark_hint streak (lit)", adv.dark_hint.get_streak(), 0)
+    # Bird is still free at room 13 because we never took it.
+    # cave_hint observes player on the surface (rooms 1-9); after
+    # move_to(13) it sees the player off-surface, so the streak
+    # resets to 0.
+    _expect("cave_hint state",  adv.hint_state("cave"),  "pending")
+    _expect("cave_hint streak (off-surface)", adv.cave_hint.get_streak(), 0)
 
     print("Request hint that's not eligible:")
     var r3 = adv.request_hint("snake")
