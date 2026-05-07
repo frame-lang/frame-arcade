@@ -54,12 +54,20 @@ const CHEST_ID := 120
 const PYRAMID_ID := 121
 const RUG_ID := 122
 const COINS_ID := 123
-const STATUETTE_ID := 124
 # Non-treasure carriables (mirror Adventure.ROD_ID / KEYS_ID /
-# BOTTLE_ID in cca/frame/cca.fgd).
+# BOTTLE_ID + the Phase 6 mechanism items in cca/frame/cca.fgd).
 const ROD_ID := 130
 const KEYS_ID := 131
 const BOTTLE_ID := 132
+const CAGE_ID := 133
+const FOOD_ID := 134
+const PILLOW_ID := 135
+const AXE_ID := 136
+const CLAM_ID := 137
+const OYSTER_ID := 138
+const BATTERIES_ID := 139
+const MAGAZINE_ID := 140
+const MARK_ROD_ID := 141
 
 # ------------------------------------------------------------
 # Maze topology — see topology.gd for the room map and design
@@ -464,30 +472,58 @@ func _print_room() -> void:
 # Inventory
 # ============================================================
 func _format_inventory() -> String:
+    # Canon-aligned inventory, mirroring the arcade driver's
+    # Don Woods 1977 short-name strings. One item per line under
+    # the canon msg #99 "You are currently holding the following:"
+    # header. Bird + cage compound to canon msg #8 "Little bird
+    # in cage" when both are held.
     var items: Array = []
-    if fsm.player.carrying(BIRD_ID):      items.append("a small bird")
-    if fsm.player.carrying(CHAIN_ID):     items.append("the bear's chain")
-    if fsm.player.carrying(ROD_ID):       items.append("a black rod with a rusty star")
-    if fsm.player.carrying(KEYS_ID):      items.append("a set of brass keys")
-    if fsm.player.carrying(BOTTLE_ID):    items.append("a small glass bottle" + (" of water" if fsm.bottle_has_water() else ", empty"))
-    if fsm.player.carrying(GOLD_ID):      items.append("a gold nugget")
-    if fsm.player.carrying(SILVER_ID):    items.append("silver bars")
-    if fsm.player.carrying(DIAMONDS_ID):  items.append("diamonds")
-    if fsm.player.carrying(JEWELRY_ID):   items.append("fine jewelry")
-    if fsm.player.carrying(PEARL_ID):     items.append("a pearl")
-    if fsm.player.carrying(VASE_ID):      items.append("a Ming vase")
-    if fsm.player.carrying(EGGS_ID):      items.append("a nest of golden eggs")
-    if fsm.player.carrying(TRIDENT_ID):   items.append("a jewel-encrusted trident")
-    if fsm.player.carrying(EMERALD_ID):   items.append("an enormous emerald")
-    if fsm.player.carrying(SPICES_ID):    items.append("rare spices")
-    if fsm.player.carrying(CHEST_ID):     items.append("a treasure chest")
-    if fsm.player.carrying(PYRAMID_ID):   items.append("a golden pyramid")
-    if fsm.player.carrying(RUG_ID):       items.append("a Persian rug")
-    if fsm.player.carrying(COINS_ID):     items.append("rare coins")
-    if fsm.player.carrying(STATUETTE_ID): items.append("a jade statuette")
+    var has_bird: bool = fsm.player.carrying(BIRD_ID)
+    var has_cage: bool = fsm.player.carrying(CAGE_ID)
+    if has_bird and has_cage:
+        items.append("  Little bird in cage")
+    elif has_bird:
+        items.append("  Little bird")
+    elif has_cage:
+        items.append("  Wicker cage")
+
+    if fsm.player.carrying(ROD_ID):
+        items.append("  Black rod with a rusty star on the end")
+    if fsm.player.carrying(MARK_ROD_ID):
+        items.append("  Black rod with a rusty mark on the end")
+    if fsm.player.carrying(KEYS_ID):     items.append("  Set of keys")
+    if fsm.player.carrying(BOTTLE_ID):   items.append("  Small bottle")
+    if fsm.player.carrying(FOOD_ID):     items.append("  Tasty food")
+    if fsm.player.carrying(PILLOW_ID):   items.append("  Velvet pillow")
+    if fsm.player.carrying(AXE_ID):      items.append("  Dwarf's axe")
+    if fsm.player.carrying(CLAM_ID):     items.append("  Giant clam")
+    if fsm.player.carrying(OYSTER_ID):   items.append("  Giant oyster")
+    if fsm.player.carrying(MAGAZINE_ID): items.append("  \"Spelunker Today\" magazine")
+    if fsm.player.carrying(BATTERIES_ID): items.append("  Fresh batteries")
+
+    if fsm.player.carrying(GOLD_ID):     items.append("  Large gold nugget")
+    if fsm.player.carrying(SILVER_ID):   items.append("  Bars of silver")
+    if fsm.player.carrying(DIAMONDS_ID): items.append("  Several diamonds")
+    if fsm.player.carrying(JEWELRY_ID):  items.append("  Precious jewelry")
+    if fsm.player.carrying(PEARL_ID):    items.append("  Glistening pearl")
+    if fsm.player.carrying(VASE_ID):
+        if fsm.vase.is_broken():
+            items.append("  Worthless shards of pottery")
+        else:
+            items.append("  Ming vase")
+    if fsm.player.carrying(EGGS_ID):     items.append("  Nest of golden eggs")
+    if fsm.player.carrying(TRIDENT_ID):  items.append("  Jeweled trident")
+    if fsm.player.carrying(EMERALD_ID):  items.append("  Egg-sized emerald")
+    if fsm.player.carrying(SPICES_ID):   items.append("  Rare spices")
+    if fsm.player.carrying(CHEST_ID):    items.append("  Treasure chest")
+    if fsm.player.carrying(PYRAMID_ID):  items.append("  Platinum pyramid")
+    if fsm.player.carrying(RUG_ID):      items.append("  Persian rug")
+    if fsm.player.carrying(COINS_ID):    items.append("  Rare coins")
+    if fsm.player.carrying(CHAIN_ID):    items.append("  Golden chain")
+
     if items.is_empty():
-        return "You aren't carrying anything."
-    return "You are carrying: " + ", ".join(items) + "."
+        return "You're not carrying anything."
+    return "You are currently holding the following:\n" + "\n".join(items)
 
 # ============================================================
 # Save / load
