@@ -25,6 +25,7 @@ extends SceneTree
 #                      65=PLUGH, 71=PLOVER
 
 const Cca = preload("res://scripts/cca.gd")
+const Topology = preload("res://scripts/topology.gd")
 
 # ----- Canon targets -----
 
@@ -87,6 +88,15 @@ var ARCHITECTURE_PROBES := [
     ["two rods (star + mark)",                "_probe_two_rods",           "port: one rod"],
     ["oil-in-bottle",                         "_probe_oil_in_bottle",      "port: water-only"],
     ["clam → oyster → pearl puzzle",          "_probe_clam_oyster_pearl",  "port: pearl static at Plover"],
+    # Phase 7 canon-mechanic probes ----------------------------
+    ["PLOVER tunnel gates non-emerald",       "_probe_plover_squeeze",     "port: no inventory gate on 99↔100"],
+    ["throw treasure at troll vanishes it",   "_probe_troll_throw",        "port: troll only flees from bear"],
+    ["6 canon hints registered",              "_probe_six_hints",          "port: 3 hints (bird/dark/snake)"],
+    ["dwarves auto-wake after deep dwell",    "_probe_dwarf_auto_wake",    "port: only manual wake_dwarves()"],
+    ["cave-closing teleports to Repository",  "_probe_repository_teleport","port: in_repository state but no teleport"],
+    ["statuette is not a treasure",           "_probe_no_statuette",       "port: 16th treasure (port-only)"],
+    ["108→115 walking corridor removed",      "_probe_no_108_corridor",    "port: walkable to Repository"],
+    ["chest spawns at canon room 18",         "_probe_chest_room_canon",   "port: chest at port-132"],
 ]
 
 # ----- State -----
@@ -424,6 +434,102 @@ func _probe_chain_treasure() -> bool:
     var deposited: bool = adv.chain.is_deposited()
     var counts: bool = adv.treasures_deposited() >= 1
     return carried and deposited and counts
+
+# ----- Phase 7 mechanic probes -----
+
+func _probe_plover_squeeze() -> bool:
+    # Canon: 99↔100 narrow tunnel rejects players carrying anything
+    # other than the emerald (or empty hands).
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    var empty: bool = not adv.plover_squeeze_blocked()
+    adv.player.take(adv.GOLD_ID)
+    var with_gold: bool = adv.plover_squeeze_blocked()
+    adv.player.drop(adv.GOLD_ID)
+    adv.player.take(adv.EMERALD_ID)
+    var with_emerald: bool = not adv.plover_squeeze_blocked()
+    return empty and with_gold and with_emerald
+
+func _probe_troll_throw() -> bool:
+    # Canon: THROW <treasure> at troll bridge → troll flees with it.
+    # Treasure transitions to $Vanished, value drops to 0.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    adv.do_command("light", "")
+    adv.player.move_to(18)
+    adv.do_command("take", "gold")
+    adv.player.move_to(adv.TROLL_ROOM)
+    var blocking_pre: bool = adv.troll.is_blocking_bridge()
+    adv.do_command("throw", "gold")
+    var vanished: bool = adv.gold.is_vanished()
+    var value_zero: bool = adv.gold.get_value() == 0
+    var troll_gone: bool = not adv.troll.is_blocking_bridge()
+    return blocking_pre and vanished and value_zero and troll_gone
+
+func _probe_six_hints() -> bool:
+    # Canon: 6 progressive hints (bird, dark, snake, maze, plover,
+    # witts). Each must respond to hint_state() with a non-"unknown".
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    for name in ["bird", "dark", "snake", "maze", "plover", "witts"]:
+        if adv.hint_state(name) == "unknown":
+            return false
+    return true
+
+func _probe_dwarf_auto_wake() -> bool:
+    # Canon: dwarves wake implicitly after the player has spent
+    # ~13 turns in the deep cave. Tick from a deep room and check
+    # the latch flips.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    adv.player.move_to(20)
+    var pre: String = adv.dwarf1.get_state()
+    for _i in range(20):
+        adv.tick()
+    var post_wake: bool = adv.dwarves_auto_woken
+    var dwarf_woke: bool = adv.dwarf1.get_state() == "stalking"
+    return pre == "hidden" and post_wake and dwarf_woke
+
+func _probe_repository_teleport() -> bool:
+    # Canon: when the cave-closing timer drains, the player is
+    # whisked to the SW Repository (canon room 116). Drive the
+    # endgame FSM to in_repository, then tick — the rising edge
+    # check in Adventure.tick() must move the player to 116.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    # Defer the dwarf auto-wake so its axe-throws don't reset
+    # the player back to the start room mid-probe.
+    adv.DWARF_WAKE_THRESHOLD = 9999
+    adv.player.move_to(33)
+    for _i in range(10):
+        adv.endgame.treasure_deposited()
+    var safety: int = 200
+    while not adv.endgame.in_repository() and safety > 0:
+        adv.tick()
+        safety -= 1
+    return adv.endgame.in_repository() and adv.player_room() == 116
+
+func _probe_no_statuette() -> bool:
+    # Phase 7b removed the port-only statuette. Probe ensures the
+    # FSM doesn't expose a `statuette` field anymore.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    return not (adv.has_method("statuette") or "statuette" in adv)
+
+func _probe_no_108_corridor() -> bool:
+    # Phase 7i: canon Repository is teleport-only. The 108→115
+    # walking corridor was removed.
+    var exits: Dictionary = {}
+    if Topology.ROOMS.has(108):
+        exits = Topology.ROOMS[108]
+    return not exits.has("east")
+
+func _probe_chest_room_canon() -> bool:
+    # Phase 7a: pirate stash relocated from port-132 to canon 18
+    # ("YOU WON'T GET IT UP THE STEPS" room).
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    return adv.CHEST_ROOM == 18
 
 # ----- Main -----
 func _init():
