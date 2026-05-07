@@ -2682,6 +2682,17 @@
                 self.dark_hint.observe(self._room_is_dark(r))
                 self.snake_hint.observe(
                     r == self.SNAKE_ROOM and self.snake.is_blocking())
+                # Canon hint #176/177: maze hint when in the
+                # twisty-passage rooms — first maze (50-57) or
+                # second maze (131-139).
+                self.maze_hint.observe(
+                    (r >= 50 and r <= 57) or (r >= 131 and r <= 139))
+                # Canon hint #178/179: Plover-exploration hint when
+                # in the Plover Room (100) struggling for direction.
+                self.plover_hint.observe(r == self.PLOVER_ROOM)
+                # Canon hint #180/181: Witt's End hint at canon
+                # room 108 — the "DON'T GO WEST" advice.
+                self.witts_hint.observe(r == self.WITTS_END_ROOM)
                 # Pirate observes treasure carry-count; activates
                 # at threshold, then has a per-turn chance to
                 # steal. The driver checks pirate_try_steal()
@@ -2847,6 +2858,12 @@
                     was_eligible = self.dark_hint.is_eligible()
                 elif name == "snake":
                     was_eligible = self.snake_hint.is_eligible()
+                elif name == "maze":
+                    was_eligible = self.maze_hint.is_eligible()
+                elif name == "plover":
+                    was_eligible = self.plover_hint.is_eligible()
+                elif name == "witts":
+                    was_eligible = self.witts_hint.is_eligible()
                 var response: String = "No hint by that name."
                 if name == "bird":
                     response = self.bird_hint.request_hint(
@@ -2857,6 +2874,18 @@
                 elif name == "snake":
                     response = self.snake_hint.request_hint(
                         "The bird drives the snake away. Bring it here in its cage.")
+                elif name == "maze":
+                    # Canon hint #177 verbatim.
+                    response = self.maze_hint.request_hint(
+                        "You can make the passages look less alike by dropping things.")
+                elif name == "plover":
+                    # Canon hint #179 verbatim.
+                    response = self.plover_hint.request_hint(
+                        "There is a way to explore that region without having to worry about falling into a pit. None of the objects available is immediately useful in discovering the secret.")
+                elif name == "witts":
+                    # Canon hint #181 verbatim.
+                    response = self.witts_hint.request_hint(
+                        "Don't go west.")
                 if was_eligible:
                     self.score_hints = self.score_hints - 2
                     self.real_score = self.real_score - 2
@@ -2870,6 +2899,12 @@
                     @@:return(self.dark_hint.get_state())
                 elif name == "snake":
                     @@:return(self.snake_hint.get_state())
+                elif name == "maze":
+                    @@:return(self.maze_hint.get_state())
+                elif name == "plover":
+                    @@:return(self.plover_hint.get_state())
+                elif name == "witts":
+                    @@:return(self.witts_hint.get_state())
                 @@:("unknown")
             }
 
@@ -4543,6 +4578,13 @@
         bird_hint = @@Hint(3)
         dark_hint = @@Hint(3)
         snake_hint = @@Hint(3)
+        # Three more canon hints (msgs #176-181): maze hint, Plover-
+        # exploration hint, Witt's End hint. Higher thresholds
+        # because canon expects the player to flounder a while
+        # before the prompt appears.
+        maze_hint   = @@Hint(5)
+        plover_hint = @@Hint(4)
+        witts_hint  = @@Hint(4)
 
         # Dragon — small but iconic. Multi-turn parser dialog
         # encoded as state. The "ATTACK / WITH WHAT? / YES"
@@ -4727,6 +4769,7 @@
         MAGAZINE_ID: int = 140
         MAGAZINE_HOME_ROOM: int = 106     # Anteroom — canon 106
         WITTS_END_ROOM: int = 108         # Witt's End — canon 108
+        PLOVER_ROOM: int = 100            # Plover Room — canon 100
 
         # Non-treasure carryable items, all wired through the
         # parameterized `Item` aspect. Each one collapses what
