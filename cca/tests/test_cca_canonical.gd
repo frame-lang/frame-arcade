@@ -521,23 +521,106 @@ func _stages() -> Array:
             "asserts":    _assert_treasures_deposited(6),
             "checkpoint": "after_pearl",
         },
-        # ----- Bear → troll bridge → jewelry -----
-        # Bear canonically lives at canon 130 (Barren Room).
-        # Path: 33 (after plugh) → west 65 → down 130. Feed bear
-        # to tame, take chain to lure. Walk back up to 65 then
-        # east to troll bridge (117), drop chain — bear stays at
-        # 117 and scares the troll.
+        # ----- Plant beanstalk + giant chamber + troll bridge -----
+        # Canon: bear at 130 (Barren Room) is reached only by
+        # crossing the troll bridge (117 → 122 → 129 → 130). The
+        # troll demands tribute; canon's solution is to throw the
+        # eggs (recallable later via FEE FIE FOE FOO). To reach
+        # the eggs in the giant chamber (92) the player needs the
+        # huge plant — climb 25 → 26 → 88 → west 92. The huge
+        # plant requires two waterings (Tiny → Tall → Huge),
+        # which means two round trips between West Pit and the
+        # well house spring.
         {
-            "name":       "at_bear_chamber",
+            "name":       "plant_watered_to_huge",
             "from":       "after_pearl",
             "actions":    [
-                # Canon FOOD lives at the well house. Pick it up
-                # here on the way to the bear — the inventory cap
-                # earlier in the run can't fit it.
+                # Pick up canon FOOD at the well house — needed
+                # to tame the bear later. Inventory pressure is
+                # gone now (treasures all deposited) so we can
+                # carry it through the plant + bridge sequence.
                 ["take", "food"],
+                # First trip: fill at well house, walk down to
+                # West Pit, pour. Plant Tiny → Tall.
+                ["fill", "bottle"],
                 ["plugh", ""],             # 3 → 33
-                ["go", "west"],            # 33 → 65 Bedquilt
-                ["go", "down"],            # 65 → 130 Barren Room
+                ["go", "south"],           # 33 → 28
+                ["go", "down"],            # 28 → 36
+                ["go", "bedquilt"],        # 36 → 65
+                ["go", "slab"],            # 65 → 68
+                ["go", "south"],           # 68 → 23
+                ["go", "down"],            # 23 → 25 (West Pit)
+                ["water", "plant"],        # plant Tiny → Tall
+                # Walk back to 33 via the now-tall plant route:
+                # 25 → up → 23 → west → 68 → north → 65 → up → 39
+                # → east → 36 → up → 28 → north → 33. PLUGH home.
+                ["go", "up"],              # 25 → 23 (plant tall lifts)
+                ["go", "west"],            # 23 → 68
+                ["go", "north"],           # 68 → 65
+                ["go", "up"],              # 65 → 39
+                ["go", "east"],            # 39 → 36
+                ["go", "up"],              # 36 → 28
+                ["go", "north"],           # 28 → 33
+                ["plugh", ""],             # 33 → 3
+                # Second trip: refill, walk back, pour again.
+                # Plant Tall → Huge.
+                ["fill", "bottle"],
+                ["plugh", ""],             # 3 → 33
+                ["go", "south"],           # 33 → 28
+                ["go", "down"],            # 28 → 36
+                ["go", "bedquilt"],        # 36 → 65
+                ["go", "slab"],            # 65 → 68
+                ["go", "south"],           # 68 → 23
+                ["go", "down"],            # 23 → 25
+                ["water", "plant"],        # plant Tall → Huge
+            ],
+            "asserts":    _assert_plant_huge_at_west_pit,
+            "checkpoint": "plant_huge",
+        },
+        # Canon: with the plant huge, CLIMB at West Pit goes
+        # 25 → 26 (transition message) → 88 (cliff above giant)
+        # → west → 92 (giant chamber, eggs).
+        {
+            "name":       "eggs_taken_at_giant",
+            "from":       "plant_huge",
+            "actions":    [
+                ["go", "climb"],           # 25 → 26 (huge plant)
+                ["go", "east"],            # 26 → 88 (transition bounce)
+                ["go", "west"],            # 88 → 92 (giant chamber)
+                ["take", "eggs"],
+            ],
+            "asserts":    _assert_eggs_carried_at_giant,
+            "checkpoint": "carrying_eggs",
+        },
+        # Canon: troll bridge (117) is reached from the giant
+        # chamber via the magnificent cavern + steep incline:
+        # 92 → north → 94 → north → 95 → west → 91 → down → 72
+        # → sw → 118 → up → 117. Throw eggs at the troll; troll
+        # pays toll and ceases to block the bridge. Cross to
+        # 122 (R_NESIDE), then take the bear-chamber path
+        # 122 → barren → 129 → enter → 130. Pick up food at
+        # the well house in the prep round (we did so at
+        # `at_bear_chamber` originally; here we already have it
+        # — see `after_pearl` carries food via the `take_food`
+        # added back at the carrying_pearl_emerald checkpoint).
+        {
+            "name":       "at_bear_chamber",
+            "from":       "carrying_eggs",
+            "actions":    [
+                ["take", "food"],          # canon FOOD at well house — but we're at 92.
+                                           # No-op if not present; the action
+                                           # is harmless and keeps the original
+                                           # invariant intact.
+                ["go", "north"],           # 92 → 94
+                ["go", "north"],           # 94 → 95
+                ["go", "west"],            # 95 → 91
+                ["go", "down"],            # 91 → 72
+                ["go", "sw"],              # 72 → 118
+                ["go", "up"],              # 118 → 117 (troll bridge)
+                ["throw", "eggs"],         # troll catches eggs → toll paid
+                ["go", "over"],            # 117 → 122 (R_NESIDE, troll cleared)
+                ["go", "barren"],          # 122 → 129 (front of barren room)
+                ["go", "enter"],           # 129 → 130 (bear inside)
             ],
             "asserts":    _assert_room_and_bear(130, "hungry"),
             "checkpoint": "at_bear_chamber",
@@ -549,30 +632,54 @@ func _stages() -> Array:
             "asserts":    _assert_bear_following,
             "checkpoint": "bear_following",
         },
+        # Walk back to the troll bridge with the bear in tow,
+        # drop the chain — bear stays at 117 and the troll is
+        # permanently vanished.
         {
             "name":       "troll_vanished",
             "from":       "bear_following",
             "actions":    [
-                ["go", "up"],              # 130 → 65 back to Bedquilt
-                ["go", "east"],            # 65 → 117 troll bridge
+                ["go", "out"],             # 130 → 129
+                ["go", "west"],            # 129 → 128
+                ["go", "north"],           # 128 → 124
+                ["go", "west"],            # 124 → 123
+                ["go", "west"],            # 123 → 122
+                ["go", "over"],            # 122 → 117 (troll already paid)
                 ["drop", "chain"],
             ],
             "asserts":    _assert_troll_vanished,
             "checkpoint": "troll_vanished",
         },
+        # Recall the thrown eggs back to the giant chamber via
+        # canon's incantation. Important for the deep-cave batch
+        # (eggs are one of the 14 treasures).
         {
-            "name":       "take_jewelry",
+            "name":       "eggs_recalled_after_toll",
             "from":       "troll_vanished",
             "actions":    [
-                # Canon: jewelry at room 29 (south side chamber).
-                # Reached via Hall of Mt King (19) south. Walk
-                # from troll bridge (117) back through Bedquilt
-                # → Y2 → Hall of Mists → Hall of Mt King → 29.
-                ["go", "west"],            # 117 → 65 (Bedquilt)
-                ["go", "west"],            # 65 → 33 (Y2)
-                ["go", "north"],           # 33 → 14 (top of small pit)
-                ["go", "down"],            # 14 → 15 (Hall of Mists)
-                ["go", "west"],            # 15 → 19 (Hall of Mt King)
+                ["fee", ""], ["fie", ""], ["foe", ""], ["foo", ""],
+            ],
+            "asserts":    _assert_eggs_back_at_giant,
+            "checkpoint": "eggs_recalled",
+        },
+        # Jewelry is at canon 29 (south side chamber). Walk
+        # 117 → SW → 118 → down → 72 → bedquilt → 65 → up → 39
+        # → east → 36 → up → 28 → north → 33 → east → 34 → up
+        # → 15 → north → 19 → south → 29.
+        {
+            "name":       "take_jewelry",
+            "from":       "eggs_recalled",
+            "actions":    [
+                ["go", "sw"],              # 117 → 118
+                ["go", "down"],            # 118 → 72
+                ["go", "bedquilt"],        # 72 → 65
+                ["go", "up"],              # 65 → 39
+                ["go", "east"],            # 39 → 36
+                ["go", "up"],              # 36 → 28
+                ["go", "north"],           # 28 → 33 (Y2)
+                ["go", "east"],            # 33 → 34
+                ["go", "up"],              # 34 → 15
+                ["go", "north"],           # 15 → 19 (Hall of Mt King; snake gone)
                 ["go", "south"],           # 19 → 29 (south side chamber)
                 ["take", "jewelry"],
             ],
@@ -1157,6 +1264,15 @@ func _assert_plant_tall(adv, t) -> void:
     t._expect("plant huge",   adv.plant_is_huge(),       false)
     t._expect("bottle empty", adv.bottle_has_water(),    false)
     t._expect("at west pit",  adv.player_room(),         25)
+
+func _assert_plant_huge_at_west_pit(adv, t) -> void:
+    t._expect("plant huge",   adv.plant_is_huge(),       true)
+    t._expect("bottle empty", adv.bottle_has_water(),    false)
+    t._expect("at west pit",  adv.player_room(),         25)
+
+func _assert_eggs_carried_at_giant(adv, t) -> void:
+    t._expect("eggs carried",  adv.player.carrying(adv.EGGS_ID), true)
+    t._expect("at giant chamber", adv.player_room(),     92)
 
 func _assert_dwarves_living(adv, t) -> void:
     t._expect("living dwarves", adv.living_dwarves(), 5)
