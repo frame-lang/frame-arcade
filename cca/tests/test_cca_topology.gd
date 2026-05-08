@@ -60,6 +60,17 @@ const CANON_GATED := {
     "8:down":   9,    # depression → below grate (grate gate)
     "8:in":     9,
     "8:enter":  9,
+    "9:up":     8,   # canon `9 303008 11 29` mirror of 8:down
+    "9:out":    8,   # canon `9 303008 11 29` mirror of 8:in
+    "11:depression": 8,  # canon `11 303008 63` — DEPRESSION teleport
+    "12:depression": 8,  # canon `12 303008 63`
+    "13:depression": 8,  # canon `13 303008 63`
+    "14:depression": 8,  # canon `14 303008 63`
+    "15:y2":         34, # canon `15 34 55` — Y2 to jumble of rocks
+    "28:y2":         33, # canon `28 33 45 55` — Y2 to Y2 marker
+    "34:y2":         33, # canon `34 33 30 55`
+    "35:y2":         33, # canon `35 33 43 55`
+    "61:south":     107, # canon `61 100107 46` — second-maze entry
     "25:up":    23,   # west pit → top of crack (plant tall)
     "25:climb": 23,
     "99:east":  100,  # alcove → plover (squeeze gate)

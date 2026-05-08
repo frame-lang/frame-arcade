@@ -316,7 +316,9 @@ rather than via a special-routine dispatch.
 
 **Reached from:** 10 (OUT/SURFACE/v21/EAST), 11 (ENTRANCE), 12 (ENTRANCE), 13 (ENTRANCE), 14 (ENTRANCE)
 
-**Port `topology.gd` ROOMS[9]:** `{cobbles→10, crawl→10, debris→11, in→10, pit→14, west→10}`
+**Port `topology.gd` ROOMS[9]:** `{cobbles→10, crawl→10, debris→11, in→10, out→8, pit→14, up→8, west→10}`
+
+**Port GATES[9]:** up/grate, out/grate
 
 ---
 
@@ -361,7 +363,9 @@ rather than via a special-routine dispatch.
 
 **Reached from:** 3 (SLABROOM), 9 (DEBRIS), 10 (IN/DARK/WEST/DEBRIS), 12 (DOWN/EAST/DEBRIS), 13 (DEBRIS), 14 (DEBRIS)
 
-**Port `topology.gd` ROOMS[11]:** `{canyon→12, cobbles→10, crawl→10, east→10, entrance→9, in→12, low→10, passage→10, pit→14, up→12, west→12}`
+**Port `topology.gd` ROOMS[11]:** `{canyon→12, cobbles→10, crawl→10, depression→8, east→10, entrance→9, in→12, low→10, passage→10, pit→14, up→12, west→12}`
+
+**Port GATES[11]:** depression/grate
 
 ---
 
@@ -381,7 +385,9 @@ rather than via a special-routine dispatch.
 
 **Reached from:** 11 (CANYON/IN/UP/WEST), 13 (CANYON/EAST)
 
-**Port `topology.gd` ROOMS[12]:** `{debris→11, down→11, east→11, entrance→9, in→13, pit→14, up→13, west→13}`
+**Port `topology.gd` ROOMS[12]:** `{debris→11, depression→8, down→11, east→11, entrance→9, in→13, pit→14, up→13, west→13}`
+
+**Port GATES[12]:** depression/grate
 
 ---
 
@@ -405,7 +411,9 @@ rather than via a special-routine dispatch.
 
 **Reached from:** 12 (IN/UP/WEST), 14 (PASSAGE/EAST), 57 (DOWN/CLIMB)
 
-**Port `topology.gd` ROOMS[13]:** `{canyon→12, debris→11, east→12, entrance→9, passage→14, pit→14, west→14}`
+**Port `topology.gd` ROOMS[13]:** `{canyon→12, debris→11, depression→8, east→12, entrance→9, passage→14, pit→14, west→14}`
+
+**Port GATES[13]:** depression/grate
 
 ---
 
@@ -429,7 +437,9 @@ rather than via a special-routine dispatch.
 
 **Reached from:** 9 (PIT), 10 (PIT), 11 (PIT), 12 (PIT), 13 (PASSAGE/PIT/WEST), 15 (UP), 16 (ROAD/HILL)
 
-**Port `topology.gd` ROOMS[14]:** `{crack→16, debris→11, down→15, east→13, entrance→9, passage→13, west→16}`
+**Port `topology.gd` ROOMS[14]:** `{crack→16, debris→11, depression→8, down→15, east→13, entrance→9, passage→13, west→16}`
+
+**Port GATES[14]:** depression/grate
 
 ---
 
@@ -450,7 +460,7 @@ rather than via a special-routine dispatch.
 
 **Reached from:** 14 (DOWN), 17 (HALL/EAST), 18 (HALL/OUT/NORTH), 19 (STAIRS/UP/EAST), 22 (ROAD/HILL), 34 (UP)
 
-**Port `topology.gd` ROOMS[15]:** `{down→19, forward→17, hall→17, left→18, north→19, south→18, stairs→19, up→14, west→17}`
+**Port `topology.gd` ROOMS[15]:** `{down→19, forward→17, hall→17, left→18, north→19, south→18, stairs→19, up→14, west→17, y2→34}`
 
 ---
 
@@ -725,7 +735,7 @@ then auto-walks the player to 88.
 
 **Reached from:** 33 (SOUTH), 36 (UP/HOLE)
 
-**Port `topology.gd` ROOMS[28]:** `{down→36, hall→19, hole→36, north→33, out→19, south→19}`
+**Port `topology.gd` ROOMS[28]:** `{down→36, hall→19, hole→36, north→33, out→19, south→19, y2→33}`
 
 ---
 
@@ -837,7 +847,7 @@ then auto-walks the player to 19.
 
 **Reached from:** 15 (Y2), 33 (EAST/WALL/BROKEN)
 
-**Port `topology.gd` ROOMS[34]:** `{down→33, up→15}`
+**Port `topology.gd` ROOMS[34]:** `{down→33, up→15, y2→33}`
 
 ---
 
@@ -856,7 +866,7 @@ then auto-walks the player to 19.
 
 **Reached from:** 33 (WEST)
 
-**Port `topology.gd` ROOMS[35]:** `{east→33, jump→20}`
+**Port `topology.gd` ROOMS[35]:** `{east→33, jump→20, y2→33}`
 
 ---
 
@@ -1364,7 +1374,7 @@ then auto-walks the player to 27.
 
 **Reached from:** 60 (WEST), 62 (SOUTH), 107 (DOWN)
 
-**Port `topology.gd` ROOMS[61]:** `{east→60, north→62}`
+**Port `topology.gd` ROOMS[61]:** `{east→60, north→62, south→107}`
 
 ---
 

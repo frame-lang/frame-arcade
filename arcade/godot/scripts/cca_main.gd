@@ -180,7 +180,12 @@ var room_exits: Dictionary = {
     # the cave entry crawl. Port-only "up": 8 / "out": 8 removed
     # for canon faithfulness; the player can still type UP and
     # get a "you can't go that way" deflection from the parser.
-    9:   {"west": 10, "in": 10, "crawl": 10, "cobbles": 10, "pit": 14, "debris": 11},
+    # Below grate (canon 9): plain rows for W/IN/CRAWL/COBBLES → 10,
+    # PIT → 14, DEBRIS → 11. Plus conditional `9 303008 11 29` for
+    # OUT/UP → 8 when grate unlocked — symmetric to 8:down/in.
+    9:   {"west": 10, "in": 10, "crawl": 10, "cobbles": 10,
+          "pit": 14, "debris": 11,
+          "up": 8, "out": 8},
     # Cobbles — canon row `10 9 11 17 18 20 43`
     # (E/OUT/CRAWL/COBBL/SURFA→9), `10 11 17 18 19 23 44`
     # (W/IN/CRAWL/COBBL/PASSA→11). Note "crawl" and "cobbles"
@@ -192,15 +197,20 @@ var room_exits: Dictionary = {
     # `11 10 17 18 23 24 43` (CRAWL/COBBL/PASSAGE/LOW/E→10),
     # `11 12 25 19 29 44` (CANYON/IN/UP/W→12), `11 14 31`
     # (PIT→14). XYZZY (62) → 3 is handled by MagicWordTeleport.
+    # Debris room (canon 11). Plain rows + canon `11 303008 63`
+    # adds DEPRESSION verb as a teleport back to canon 8 when
+    # the grate is unlocked. Same shortcut at 12/13/14.
     11:  {"east": 10, "west": 12, "up": 12, "in": 12,
           "crawl": 10, "cobbles": 10, "passage": 10, "low": 10,
-          "canyon": 12, "pit": 14, "entrance": 9},
+          "canyon": 12, "pit": 14, "entrance": 9,
+          "depression": 8},
     # Awkward sloping E/W canyon — canon row `12 9 64`
     # (ENTRANCE→9), `12 11 30 43 51` (DOWN/E/DEBRIS→11),
     # `12 13 19 29 44` (IN/UP/W→13), `12 14 31` (PIT→14).
     # Removed port-only N→33, S→11; canon has neither.
     12:  {"east": 11, "west": 13, "up": 13, "down": 11, "in": 13,
-          "pit": 14, "entrance": 9, "debris": 11},
+          "pit": 14, "entrance": 9, "debris": 11,
+          "depression": 8},
     # Y2 marker — canon 33. Canon `33 28 46` (S→28), `33 34 43 53 54`
     # (E/WALL/BROKEN→34), `33 35 44` (W→35). PLUGH(65)→3 and
     # PLOVER(71)→100 are magic words handled by MagicWordTeleport.
@@ -209,7 +219,7 @@ var room_exits: Dictionary = {
     # Low n/s passage at hole — canon 28 (silver home). Canon
     # `28 19 38 11 46` (HALL/OUT/S→19), `28 33 45 55` (N/Y2→33),
     # `28 36 30 52` (DOWN/HOLE→36).
-    28:  {"south": 19, "out": 19, "hall": 19, "north": 33,
+    28:  {"south": 19, "out": 19, "hall": 19, "north": 33, "y2": 33,
           "down": 36, "hole": 36},
     # Bird chamber — canon row `13 9 64` (ENTRANCE→9),
     # `13 11 51` (DEBRIS→11), `13 12 25 43` (CANYON/E→12),
@@ -217,7 +227,8 @@ var room_exits: Dictionary = {
     # access is via magic word, not a direct exit. Port-only
     # UP/OUT→33 removed for canon faithfulness.
     13:  {"east": 12, "west": 14, "passage": 14, "pit": 14,
-          "canyon": 12, "entrance": 9, "debris": 11},
+          "canyon": 12, "entrance": 9, "debris": 11,
+          "depression": 8},
     # Plover Room — canon 100. West to alcove (99) via tight
     # tunnel (gated on emerald-only inventory); north to Dark-room
     # (port-direction; canon NE). PLOVER chant teleports to 33.
@@ -351,7 +362,8 @@ var room_exits: Dictionary = {
     # fall-into-pit branch handled by gameplay logic, not these
     # tables. Port-only S→33 / N→17 removed.
     14:  {"east": 13, "west": 16, "down": 15,
-          "passage": 13, "entrance": 9, "debris": 11, "crack": 16},
+          "passage": 13, "entrance": 9, "debris": 11, "crack": 16,
+          "depression": 8},
     # East bank of fissure — canon row `17 15 38 43`
     # (HALL/E→15), `17 412597 41 42 44 69` (OVER/ACROSS/W/CROSS
     # → 27 gated by crystal bridge). EAST and HALL go back to
@@ -388,7 +400,8 @@ var room_exits: Dictionary = {
     # Special-handler row `15 150022 ...` is the rod-puzzle pit
     # check; encoded via gameplay logic.
     15:  {"up": 14, "west": 17, "south": 18, "north": 19, "down": 19,
-          "left": 18, "forward": 17, "hall": 17, "stairs": 19},
+          "left": 18, "forward": 17, "hall": 17, "stairs": 19,
+          "y2": 34},
     # Crack — canon 16. Canon row `16 14 1` is the engine
     # "any-verb-falls-back-to-14" handler that prints the
     # transition message ("the crack is far too small to
@@ -455,10 +468,10 @@ var room_exits: Dictionary = {
     32:  {"out": 19, "back": 19, "south": 19},
     # Canon 34 = jumble of rock with cracks. Canon `34 33 30 55`
     # (DOWN/Y2→33), `34 15 29` (UP→15).
-    34:  {"down": 33, "up": 15},
+    34:  {"down": 33, "y2": 33, "up": 15},
     # Canon 35 = sloping corridor with cracks. Canon `35 33 43 55`
     # (E/Y2→33), `35 20 39` (JUMP→20 death pit).
-    35:  {"east": 33, "jump": 20},
+    35:  {"east": 33, "y2": 33, "jump": 20},
     # Canon 36 = dirty broken passage. Canon `36 37 43 17`
     # (E/CRAWL→37), `36 28 29 52` (UP/HOLE→28), `36 39 44` (W→39),
     # `36 65 70` (BEDQUILT→65).
@@ -539,7 +552,7 @@ var room_exits: Dictionary = {
     # Canon 61 (long featureless hall west end): `61 60 43`
     # (E→60), `61 62 45` (N→62). Special-handler 100107 is
     # the randomized "lost in maze" branch.
-    61:  {"east": 60, "north": 62},
+    61:  {"east": 60, "north": 62, "south": 107},
     # Canon 62 (high N/S + low E/W crossover): `62 60 44`
     # (W→60), `62 63 45` (N→63), `62 30 43` (E→30 west side
     # chamber Mt King), `62 61 46` (S→61).
@@ -892,6 +905,18 @@ var gated_exits: Dictionary = {
     "108:down":  {"check": "probability", "pct": 95, "msg": "You have crawled around in some little holes and wound up back in the main passage."},
     "108:west":  {"check": "always", "msg": "You have crawled around in some little holes and found your way blocked by a recent cave-in. You are now back in the main passage."},
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
+    # Symmetric mirror at canon 9 (below grate) per canon section
+    # 3 row `9 303008 11 29` — UP/OUT route back to 8 when grate
+    # is unlocked, otherwise the canon "grate is locked" bumper.
+    "9:up":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
+    "9:out":     {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
+    # DEPRESSION verb at debris/awkward/bird/pit-top — canon
+    # `11/12/13/14 303008 63` teleports back to canon 8 when
+    # the grate is unlocked.
+    "11:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
+    "12:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
+    "13:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
+    "14:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
     "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     # Canon plant — single-jump model:
     #   25 UP/OUT → 23 gated by plant tall (canon row

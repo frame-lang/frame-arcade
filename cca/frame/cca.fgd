@@ -4649,17 +4649,25 @@
         }
 
         # World inspection: is the player's current room dark?
-        # Canonical CCA tags each room with a flag; we use the
-        # canonical surface-rooms-are-lit rule: rooms 1-8 (end
-        # of road, hill, well house, valley, forests, slit,
-        # depression) plus the Plover Room (canon 100, lit by an
-        # otherworldly glow) are lit. Everything else — the
-        # cave proper, starting at the chamber below the grate
-        # (room 9) — is dark when the lamp is off.
+        # Canonical lit-room set per advent.dat section 9 bit 0
+        # (see advent.for lines 159-176). Reading the canon data:
+        #
+        #   bit 0 (light) loc list: 1 2 3 4 5 6 7 8 9 10
+        #                            100 115 116 126
+        #
+        # Surface rooms 1-8 are sunlit. Rooms 9 (below the grate)
+        # and 10 (cobble crawl) are lit by daylight filtering down
+        # from the grate above ("a dim light at the east end of
+        # the passage" — canon room 10's own description).
+        # Room 100 (Plover Room) glows green canonically. Rooms
+        # 115-116 (Repository, NE and SW ends) are lit by
+        # massive overhead torches. Room 126 (volcano view) is
+        # lit by the volcano's blood-red glare.
+        # Anywhere else, the lamp must be lit or the room is dark.
         _room_is_dark(room: int): bool {
-            if room >= 1 and room <= 8:
+            if room >= 1 and room <= 10:
                 return false
-            if room == 100:
+            if room == 100 or room == 115 or room == 116 or room == 126:
                 return false
             return not self.lamp.is_lit()
         }
