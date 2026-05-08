@@ -24,25 +24,21 @@
 
 @@[target("gdscript")]
 
-@@[persist]
+# RFC-0015 (2026-05): persist endpoints are declared at the
+# system level, not inside `operations:`. Frame still generates
+# `save_state()` / `restore_state()` for us — we just name the
+# methods we want via the @@[save] / @@[load] header
+# annotations. Caller uses the two-step pattern:
+#
+#     var sb = Scoreboard.new()
+#     sb.restore_state(bytes)
+#
+# No static method, no `class_name` declaration — works
+# cleanly inside Godot's script scoping.
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Scoreboard : RefCounted {
-
-    operations:
-        # @@[save] / @@[load] declare the persist endpoints under the
-        # RFC-0012 amendment 2026-05-02. Frame generates the bodies;
-        # the empty `{}` is the required syntactic placeholder. Caller
-        # uses the two-step pattern:
-        #
-        #     var sb = Scoreboard.new()
-        #     sb.restore_state(bytes)
-        #
-        # No static method, no `class_name` declaration — works
-        # cleanly inside Godot's script scoping.
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         # Records a score for `game`. Returns true if it's a new

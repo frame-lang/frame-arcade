@@ -111,18 +111,14 @@
 # once; children inherit. $Alerted overrides to stay-in-state
 # while refreshing memory.
 # ------------------------------------------------------------
-@@[persist]
+# RFC-0015 (2026-05): persist endpoints are now declared at
+# the system level. The Guard's `patrol` Array, $.timer state
+# vars, last_known, next_wp cursor, and current state all
+# round-trip via save_state() / restore_state().
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Guard : RefCounted {
-
-    operations:
-        # @@[persist]'s save/load endpoints. The Guard's
-        # `patrol` Array, $.timer state vars, last_known,
-        # next_wp cursor, and current state all round-trip.
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         # Initialize the guard with a patrol route. Called
@@ -457,15 +453,10 @@
 # experience.
 # ------------------------------------------------------------
 @@[main]
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Stealth : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         # Lifecycle. start() initializes all three guards with

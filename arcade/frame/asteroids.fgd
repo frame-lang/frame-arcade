@@ -88,29 +88,23 @@
 # $Respawning     — brief invuln at spawn point; → $Alive
 # $Dead           — out of lives
 # ------------------------------------------------------------
-@@[persist]
+# RFC-0015 (2026-05): persist endpoints declared at the
+# system level. framec generates `save_state()` /
+# `restore_state()` for us. Caller uses:
+#
+#     var ship = Ship.new()
+#     ship.restore_state(saved_bytes)
+#
+# When restoring, framec rebuilds the entire compartment
+# chain (current state plus any pushed parents from push$)
+# and rehydrates every state variable. The enter handler of
+# the restored leaf state does NOT fire — restoration is a
+# resumption, not a fresh entry, the same semantics as
+# -> pop$.
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Ship : RefCounted {
-
-    operations:
-        # @@[save] / @@[load] declare the persistence endpoints
-        # framec generates the bodies; the empty `{}` is the
-        # required syntactic placeholder. Same pattern as
-        # arcade/frame/scoreboard.fgd. Caller uses:
-        #
-        #     var ship = Ship.new()
-        #     ship.restore_state(saved_bytes)
-        #
-        # When restoring, framec rebuilds the entire compartment
-        # chain (current state plus any pushed parents from
-        # push$) and rehydrates every state variable. The enter
-        # handler of the restored leaf state does NOT fire —
-        # restoration is a resumption, not a fresh entry, the
-        # same semantics as -> pop$.
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         tick(dt: float)
@@ -303,15 +297,10 @@
 # the field, save/resume would put the ship back where it was
 # but the asteroids would respawn freshly, ruining the run.
 # ------------------------------------------------------------
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system AsteroidField : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         spawn_wave(count: int, court_size: Vector2)
@@ -537,15 +526,10 @@
 #     gives @@[persist] something interesting to demonstrate.
 # ------------------------------------------------------------
 @@[main]
-@@[persist]
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
 @@system Asteroids(difficulty: int = 2) : RefCounted {
-
-    operations:
-        @@[save]
-        save_state(): PackedByteArray {}
-
-        @@[load]
-        restore_state(data: PackedByteArray) {}
 
     interface:
         # Lifecycle
