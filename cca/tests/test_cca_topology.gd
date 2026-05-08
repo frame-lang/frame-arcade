@@ -60,8 +60,6 @@ const CANON_GATED := {
     "8:down":   9,    # depression → below grate (grate gate)
     "8:in":     9,
     "8:enter":  9,
-    "17:over":  27,   # east bank fissure → west bank (bridge gate)
-    "27:over":  17,
     "25:up":    23,   # west pit → top of crack (plant tall)
     "25:climb": 23,
     "99:east":  100,  # alcove → plover (squeeze gate)
@@ -79,6 +77,19 @@ const CANON_GATED := {
     "122:across": 117,
     "122:cross":  117,
     "122:sw":     117,
+    # Crystal-bridge crossing aliases at the fissure (canon 17 ↔ 27).
+    # Canon `17 412597 41 42 44 69` and `27 412597 41 42 43 69` add
+    # OVER/ACROSS/CROSS plus W (from 17) / E (from 27) as crossing
+    # verbs gated on the bridge. Whitelisted here so the audit
+    # treats them as canon-equivalent rather than port extras.
+    "17:over":   27,
+    "17:across": 27,
+    "17:west":   27,
+    "17:cross":  27,
+    "27:over":   17,
+    "27:across": 17,
+    "27:east":   17,
+    "27:cross":  17,
     "19:north": 28,   # mountain king → silver passage (snake gate)
     "19:south": 29,   # mountain king → south side chamber (snake gate)
     "19:west":  30,   # mountain king → west side chamber (snake gate)

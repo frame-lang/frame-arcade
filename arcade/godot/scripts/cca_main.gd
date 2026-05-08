@@ -353,10 +353,11 @@ var room_exits: Dictionary = {
     14:  {"east": 13, "west": 16, "down": 15,
           "passage": 13, "entrance": 9, "debris": 11, "crack": 16},
     # East bank of fissure — canon row `17 15 38 43`
-    # (HALL/E→15), `17 27 41` (OVER→27 gated by bridge). Canon
-    # has no W or S exit; port-only `west: 27` and `south: 14`
-    # removed for canon faithfulness.
-    17:  {"east": 15, "hall": 15, "over": 27},
+    # (HALL/E→15), `17 412597 41 42 44 69` (OVER/ACROSS/W/CROSS
+    # → 27 gated by crystal bridge). EAST and HALL go back to
+    # Hall of Mists ungated.
+    17:  {"east": 15, "hall": 15,
+          "over": 27, "across": 27, "west": 27, "cross": 27},
     # Low room w/ "won't get it up the steps" sign — canon 18.
     # Canon row `18 15 38 11 45` (HALL/OUT/N→15). Pirate's
     # stash spawns here (CHEST_ROOM = 18).
@@ -365,7 +366,8 @@ var room_exits: Dictionary = {
     # gated by bridge), `27 40 45` (N→40), `27 41 44` (W→41).
     # Special-handler rows 27 312596/412021/412597 are the
     # fall-into-pit conditional cases handled engine-side.
-    27:  {"north": 40, "west": 41, "over": 17},
+    27:  {"north": 40, "west": 41,
+          "over": 17, "across": 17, "east": 17, "cross": 17},
     # Canon 69 = secret N/S canyon above a large room. Canon
     # `69 68 30 61` (DOWN/SLAB→68), `69 119 46` (S→119),
     # `69 109 45` (N→109), `69 113 75` (RESERVOIR→113). The
@@ -822,7 +824,49 @@ var gated_exits: Dictionary = {
     "122:across": {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
     "122:cross":  {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
     "122:sw":     {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
-    "17:east":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    # Crystal bridge across the fissure — gate lives on the
+    # crossing verbs (OVER/ACROSS/W/CROSS at 17, OVER/ACROSS/E/
+    # CROSS at 27). Going east from 17 (back to Hall of Mists)
+    # is ungated; that was a long-standing port bug.
+    "17:over":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "17:across": {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "17:west":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "17:cross":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "27:over":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "27:across": {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "27:east":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "27:cross":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    # Canon "always-blocked" bumper gates — JUMP at fissure / troll
+    # bridge / volcano, SLIT/STREAM at the streambed slits, the
+    # dragon's east passage at canon 119/121, locked grates and
+    # plover squeezes. Driver dispatches before DIRECTIONS so the
+    # canon prose lands rather than the FSM fallback.
+    "17:jump":  {"check": "always", "msg": "The fissure is too wide."},
+    "27:jump":  {"check": "always", "msg": "The fissure is too wide."},
+    "117:jump": {"check": "always", "msg": "I respectfully suggest you go across the bridge instead of jumping."},
+    "122:jump": {"check": "always", "msg": "I respectfully suggest you go across the bridge instead of jumping."},
+    "7:slit":          {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "7:stream":        {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "7:down":          {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "38:slit":         {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "38:stream":       {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "38:down":         {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "38:upstream":     {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "38:downstream":   {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "119:east":    {"check": "always", "msg": "The dragon looks rather nasty. You'd best not try to get by."},
+    "119:forward": {"check": "always", "msg": "The dragon looks rather nasty. You'd best not try to get by."},
+    "121:north":   {"check": "always", "msg": "The dragon looks rather nasty. You'd best not try to get by."},
+    "121:forward": {"check": "always", "msg": "The dragon looks rather nasty. You'd best not try to get by."},
+    "126:jump":  {"check": "always", "msg": "Don't be ridiculous!"},
+    "126:down":  {"check": "always", "msg": "Don't be ridiculous!"},
+    "23:hole":   {"check": "always", "msg": "It is too far up for you to reach."},
+    "99:passage":  {"check": "always", "msg": "Something you're carrying won't fit through the tunnel with you. You'd best take inventory and drop something."},
+    "100:passage": {"check": "always", "msg": "Something you're carrying won't fit through the tunnel with you. You'd best take inventory and drop something."},
+    "100:out":     {"check": "always", "msg": "Something you're carrying won't fit through the tunnel with you. You'd best take inventory and drop something."},
+    "94:north":  {"check": "always", "msg": "The door is extremely rusty and refuses to open."},
+    "94:enter":  {"check": "always", "msg": "The door is extremely rusty and refuses to open."},
+    "94:cavern": {"check": "always", "msg": "The door is extremely rusty and refuses to open."},
+    "116:down":  {"check": "always", "msg": "The grate is locked."},
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     # Canon plant — single-jump model:
@@ -1104,6 +1148,17 @@ func _process_input(text: String) -> void:
             var hint_name: String = noun if noun != "" else "bird"
             _println(fsm.request_hint(hint_name))
             return
+
+    # Canon "always-blocked" bumper gates — JUMP at fissure /
+    # troll bridge / volcano, SLIT/STREAM at the streambed slits,
+    # FORWARD/EAST at the dragon-side canyon, locked grates and
+    # plover squeezes. Gate the (room, verb) pair before the
+    # direction handler so the canon prose lands rather than the
+    # FSM fallback.
+    var bumper_key: String = "%d:%s" % [fsm.player_room(), verb]
+    if bumper_key in gated_exits and gated_exits[bumper_key].check == "always":
+        _println(gated_exits[bumper_key].msg)
+        return
 
     # Direction verbs become MOVE with a resolved room ID.
     if verb in DIRECTIONS:

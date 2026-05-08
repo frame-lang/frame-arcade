@@ -322,19 +322,23 @@ const ROOMS: Dictionary = {
     14:  {"east": 13, "west": 16, "down": 15,
           "passage": 13, "entrance": 9, "debris": 11, "crack": 16},
     # East bank of fissure — canon row `17 15 38 43`
-    # (HALL/E→15), `17 27 41` (OVER→27 gated by bridge). Canon
-    # has no W or S exit; port-only `west: 27` and `south: 14`
-    # removed for canon faithfulness.
-    17:  {"east": 15, "hall": 15, "over": 27},
+    # (HALL/E→15), `17 412597 41 42 44 69` (OVER/ACROSS/W/CROSS
+    # → 27 gated by crystal bridge). The crossing aliases are
+    # gated; EAST and HALL go back to Hall of Mists ungated.
+    17:  {"east": 15, "hall": 15,
+          "over": 27, "across": 27, "west": 27, "cross": 27},
     # Low room w/ "won't get it up the steps" sign — canon 18.
     # Canon row `18 15 38 11 45` (HALL/OUT/N→15). Pirate's
     # stash spawns here (CHEST_ROOM = 18).
     18:  {"north": 15, "out": 15, "hall": 15},
-    # West bank of fissure — canon 27. Canon `27 17 41` (OVER→17
-    # gated by bridge), `27 40 45` (N→40), `27 41 44` (W→41).
-    # Special-handler rows 27 312596/412021/412597 are the
-    # fall-into-pit conditional cases handled engine-side.
-    27:  {"north": 40, "west": 41, "over": 17},
+    # West bank of fissure — canon 27. `27 17 41` (OVER→17),
+    # `27 40 45` (N→40), `27 41 44` (W→41). The special-handler
+    # row `27 412597 41 42 43 69` adds OVER/ACROSS/E/CROSS as
+    # bridge-gated crossing aliases (mirror of 17). Canon line
+    # 27:east means "across the fissure" since 27 is the west
+    # bank; the gate keeps that consistent.
+    27:  {"north": 40, "west": 41,
+          "over": 17, "across": 17, "east": 17, "cross": 17},
     # Canon 69 = secret N/S canyon above a large room. Canon
     # `69 68 30 61` (DOWN/SLAB→68), `69 119 46` (S→119),
     # `69 109 45` (N→109), `69 113 75` (RESERVOIR→113). The
@@ -797,8 +801,14 @@ const GATES: Dictionary = {
     # 27) rather than 17:east — going east from the east bank is
     # the way *back* to hall of mists, not across. Wave the rod
     # at the fissure to materialise the bridge.
-    "17:over":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "27:over":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "17:over":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "17:across": {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "17:west":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "17:cross":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "27:over":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "27:across": {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "27:east":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "27:cross":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
     # Canon JUMP-into-fissure: msg #38 "the fissure is too wide
     # to jump". Adding so a player typing JUMP gets the canon
     # text rather than a generic "no exit".
@@ -825,6 +835,36 @@ const GATES: Dictionary = {
     # implies "you'd best not try to jump into a volcano". The
     # canon special-handler is `126 610 30 39` (DOWN/JUMP).
     "126:jump":  {"check": "always",  "msg": "Don't be ridiculous!"},
+    "126:down":  {"check": "always",  "msg": "Don't be ridiculous!"},
+    # Canon SLIT/STREAM/DOWN at room 7 (slit in streambed): all
+    # three verbs route to msg #95 "two-inch slit". Adding 7:down
+    # and 38:down + the upstream/downstream aliases for 38 so
+    # canon prose lands.
+    "7:down":          {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "38:down":         {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "38:upstream":     {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "38:downstream":   {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    # Canon 23:hole — `23 648 52`: the hole is too small to
+    # crawl through (canon msg #148 "It is too far up for you to
+    # reach"). Same vibe at the only-canon-tested verb.
+    "23:hole":   {"check": "always", "msg": "It is too far up for you to reach."},
+    # Canon 99/100 plover squeeze (canon msg #59 / #60 wording):
+    # "something you're carrying won't fit through the tunnel."
+    # The tight squeeze is already enforced for compass moves
+    # via plover_squeeze; the PASSAGE/OUT verbs at 100 emit a
+    # different bumper variant ("you can't fit").
+    "99:passage":  {"check": "always", "msg": "Something you're carrying won't fit through the tunnel with you. You'd best take inventory and drop something."},
+    "100:passage": {"check": "always", "msg": "Something you're carrying won't fit through the tunnel with you. You'd best take inventory and drop something."},
+    "100:out":     {"check": "always", "msg": "Something you're carrying won't fit through the tunnel with you. You'd best take inventory and drop something."},
+    # Canon 94:north — `94 611 45` is msg #111 "the door is
+    # extremely rusty and refuses to open." (Treasury access in
+    # canon is via the rusty-door puzzle, not modelled here.)
+    "94:north":  {"check": "always", "msg": "The door is extremely rusty and refuses to open."},
+    "94:enter":  {"check": "always", "msg": "The door is extremely rusty and refuses to open."},
+    "94:cavern": {"check": "always", "msg": "The door is extremely rusty and refuses to open."},
+    # Canon 116:down — `116 593 30` is msg #93 "the grate is
+    # locked" variant (office grate near the repository).
+    "116:down":  {"check": "always", "msg": "The grate is locked."},
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     # Canon plant — single-jump model:
