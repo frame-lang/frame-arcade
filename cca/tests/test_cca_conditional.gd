@@ -55,6 +55,30 @@ const VERB_TO_DIR := {
     71: "plugh",     65: "plugh",    1:  "xyzzy",   55: "y2",
 }
 
+# Canon special-handler rows that the port handles in the FSM
+# (cca.fgd / cca.gd) rather than via the topology GATES dict.
+# Without this whitelist the dashboard would flag them as
+# uncovered even though the canon behaviour is correctly
+# implemented — just somewhere `Topology.GATES` doesn't see.
+#
+# Each entry maps "<room>:<verb>" → a short pointer to where
+# the handler lives. The dashboard counts these as covered and
+# prints the pointer next to the entry so a reader knows where
+# to look. Add to this list whenever a canon-conditional row is
+# implemented as a verb dispatch in the Adventure FSM.
+const FSM_HANDLED := {
+    # Magic-word teleport pairs are handled in cca.fgd's
+    # MagicWordTeleport aspect — the verb is intercepted at the
+    # bus before _verb_move ever sees it, the destination is
+    # rewritten to the canonical paired room, and the move
+    # proceeds normally. Canon section 2 encodes the same
+    # behaviour as conditional rows (524089/159302); both
+    # representations point at the same canon mechanic.
+    "31:xyzzy":  "MagicWordTeleport (cca.fgd) — XYZZY 11 ↔ 3",
+    "33:plugh":  "MagicWordTeleport (cca.fgd) — PLUGH 33 ↔ 3",
+    "100:plugh": "MagicWordTeleport (cca.fgd) — PLUGH 100 ↔ 33",
+}
+
 func _init():
     print("=== CCA canon conditional-row audit ===")
     print("(advent.dat section 2, dest >= 300 — special handlers)")
@@ -70,6 +94,8 @@ func _init():
     var bumper_total: int = 0;   var bumper_covered: int = 0
     var msg500_total:  int = 0;   var msg500_covered:  int = 0
     var cond_total:   int = 0;   var cond_covered:   int = 0
+    var fsm_covered: int = 0
+    var fsm_pointers: Array = []   # collected for the report
     var uncovered_per_room: Dictionary = {}
 
     for r in rows:
@@ -86,10 +112,16 @@ func _init():
         if dirs.is_empty():
             continue
         var any_covered: bool = false
+        var any_fsm: bool = false
         var missing: Array = []
         for d in dirs:
-            if gates.has("%d:%s" % [from_room, d]):
+            var key: String = "%d:%s" % [from_room, d]
+            if gates.has(key):
                 any_covered = true
+            elif FSM_HANDLED.has(key):
+                any_fsm = true
+                any_covered = true
+                fsm_pointers.append([key, FSM_HANDLED[key]])
             else:
                 missing.append(d)
         if category == "bumper":
@@ -101,6 +133,8 @@ func _init():
         elif category == "cond":
             cond_total += 1
             if any_covered: cond_covered += 1
+        if any_fsm:
+            fsm_covered += 1
         if not missing.is_empty():
             if not uncovered_per_room.has(from_room):
                 uncovered_per_room[from_room] = []
@@ -110,7 +144,13 @@ func _init():
     print("  bumper (msg-only)         %d / %d" % [bumper_covered, bumper_total])
     print("  msg500 (501..1000 bumpers) %d / %d" % [msg500_covered, msg500_total])
     print("  cond   (gated motion)     %d / %d" % [cond_covered, cond_total])
+    print("  …of which fsm-handled     %d (rows below)" % fsm_covered)
     print()
+    if not fsm_pointers.is_empty():
+        print("FSM-handled rows (canon mechanics outside Topology.GATES):")
+        for entry in fsm_pointers:
+            print("  %-12s — %s" % [entry[0], entry[1]])
+        print()
     print("Per-room uncovered rows (any-dir matched suffices for coverage):")
     var rooms: Array = uncovered_per_room.keys()
     rooms.sort()
