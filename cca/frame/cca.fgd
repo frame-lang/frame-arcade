@@ -4551,6 +4551,21 @@
                 # toggle between end-of-road (1) and well house (3)
                 self.player.move_to(3 if r == 1 else 1)
             var nr: int = self.player.get_room()
+            # Canon death-message rooms. Anything that routes the
+            # player to canon 20 ("at the bottom of the pit with a
+            # broken neck") or 21 ("you didn't make it") is meant
+            # to be a fatal landing — the room description IS the
+            # death message. Currently three port exits route here:
+            # 35:jump, 88:jump, 110:jump (canon-aligned with the
+            # original 35:20:39, 88:20:39, 110:20:39 rows). Without
+            # this hook the player ends up at an empty `{}` room
+            # and is silently stuck. With it, they die canonically.
+            if nr == 20:
+                self.player.die()
+                return plover_bird_msg + "You fell into a pit and broke every bone in your body!"
+            if nr == 21:
+                self.player.die()
+                return plover_bird_msg + "You didn't make it."
             if self._room_is_dark(nr) and not self.lamp.is_lit():
                 return plover_bird_msg + "You move into darkness."
             return plover_bird_msg + "You are " + self._verb_look().substr(7)  # strip "You are"
