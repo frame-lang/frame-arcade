@@ -274,7 +274,10 @@ const ROOMS: Dictionary = {
     137: {"north": 131, "east": 139},
     138: {"south": 132, "west": 136, "east": 139},
     139: {"west": 138, "north": 133, "south": 137},
-    130: {"up": 65, "out": 65},              # Barren Room — canon 130 (BEAR_HOME_ROOM); up/out back to Bedquilt
+    # Barren Room — canon 130 (BEAR_HOME_ROOM, chain). Canon
+    # `130 129 44 11` (W/OUT→129), `130 124 77` (FORK→124),
+    # `130 126 28` (VIEW→126).
+    130: {"west": 129, "out": 129, "fork": 124, "view": 126},
     # Rod-puzzle branch: hangs off Y2 (33) to the north. The
     # fissure (17) is the gate; crossing east requires the
     # crystal bridge (waved up by the rod).
@@ -603,9 +606,19 @@ const ROOMS: Dictionary = {
     # Canon 119 (secret canyon at dragon's lair): `119 69 45 11`
     # (N/OUT→69). Special 653 is dragon-related.
     119: {"north": 69, "out": 69},
-    121: {"up": 119, "north": 123, "east": 125, "south": 122, "west": 124}, # Bottom of ladder
-    123: {"south": 121, "north": 126},                                   # Anteroom with pictographs
-    125: {"west": 121},                                                  # Anteroom with niches
+    # Canon 121 (DEAD END at the cave's south end): canon
+    # `121 74 43 11` (E/OUT→74). Special 653 = dragon.
+    121: {"east": 74, "out": 74},
+    # Canon 123 (anteroom, pictographs): canon `123 122 44`
+    # (W→122), `123 124 43 77` (E/FORK→124), `123 126 28`
+    # (VIEW→126), `123 129 40` (BARREN→129).
+    123: {"west": 122, "east": 124, "fork": 124,
+          "view": 126, "barren": 129},
+    # Canon 125 (anteroom with niches): canon `125 124 46 77`
+    # (S/FORK→124), `125 126 45 28` (N/VIEW→126),
+    # `125 127 43 17` (E/CRAWL→127).
+    125: {"south": 124, "fork": 124, "north": 126, "view": 126,
+          "east": 127, "crawl": 127},
     # --- Phase F: iconic remainder ---
     # Decorated chamber (88), Vending Machine Room (canon 140 —
     # vending mechanic itself is a port-synth holdover from
@@ -630,9 +643,22 @@ const ROOMS: Dictionary = {
     # Canon 113 (edge of large reservoir): `113 109 46 11 109`
     # (S/OUT/RESERVOIR→109).
     113: {"south": 109, "out": 109, "reservoir": 109},
-    122: {"north": 121},                                                 # Anteroom — basalt
-    124: {"east": 121},                                                  # Anteroom — red stone
-    126: {"south": 123, "north": 127},                                  # Breath-taking view (canon 126; north to canon 127 Chamber of Boulders)
+    # Canon 122 (other side of chasm post-troll): canon
+    # `122 123 47` (NW→123), `122 124 77` (FORK→124),
+    # `122 126 28` (VIEW→126), `122 129 40` (BARREN→129).
+    # Specials 233660/303/596 are toll-related.
+    122: {"nw": 123, "fork": 124, "view": 126, "barren": 129},
+    # Canon 124 (path forks): canon `124 123 44` (W→123),
+    # `124 125 47 36` (NW/LEFT→125), `124 128 48 37 30`
+    # (SE/RIGHT/DOWN→128), `124 126 28` (VIEW→126),
+    # `124 129 40` (BARREN→129).
+    124: {"west": 123, "nw": 125, "left": 125,
+          "se": 128, "right": 128, "down": 128,
+          "view": 126, "barren": 129},
+    # Canon 126 (breath-taking view of volcano): canon
+    # `126 125 46 23 11` (S/PASSAGE/OUT→125), `126 124 77`
+    # (FORK→124). Special 610 is the volcano-jump.
+    126: {"south": 125, "passage": 125, "out": 125, "fork": 124},
     # --- Round 10: canon-completion fillers (104-107, 110-114, 127-129) ---
     # Forest grid completion + inner-anteroom cluster.
     # Canon 104 (sloping corridor, ragged sharp walls): `104 103 29 74`
@@ -675,9 +701,24 @@ const ROOMS: Dictionary = {
           "south": 140},
     # Canon 114 (DEAD END): `114 84 48` (SE→84).
     114: {"se": 84, "out": 84},
-    127: {"south": 126, "east": 128},                                    # Chamber of Boulders — canon 127 (spices home)
-    128: {"west": 127, "down": 129},                                     # Different inner anteroom
-    129: {"up": 128},                                                    # Polished slab chamber (dead-end)
+    # Canon 127 (Chamber of Boulders, spices home): canon
+    # `127 125 44 11 17` (W/OUT/CRAWL→125), `127 124 77`
+    # (FORK→124), `127 126 28` (VIEW→126).
+    127: {"west": 125, "out": 125, "crawl": 125, "fork": 124, "view": 126},
+    # Canon 128 (sloping passage with limestone formations):
+    # canon `128 124 45 29 77` (N/UP/FORK→124),
+    # `128 129 46 30 40` (S/DOWN/BARREN→129), `128 126 28`
+    # (VIEW→126).
+    128: {"north": 124, "up": 124, "fork": 124,
+          "south": 129, "down": 129, "barren": 129,
+          "view": 126},
+    # Canon 129 (entrance to Barren Room): canon
+    # `129 128 44 29` (W/UP→128), `129 124 77` (FORK→124),
+    # `129 130 43 19 40 3` (E/IN/BARREN/ENTER→130),
+    # `129 126 28` (VIEW→126).
+    129: {"west": 128, "up": 128, "fork": 124,
+          "east": 130, "in": 130, "barren": 130, "enter": 130,
+          "view": 126},
 }
 
 # Movements that require a clear NPC to traverse. Each entry:
