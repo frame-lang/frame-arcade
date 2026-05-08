@@ -24,15 +24,96 @@ revision replaces it with verified data.**
 
 ---
 
-## Status (2026-05-05) — every delta tracked here is now closed
+## Status (2026-05-08) — original deltas closed, deeper layer in progress
 
-`tests/test_cca_canon.gd` is the live conformance dashboard. It
-runs every checkin and currently reports:
+`tests/test_cca_canon.gd` is the live architectural-conformance
+dashboard. It runs every checkin and currently reports:
 
 ```text
 Canon conformance: 100.0%  (38 / 38 checks passing)
 Open deltas: 0
 ```
+
+That dashboard tracks the **original architectural deltas** —
+treasure homes, NPC rooms, magic-word teleport pairs, mechanism
+probes (38 in total). All of them are still closed. The rest of
+this file documents that earlier work and remains as historical
+record.
+
+**Two new layers of canon-fidelity work landed since 2026-05-05:**
+
+1. **Per-room canon topology rebuild** (commits up through
+   `33be126`). Every room from canon 1 to 140 was walked back
+   against `advent.dat` section 2 unconditional rows. The audit
+   in `tests/test_cca_topology.gd` now reports:
+
+   ```text
+   Rooms fully canon: 140 / 140
+   Total checks:      630 passing, 0 failing
+   ```
+
+   Every direction-verb pairing in the port's `ROOMS` dict that
+   could be verified against canon's plain rows agrees byte-for-
+   byte with `advent.dat`.
+
+2. **Conditional special-handler row coverage** (`tests/test_cca_conditional.gd`,
+   commit `5a4de7e` and follow-ups). Canon section 2 also has 62
+   special-handler rows whose `dest >= 300` encodes bumper
+   messages, prop-gated motions, and probabilistic alternates.
+   The plain-row audit deliberately skips them; the new dashboard
+   classifies and reports them. Current state:
+
+   ```text
+   bumper (msg-only)         4 / 4
+   msg500 (501..1000 bumpers) 10 / 13
+   cond   (gated motion)     14 / 45    (28 / 62 total)
+   ```
+
+   The remaining ~34 are mostly probabilistic-maze decoration
+   (canon's "twisty maze, all different" gives every room ten
+   scrambled exits — the port simplifies), the rusty-door
+   treasury puzzle at canon 94, the `19:sw → 74` 35%-probability
+   secret-canyon shortcut, and clam-carry-state branches at the
+   Shell Room. Each is documented per-room in the dashboard.
+
+**Notable canon-fidelity fixes in the second-layer work:**
+
+- The troll-bridge crossing (canon 117 ↔ 122) was missing from
+  the port entirely — the bear chamber was unreachable. Canon
+  section 2 only encodes the crossing as a 6-digit special-
+  handler row, so the plain audit had silently passed. Added
+  per Quux ODWY0350 R_SWSIDE/R_NESIDE travel table (commit
+  `23cd492`).
+- The crystal-bridge gate at the fissure was on `17:east` (the
+  way back to Hall of Mists), not on `17:over` (the actual
+  crossing). Players who hadn't waved the rod could still cross
+  the fissure but were trapped on the west bank. Moved the gate
+  and added the canon-aliased crossings `17:west/across/cross →
+  27` plus the 27 mirror (commits `bfef524` + `e412296`).
+- `Treasure.$Vanished.reappear` was deliberately a no-op,
+  documented as "what the troll takes is gone for good." Canon
+  ODWY0350 disagrees: the FEE FIE FOE FOO incantation invokes
+  `move(EGGS, R_GIANT)` even when EGGS are at R_LIMBO via the
+  troll toll. Restored in `cca.fgd` so the eggs-as-toll bridge
+  solution actually works (commit `48a0d8e`).
+- The dark-room pit-fall hazard wasn't implemented at all. Now
+  fires the canon "pitch dark" warning on first attempt, then
+  35% chance of "broke every bone" on subsequent attempts —
+  Crowther/Woods semantics with the `oldlc2 != loc` one-free-
+  turn pattern (commits `8c12d4d` + `db6c17d`).
+- 17 canon bumper messages added so motion verbs that hit no
+  exit emit canon prose (slits, fissure jump, bridge jump, dragon
+  block, locked grate variants, plover squeeze, rusty door at the
+  treasury, volcano dive). Driver dispatches before `DIRECTIONS`
+  so non-direction motion verbs (JUMP, SLIT, STREAM, FORWARD,
+  PIT, DOME) reach the gates too.
+- The canonical-test (`tests/test_cca_canonical.gd`) walks the
+  full canon win path init → `won` in 52 stages with real player
+  commands only — no `move_to` setter teleports.
+
+The original 38-check dashboard is the architectural-correctness
+floor. The two new audits are the depth probes — surfacing the
+next layer of work without ever falsely claiming "100% canon".
 
 The 38 checks are organised in three groups:
 
