@@ -232,11 +232,18 @@ const ROOMS: Dictionary = {
     # branches we don't fully model.
     65:  {"east": 64, "west": 66, "slab": 68, "up": 39,
           "north": 71, "down": 106},
-    117: {"west": 65, "east": 118},          # troll-east gated below
-    118: {"west": 117, "east": 120},
+    # Canon 117 (one side of large chasm with troll): canon
+    # `117 118 49` (SW→118), special-handler rows 233660/332661/
+    # 303/332021/596 are troll-toll branches handled by GATES.
+    117: {"sw": 118, "east": 118},
+    # Canon 118 (other side of chasm): `118 72 30` (DOWN→72),
+    # `118 117 29` (UP→117).
+    118: {"down": 72, "up": 117},
     # Deep cave loop — accessible after crossing troll bridge.
     # Linear chain east-west with each room hosting a treasure.
-    120: {"west": 118, "east": 97},
+    # Canon 120 (secret canyon, exits N and E): `120 69 45` (N→69),
+    # `120 74 43` (E→74). Port-only W→118 / E→97 removed.
+    120: {"north": 69, "east": 74},
     # Canon 97 (Oriental Room, vase home): `97 66 48` (SE→66),
     # `97 72 44 17` (W/CRAWL→72), `97 98 29 45 73` (UP/N/CAVERN→98).
     97:  {"se": 66, "west": 72, "crawl": 72, "up": 98, "north": 98,
@@ -586,10 +593,16 @@ const ROOMS: Dictionary = {
     # cave-closing teleport that fires in Adventure.tick() when
     # endgame transitions to $InRepository. Walking corridor from
     # 108 was a port holdover removed in Phase 7i.
-    115: {"east": 116},                                                  # NE Repository
-    116: {"west": 115},                                                  # SW Repository — terminal endgame room
+    # Canon 115 (NE end of Repository): `115 116 49` (SW→116).
+    115: {"sw": 116, "east": 116},
+    # Canon 116 (SW end of Repository, terminal endgame): canon
+    # `116 115 47` (NW→115). Special-handler 593 is the cave-
+    # closing teleport-from-anywhere encoding.
+    116: {"nw": 115, "west": 115},
     # 119, 121-129: cliff-and-ladder descent + sub-anteroom area.
-    119: {"up": 87, "down": 121},                                        # Cliff face with ladder
+    # Canon 119 (secret canyon at dragon's lair): `119 69 45 11`
+    # (N/OUT→69). Special 653 is dragon-related.
+    119: {"north": 69, "out": 69},
     121: {"up": 119, "north": 123, "east": 125, "south": 122, "west": 124}, # Bottom of ladder
     123: {"south": 121, "north": 126},                                   # Anteroom with pictographs
     125: {"west": 121},                                                  # Anteroom with niches
@@ -614,7 +627,9 @@ const ROOMS: Dictionary = {
     # Canon 109 (north/south canyon ~25 ft across): `109 69 46`
     # (S→69), `109 113 45 75` (N/RESERVOIR→113).
     109: {"south": 69, "north": 113, "reservoir": 113},
-    113: {"west": 109, "down": 121},                                     # Wide chamber
+    # Canon 113 (edge of large reservoir): `113 109 46 11 109`
+    # (S/OUT/RESERVOIR→109).
+    113: {"south": 109, "out": 109, "reservoir": 109},
     122: {"north": 121},                                                 # Anteroom — basalt
     124: {"east": 121},                                                  # Anteroom — red stone
     126: {"south": 123, "north": 127},                                  # Breath-taking view (canon 126; north to canon 127 Chamber of Boulders)
@@ -644,9 +659,22 @@ const ROOMS: Dictionary = {
     # Canon 110 (low window overlooking pit): `110 71 44` (W→71),
     # `110 20 39` (JUMP→20 death pit).
     110: {"west": 71, "jump": 20},
-    111: {"south": 110, "east": 112, "down": 114},                       # Different secret canyon
-    112: {"west": 111, "north": 113},                                    # Tall canyon
-    114: {"up": 111},                                                    # Crystal grotto (dead-end)
+    # Canon 111 (large stalactite extends from roof): `111 70 45`
+    # (N→70), `111 45 30` (DOWN→45). Special 40050/50053 are
+    # the stalactite-jump conditional branches.
+    111: {"north": 70, "down": 45},
+    # Canon 112 ("LITTLE MAZE OF TWISTING PASSAGES, ALL DIFFERENT") —
+    # second-maze entry from the deep cave. Canon `112 131 49`
+    # (SW→131), `112 132 45` (N→132), `112 133 43` (E→133),
+    # `112 134 50` (NW→134), `112 135 48` (SE→135), `112 136 47`
+    # (NW→136 — first-write wins; canon files have NW twice),
+    # `112 137 44` (W→137), `112 138 30` (DOWN→138),
+    # `112 139 29` (UP→139), `112 140 46` (S→140).
+    112: {"sw": 131, "north": 132, "east": 133, "nw": 134,
+          "se": 135, "west": 137, "down": 138, "up": 139,
+          "south": 140},
+    # Canon 114 (DEAD END): `114 84 48` (SE→84).
+    114: {"se": 84, "out": 84},
     127: {"south": 126, "east": 128},                                    # Chamber of Boulders — canon 127 (spices home)
     128: {"west": 127, "down": 129},                                     # Different inner anteroom
     129: {"up": 128},                                                    # Polished slab chamber (dead-end)
