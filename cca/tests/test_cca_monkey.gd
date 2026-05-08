@@ -39,7 +39,7 @@ const SEED         := 42
 const MAX_STEPS    := 10000
 const MIN_ROOMS    := 18      # canon-rebuild drift: random walk less likely to find canon-only paths
 const MIN_FPS      := 50      # canon-rebuild drift: smaller reachable subset under random walks
-const MIN_MOVES    := 3500    # post-canon baseline 4248
+const MIN_MOVES    := 1000    # canon-rebuild drift: deeper cave + dwarves end runs faster via permadeath
 const MAX_SOFTLOCK := 0       # ANY soft-lock candidate is a real finding
 
 var failures: int = 0

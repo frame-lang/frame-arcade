@@ -218,7 +218,9 @@ const ROOMS: Dictionary = {
     # Canon 50 = "ALIKE" maze room. `50 44 43` (E→44),
     # `50 49 44` (W→49), `50 51 30` (DOWN→51), `50 52 46` (S→52).
     50:  {"east": 44, "west": 49, "down": 51, "south": 52},
-    71:  {"west": 47, "north": 65},
+    # Canon 71 (secret canyon at three-canyon junction): canon
+    # `71 65 48` (SE→65), `71 70 46` (S→70), `71 110 45` (N→110).
+    71:  {"se": 65, "south": 70, "north": 110},
     # Bedquilt — canon 65. Canon `65 64 43` (E→64), `65 66 44`
     # (W→66), `65 68 61` (SLAB→68), `65 39 29` (UP→39),
     # `65 71 45` (N→71), `65 106 30` (DOWN→106). Plus several
@@ -483,15 +485,32 @@ const ROOMS: Dictionary = {
     # cliff-and-ladder descent, post-cave outdoors, forest grid ---
     # 72-86: deeper passages, soft room, reservoir, barren room.
     # Most chain off Bedquilt (65) or each other.
-    72:  {"south": 65, "north": 73},                                     # Sloping corridor
-    73:  {"south": 72, "down": 74},                                      # Sloping room above large round chamber
-    74:  {"up": 73, "north": 75, "south": 80},                           # Large low room
-    75:  {"south": 74, "north": 76},                                     # Sloping corridor
-    76:  {"south": 75, "north": 77},                                     # Soft Room
-    77:  {"south": 76, "east": 78, "down": 79},                          # Steep canyon
-    78:  {"west": 77, "east": 81, "north": 87},                          # Different secret canyon
-    79:  {"up": 77, "east": 82},                                         # Steep passage
-    80:  {"north": 74, "east": 81},                                      # Dirty passage
+    # Canon 72 (sloping corridor): `72 65 70` (BEDQUILT→65),
+    # `72 118 49` (SW→118), `72 73 45` (N→73), `72 97 48 72`
+    # (SE/ORIENTAL→97).
+    72:  {"bedquilt": 65, "sw": 118, "north": 73, "se": 97, "oriental": 97},
+    # Canon 73 (DEAD END CRAWL): `73 72 46 17 11` (S/CRAWL/OUT→72).
+    73:  {"south": 72, "crawl": 72, "out": 72},
+    # Canon 74 (secret canyon E/W): `74 19 43` (E→19), `74 121 44`
+    # (W→121), `74 75 30` (DOWN→75). Special-handler 331120 is
+    # randomized.
+    74:  {"east": 19, "west": 121, "down": 75},
+    # Canon 75 (wide place in tight canyon): `75 76 46` (S→76),
+    # `75 77 45` (N→77).
+    75:  {"south": 76, "north": 77},
+    # Canon 76 (canyon too tight south): `76 75 45` (N→75).
+    76:  {"north": 75},
+    # Canon 77 (tall E/W canyon): `77 75 43` (E→75), `77 78 44`
+    # (W→78), `77 66 45 17` (N/CRAWL→66).
+    77:  {"east": 75, "west": 78, "north": 66, "crawl": 66},
+    # Canon 78 (canyon dead-end at boulders): `78 77 46` (S→77).
+    78:  {"south": 77},
+    # Canon 79 (sewer-pipe death): `79 3 1` is engine "any-verb→3"
+    # bounce. Explicit OUT/UP/BACK→3.
+    79:  {"out": 3, "up": 3, "back": 3},
+    # Canon 80 (alike maze): `80 42 45` (N→42), `80 80 44` (W
+    # self), `80 80 46` (S self), `80 81 43` (E→81).
+    80:  {"north": 42, "west": 80, "south": 80, "east": 81},
     81:  {"west": 80, "north": 78, "down": 83},                          # Wet room
     82:  {"west": 79, "east": 83},                                       # Different cobble crawl
     83:  {"up": 81, "west": 82, "east": 84},                             # Reservoir
