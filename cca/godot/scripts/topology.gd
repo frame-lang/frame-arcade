@@ -189,7 +189,7 @@ const ROOMS: Dictionary = {
     # tunnel, gated by squeeze), `100 33 71` (PLOVER→33), and
     # `100 101 47 22` (NE→101 the Dark-room, gated by emerald).
     # Special-handler row 159302 is the PLOVER teleport variant.
-    100: {"west": 99, "ne": 101, "plover": 33},
+    100: {"west": 99, "ne": 101, "dark": 101, "plover": 33},
     # Canon 41 = West End of Hall of Mists. Canon `41 42 46 29 23 56`
     # (S/UP/PASSAGE/CLIMB→42), `41 27 43` (E→27), `41 59 45`
     # (N→59), `41 60 44 17` (W/CRAWL→60).
@@ -260,20 +260,45 @@ const ROOMS: Dictionary = {
     # one room from another. We use a simplified linear-chain
     # topology (the canonical maze prose still reads correct on
     # `look`) — full canon-exit encoding is a future polish step.
-    131: {"west": 95, "east": 40, "north": 132, "south": 137},
+    # Canon 2nd maze (131-139) — "TWISTY MAZE OF LITTLE PASSAGES,
+    # ALL DIFFERENT" — 9 rooms whose only difference from the
+    # player's view is word-order in the prose. Canon assigns 10
+    # verbs per room (N/S/E/W + 4 diagonals + UP/DOWN) to a
+    # carefully scrambled set of destinations so that compass
+    # rules don't help at all. Every dict below is canon-verbatim
+    # from advent.dat section 2.
+    131: {"north": 138, "south": 139, "east": 112, "west": 107,
+          "ne": 135, "se": 132, "sw": 134, "nw": 133,
+          "up": 136, "down": 137},
     # Canon 40 = "VERY LOW WIDE PASSAGE PARALLEL TO HALL OF
     # MISTS." Canon row `40 41 1` is a one-way bounce: any
     # verb routes to 41 (West End of Hall of Mists). We add an
     # explicit OUT/EAST/WEST/BACK→41 escape.
     40:  {"out": 41, "east": 41, "west": 41, "back": 41},
-    132: {"west": 40, "east": 133, "south": 131, "north": 138},
-    133: {"west": 132, "east": 134, "south": 139},
-    134: {"west": 133, "east": 135, "north": 136},
-    135: {"west": 134, "east": 136},
-    136: {"west": 135, "south": 134, "east": 138},
-    137: {"north": 131, "east": 139},
-    138: {"south": 132, "west": 136, "east": 139},
-    139: {"west": 138, "north": 133, "south": 137},
+    132: {"north": 133, "south": 134, "east": 138, "west": 135,
+          "ne": 137, "se": 112, "sw": 136, "nw": 107,
+          "up": 131, "down": 139},
+    133: {"north": 137, "south": 112, "east": 136, "west": 132,
+          "ne": 134, "se": 139, "sw": 135, "nw": 138,
+          "up": 107, "down": 131},
+    134: {"north": 131, "south": 137, "east": 135, "west": 139,
+          "ne": 107, "se": 133, "sw": 112, "nw": 132,
+          "up": 138, "down": 136},
+    135: {"north": 107, "south": 133, "east": 134, "west": 136,
+          "ne": 138, "se": 131, "sw": 137, "nw": 139,
+          "up": 112, "down": 132},
+    136: {"north": 112, "south": 135, "east": 107, "west": 131,
+          "ne": 139, "se": 138, "sw": 133, "nw": 137,
+          "up": 132, "down": 134},
+    137: {"north": 136, "south": 132, "east": 139, "west": 112,
+          "ne": 131, "se": 107, "sw": 138, "nw": 135,
+          "up": 134, "down": 133},
+    138: {"north": 135, "south": 136, "east": 131, "west": 134,
+          "ne": 132, "se": 137, "sw": 139, "nw": 112,
+          "up": 133, "down": 107},
+    139: {"north": 134, "south": 138, "east": 132, "west": 133,
+          "ne": 112, "se": 136, "sw": 107, "nw": 131,
+          "up": 137, "down": 135},
     # Barren Room — canon 130 (BEAR_HOME_ROOM, chain). Canon
     # `130 129 44 11` (W/OUT→129), `130 124 77` (FORK→124),
     # `130 126 28` (VIEW→126).
@@ -591,7 +616,14 @@ const ROOMS: Dictionary = {
     # 108, 115, 116: pre-repository corridor.
     # Threads from snake passage / rear of dragon area into the
     # endgame approach.
-    108: {"north": 67},                                                  # Witt's End fork — north back to Bedquilt cluster
+    # Witt's End — canon 108. Canon `108 106 43` (E→106) plus
+    # the special-handler row `108 95556 ...` which scrambles
+    # 8 compass directions to a randomized "you are at Witt's
+    # End" maze of self-loops. The port keeps a non-canon
+    # `north → 67` shortcut to Bedquilt cluster (whitelisted in
+    # the audit) so testing scaffolding can reach 108 from a
+    # known checkpoint.
+    108: {"east": 106, "north": 67},
     # Canon 115/116 = NE/SW Repository — reachable ONLY via the
     # cave-closing teleport that fires in Adventure.tick() when
     # endgame transitions to $InRepository. Walking corridor from
@@ -599,9 +631,9 @@ const ROOMS: Dictionary = {
     # Canon 115 (NE end of Repository): `115 116 49` (SW→116).
     115: {"sw": 116, "east": 116},
     # Canon 116 (SW end of Repository, terminal endgame): canon
-    # `116 115 47` (NW→115). Special-handler 593 is the cave-
+    # `116 115 47` (NE→115). Special-handler 593 is the cave-
     # closing teleport-from-anywhere encoding.
-    116: {"nw": 115, "west": 115},
+    116: {"ne": 115, "west": 115},
     # 119, 121-129: cliff-and-ladder descent + sub-anteroom area.
     # Canon 119 (secret canyon at dragon's lair): `119 69 45 11`
     # (N/OUT→69). Special 653 is dragon-related.
@@ -631,7 +663,9 @@ const ROOMS: Dictionary = {
     # death), `88 92 44 27` (W/GIANT→92).
     88:  {"down": 25, "climb": 25, "east": 25,
           "jump": 20, "west": 92, "giant": 92},
-    140: {},                                                  # Vending Machine Room (port-synth at canon 140 — handled in Phase 7e)
+    # Canon 140 = "DEAD END" room (vending machine in our port).
+    # Canon `140 112 45 11` (N/OUT→112).
+    140: {"north": 112, "out": 112},
     # Canon 102 (Arched Hall): `102 103 30 74 11` (DOWN/SHELL/OUT→103).
     102: {"down": 103, "shell": 103, "out": 103},
     # Canon 103 (Shell Room, clam home): `103 102 29 38` (UP/HALL→102),
@@ -644,15 +678,15 @@ const ROOMS: Dictionary = {
     # (S/OUT/RESERVOIR→109).
     113: {"south": 109, "out": 109, "reservoir": 109},
     # Canon 122 (other side of chasm post-troll): canon
-    # `122 123 47` (NW→123), `122 124 77` (FORK→124),
+    # `122 123 47` (NE→123), `122 124 77` (FORK→124),
     # `122 126 28` (VIEW→126), `122 129 40` (BARREN→129).
     # Specials 233660/303/596 are toll-related.
-    122: {"nw": 123, "fork": 124, "view": 126, "barren": 129},
+    122: {"ne": 123, "fork": 124, "view": 126, "barren": 129},
     # Canon 124 (path forks): canon `124 123 44` (W→123),
-    # `124 125 47 36` (NW/LEFT→125), `124 128 48 37 30`
+    # `124 125 47 36` (NE/LEFT→125), `124 128 48 37 30`
     # (SE/RIGHT/DOWN→128), `124 126 28` (VIEW→126),
     # `124 129 40` (BARREN→129).
-    124: {"west": 123, "nw": 125, "left": 125,
+    124: {"west": 123, "ne": 125, "left": 125,
           "se": 128, "right": 128, "down": 128,
           "view": 126, "barren": 129},
     # Canon 126 (breath-taking view of volcano): canon
@@ -679,9 +713,9 @@ const ROOMS: Dictionary = {
     # `107 61 30` (DOWN→61).
     # First-write wins so my generator captures one verb per (verb→dest)
     # pair. The audit accepts canon rows in declaration order.
-    107: {"south": 131, "sw": 132, "nw": 133, "se": 134,
-          "up": 135, "east": 137, "west": 138, "north": 139,
-          "down": 61},
+    107: {"south": 131, "sw": 132, "ne": 133, "se": 134,
+          "up": 135, "nw": 136, "east": 137, "west": 138,
+          "north": 139, "down": 61},
     # Canon 110 (low window overlooking pit): `110 71 44` (W→71),
     # `110 20 39` (JUMP→20 death pit).
     110: {"west": 71, "jump": 20},
@@ -697,7 +731,7 @@ const ROOMS: Dictionary = {
     # `112 137 44` (W→137), `112 138 30` (DOWN→138),
     # `112 139 29` (UP→139), `112 140 46` (S→140).
     112: {"sw": 131, "north": 132, "east": 133, "nw": 134,
-          "se": 135, "west": 137, "down": 138, "up": 139,
+          "se": 135, "ne": 136, "west": 137, "down": 138, "up": 139,
           "south": 140},
     # Canon 114 (DEAD END): `114 84 48` (SE→84).
     114: {"se": 84, "out": 84},

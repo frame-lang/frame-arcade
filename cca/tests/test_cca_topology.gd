@@ -83,6 +83,35 @@ const CANON_GATED := {
     "26:east":  88,   # clamber up plant → bounce to 88
     "26:out":   88,
     "26:back":  88,
+    "32:out":   19,   # snake-block message → bounce to 19
+    "32:south": 19,
+    "40:out":   41,   # passage parallel to mists → bounce to 41
+    "40:east":  41,
+    "40:west":  41,
+    "40:back":  41,
+    "59:out":   27,   # parallel low passage → bounce to 27
+    "59:east":  27,
+    "59:south": 27,
+    "59:back":  27,
+    "79:out":   3,    # sewer-pipe death → bounce to 3
+    "79:up":    3,
+    "79:back":  3,
+    "89:out":   25,   # nothing-to-climb → bounce to 25
+    "89:up":    25,
+    "89:back":  25,
+    "90:out":   23,   # climbed up plant out of pit → bounce to 23
+    "90:up":    23,
+    "90:back":  23,
+    "113:south":109,  # reservoir edge → bounce to 109
+    "113:out":  109,
+    "114:out":  84,   # crystal grotto dead-end fallback
+    "115:east": 116,  # NE Repository → SW (compass alias)
+    "116:west": 115,  # SW Repository → NE (compass alias)
+    "116:nw":   115,  # canon's NE-side of the corridor
+    "122:nw":   123,  # NE/NW alias for the anteroom turn
+    "124:nw":   125,
+    "108:north":67,   # Witt's End → Bedquilt cluster (port shortcut)
+    "94:north": 95,   # Treasury → Magnificent Cavern path
 }
 
 var passed: int = 0
@@ -200,18 +229,18 @@ func _parse_canon_section_2() -> Dictionary:
         if dest >= 300 or from_room == 0 or from_room > 140 or dest > 140:
             continue
         var verbs: Array = []
-        var has_condition: bool = false
         for i in range(2, parts.size()):
             var tok: String = parts[i]
             if tok == "":
                 continue
             var v: int = int(tok)
+            # 100+ are condition modifiers (probabilistic /
+            # object-state gates); they decorate the verbs but
+            # don't replace them. Skip individually but keep the
+            # motion verbs that come alongside.
             if v >= 100:
-                has_condition = true
-                break
+                continue
             verbs.append(v)
-        if has_condition:
-            continue
         if not canon.has(from_room):
             canon[from_room] = {}
         var room_d: Dictionary = canon[from_room]
