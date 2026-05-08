@@ -403,9 +403,39 @@ const ROOMS: Dictionary = {
     # --- Rooms 58-64: assorted passages (canon 58 = DEAD END,
     # 59 = parallel low passage, 60-61 = long featureless hall,
     # 62 = crossover, 63 = DEAD END, 64 = complex junction). ---
-    58: {"east": 59, "south": 60},
-    59:  {"west": 58, "east": 61, "north": 62},
-    60:  {"north": 58, "east": 63},
+    # Canon 51 (alike maze): `51 49 44` (W→49), `51 50 29` (UP→50),
+    # `51 52 43` (E→52), `51 53 46` (S→53).
+    51:  {"west": 49, "up": 50, "east": 52, "south": 53},
+    # Canon 52 (alike maze): `52 50 44` (W→50), `52 51 43` (E→51),
+    # `52 52 46` (S→52 self-loop), `52 53 29` (UP→53),
+    # `52 55 45` (N→55), `52 86 30` (DOWN→86).
+    52:  {"west": 50, "east": 51, "south": 52, "up": 53,
+          "north": 55, "down": 86},
+    # Canon 53 (alike maze): `53 51 44` (W→51), `53 52 45` (N→52),
+    # `53 54 46` (S→54).
+    53:  {"west": 51, "north": 52, "south": 54},
+    # Canon 54 (DEAD END): `54 53 44 11` (W/OUT→53).
+    54:  {"west": 53, "out": 53},
+    # Canon 55 (alike maze): `55 52 44` (W→52), `55 55 45` (N→55
+    # self-loop), `55 56 30` (DOWN→56), `55 57 43` (E→57).
+    55:  {"west": 52, "north": 55, "down": 56, "east": 57},
+    # Canon 56 (DEAD END): `56 55 29 11` (UP/OUT→55).
+    56:  {"up": 55, "out": 55},
+    # Canon 57 (orange-column pit / brink): `57 13 30 56`
+    # (DOWN/CLIMB→13), `57 55 44` (W→55), `57 58 46` (S→58),
+    # `57 83 45` (N→83), `57 84 43` (E→84).
+    57:  {"down": 13, "climb": 13, "west": 55, "south": 58,
+          "north": 83, "east": 84},
+    # Canon 58 (DEAD END): `58 57 43 11` (E/OUT→57).
+    58:  {"east": 57, "out": 57},
+    # Canon 59 (parallel low passage): `59 27 1` is any-verb→27;
+    # explicit OUT/EAST/SOUTH/BACK→27.
+    59:  {"out": 27, "east": 27, "south": 27, "back": 27},
+    # Canon 60 (long featureless hall east end): `60 41 43 29 17`
+    # (E/UP/CRAWL→41), `60 61 44` (W→61), `60 62 45 30 52`
+    # (N/DOWN/HOLE→62).
+    60:  {"east": 41, "up": 41, "crawl": 41, "west": 61,
+          "north": 62, "down": 62, "hole": 62},
     61:  {"west": 59, "east": 64},
     62: {"south": 59},
     63:  {"west": 60, "east": 64},
