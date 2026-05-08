@@ -112,6 +112,103 @@ def parse_short_descs(lines):
             descs[int(m.group(1))].append(m.group(2))
     return {r: " ".join(d) for r, d in descs.items()}
 
+# Section 6: arbitrary messages. Same multi-line format as section
+# 1 — a leading number followed by a tab and a line of text;
+# adjacent lines with the same number form one logical message.
+# These are the messages canonical RSPEAK / PSPEAK calls reach.
+def parse_arbitrary_messages(lines):
+    raw = defaultdict(list)
+    for line in lines:
+        m = re.match(r"^(\d+)\t(.*)", line)
+        if m:
+            raw[int(m.group(1))].append(m.group(2))
+    return {n: " ".join(body).strip() for n, body in raw.items()}
+
+# Section 9: COND-bit assignments per location. Format per
+# advent.for lines 160-176:
+#   "BIT_N  loc_1  loc_2  ..."  sets bit N on each listed COND[loc].
+# Bits 0-3 are gameplay; bits 4-9 are hint flags.
+COND_BIT_LABELS = {
+    0: "lit",
+    1: "_oil_or_water_modifier",   # see merge below
+    2: "liquid present",
+    3: "pirate-forbidden",
+    4: "hint: trying to get into cave",
+    5: "hint: catching bird",
+    6: "hint: dealing with snake",
+    7: "hint: lost in maze",
+    8: "hint: pondering dark room",
+    9: "hint: at Witt's End",
+}
+
+def parse_cond_bits(lines):
+    # Returns {room: set(bit_indices)}.
+    bits_by_room = defaultdict(set)
+    for line in lines:
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        try:
+            bit = int(parts[0])
+        except ValueError:
+            continue
+        for tok in parts[1:]:
+            tok = tok.strip()
+            if not tok:
+                continue
+            try:
+                room = int(tok)
+            except ValueError:
+                continue
+            bits_by_room[room].add(bit)
+    return bits_by_room
+
+# Render a per-room property line. Bit-1 only matters when bit-2
+# is set; we collapse those into "water source" / "oil source".
+def format_properties(bits):
+    if not bits:
+        return ""
+    parts = []
+    if 0 in bits:
+        parts.append("**lit** (sunlit / always lit)")
+    else:
+        parts.append("dark (requires lamp)")
+    if 2 in bits:
+        if 1 in bits:
+            parts.append("**oil source** (FILL BOTTLE here yields oil)")
+        else:
+            parts.append("**water source** (FILL BOTTLE here yields water)")
+    if 3 in bits:
+        parts.append("pirate-forbidden (won't enter unless following the player)")
+    hint_labels = []
+    for bit, label in COND_BIT_LABELS.items():
+        if bit in bits and bit >= 4:
+            hint_labels.append(label.replace("hint: ", ""))
+    if hint_labels:
+        parts.append("hint flags: " + ", ".join(hint_labels))
+    return "; ".join(parts)
+
+# Detect forced-motion rooms per advent.for line 393:
+#   IF(MOD(IABS(TRAVEL(K)),1000).EQ.1)COND(I)=2
+# After the file's loaded into the TRAVEL array, each entry is
+# encoded as `NEWLOC*1000 + verb_id`. So `mod 1000 == 1` means
+# the row's verb is verb 1 (ROAD/HILL — historically used as the
+# "any-verb" trigger for forced motion). In the file's section
+# 3 layout this surfaces as a row whose verb list is exactly
+# `[1]` and whose dest is the forced-motion target room (or 0
+# meaning "stay put — print description"). Canonical examples:
+#     20  0   1   →  death-pit room (any-verb → 0 = stay → die)
+#     22  15  1   →  dome-bouncer  (any-verb → 15 = Hall of Mists)
+#     26  88  1   →  plant-clamber (any-verb → 88 = cliff)
+def find_forced_motion(travel_by_room):
+    forced = {}
+    for r, rows in travel_by_room.items():
+        for dest, verbs in rows:
+            if verbs == [1]:
+                forced[r] = dest
+                break
+    return forced
+
 # Section 2: travel table.
 def parse_travel(lines):
     rows_by_room = defaultdict(list)
@@ -196,6 +293,13 @@ SPECIAL_ROUTINE = {
 }
 
 def decode_dest_n(n):
+    if n == 0:
+        # Canon sentinel — used in forced-motion rows (`<room>  0  1`)
+        # to mean "stay put". The engine then prints the room's long
+        # description; for death-message rooms (20, 21) that *is* the
+        # death prose, and the player's hp gets adjusted via separate
+        # FORTRAN logic outside the travel table.
+        return "→ stay put (forced-motion sentinel)"
     if 1 <= n <= 300:
         return f"→ room {n}"
     if 301 <= n <= 500:
@@ -277,7 +381,10 @@ def main():
     short_descs  = parse_short_descs(sec[2])     # empty in 1977
     travel       = parse_travel(sec[3])
     obj_names    = parse_object_names(sec[4])
+    arb_messages = parse_arbitrary_messages(sec[6])
     placements   = parse_placements(sec[7])
+    cond_bits    = parse_cond_bits(sec[9])
+    forced       = find_forced_motion(travel)
     port_rooms   = parse_port_rooms()
     port_gates   = parse_port_gates()
 
@@ -295,14 +402,124 @@ def main():
     out.append("`cca/godot/scripts/topology.gd`. Don't hand-edit this file — ")
     out.append("regenerate via `python3 cca/canon/gen_locations.py > cca/CANON_LOCATIONS.md`.")
     out.append("")
-    out.append("The travel-table dest decoder is a direct transcription of the spec ")
-    out.append("at `cca/canon/advent.for` lines 105-122 (the FORTRAN comment block ")
-    out.append("that defines the canonical `Y = M*1000 + N` encoding).")
+    out.append("Decoding rules transcribed directly from `cca/canon/advent.for`:")
+    out.append("- Travel-table `Y = M*1000 + N` encoding: lines 105-122.")
+    out.append("- Special motion routines (N=301..303): lines 1045-1098 — see")
+    out.append("  the *Special motion routines* section below.")
+    out.append("- COND-bit assignments per location: lines 159-176.")
+    out.append("- Forced-motion detection (cond=2): line 393.")
     out.append("")
-    out.append("Each location lists the canon long-form description, every canon ")
-    out.append("section-3 travel-table row that exits the room (decoded), the rooms ")
-    out.append("that lead in, any object/treasure/NPC placed there per canon section ")
-    out.append("7, and the port's current implementation status.")
+    out.append("Each location lists:")
+    out.append("- Canon long-form description (section 1).")
+    out.append("- Properties — lit/dark, water/oil source, pirate-forbidden, ")
+    out.append("  hint-system flags (section 9 cond bits).")
+    out.append("- Forced-motion target if any (cond=2).")
+    out.append("- Every canon section-3 travel-table row that exits the room, ")
+    out.append("  decoded — including the inlined text of any `msg #N` it ")
+    out.append("  references.")
+    out.append("- Reached-from list (which rooms route in via what verbs).")
+    out.append("- Object/NPC placements (section 7).")
+    out.append("- The port's current `topology.gd` ROOMS and GATES status.")
+    out.append("")
+    out.append("---")
+    out.append("")
+    out.append("## Special motion routines (canon dest 301..303)")
+    out.append("")
+    out.append("The travel-table encoding allows `300 < N <= 500` to dispatch ")
+    out.append("into a hardcoded routine (per `advent.for` lines 105-110). The ")
+    out.append("1977 release defines exactly three. Behavior is transcribed ")
+    out.append("verbatim from `advent.for` lines 1045-1098 — anywhere the ")
+    out.append("port disagrees with these bodies is a port-side delta.")
+    out.append("")
+    out.append("### Routine 301 — Plover-alcove squeeze (FORTRAN line 30100)")
+    out.append("")
+    out.append("```fortran")
+    out.append("30100   NEWLOC = 99 + 100 - LOC")
+    out.append("        IF (HOLDNG.EQ.0 .OR.")
+    out.append("     1     (HOLDNG.EQ.1 .AND. TOTING(EMRALD))) GOTO 2")
+    out.append("        NEWLOC = LOC")
+    out.append("        CALL RSPEAK(117)")
+    out.append("        GOTO 2")
+    out.append("```")
+    out.append("")
+    out.append("**Effect:** at canon 99 ↔ 100 (Alcove ↔ Plover Room), the tight ")
+    out.append("passage admits the player only with empty hands or carrying ")
+    out.append("exactly one item — the emerald. Otherwise prints msg #117 ")
+    if 117 in arb_messages:
+        out.append(f"(*\"{arb_messages[117]}\"*) ")
+    out.append("and the player stays put. `99+100-LOC` flips between 99 and 100.")
+    out.append("")
+    out.append("**Port:** `Adventure.plover_squeeze_blocked()` returns true ")
+    out.append("when `HOLDNG > 1` *or* (HOLDNG == 1 and not carrying emerald). ")
+    out.append("GATES `99:east`, `100:west` use the `plover_squeeze` check type.")
+    out.append("")
+    out.append("### Routine 302 — Plover transport (FORTRAN line 30200)")
+    out.append("")
+    out.append("```fortran")
+    out.append("30200   CALL DROP(EMRALD,LOC)")
+    out.append("        GOTO 12")
+    out.append("```")
+    out.append("")
+    out.append("**Effect:** if PLUGH is invoked at Y2 (33) or Plover Room (100) ")
+    out.append("*while carrying the emerald*, the emerald is dropped at the ")
+    out.append("current location and the player is then re-routed through the ")
+    out.append("Plover passage rather than the normal PLUGH teleport — forcing ")
+    out.append("them to use the squeeze (routine 301) to retrieve it. The canon ")
+    out.append("section-3 condition `M = 159` (carrying obj 59 = emerald) gates ")
+    out.append("this routine at both 33 and 100.")
+    out.append("")
+    out.append("**Port:** *not currently implemented* as a special routine. The ")
+    out.append("port handles PLUGH via `MagicWordTeleport` aspect which always ")
+    out.append("teleports unconditionally — the canon emerald-carrying detour ")
+    out.append("is a known divergence (logged in `CANON_DELTAS.md` if not yet ")
+    out.append("there). Closing this would mean adding an inventory check in ")
+    out.append("`MagicWordTeleport` for emerald + drop-and-reroute behaviour.")
+    out.append("")
+    out.append("### Routine 303 — Troll-bridge crossing (FORTRAN line 30300)")
+    out.append("")
+    out.append("```fortran")
+    out.append("30300   IF (PROP(TROLL).NE.1) GOTO 30310")
+    out.append("        CALL PSPEAK(TROLL,1)")
+    out.append("        PROP(TROLL) = 0")
+    out.append("        CALL MOVE(TROLL2, 0)")
+    out.append("        CALL MOVE(TROLL2+100, 0)")
+    out.append("        CALL MOVE(TROLL, PLAC(TROLL))")
+    out.append("        CALL MOVE(TROLL+100, FIXD(TROLL))")
+    out.append("        CALL JUGGLE(CHASM)")
+    out.append("        NEWLOC = LOC")
+    out.append("        GOTO 2")
+    out.append("")
+    out.append("30310   NEWLOC = PLAC(TROLL) + FIXD(TROLL) - LOC")
+    out.append("        IF (PROP(TROLL).EQ.0) PROP(TROLL) = 1")
+    out.append("        IF (.NOT.TOTING(BEAR)) GOTO 2")
+    out.append("        CALL RSPEAK(162)")
+    out.append("        PROP(CHASM) = 1")
+    out.append("        PROP(TROLL) = 2")
+    out.append("        CALL DROP(BEAR, NEWLOC)")
+    out.append("        FIXED(BEAR) = -1")
+    out.append("        PROP(BEAR) = 3")
+    out.append("        IF (PROP(SPICES).LT.0) TALLY2 = TALLY2 + 1")
+    out.append("        OLDLC2 = NEWLOC")
+    out.append("        GOTO 99")
+    out.append("```")
+    out.append("")
+    out.append("**Effect:** crossing the troll bridge between canon 117 (R_SWSIDE) ")
+    out.append("and canon 122 (R_NESIDE). Logic depends on `PROP(TROLL)`:")
+    out.append("- `PROP(TROLL) == 1` (already crossed once after paying): troll ")
+    out.append("  steps out from hiding to block (PSPEAK msg 1), resets to 0 ")
+    out.append("  (demanding again), juggles chasm.")
+    out.append("- otherwise: walk across (`PLAC(TROLL) + FIXD(TROLL) - LOC` flips ")
+    out.append("  between 117 and 122), promote `PROP(TROLL)` to 1.")
+    out.append("- if carrying the bear: PSPEAK msg 162 ('the bear lumbers across, ")
+    out.append("  scaring the troll'), troll permanently scared (`PROP(TROLL)=2`), ")
+    out.append("  bear dropped on far side and immobilised, chasm crossed.")
+    out.append("")
+    out.append("**Port:** the `Troll` Frame system handles `$Demanding → pay_toll → ")
+    out.append("$TollPaid → bear_arrives → $Vanished`. Bridge-crossing dest 117↔122 ")
+    out.append("is encoded directly in `topology.gd` with the `troll` gate check ")
+    out.append("rather than via a special-routine dispatch.")
+    out.append("")
+    out.append("---")
     out.append("")
 
     for r in range(1, 141):
@@ -321,23 +538,59 @@ def main():
             out.append(f"> {d}")
             out.append("")
 
-        # Object placements.
+        # Per-room properties from canon section 9 cond bits.
+        prop_line = format_properties(cond_bits.get(r, set()))
+        if prop_line:
+            out.append(f"**Properties (section 9):** {prop_line}")
+            out.append("")
+
+        # Forced motion (cond=2) — auto-bounce on entry.
+        if r in forced:
+            target = forced[r]
+            if target == 0:
+                out.append(f"**Forced motion (cond=2):** any verb stays put — "
+                           f"this is a transition / death-message room. The ")
+                out.append(f"engine prints the room's long description and ")
+                out.append(f"continues on the player's *next* turn from here.")
+            else:
+                out.append(f"**Forced motion (cond=2):** any verb routes to "
+                           f"room {target}. The engine prints this room's ")
+                out.append(f"long description as a one-time transition message ")
+                out.append(f"then auto-walks the player to {target}.")
+            out.append("")
+
+        # Object placements (canon section 7).
         if r in placements:
             obj_strs = []
             for oid in placements[r]:
                 name = obj_names.get(oid, f"obj{oid}")
                 obj_strs.append(f"{oid}={name}")
-            out.append(f"**Objects/NPCs placed here (canon section 5):** {', '.join(obj_strs)}")
+            out.append(f"**Objects/NPCs placed here (section 7):** {', '.join(obj_strs)}")
             out.append("")
 
-        # Canon section-2 exits.
+        # Canon section-3 exits with inline message text.
         if r in travel:
-            out.append("**Canon exits (section 2):**")
+            out.append("**Canon exits (section 3):**")
             out.append("")
             out.append("| Dest | Verbs | Decoded |")
             out.append("|---|---|---|")
             for dest, verbs in travel[r]:
-                out.append(f"| `{dest}` | `{verb_names(verbs)}` | {decode_dest(dest)} |")
+                decoded = decode_dest(dest)
+                # If the decoded string references a `msg #N`,
+                # inline the actual canon prose so a reader doesn't
+                # have to look up section 6 separately.
+                msg_match = re.search(r"msg #(\d+)", decoded)
+                if msg_match:
+                    n = int(msg_match.group(1))
+                    if n in arb_messages:
+                        msg = arb_messages[n]
+                        # Trim very long messages to keep the
+                        # table readable; full text is in canon's
+                        # section 6 if needed.
+                        if len(msg) > 220:
+                            msg = msg[:217] + "..."
+                        decoded += f"<br><small>↳ *\"{msg}\"*</small>"
+                out.append(f"| `{dest}` | `{verb_names(verbs)}` | {decoded} |")
             out.append("")
 
         # Entry points (rooms that route INTO this one).

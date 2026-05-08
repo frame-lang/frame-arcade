@@ -4,20 +4,131 @@ Auto-generated from `cca/canon/advent.dat` and the port's
 `cca/godot/scripts/topology.gd`. Don't hand-edit this file — 
 regenerate via `python3 cca/canon/gen_locations.py > cca/CANON_LOCATIONS.md`.
 
-The travel-table dest decoder is a direct transcription of the spec 
-at `cca/canon/advent.for` lines 105-122 (the FORTRAN comment block 
-that defines the canonical `Y = M*1000 + N` encoding).
+Decoding rules transcribed directly from `cca/canon/advent.for`:
+- Travel-table `Y = M*1000 + N` encoding: lines 105-122.
+- Special motion routines (N=301..303): lines 1045-1098 — see
+  the *Special motion routines* section below.
+- COND-bit assignments per location: lines 159-176.
+- Forced-motion detection (cond=2): line 393.
 
-Each location lists the canon long-form description, every canon 
-section-3 travel-table row that exits the room (decoded), the rooms 
-that lead in, any object/treasure/NPC placed there per canon section 
-7, and the port's current implementation status.
+Each location lists:
+- Canon long-form description (section 1).
+- Properties — lit/dark, water/oil source, pirate-forbidden, 
+  hint-system flags (section 9 cond bits).
+- Forced-motion target if any (cond=2).
+- Every canon section-3 travel-table row that exits the room, 
+  decoded — including the inlined text of any `msg #N` it 
+  references.
+- Reached-from list (which rooms route in via what verbs).
+- Object/NPC placements (section 7).
+- The port's current `topology.gd` ROOMS and GATES status.
+
+---
+
+## Special motion routines (canon dest 301..303)
+
+The travel-table encoding allows `300 < N <= 500` to dispatch 
+into a hardcoded routine (per `advent.for` lines 105-110). The 
+1977 release defines exactly three. Behavior is transcribed 
+verbatim from `advent.for` lines 1045-1098 — anywhere the 
+port disagrees with these bodies is a port-side delta.
+
+### Routine 301 — Plover-alcove squeeze (FORTRAN line 30100)
+
+```fortran
+30100   NEWLOC = 99 + 100 - LOC
+        IF (HOLDNG.EQ.0 .OR.
+     1     (HOLDNG.EQ.1 .AND. TOTING(EMRALD))) GOTO 2
+        NEWLOC = LOC
+        CALL RSPEAK(117)
+        GOTO 2
+```
+
+**Effect:** at canon 99 ↔ 100 (Alcove ↔ Plover Room), the tight 
+passage admits the player only with empty hands or carrying 
+exactly one item — the emerald. Otherwise prints msg #117 
+(*"SOMETHING YOU'RE CARRYING WON'T FIT THROUGH THE TUNNEL WITH YOU. YOU'D BEST TAKE INVENTORY AND DROP SOMETHING."*) 
+and the player stays put. `99+100-LOC` flips between 99 and 100.
+
+**Port:** `Adventure.plover_squeeze_blocked()` returns true 
+when `HOLDNG > 1` *or* (HOLDNG == 1 and not carrying emerald). 
+GATES `99:east`, `100:west` use the `plover_squeeze` check type.
+
+### Routine 302 — Plover transport (FORTRAN line 30200)
+
+```fortran
+30200   CALL DROP(EMRALD,LOC)
+        GOTO 12
+```
+
+**Effect:** if PLUGH is invoked at Y2 (33) or Plover Room (100) 
+*while carrying the emerald*, the emerald is dropped at the 
+current location and the player is then re-routed through the 
+Plover passage rather than the normal PLUGH teleport — forcing 
+them to use the squeeze (routine 301) to retrieve it. The canon 
+section-3 condition `M = 159` (carrying obj 59 = emerald) gates 
+this routine at both 33 and 100.
+
+**Port:** *not currently implemented* as a special routine. The 
+port handles PLUGH via `MagicWordTeleport` aspect which always 
+teleports unconditionally — the canon emerald-carrying detour 
+is a known divergence (logged in `CANON_DELTAS.md` if not yet 
+there). Closing this would mean adding an inventory check in 
+`MagicWordTeleport` for emerald + drop-and-reroute behaviour.
+
+### Routine 303 — Troll-bridge crossing (FORTRAN line 30300)
+
+```fortran
+30300   IF (PROP(TROLL).NE.1) GOTO 30310
+        CALL PSPEAK(TROLL,1)
+        PROP(TROLL) = 0
+        CALL MOVE(TROLL2, 0)
+        CALL MOVE(TROLL2+100, 0)
+        CALL MOVE(TROLL, PLAC(TROLL))
+        CALL MOVE(TROLL+100, FIXD(TROLL))
+        CALL JUGGLE(CHASM)
+        NEWLOC = LOC
+        GOTO 2
+
+30310   NEWLOC = PLAC(TROLL) + FIXD(TROLL) - LOC
+        IF (PROP(TROLL).EQ.0) PROP(TROLL) = 1
+        IF (.NOT.TOTING(BEAR)) GOTO 2
+        CALL RSPEAK(162)
+        PROP(CHASM) = 1
+        PROP(TROLL) = 2
+        CALL DROP(BEAR, NEWLOC)
+        FIXED(BEAR) = -1
+        PROP(BEAR) = 3
+        IF (PROP(SPICES).LT.0) TALLY2 = TALLY2 + 1
+        OLDLC2 = NEWLOC
+        GOTO 99
+```
+
+**Effect:** crossing the troll bridge between canon 117 (R_SWSIDE) 
+and canon 122 (R_NESIDE). Logic depends on `PROP(TROLL)`:
+- `PROP(TROLL) == 1` (already crossed once after paying): troll 
+  steps out from hiding to block (PSPEAK msg 1), resets to 0 
+  (demanding again), juggles chasm.
+- otherwise: walk across (`PLAC(TROLL) + FIXD(TROLL) - LOC` flips 
+  between 117 and 122), promote `PROP(TROLL)` to 1.
+- if carrying the bear: PSPEAK msg 162 ('the bear lumbers across, 
+  scaring the troll'), troll permanently scared (`PROP(TROLL)=2`), 
+  bear dropped on far side and immobilised, chasm crossed.
+
+**Port:** the `Troll` Frame system handles `$Demanding → pay_toll → 
+$TollPaid → bear_arrives → $Vanished`. Bridge-crossing dest 117↔122 
+is encoded directly in `topology.gd` with the `troll` gate check 
+rather than via a special-routine dispatch.
+
+---
 
 ##   1 — YOU'RE AT END OF ROAD AGAIN
 
 > YOU ARE STANDING AT THE END OF A ROAD BEFORE A SMALL BRICK BUILDING. AROUND YOU IS A FOREST. A SMALL STREAM FLOWS OUT OF THE BUILDING AND DOWN A GULLY. YOU'RE AT END OF ROAD AGAIN.
 
-**Canon exits (section 2):**
+**Properties (section 9):** **lit** (sunlit / always lit); **water source** (FILL BOTTLE here yields water)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -37,7 +148,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU HAVE WALKED UP A HILL, STILL IN THE FOREST. THE ROAD SLOPES BACK DOWN THE OTHER SIDE OF THE HILL. THERE IS A BUILDING IN THE DISTANCE. YOU'RE AT HILL IN ROAD.
 
-**Canon exits (section 2):**
+**Properties (section 9):** **lit** (sunlit / always lit)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -54,9 +167,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE INSIDE A BUILDING, A WELL HOUSE FOR A LARGE SPRING. YOU'RE INSIDE BUILDING.
 
-**Objects/NPCs placed here (canon section 5):** 1=KEYS, 2=LAMP, 19=FOOD, 20=BOTTL
+**Properties (section 9):** **lit** (sunlit / always lit); **water source** (FILL BOTTLE here yields water)
 
-**Canon exits (section 2):**
+**Objects/NPCs placed here (section 7):** 1=KEYS, 2=LAMP, 19=FOOD, 20=BOTTL
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -75,7 +190,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A VALLEY IN THE FOREST BESIDE A STREAM TUMBLING ALONG A ROCKY BED. YOU'RE IN VALLEY.
 
-**Canon exits (section 2):**
+**Properties (section 9):** **lit** (sunlit / always lit); **water source** (FILL BOTTLE here yields water)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -94,7 +211,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN OPEN FOREST, WITH A DEEP VALLEY TO ONE SIDE. YOU'RE IN FOREST.
 
-**Canon exits (section 2):**
+**Properties (section 9):** **lit** (sunlit / always lit)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -113,7 +232,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN OPEN FOREST NEAR BOTH A VALLEY AND A ROAD. YOU'RE IN FOREST.
 
-**Canon exits (section 2):**
+**Properties (section 9):** **lit** (sunlit / always lit)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -131,7 +252,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > AT YOUR FEET ALL THE WATER OF THE STREAM SPLASHES INTO A 2-INCH SLIT IN THE ROCK. DOWNSTREAM THE STREAMBED IS BARE ROCK. YOU'RE AT SLIT IN STREAMBED.
 
-**Canon exits (section 2):**
+**Properties (section 9):** **lit** (sunlit / always lit); **water source** (FILL BOTTLE here yields water)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -139,7 +262,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 | `4` | `UPSTREAM/NORTH` | → room 4 |
 | `5` | `FOREST/EAST/WEST` | → room 5 |
 | `8` | `DOWNSTREAM/ROCK/BED/SOUTH` | → room 8 |
-| `595` | `SLIT/STREAM/DOWN` | print msg #95 |
+| `595` | `SLIT/STREAM/DOWN` | print msg #95<br><small>↳ *"YOU DON'T FIT THROUGH A TWO-INCH SLIT!"*</small> |
 
 **Reached from:** 4 (DOWNSTREAM/SOUTH/DOWN), 8 (UPSTREAM/GULLY/NORTH)
 
@@ -153,9 +276,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A 20-FOOT DEPRESSION FLOORED WITH BARE DIRT. SET INTO THE DIRT IS A STRONG STEEL GRATE MOUNTED IN CONCRETE. A DRY STREAMBED LEADS INTO THE DEPRESSION. YOU'RE OUTSIDE GRATE.
 
-**Objects/NPCs placed here (canon section 5):** 3=GRATE
+**Properties (section 9):** **lit** (sunlit / always lit); hint flags: trying to get into cave
 
-**Canon exits (section 2):**
+**Objects/NPCs placed here (section 7):** 3=GRATE
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -163,7 +288,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 | `1` | `BUILDING` | → room 1 |
 | `7` | `UPSTREAM/GULLY/NORTH` | → room 7 |
 | `303009` | `ENTER/IN/DOWN` | if prop(obj #3) ≠ 0: → room 9 |
-| `593` | `ENTER` | print msg #93 |
+| `593` | `ENTER` | print msg #93<br><small>↳ *"YOU CAN'T GO THROUGH A LOCKED STEEL GRATE!"*</small> |
 
 **Reached from:** 1 (DEPRESSION), 4 (DEPRESSION), 7 (DOWNSTREAM/ROCK/BED/SOUTH)
 
@@ -177,12 +302,14 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A SMALL CHAMBER BENEATH A 3X3 STEEL GRATE TO THE SURFACE. A LOW CRAWL OVER COBBLES LEADS INWARD TO THE WEST. YOU'RE BELOW THE GRATE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** **lit** (sunlit / always lit)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `303008` | `OUT/UP` | if prop(obj #3) ≠ 0: → room 8 |
-| `593` | `OUT` | print msg #93 |
+| `593` | `OUT` | print msg #93<br><small>↳ *"YOU CAN'T GO THROUGH A LOCKED STEEL GRATE!"*</small> |
 | `10` | `CRAWL/COBBLES/IN/WEST` | → room 10 |
 | `14` | `PIT` | → room 14 |
 | `11` | `DEBRIS` | → room 11 |
@@ -197,9 +324,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE CRAWLING OVER COBBLES IN A LOW PASSAGE. THERE IS A DIM LIGHT AT THE EAST END OF THE PASSAGE. YOU'RE IN COBBLE CRAWL.
 
-**Objects/NPCs placed here (canon section 5):** 4=CAGE
+**Properties (section 9):** **lit** (sunlit / always lit)
 
-**Canon exits (section 2):**
+**Objects/NPCs placed here (section 7):** 4=CAGE
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -217,9 +346,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A DEBRIS ROOM FILLED WITH STUFF WASHED IN FROM THE SURFACE. A LOW WIDE PASSAGE WITH COBBLES BECOMES PLUGGED WITH MUD AND DEBRIS HERE, BUT AN AWKWARD CANYON LEADS UPWARD AND WEST. A NOTE ON THE WALL SAYS "MAGIC WORD XYZZY". YOU'RE IN DEBRIS ROOM.
 
-**Objects/NPCs placed here (canon section 5):** 5=ROD
+**Objects/NPCs placed here (section 7):** 5=ROD
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -240,7 +369,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN AN AWKWARD SLOPING EAST/WEST CANYON.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -260,9 +389,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A SPLENDID CHAMBER THIRTY FEET HIGH. THE WALLS ARE FROZEN RIVERS OF ORANGE STONE. AN AWKWARD CANYON AND A GOOD PASSAGE EXIT FROM EAST AND WEST SIDES OF THE CHAMBER. YOU'RE IN BIRD CHAMBER.
 
-**Objects/NPCs placed here (canon section 5):** 8=BIRD
+**Properties (section 9):** dark (requires lamp); hint flags: catching bird
 
-**Canon exits (section 2):**
+**Objects/NPCs placed here (section 7):** 8=BIRD
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -282,9 +413,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > AT YOUR FEET IS A SMALL PIT BREATHING TRACES OF WHITE MIST. AN EAST PASSAGE ENDS HERE EXCEPT FOR A SMALL CRACK LEADING ON. YOU'RE AT TOP OF SMALL PIT.
 
-**Objects/NPCs placed here (canon section 5):** 7=STEPS
+**Objects/NPCs placed here (section 7):** 7=STEPS
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -306,7 +437,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT ONE END OF A VAST HALL STRETCHING FORWARD OUT OF SIGHT TO THE WEST. THERE ARE OPENINGS TO EITHER SIDE. NEARBY, A WIDE STONE STAIRCASE LEADS DOWNWARD. THE HALL IS FILLED WITH WISPS OF WHITE MIST SWAYING TO AND FRO ALMOST AS IF ALIVE. A COLD WIND BLOWS UP THE STAIRCASE. THERE IS A PASSAGE AT THE TOP OF A DOME BEHIND YOU. YOU'RE IN HALL OF MISTS.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -327,7 +458,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > THE CRACK IS FAR TOO SMALL FOR YOU TO FOLLOW.
 
-**Canon exits (section 2):**
+**Forced motion (cond=2):** any verb routes to room 14. The engine prints this room's 
+long description as a one-time transition message 
+then auto-walks the player to 14.
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -343,16 +478,16 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE ON THE EAST BANK OF A FISSURE SLICING CLEAR ACROSS THE HALL. THE MIST IS QUITE THICK HERE, AND THE FISSURE IS TOO WIDE TO JUMP. YOU'RE ON EAST BANK OF FISSURE.
 
-**Objects/NPCs placed here (canon section 5):** 12=FISSU
+**Objects/NPCs placed here (section 7):** 12=FISSU
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `15` | `HALL/EAST` | → room 15 |
-| `312596` | `JUMP` | if prop(obj #12) ≠ 0: print msg #96 |
+| `312596` | `JUMP` | if prop(obj #12) ≠ 0: print msg #96<br><small>↳ *"I RESPECTFULLY SUGGEST YOU GO ACROSS THE BRIDGE INSTEAD OF JUMPING."*</small> |
 | `412021` | `FORWARD` | if prop(obj #12) ≠ 1: → room 21 |
-| `412597` | `OVER/ACROSS/WEST/CROSS` | if prop(obj #12) ≠ 1: print msg #97 |
+| `412597` | `OVER/ACROSS/WEST/CROSS` | if prop(obj #12) ≠ 1: print msg #97<br><small>↳ *"THERE IS NO WAY ACROSS THE FISSURE."*</small> |
 | `27` | `OVER` | → room 27 |
 
 **Reached from:** 15 (FORWARD/HALL/WEST), 27 (OVER)
@@ -367,9 +502,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > THIS IS A LOW ROOM WITH A CRUDE NOTE ON THE WALL. THE NOTE SAYS, "YOU WON'T GET IT UP THE STEPS". YOU'RE IN NUGGET OF GOLD ROOM.
 
-**Objects/NPCs placed here (canon section 5):** 50=GOLD
+**Objects/NPCs placed here (section 7):** 50=GOLD
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -385,9 +520,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN THE HALL OF THE MOUNTAIN KING, WITH PASSAGES OFF IN ALL DIRECTIONS. YOU'RE IN HALL OF MT KING
 
-**Objects/NPCs placed here (canon section 5):** 11=SNAKE
+**Properties (section 9):** dark (requires lamp); hint flags: dealing with snake
 
-**Canon exits (section 2):**
+**Objects/NPCs placed here (section 7):** 11=SNAKE
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -412,11 +549,15 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT THE BOTTOM OF THE PIT WITH A BROKEN NECK.
 
-**Canon exits (section 2):**
+**Forced motion (cond=2):** any verb stays put — this is a transition / death-message room. The 
+engine prints the room's long description and 
+continues on the player's *next* turn from here.
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
-| `0` | `ROAD/HILL` | dest=0 (unrecognised) |
+| `0` | `ROAD/HILL` | → stay put (forced-motion sentinel) |
 
 **Reached from:** 35 (JUMP), 88 (JUMP), 110 (JUMP)
 
@@ -428,11 +569,15 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU DIDN'T MAKE IT.
 
-**Canon exits (section 2):**
+**Forced motion (cond=2):** any verb stays put — this is a transition / death-message room. The 
+engine prints the room's long description and 
+continues on the player's *next* turn from here.
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
-| `0` | `ROAD/HILL` | dest=0 (unrecognised) |
+| `0` | `ROAD/HILL` | → stay put (forced-motion sentinel) |
 
 **Port `topology.gd` ROOMS[21]:** `{}` (no exits)
 
@@ -442,7 +587,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > THE DOME IS UNCLIMBABLE.
 
-**Canon exits (section 2):**
+**Forced motion (cond=2):** any verb routes to room 15. The engine prints this room's 
+long description as a one-time transition message 
+then auto-walks the player to 15.
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -456,16 +605,16 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT THE WEST END OF THE TWOPIT ROOM. THERE IS A LARGE HOLE IN THE WALL ABOVE THE PIT AT THIS END OF THE ROOM. YOU'RE AT WEST END OF TWOPIT ROOM.
 
-**Objects/NPCs placed here (canon section 5):** 25=PLANT	(MUST BE NEXT OBJECT AFTER "REAL" PLANT)
+**Objects/NPCs placed here (section 7):** 25=PLANT	(MUST BE NEXT OBJECT AFTER "REAL" PLANT)
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `67` | `EAST/ACROSS` | → room 67 |
 | `68` | `WEST/SLAB` | → room 68 |
 | `25` | `DOWN/PIT` | → room 25 |
-| `648` | `HOLE` | print msg #148 |
+| `648` | `HOLE` | print msg #148<br><small>↳ *"IT IS TOO FAR UP FOR YOU TO REACH."*</small> |
 
 **Reached from:** 25 (UP/OUT), 67 (WEST/ACROSS), 68 (SOUTH), 90 (ROAD/HILL)
 
@@ -479,7 +628,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT THE BOTTOM OF THE EASTERN PIT IN THE TWOPIT ROOM. THERE IS A SMALL POOL OF OIL IN ONE CORNER OF THE PIT. YOU'RE IN EAST PIT.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); **oil source** (FILL BOTTLE here yields oil)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -495,9 +646,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT THE BOTTOM OF THE WESTERN PIT IN THE TWOPIT ROOM. THERE IS A LARGE HOLE IN THE WALL ABOUT 25 FEET ABOVE YOU. YOU'RE IN WEST PIT.
 
-**Objects/NPCs placed here (canon section 5):** 24=PLANT
+**Objects/NPCs placed here (section 7):** 24=PLANT
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -517,7 +668,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU CLAMBER UP THE PLANT AND SCURRY THROUGH THE HOLE AT THE TOP.
 
-**Canon exits (section 2):**
+**Forced motion (cond=2):** any verb routes to room 88. The engine prints this room's 
+long description as a one-time transition message 
+then auto-walks the player to 88.
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -533,15 +688,15 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE ON THE WEST SIDE OF THE FISSURE IN THE HALL OF MISTS.
 
-**Objects/NPCs placed here (canon section 5):** 51=DIAMO
+**Objects/NPCs placed here (section 7):** 51=DIAMO
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
-| `312596` | `JUMP` | if prop(obj #12) ≠ 0: print msg #96 |
+| `312596` | `JUMP` | if prop(obj #12) ≠ 0: print msg #96<br><small>↳ *"I RESPECTFULLY SUGGEST YOU GO ACROSS THE BRIDGE INSTEAD OF JUMPING."*</small> |
 | `412021` | `FORWARD` | if prop(obj #12) ≠ 1: → room 21 |
-| `412597` | `OVER/ACROSS/EAST/CROSS` | if prop(obj #12) ≠ 1: print msg #97 |
+| `412597` | `OVER/ACROSS/EAST/CROSS` | if prop(obj #12) ≠ 1: print msg #97<br><small>↳ *"THERE IS NO WAY ACROSS THE FISSURE."*</small> |
 | `17` | `OVER` | → room 17 |
 | `40` | `NORTH` | → room 40 |
 | `41` | `WEST` | → room 41 |
@@ -558,9 +713,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A LOW N/S PASSAGE AT A HOLE IN THE FLOOR. THE HOLE GOES DOWN TO AN E/W PASSAGE.
 
-**Objects/NPCs placed here (canon section 5):** 52=SILVE
+**Objects/NPCs placed here (section 7):** 52=SILVE
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -578,9 +733,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN THE SOUTH SIDE CHAMBER.
 
-**Objects/NPCs placed here (canon section 5):** 53=JEWEL
+**Objects/NPCs placed here (section 7):** 53=JEWEL
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -594,9 +749,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN THE WEST SIDE CHAMBER OF THE HALL OF THE MOUNTAIN KING. A PASSAGE CONTINUES WEST AND UP HERE.
 
-**Objects/NPCs placed here (canon section 5):** 54=COINS
+**Objects/NPCs placed here (section 7):** 54=COINS
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -613,7 +768,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > >$<
 
-**Canon exits (section 2):**
+**Forced motion (cond=2):** any verb routes to room 524089. The engine prints this room's 
+long description as a one-time transition message 
+then auto-walks the player to 524089.
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -628,7 +787,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU CAN'T GET BY THE SNAKE.
 
-**Canon exits (section 2):**
+**Forced motion (cond=2):** any verb routes to room 19. The engine prints this room's 
+long description as a one-time transition message 
+then auto-walks the player to 19.
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -644,7 +807,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A LARGE ROOM, WITH A PASSAGE TO THE SOUTH, A PASSAGE TO THE WEST, AND A WALL OF BROKEN ROCK TO THE EAST. THERE IS A LARGE "Y2" ON A ROCK IN THE ROOM'S CENTER. YOU'RE AT "Y2".
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -665,7 +828,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A JUMBLE OF ROCK, WITH CRACKS EVERYWHERE.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -682,9 +845,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU'RE AT A LOW WINDOW OVERLOOKING A HUGE PIT, WHICH EXTENDS UP OUT OF SIGHT. A FLOOR IS INDISTINCTLY VISIBLE OVER 50 FEET BELOW. TRACES OF WHITE MIST COVER THE FLOOR OF THE PIT, BECOMING THICKER TO THE RIGHT. MARKS IN THE DUST AROUND THE WINDOW WOULD SEEM TO INDICATE THAT SOMEONE HAS BEEN HERE RECENTLY. DIRECTLY ACROSS THE PIT FROM YOU AND 25 FEET AWAY THERE IS A SIMILAR WINDOW LOOKING INTO A LIGHTED ROOM. A SHADOWY FIGURE CAN BE SEEN THERE PEERING BACK AT YOU. YOU'RE AT WINDOW ON PIT.
 
-**Objects/NPCs placed here (canon section 5):** 27=SHADO
+**Objects/NPCs placed here (section 7):** 27=SHADO
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -701,7 +864,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A DIRTY BROKEN PASSAGE. TO THE EAST IS A CRAWL. TO THE WEST IS A LARGE PASSAGE. ABOVE YOU IS A HOLE TO ANOTHER PASSAGE. YOU'RE IN DIRTY PASSAGE.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -720,7 +883,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE ON THE BRINK OF A SMALL CLEAN CLIMBABLE PIT. A CRAWL LEADS WEST.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -737,12 +900,14 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN THE BOTTOM OF A SMALL PIT WITH A LITTLE STREAM, WHICH ENTERS AND EXITS THROUGH TINY SLITS.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); **water source** (FILL BOTTLE here yields water)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `37` | `CLIMB/UP/OUT` | → room 37 |
-| `595` | `SLIT/STREAM/DOWN/UPSTREAM/DOWNSTREAM` | print msg #95 |
+| `595` | `SLIT/STREAM/DOWN/UPSTREAM/DOWNSTREAM` | print msg #95<br><small>↳ *"YOU DON'T FIT THROUGH A TWO-INCH SLIT!"*</small> |
 
 **Reached from:** 37 (DOWN/PIT/CLIMB)
 
@@ -756,7 +921,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A LARGE ROOM FULL OF DUSTY ROCKS. THERE IS A BIG HOLE IN THE FLOOR. THERE ARE CRACKS EVERYWHERE, AND A PASSAGE LEADING EAST. YOU'RE IN DUSTY ROCK ROOM.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -774,7 +939,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU HAVE CRAWLED THROUGH A VERY LOW WIDE PASSAGE PARALLEL TO AND NORTH OF THE HALL OF MISTS.
 
-**Canon exits (section 2):**
+**Forced motion (cond=2):** any verb routes to room 41. The engine prints this room's 
+long description as a one-time transition message 
+then auto-walks the player to 41.
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -790,7 +959,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT THE WEST END OF HALL OF MISTS. A LOW WIDE CRAWL CONTINUES WEST AND ANOTHER GOES NORTH. TO THE SOUTH IS A LITTLE PASSAGE 6 FEET OFF THE FLOOR. YOU'RE AT WEST END OF HALL OF MISTS.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -809,7 +978,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -829,7 +1000,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -847,7 +1020,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -866,7 +1041,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -886,7 +1063,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -902,7 +1081,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -918,7 +1099,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -934,7 +1117,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -951,7 +1136,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -970,7 +1157,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -989,7 +1178,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1010,7 +1201,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1028,7 +1221,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1044,7 +1239,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1063,7 +1260,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1079,7 +1278,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE ON THE BRINK OF A THIRTY FOOT PIT WITH A MASSIVE ORANGE COLUMN DOWN ONE WALL. YOU COULD CLIMB DOWN HERE BUT YOU COULD NOT GET BACK UP. THE MAZE CONTINUES AT THIS LEVEL. YOU'RE AT BRINK OF PIT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1099,7 +1298,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1115,7 +1316,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU HAVE CRAWLED THROUGH A VERY LOW WIDE PASSAGE PARALLEL TO AND NORTH OF THE HALL OF MISTS.
 
-**Canon exits (section 2):**
+**Forced motion (cond=2):** any verb routes to room 27. The engine prints this room's 
+long description as a one-time transition message 
+then auto-walks the player to 27.
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1131,7 +1336,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT THE EAST END OF A VERY LONG HALL APPARENTLY WITHOUT SIDE CHAMBERS. TO THE EAST A LOW WIDE CRAWL SLANTS UP. TO THE NORTH A ROUND TWO FOOT HOLE SLANTS DOWN. YOU'RE AT EAST END OF LONG HALL.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1149,7 +1354,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT THE WEST END OF A VERY LONG FEATURELESS HALL. THE HALL JOINS UP WITH A NARROW NORTH/SOUTH PASSAGE. YOU'RE AT WEST END OF LONG HALL.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1167,7 +1372,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT A CROSSOVER OF A HIGH N/S PASSAGE AND A LOW E/W ONE.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1186,7 +1391,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1202,7 +1407,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT A COMPLEX JUNCTION. A LOW HANDS AND KNEES PASSAGE FROM THE NORTH JOINS A HIGHER CRAWL FROM THE EAST TO MAKE A WALKING PASSAGE GOING WEST. THERE IS ALSO A LARGE ROOM ABOVE. THE AIR IS DAMP HERE. YOU'RE AT COMPLEX JUNCTION.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1221,21 +1426,21 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN BEDQUILT, A LONG EAST/WEST PASSAGE WITH HOLES EVERYWHERE. TO EXPLORE AT RANDOM SELECT NORTH, SOUTH, UP, OR DOWN.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `64` | `EAST` | → room 64 |
 | `66` | `WEST` | → room 66 |
-| `80556` | `SOUTH` | if 80% probability: print msg #56 |
+| `80556` | `SOUTH` | if 80% probability: print msg #56<br><small>↳ *"YOU HAVE CRAWLED AROUND IN SOME LITTLE HOLES AND WOUND UP BACK IN THE MAIN PASSAGE."*</small> |
 | `68` | `SLAB` | → room 68 |
-| `80556` | `UP` | if 80% probability: print msg #56 |
+| `80556` | `UP` | if 80% probability: print msg #56<br><small>↳ *"YOU HAVE CRAWLED AROUND IN SOME LITTLE HOLES AND WOUND UP BACK IN THE MAIN PASSAGE."*</small> |
 | `50070` | `UP` | if 50% probability: → room 70 |
 | `39` | `UP` | → room 39 |
-| `60556` | `NORTH` | if 60% probability: print msg #56 |
+| `60556` | `NORTH` | if 60% probability: print msg #56<br><small>↳ *"YOU HAVE CRAWLED AROUND IN SOME LITTLE HOLES AND WOUND UP BACK IN THE MAIN PASSAGE."*</small> |
 | `75072` | `NORTH` | if 75% probability: → room 72 |
 | `71` | `NORTH` | → room 71 |
-| `80556` | `DOWN` | if 80% probability: print msg #56 |
+| `80556` | `DOWN` | if 80% probability: print msg #56<br><small>↳ *"YOU HAVE CRAWLED AROUND IN SOME LITTLE HOLES AND WOUND UP BACK IN THE MAIN PASSAGE."*</small> |
 | `106` | `DOWN` | → room 106 |
 
 **Reached from:** 36 (BEDQUILT), 39 (BEDQUILT), 64 (WEST/BEDQUILT), 66 (NE), 68 (NORTH), 70 (DOWN/PASSAGE), 71 (SE), 72 (BEDQUILT) + 1 more
@@ -1248,16 +1453,16 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A ROOM WHOSE WALLS RESEMBLE SWISS CHEESE. OBVIOUS PASSAGES GO WEST, EAST, NE, AND NW. PART OF THE ROOM IS OCCUPIED BY A LARGE BEDROCK BLOCK. YOU'RE IN SWISS CHEESE ROOM.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `65` | `NE` | → room 65 |
 | `67` | `WEST` | → room 67 |
-| `80556` | `SOUTH` | if 80% probability: print msg #56 |
+| `80556` | `SOUTH` | if 80% probability: print msg #56<br><small>↳ *"YOU HAVE CRAWLED AROUND IN SOME LITTLE HOLES AND WOUND UP BACK IN THE MAIN PASSAGE."*</small> |
 | `77` | `CANYON` | → room 77 |
 | `96` | `EAST` | → room 96 |
-| `50556` | `NW` | if 50% probability: print msg #56 |
+| `50556` | `NW` | if 50% probability: print msg #56<br><small>↳ *"YOU HAVE CRAWLED AROUND IN SOME LITTLE HOLES AND WOUND UP BACK IN THE MAIN PASSAGE."*</small> |
 | `97` | `ORIENTAL` | → room 97 |
 
 **Reached from:** 65 (WEST), 67 (EAST), 77 (NORTH/CRAWL), 96 (WEST/OUT), 97 (SE)
@@ -1270,7 +1475,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT THE EAST END OF THE TWOPIT ROOM. THE FLOOR HERE IS LITTERED WITH THIN ROCK SLABS, WHICH MAKE IT EASY TO DESCEND THE PITS. THERE IS A PATH HERE BYPASSING THE PITS TO CONNECT PASSAGES FROM EAST AND WEST. THERE ARE HOLES ALL OVER, BUT THE ONLY BIG ONE IS ON THE WALL DIRECTLY OVER THE WEST PIT WHERE YOU CAN'T GET TO IT. YOU'RE AT EAST END OF TWOPIT ROOM.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1288,7 +1493,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A LARGE LOW CIRCULAR CHAMBER WHOSE FLOOR IS AN IMMENSE SLAB FALLEN FROM THE CEILING (SLAB ROOM). EAST AND WEST THERE ONCE WERE LARGE PASSAGES, BUT THEY ARE NOW FILLED WITH BOULDERS. LOW SMALL PASSAGES GO NORTH AND SOUTH, AND THE SOUTH ONE QUICKLY BENDS WEST AROUND THE BOULDERS. YOU'RE IN SLAB ROOM.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1306,7 +1511,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A SECRET N/S CANYON ABOVE A LARGE ROOM.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1326,7 +1531,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A SECRET N/S CANYON ABOVE A SIZABLE PASSAGE.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1344,7 +1549,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A SECRET CANYON AT A JUNCTION OF THREE CANYONS, BEARING NORTH, SOUTH, AND SE. THE NORTH ONE IS AS TALL AS THE OTHER TWO COMBINED. YOU'RE AT JUNCTION OF THREE SECRET CANYONS.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1362,7 +1567,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A LARGE LOW ROOM. CRAWLS LEAD NORTH, SE, AND SW.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1381,7 +1586,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END CRAWL.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1397,7 +1602,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A SECRET CANYON WHICH HERE RUNS E/W. IT CROSSES OVER A VERY TIGHT CANYON 15 FEET BELOW. IF YOU GO DOWN YOU MAY NOT BE ABLE TO GET BACK UP. YOU'RE IN SECRET E/W CANYON ABOVE TIGHT CANYON.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1416,7 +1621,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT A WIDE PLACE IN A VERY TIGHT N/S CANYON.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1433,7 +1638,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > THE CANYON HERE BECOMES TOO TIGHT TO GO FURTHER SOUTH.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1449,7 +1654,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A TALL E/W CANYON. A LOW TIGHT CRAWL GOES 3 FEET NORTH AND SEEMS TO OPEN UP.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1467,7 +1672,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > THE CANYON RUNS INTO A MASS OF BOULDERS -- DEAD END.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1483,7 +1688,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > THE STREAM FLOWS OUT THROUGH A PAIR OF 1 FOOT DIAMETER SEWER PIPES. IT WOULD BE ADVISABLE TO USE THE EXIT.
 
-**Canon exits (section 2):**
+**Forced motion (cond=2):** any verb routes to room 3. The engine prints this room's 
+long description as a one-time transition message 
+then auto-walks the player to 3.
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1499,7 +1708,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1518,7 +1729,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1534,7 +1747,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1550,7 +1765,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1568,7 +1783,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1586,7 +1801,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1602,7 +1819,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1618,7 +1837,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL ALIKE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: lost in maze
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1634,7 +1855,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A LONG, NARROW CORRIDOR STRETCHING OUT OF SIGHT TO THE WEST. AT THE EASTERN END IS A HOLE THROUGH WHICH YOU CAN SEE A PROFUSION OF LEAVES. YOU'RE IN NARROW CORRIDOR.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1652,7 +1873,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > THERE IS NOTHING HERE TO CLIMB. USE "UP" OR "OUT" TO LEAVE THE PIT.
 
-**Canon exits (section 2):**
+**Forced motion (cond=2):** any verb routes to room 25. The engine prints this room's 
+long description as a one-time transition message 
+then auto-walks the player to 25.
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1666,7 +1891,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU HAVE CLIMBED UP THE PLANT AND OUT OF THE PIT.
 
-**Canon exits (section 2):**
+**Forced motion (cond=2):** any verb routes to room 23. The engine prints this room's 
+long description as a one-time transition message 
+then auto-walks the player to 23.
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1682,7 +1911,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT THE TOP OF A STEEP INCLINE ABOVE A LARGE ROOM. YOU COULD CLIMB DOWN HERE, BUT YOU WOULD NOT BE ABLE TO CLIMB UP. THERE IS A PASSAGE LEADING BACK TO THE NORTH. YOU'RE AT STEEP INCLINE ABOVE LARGE ROOM.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1699,9 +1928,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN THE GIANT ROOM. THE CEILING HERE IS TOO HIGH UP FOR YOUR LAMP TO SHOW IT. CAVERNOUS PASSAGES LEAD EAST, NORTH, AND SOUTH. ON THE WEST WALL IS SCRAWLED THE INSCRIPTION, "FEE FIE FOE FOO" [SIC]. YOU'RE IN GIANT ROOM.
 
-**Objects/NPCs placed here (canon section 5):** 56=EGGS
+**Objects/NPCs placed here (section 7):** 56=EGGS
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1719,7 +1948,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > THE PASSAGE HERE IS BLOCKED BY A RECENT CAVE-IN.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1735,15 +1964,15 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT ONE END OF AN IMMENSE NORTH/SOUTH PASSAGE.
 
-**Objects/NPCs placed here (canon section 5):** 9=DOOR
+**Objects/NPCs placed here (section 7):** 9=DOOR
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `92` | `SOUTH/GIANT/PASSAGE` | → room 92 |
 | `309095` | `NORTH/ENTER/CAVERN` | if prop(obj #9) ≠ 0: → room 95 |
-| `611` | `NORTH` | print msg #111 |
+| `611` | `NORTH` | print msg #111<br><small>↳ *"THE DOOR IS EXTREMELY RUSTY AND REFUSES TO OPEN."*</small> |
 
 **Reached from:** 92 (NORTH), 95 (SOUTH/OUT)
 
@@ -1757,9 +1986,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAGNIFICENT CAVERN WITH A RUSHING STREAM, WHICH CASCADES OVER A SPARKLING WATERFALL INTO A ROARING WHIRLPOOL WHICH DISAPPEARS THROUGH A HOLE IN THE FLOOR. PASSAGES EXIT TO THE SOUTH AND WEST. YOU'RE IN CAVERN WITH WATERFALL.
 
-**Objects/NPCs placed here (canon section 5):** 57=TRIDE
+**Properties (section 9):** dark (requires lamp); **water source** (FILL BOTTLE here yields water)
 
-**Canon exits (section 2):**
+**Objects/NPCs placed here (section 7):** 57=TRIDE
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1777,9 +2008,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN THE SOFT ROOM. THE WALLS ARE COVERED WITH HEAVY CURTAINS, THE FLOOR WITH A THICK PILE CARPET. MOSS COVERS THE CEILING. YOU'RE IN SOFT ROOM.
 
-**Objects/NPCs placed here (canon section 5):** 10=PILLO, 40=CARPE
+**Objects/NPCs placed here (section 7):** 10=PILLO, 40=CARPE
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1795,9 +2026,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > THIS IS THE ORIENTAL ROOM. ANCIENT ORIENTAL CAVE DRAWINGS COVER THE WALLS. A GENTLY SLOPING PASSAGE LEADS UPWARD TO THE NORTH, ANOTHER PASSAGE LEADS SE, AND A HANDS AND KNEES CRAWL LEADS WEST. YOU'RE IN ORIENTAL ROOM.
 
-**Objects/NPCs placed here (canon section 5):** 29=DRAWI, 58=VASE
+**Objects/NPCs placed here (section 7):** 29=DRAWI, 58=VASE
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1815,7 +2046,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE FOLLOWING A WIDE PATH AROUND THE OUTER EDGE OF A LARGE CAVERN. FAR BELOW, THROUGH A HEAVY WHITE MIST, STRANGE SPLASHING NOISES CAN BE HEARD. THE MIST RISES UP THROUGH A FISSURE IN THE CEILING. THE PATH EXITS TO THE SOUTH AND WEST. YOU'RE IN MISTY CAVERN.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1832,7 +2063,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN AN ALCOVE. A SMALL NW PATH SEEMS TO WIDEN AFTER A SHORT DISTANCE. AN EXTREMELY TIGHT TUNNEL LEADS EAST. IT LOOKS LIKE A VERY TIGHT SQUEEZE. AN EERIE LIGHT CAN BE SEEN AT THE OTHER END. YOU'RE IN ALCOVE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: pondering dark room
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1852,9 +2085,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU'RE IN A SMALL CHAMBER LIT BY AN EERIE GREEN LIGHT. AN EXTREMELY NARROW TUNNEL EXITS TO THE WEST. A DARK CORRIDOR LEADS NE. YOU'RE IN PLOVER ROOM.
 
-**Objects/NPCs placed here (canon section 5):** 59=EMERA
+**Properties (section 9):** **lit** (sunlit / always lit); hint flags: pondering dark room
 
-**Canon exits (section 2):**
+**Objects/NPCs placed here (section 7):** 59=EMERA
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1876,9 +2111,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU'RE IN THE DARK-ROOM. A CORRIDOR LEADING SOUTH IS THE ONLY EXIT. YOU'RE IN DARK-ROOM.
 
-**Objects/NPCs placed here (canon section 5):** 13=TABLE, 60=PLATI
+**Properties (section 9):** dark (requires lamp); hint flags: pondering dark room
 
-**Canon exits (section 2):**
+**Objects/NPCs placed here (section 7):** 13=TABLE, 60=PLATI
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1894,7 +2131,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN AN ARCHED HALL. A CORAL PASSAGE ONCE CONTINUED UP AND EAST FROM HERE, BUT IS NOW BLOCKED BY DEBRIS. THE AIR SMELLS OF SEA WATER. YOU'RE IN ARCHED HALL.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1910,16 +2147,16 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU'RE IN A LARGE ROOM CARVED OUT OF SEDIMENTARY ROCK. THE FLOOR AND WALLS ARE LITTERED WITH BITS OF SHELLS IMBEDDED IN THE STONE. A SHALLOW PASSAGE PROCEEDS DOWNWARD, AND A SOMEWHAT STEEPER ONE LEADS UP. A LOW HANDS AND KNEES PASSAGE ENTERS FROM THE SOUTH. YOU'RE IN SHELL ROOM.
 
-**Objects/NPCs placed here (canon section 5):** 14=CLAM
+**Objects/NPCs placed here (section 7):** 14=CLAM
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `102` | `UP/HALL` | → room 102 |
 | `104` | `DOWN` | → room 104 |
-| `114618` | `SOUTH` | if carrying obj #14: print msg #118 |
-| `115619` | `SOUTH` | if carrying obj #15: print msg #119 |
+| `114618` | `SOUTH` | if carrying obj #14: print msg #118<br><small>↳ *"YOU CAN'T FIT THIS FIVE-FOOT CLAM THROUGH THAT LITTLE PASSAGE!"*</small> |
+| `115619` | `SOUTH` | if carrying obj #15: print msg #119<br><small>↳ *"YOU CAN'T FIT THIS FIVE-FOOT OYSTER THROUGH THAT LITTLE PASSAGE!"*</small> |
 | `64` | `SOUTH` | → room 64 |
 
 **Reached from:** 64 (NORTH/SHELL), 102 (DOWN/SHELL/OUT), 104 (UP/SHELL), 105 (SHELL)
@@ -1932,7 +2169,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A LONG SLOPING CORRIDOR WITH RAGGED SHARP WALLS.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1949,7 +2186,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A CUL-DE-SAC ABOUT EIGHT FEET ACROSS.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1966,9 +2203,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN AN ANTEROOM LEADING TO A LARGE PASSAGE TO THE EAST. SMALL PASSAGES GO WEST AND UP. THE REMNANTS OF RECENT DIGGING ARE EVIDENT. A SIGN IN MIDAIR HERE SAYS "CAVE UNDER CONSTRUCTION BEYOND THIS POINT. PROCEED AT OWN RISK. [WITT CONSTRUCTION COMPANY]" YOU'RE IN ANTEROOM.
 
-**Objects/NPCs placed here (canon section 5):** 16=MAGAZ
+**Objects/NPCs placed here (section 7):** 16=MAGAZ
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -1986,7 +2223,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTY LITTLE PASSAGES, ALL DIFFERENT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2011,13 +2248,15 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT WITT'S END. PASSAGES LEAD OFF IN *ALL* DIRECTIONS. YOU'RE AT WITT'S END.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); hint flags: at Witt's End
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
-| `95556` | `EAST/NORTH/SOUTH/NE/SE/SW/NW/UP/DOWN` | if 95% probability: print msg #56 |
+| `95556` | `EAST/NORTH/SOUTH/NE/SE/SW/NW/UP/DOWN` | if 95% probability: print msg #56<br><small>↳ *"YOU HAVE CRAWLED AROUND IN SOME LITTLE HOLES AND WOUND UP BACK IN THE MAIN PASSAGE."*</small> |
 | `106` | `EAST` | → room 106 |
-| `626` | `WEST` | print msg #126 |
+| `626` | `WEST` | print msg #126<br><small>↳ *"YOU HAVE CRAWLED AROUND IN SOME LITTLE HOLES AND FOUND YOUR WAY BLOCKED BY A RECENT CAVE-IN.  YOU ARE NOW BACK IN THE MAIN PASSAGE."*</small> |
 
 **Reached from:** 106 (EAST)
 
@@ -2031,9 +2270,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A NORTH/SOUTH CANYON ABOUT 25 FEET ACROSS. THE FLOOR IS COVERED BY WHITE MIST SEEPING IN FROM THE NORTH. THE WALLS EXTEND UPWARD FOR WELL OVER 100 FEET. SUSPENDED FROM SOME UNSEEN POINT FAR ABOVE YOU, AN ENORMOUS TWO-SIDED MIRROR IS HANGING PARALLEL TO AND MIDWAY BETWEEN THE CANYON WALLS. (THE MIRROR IS OBVIOUSLY PROVIDED FOR THE USE OF THE DWARVES, WHO AS YOU KNOW, ARE EXTREMELY VAIN.) A SMALL WINDOW CAN BE SEEN IN EITHER WALL, SOME FIFTY FEET UP. YOU'RE IN MIRROR CANYON.
 
-**Objects/NPCs placed here (canon section 5):** 23=MIRRO
+**Objects/NPCs placed here (section 7):** 23=MIRRO
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2050,7 +2289,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU'RE AT A LOW WINDOW OVERLOOKING A HUGE PIT, WHICH EXTENDS UP OUT OF SIGHT. A FLOOR IS INDISTINCTLY VISIBLE OVER 50 FEET BELOW. TRACES OF WHITE MIST COVER THE FLOOR OF THE PIT, BECOMING THICKER TO THE LEFT. MARKS IN THE DUST AROUND THE WINDOW WOULD SEEM TO INDICATE THAT SOMEONE HAS BEEN HERE RECENTLY. DIRECTLY ACROSS THE PIT FROM YOU AND 25 FEET AWAY THERE IS A SIMILAR WINDOW LOOKING INTO A LIGHTED ROOM. A SHADOWY FIGURE CAN BE SEEN THERE PEERING BACK AT YOU. YOU'RE AT WINDOW ON PIT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2067,9 +2306,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > A LARGE STALACTITE EXTENDS FROM THE ROOF AND ALMOST REACHES THE FLOOR BELOW. YOU COULD CLIMB DOWN IT, AND JUMP FROM IT TO THE FLOOR, BUT HAVING DONE SO YOU WOULD BE UNABLE TO REACH IT TO CLIMB BACK UP. YOU'RE AT TOP OF STALACTITE.
 
-**Objects/NPCs placed here (canon section 5):** 26=STALA
+**Objects/NPCs placed here (section 7):** 26=STALA
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2088,7 +2327,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A LITTLE MAZE OF TWISTING PASSAGES, ALL DIFFERENT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2113,7 +2352,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT THE EDGE OF A LARGE UNDERGROUND RESERVOIR. AN OPAQUE CLOUD OF WHITE MIST FILLS THE ROOM AND RISES RAPIDLY UPWARD. THE LAKE IS FED BY A STREAM, WHICH TUMBLES OUT OF A HOLE IN THE WALL ABOUT 10 FEET OVERHEAD AND SPLASHES NOISILY INTO THE WATER SOMEWHERE WITHIN THE MIST. THE ONLY PASSAGE GOES BACK TOWARD THE SOUTH. YOU'RE AT RESERVOIR.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); **water source** (FILL BOTTLE here yields water)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2129,7 +2370,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2145,7 +2386,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT THE NORTHEAST END OF AN IMMENSE ROOM, EVEN LARGER THAN THE GIANT ROOM. IT APPEARS TO BE A REPOSITORY FOR THE "ADVENTURE" PROGRAM. MASSIVE TORCHES FAR OVERHEAD BATHE THE ROOM WITH SMOKY YELLOW LIGHT. SCATTERED ABOUT YOU CAN BE SEEN A PILE OF BOTTLES (ALL OF THEM EMPTY), A NURSERY OF YOUNG BEANSTALKS MURMURING QUIETLY, A BED OF OYSTERS, A BUNDLE OF BLACK RODS WITH RUSTY STARS ON THEIR ENDS, AND A COLLECTION OF BRASS LANTERNS. OFF TO ONE SIDE A GREAT MANY DWARVES ARE SLEEPING ON THE FLOOR, SNORING LOUDLY. A SIGN NEARBY READS: "DO NOT DISTURB THE DWARVES!" AN IMMENSE MIRROR IS HANGING AGAINST ONE WALL, AND STRETCHES TO THE OTHER END OF THE ROOM, WHERE VARIOUS OTHER SUNDRY OBJECTS CAN BE GLIMPSED DIMLY IN THE DISTANCE. YOU'RE AT NE END.
 
-**Canon exits (section 2):**
+**Properties (section 9):** **lit** (sunlit / always lit)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2161,12 +2404,14 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE AT THE SOUTHWEST END OF THE REPOSITORY. TO ONE SIDE IS A PIT FULL OF FIERCE GREEN SNAKES. ON THE OTHER SIDE IS A ROW OF SMALL WICKER CAGES, EACH OF WHICH CONTAINS A LITTLE SULKING BIRD. IN ONE CORNER IS A BUNDLE OF BLACK RODS WITH RUSTY MARKS ON THEIR ENDS. A LARGE NUMBER OF VELVET PILLOWS ARE SCATTERED ABOUT ON THE FLOOR. A VAST MIRROR STRETCHES OFF TO THE NORTHEAST. AT YOUR FEET IS A LARGE STEEL GRATE, NEXT TO WHICH IS A SIGN WHICH READS, "TREASURE VAULT. KEYS IN MAIN OFFICE." YOU'RE AT SW END.
 
-**Canon exits (section 2):**
+**Properties (section 9):** **lit** (sunlit / always lit)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `115` | `NE` | → room 115 |
-| `593` | `DOWN` | print msg #93 |
+| `593` | `DOWN` | print msg #93<br><small>↳ *"YOU CAN'T GO THROUGH A LOCKED STEEL GRATE!"*</small> |
 
 **Reached from:** 115 (SW)
 
@@ -2180,18 +2425,18 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE ON ONE SIDE OF A LARGE, DEEP CHASM. A HEAVY WHITE MIST RISING UP FROM BELOW OBSCURES ALL VIEW OF THE FAR SIDE. A SW PATH LEADS AWAY FROM THE CHASM INTO A WINDING CORRIDOR. YOU'RE ON SW SIDE OF CHASM.
 
-**Objects/NPCs placed here (canon section 5):** 32=CHASM, 33=TROLL
+**Objects/NPCs placed here (section 7):** 32=CHASM, 33=TROLL
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `118` | `SW` | → room 118 |
-| `233660` | `OVER/ACROSS/CROSS/NE` | if carrying or co-located with obj #33: print msg #160 |
-| `332661` | `OVER` | if prop(obj #32) ≠ 0: print msg #161 |
+| `233660` | `OVER/ACROSS/CROSS/NE` | if carrying or co-located with obj #33: print msg #160<br><small>↳ *"THE TROLL REFUSES TO LET YOU CROSS."*</small> |
+| `332661` | `OVER` | if prop(obj #32) ≠ 0: print msg #161<br><small>↳ *"THERE IS NO LONGER ANY WAY ACROSS THE CHASM."*</small> |
 | `303` | `OVER` | special routine 3 (Troll-bridge cross) |
 | `332021` | `JUMP` | if prop(obj #32) ≠ 0: → room 21 |
-| `596` | `JUMP` | print msg #96 |
+| `596` | `JUMP` | print msg #96<br><small>↳ *"I RESPECTFULLY SUGGEST YOU GO ACROSS THE BRIDGE INSTEAD OF JUMPING."*</small> |
 
 **Reached from:** 118 (UP)
 
@@ -2205,7 +2450,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A LONG WINDING CORRIDOR SLOPING OUT OF SIGHT IN BOTH DIRECTIONS. YOU'RE IN SLOPING CORRIDOR.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2222,14 +2467,14 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A SECRET CANYON WHICH EXITS TO THE NORTH AND EAST.
 
-**Objects/NPCs placed here (canon section 5):** 31=DRAGO, 62=RUG
+**Objects/NPCs placed here (section 7):** 31=DRAGO, 62=RUG
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `69` | `NORTH/OUT` | → room 69 |
-| `653` | `EAST/FORWARD` | print msg #153 |
+| `653` | `EAST/FORWARD` | print msg #153<br><small>↳ *"THE DRAGON LOOKS RATHER NASTY.	YOU'D BEST NOT TRY TO GET BY."*</small> |
 
 **Reached from:** 69 (SOUTH)
 
@@ -2243,7 +2488,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A SECRET CANYON WHICH EXITS TO THE NORTH AND EAST.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2258,12 +2503,12 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A SECRET CANYON WHICH EXITS TO THE NORTH AND EAST.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `74` | `EAST/OUT` | → room 74 |
-| `653` | `NORTH/FORWARD` | print msg #153 |
+| `653` | `NORTH/FORWARD` | print msg #153<br><small>↳ *"THE DRAGON LOOKS RATHER NASTY.	YOU'D BEST NOT TRY TO GET BY."*</small> |
 
 **Reached from:** 74 (WEST)
 
@@ -2277,14 +2522,16 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE ON THE FAR SIDE OF THE CHASM. A NE PATH LEADS AWAY FROM THE CHASM ON THIS SIDE. YOU'RE ON NE SIDE OF CHASM.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `123` | `NE` | → room 123 |
-| `233660` | `OVER/ACROSS/CROSS/SW` | if carrying or co-located with obj #33: print msg #160 |
+| `233660` | `OVER/ACROSS/CROSS/SW` | if carrying or co-located with obj #33: print msg #160<br><small>↳ *"THE TROLL REFUSES TO LET YOU CROSS."*</small> |
 | `303` | `OVER` | special routine 3 (Troll-bridge cross) |
-| `596` | `JUMP` | print msg #96 |
+| `596` | `JUMP` | print msg #96<br><small>↳ *"I RESPECTFULLY SUGGEST YOU GO ACROSS THE BRIDGE INSTEAD OF JUMPING."*</small> |
 | `124` | `FORK` | → room 124 |
 | `126` | `VIEW` | → room 126 |
 | `129` | `BARREN` | → room 129 |
@@ -2301,7 +2548,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU'RE IN A LONG EAST/WEST CORRIDOR. A FAINT RUMBLING NOISE CAN BE HEARD IN THE DISTANCE. YOU'RE IN CORRIDOR.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2320,7 +2569,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > THE PATH FORKS HERE. THE LEFT FORK LEADS NORTHEAST. A DULL RUMBLING SEEMS TO GET LOUDER IN THAT DIRECTION. THE RIGHT FORK LEADS SOUTHEAST DOWN A GENTLE SLOPE. THE MAIN CORRIDOR ENTERS FROM THE WEST. YOU'RE AT FORK IN PATH.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2340,7 +2591,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > THE WALLS ARE QUITE WARM HERE. FROM THE NORTH CAN BE HEARD A STEADY ROAR, SO LOUD THAT THE ENTIRE CAVE SEEMS TO BE TREMBLING. ANOTHER PASSAGE LEADS SOUTH, AND A LOW CRAWL GOES EAST. YOU'RE AT JUNCTION WITH WARM WALLS.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2358,15 +2611,17 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE ON THE EDGE OF A BREATH-TAKING VIEW. FAR BELOW YOU IS AN ACTIVE VOLCANO, FROM WHICH GREAT GOUTS OF MOLTEN LAVA COME SURGING OUT, CASCADING BACK DOWN INTO THE DEPTHS. THE GLOWING ROCK FILLS THE FARTHEST REACHES OF THE CAVERN WITH A BLOOD-RED GLARE, GIVING EVERY- THING AN EERIE, MACABRE APPEARANCE. THE AIR IS FILLED WITH FLICKERING SPARKS OF ASH AND A HEAVY SMELL OF BRIMSTONE. THE WALLS ARE HOT TO THE TOUCH, AND THE THUNDERING OF THE VOLCANO DROWNS OUT ALL OTHER SOUNDS. EMBEDDED IN THE JAGGED ROOF FAR OVERHEAD ARE MYRIAD TWISTED FORMATIONS COMPOSED OF PURE WHITE ALABASTER, WHICH SCATTER THE MURKY LIGHT INTO SINISTER APPARITIONS UPON THE WALLS. TO ONE SIDE IS A DEEP GORGE, FILLED WITH A BIZARRE CHAOS OF TORTURED ROCK WHICH SEEMS TO HAVE BEEN CRAFTED BY THE DEVIL HIMSELF. AN IMMENSE RIVER OF FIRE CRASHES OUT FROM THE DEPTHS OF THE VOLCANO, BURNS ITS WAY THROUGH THE GORGE, AND PLUMMETS INTO A BOTTOMLESS PIT FAR OFF TO YOUR LEFT. TO THE RIGHT, AN IMMENSE GEYSER OF BLISTERING STEAM ERUPTS CONTINUOUSLY FROM A BARREN ISLAND IN THE CENTER OF A SULFUROUS LAKE, WHICH BUBBLES OMINOUSLY. THE FAR RIGHT WALL IS AFLAME WITH AN INCANDESCENCE OF ITS OWN, WHICH LENDS AN ADDITIONAL INFERNAL SPLENDOR TO THE ALREADY HELLISH SCENE. A DARK, FOREBODING PASSAGE EXITS TO THE SOUTH. YOU'RE AT BREATH-TAKING VIEW.
 
-**Objects/NPCs placed here (canon section 5):** 37=VOLCA
+**Properties (section 9):** **lit** (sunlit / always lit); pirate-forbidden (won't enter unless following the player)
 
-**Canon exits (section 2):**
+**Objects/NPCs placed here (section 7):** 37=VOLCA
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
 | `125` | `SOUTH/PASSAGE/OUT` | → room 125 |
 | `124` | `FORK` | → room 124 |
-| `610` | `DOWN/JUMP` | print msg #110 |
+| `610` | `DOWN/JUMP` | print msg #110<br><small>↳ *"DON'T BE RIDICULOUS!"*</small> |
 
 **Reached from:** 122 (VIEW), 123 (VIEW), 124 (VIEW), 125 (NORTH/VIEW), 127 (VIEW), 128 (VIEW), 129 (VIEW), 130 (VIEW)
 
@@ -2380,9 +2635,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A SMALL CHAMBER FILLED WITH LARGE BOULDERS. THE WALLS ARE VERY WARM, CAUSING THE AIR IN THE ROOM TO BE ALMOST STIFLING FROM THE HEAT. THE ONLY EXIT IS A CRAWL HEADING WEST, THROUGH WHICH IS COMING A LOW RUMBLING. YOU'RE IN CHAMBER OF BOULDERS.
 
-**Objects/NPCs placed here (canon section 5):** 63=SPICE
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player)
 
-**Canon exits (section 2):**
+**Objects/NPCs placed here (section 7):** 63=SPICE
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2400,7 +2657,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE WALKING ALONG A GENTLY SLOPING NORTH/SOUTH PASSAGE LINED WITH ODDLY SHAPED LIMESTONE FORMATIONS. YOU'RE IN LIMESTONE PASSAGE.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2418,7 +2677,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE STANDING AT THE ENTRANCE TO A LARGE, BARREN ROOM. A SIGN POSTED ABOVE THE ENTRANCE READS: "CAUTION! BEAR IN ROOM!" YOU'RE IN FRONT OF BARREN ROOM.
 
-**Canon exits (section 2):**
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player)
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2437,9 +2698,11 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE INSIDE A BARREN ROOM. THE CENTER OF THE ROOM IS COMPLETELY EMPTY EXCEPT FOR SOME DUST. MARKS IN THE DUST LEAD AWAY TOWARD THE FAR END OF THE ROOM. THE ONLY EXIT IS THE WAY YOU CAME IN. YOU'RE IN BARREN ROOM.
 
-**Objects/NPCs placed here (canon section 5):** 35=BEAR, 64=CHAIN
+**Properties (section 9):** dark (requires lamp); pirate-forbidden (won't enter unless following the player)
 
-**Canon exits (section 2):**
+**Objects/NPCs placed here (section 7):** 35=BEAR, 64=CHAIN
+
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2457,7 +2720,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF TWISTING LITTLE PASSAGES, ALL DIFFERENT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2482,7 +2745,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A LITTLE MAZE OF TWISTY PASSAGES, ALL DIFFERENT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2507,7 +2770,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A TWISTING MAZE OF LITTLE PASSAGES, ALL DIFFERENT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2532,7 +2795,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A TWISTING LITTLE MAZE OF PASSAGES, ALL DIFFERENT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2557,7 +2820,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A TWISTY LITTLE MAZE OF PASSAGES, ALL DIFFERENT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2582,7 +2845,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A TWISTY MAZE OF LITTLE PASSAGES, ALL DIFFERENT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2607,7 +2870,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A LITTLE TWISTY MAZE OF PASSAGES, ALL DIFFERENT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2632,7 +2895,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF LITTLE TWISTING PASSAGES, ALL DIFFERENT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2657,7 +2920,7 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > YOU ARE IN A MAZE OF LITTLE TWISTY PASSAGES, ALL DIFFERENT.
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
@@ -2682,9 +2945,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 > DEAD END
 
-**Objects/NPCs placed here (canon section 5):** 38=MACHI
+**Objects/NPCs placed here (section 7):** 38=MACHI
 
-**Canon exits (section 2):**
+**Canon exits (section 3):**
 
 | Dest | Verbs | Decoded |
 |---|---|---|
