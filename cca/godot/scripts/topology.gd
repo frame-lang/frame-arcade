@@ -185,7 +185,11 @@ const ROOMS: Dictionary = {
     # Plover Room — canon 100. West to alcove (99) via tight
     # tunnel (gated on emerald-only inventory); north to Dark-room
     # (port-direction; canon NE). PLOVER chant teleports to 33.
-    100: {"north": 101, "west": 99},
+    # Plover Room — canon 100. Canon `100 99 44` (W→99 via tight
+    # tunnel, gated by squeeze), `100 33 71` (PLOVER→33), and
+    # `100 101 47 22` (NE→101 the Dark-room, gated by emerald).
+    # Special-handler row 159302 is the PLOVER teleport variant.
+    100: {"west": 99, "ne": 101, "plover": 33},
     # Canon 41 = West End of Hall of Mists. Canon `41 42 46 29 23 56`
     # (S/UP/PASSAGE/CLIMB→42), `41 27 43` (E→27), `41 59 45`
     # (N→59), `41 60 44 17` (W/CRAWL→60).
@@ -233,9 +237,16 @@ const ROOMS: Dictionary = {
     # Deep cave loop — accessible after crossing troll bridge.
     # Linear chain east-west with each room hosting a treasure.
     120: {"west": 118, "east": 97},
-    97:  {"west": 120, "east": 92, "north": 39},                         # Oriental Room (canon 97) — vase
-    92:  {"west": 97, "east": 95},                                       # Giant Room (canon 92) — eggs
-    95:  {"west": 92, "east": 131},                                      # Magnificent Cavern (canon 95) — trident, waterfall
+    # Canon 97 (Oriental Room, vase home): `97 66 48` (SE→66),
+    # `97 72 44 17` (W/CRAWL→72), `97 98 29 45 73` (UP/N/CAVERN→98).
+    97:  {"se": 66, "west": 72, "crawl": 72, "up": 98, "north": 98,
+          "cavern": 98},
+    # Canon 92 (Giant Room, eggs home): `92 88 46` (S→88),
+    # `92 93 43` (E→93), `92 94 45` (N→94).
+    92:  {"south": 88, "east": 93, "north": 94},
+    # Canon 95 (Magnificent Cavern, trident): `95 94 46 11`
+    # (S/OUT→94), `95 92 27` (GIANT→92), `95 91 44` (W→91).
+    95:  {"south": 94, "out": 94, "giant": 92, "west": 91},
     # Canon 2nd maze (131-139): "twisty maze, all DIFFERENT". Canon
     # gives each room 10 exits to siblings + entry points 107 / 112,
     # with directions deliberately scrambled so a player can't tell
@@ -540,18 +551,33 @@ const ROOMS: Dictionary = {
     # Canon 90 (transition msg "climb up plant out"): `90 23 1`
     # bounces to 23; explicit OUT/UP/BACK→23.
     90:  {"out": 23, "up": 23, "back": 23},
-    91:  {"west": 90, "north": 93},                                      # Different soft passage
-    93:  {"south": 91, "east": 94},                                      # Different fissure
-    94:  {"west": 93},                                                   # Treasury (dead-end)
+    # Canon 91 (Steep incline above large room): `91 95 45 73 23`
+    # (N/CAVERN/PASSAGE→95), `91 72 30 56` (DOWN/CLIMB→72).
+    91:  {"north": 95, "cavern": 95, "passage": 95,
+          "down": 72, "climb": 72},
+    # Canon 93 (Cave-in, blocking N from Giant Room): `93 92 46 27 11`
+    # (S/GIANT/OUT→92).
+    93:  {"south": 92, "giant": 92, "out": 92},
+    # Canon 94 (Immense N/S passage): `94 92 46 27 23` (S/GIANT/
+    # PASSAGE→92), `94 611 45` (special), `94 309095 45 3 73`
+    # (N/CAVERN/ENTER→canon 95 with conditional).
+    94:  {"south": 92, "giant": 92, "passage": 92, "north": 95},
     # 96-99: canon forest grid surrounding the road/valley.
     # All four are canonical (advent.dat "different forest, NE/SW/SE/NW").
-    96: {"south": 5},                                      # Forest NE-of-road
-    98: {"west": 99},                                     # Forest SE/SW
+    # Canon 96 (Soft Room): `96 66 44 11` (W/OUT→66).
+    96:  {"west": 66, "out": 66},
+    # Canon 98 (Wide path around large cavern): `98 97 46 72`
+    # (S/ORIENTAL→97), `98 99 44` (W→99).
+    98:  {"south": 97, "oriental": 97, "west": 99},
     # Canon: 99 (alcove) is connected EAST to 100 (Plover Room)
     # via a tight crawl gated on inventory. The forest connection
     # to 98 moves to the canon "down" direction so both routes can
     # coexist in a single-direction-key topology.
-    99: {"east": 100, "down": 98},                                       # Alcove — east to Plover via tight tunnel
+    # Alcove — canon 99. Canon `99 98 50 73` (NW/CAVERN→98),
+    # `99 100 43` (E→100 via tight tunnel, gated by squeeze).
+    # Special-handler row 301 is the squeeze "drop everything"
+    # branch handled by GATES.
+    99: {"east": 100, "nw": 98, "cavern": 98},
     # 108, 115, 116: pre-repository corridor.
     # Threads from snake passage / rear of dragon area into the
     # endgame approach.
