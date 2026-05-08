@@ -28,6 +28,7 @@ var label_title: Label
 var label_subtitle: Label
 var game_labels: Array = []          # one Label per game (title)
 var score_labels: Array = []         # one Label per game (high-score)
+var label_cursor: Label              # the ">" pointer; moves vertically with selection
 var label_blurb: Label
 var label_help: Label
 
@@ -104,9 +105,26 @@ func _build_ui() -> void:
     canvas.add_child(label_subtitle)
 
     # Game list — two labels per row (title left, score right).
+    # The selection cursor (">") is a separate Label whose y-
+    # position moves with `selected_index`. Keeping the cursor
+    # OUT of the title text means the title-x never shifts as
+    # selection changes (proportional fonts make `>` and ` `
+    # different widths, so any cursor-in-text scheme jumps
+    # horizontally on every up/down).
     var games: Array = Arcade.GAMES
     var list_top: float = 170.0
     var row_height: float = 36.0
+
+    label_cursor = Label.new()
+    label_cursor.text = ">"
+    label_cursor.add_theme_font_size_override("font_size", 22)
+    label_cursor.add_theme_color_override("font_color", Color(1.0, 0.95, 0.2))
+    label_cursor.position = Vector2(CARD_LEFT - 24, list_top)
+    label_cursor.size = Vector2(20, row_height)
+    label_cursor.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    label_cursor.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    label_cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    canvas.add_child(label_cursor)
     for i in range(games.size()):
         var row_y: float = list_top + i * row_height
 
@@ -295,6 +313,7 @@ func _set_list_visible(visible: bool) -> void:
         lbl.visible = visible
     for lbl in score_labels:
         lbl.visible = visible
+    label_cursor.visible = visible
     label_blurb.visible = visible
     label_help.visible = visible
 
@@ -306,7 +325,7 @@ func _refresh_save_prompt() -> void:
     lines.append("A saved run was found.")
     lines.append("")
     for i in range(_SAVE_PROMPT_OPTIONS.size()):
-        var prefix: String = "▸  " if i == _save_prompt_selection else "    "
+        var prefix: String = ">   " if i == _save_prompt_selection else "    "
         lines.append(prefix + _SAVE_PROMPT_OPTIONS[i])
     lines.append("")
     lines.append("↑/↓ select    Enter confirm    Esc cancel")
@@ -347,13 +366,20 @@ func _refresh_quit_prompt() -> void:
     label_prompt.text = "\n".join(lines)
 
 func _refresh_selection() -> void:
+    # Title text is identical for every row so the x-position
+    # of the title never shifts. Selection is shown via:
+    #   1. yellow font_color on the selected row
+    #   2. the separate `label_cursor` ">" moving to the
+    #      selected row's y (no horizontal motion)
+    var list_top: float = 170.0
+    var row_height: float = 36.0
+    label_cursor.position = Vector2(CARD_LEFT - 24, list_top + selected_index * row_height)
     for i in range(game_labels.size()):
         var entry: Dictionary = Arcade.GAMES[i]
+        game_labels[i].text = entry.title
         if i == selected_index:
-            game_labels[i].text = "▸  " + entry.title
             game_labels[i].add_theme_color_override("font_color", Color(1.0, 0.95, 0.2))
         else:
-            game_labels[i].text = "    " + entry.title
             game_labels[i].add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
     label_blurb.text = Arcade.GAMES[selected_index].blurb
 

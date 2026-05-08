@@ -470,7 +470,7 @@ func _update_labels() -> void:
         lines.append("PAUSED")
         lines.append("")
         for i in range(_PAUSE_OPTIONS.size()):
-            var prefix: String = "▸  " if i == _pause_selection else "    "
+            var prefix: String = ">  " if i == _pause_selection else "    "
             lines.append(prefix + _PAUSE_OPTIONS[i])
         lines.append("")
         lines.append("↑/↓ select    Enter confirm    Esc resume")
