@@ -25,3 +25,11 @@ window/size/window_width_override=1280
 window/size/window_height_override=960
 window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
+
+[rendering]
+
+; Required for the macOS arm64 / universal export — Godot's
+; mac export refuses to build for Apple Silicon unless this
+; flag is set, even though the cabinet uses no textures that
+; would actually need ETC2/ASTC compression.
+textures/vram_compression/import_etc2_astc=true
