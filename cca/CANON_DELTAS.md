@@ -24,7 +24,23 @@ revision replaces it with verified data.**
 
 ---
 
-## Status (2026-05-08) — original deltas closed, deeper layer in progress
+## Status (2026-05-08) — superseded by `CANON_FULL_AUDIT.md`
+
+**This file is now historical.** The authoritative gap inventory and
+implementation roadmap have moved to:
+
+- [`CANON_FULL_AUDIT.md`](CANON_FULL_AUDIT.md) — every canon mechanic
+  with port status (✓ / 🟡 / 🔴 / ⚪), built on top of the canon
+  source-of-truth references at `cca/canon/ADVENT_FOR_INVENTORY.md`
+  (FORTRAN interpreter inventory) and `cca/canon/ADVENT_DAT_INVENTORY.md`
+  (data file inventory).
+- [`CANON_FULL_PLAN.md`](CANON_FULL_PLAN.md) — dependency-ordered
+  12-phase implementation plan to drive every gap to ✓ or
+  user-signed-off ⚪.
+
+The rest of this file remains as the original 2026-05 architectural-
+delta closeout — useful for understanding the historical work that
+got the port to its current 38/38 architectural-conformance state.
 
 `tests/test_cca_canon.gd` is the live architectural-conformance
 dashboard. It runs every checkin and currently reports:

@@ -1,8 +1,15 @@
 # CCA — TODO
 
-Pending non-canon work. Canon-fidelity gaps live in
-[`CANON_DELTAS.md`](CANON_DELTAS.md) and the conditional-row
-dashboard ([`tests/test_cca_conditional.gd`](tests/test_cca_conditional.gd)).
+Pending non-canon work. **The authoritative canon-fidelity gap inventory
+is now [`CANON_FULL_AUDIT.md`](CANON_FULL_AUDIT.md), and the
+implementation roadmap is [`CANON_FULL_PLAN.md`](CANON_FULL_PLAN.md)** —
+both built on top of `cca/canon/ADVENT_FOR_INVENTORY.md` and
+`cca/canon/ADVENT_DAT_INVENTORY.md` (the full canon source-of-truth
+references).
+
+Older delta docs (`CANON_DELTAS.md`, the conditional-row dashboard at
+[`tests/test_cca_conditional.gd`](tests/test_cca_conditional.gd)) remain as
+historical record and live coverage probes.
 
 ---
 
