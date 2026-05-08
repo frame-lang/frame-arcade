@@ -219,7 +219,13 @@ const ROOMS: Dictionary = {
     # `50 49 44` (W→49), `50 51 30` (DOWN→51), `50 52 46` (S→52).
     50:  {"east": 44, "west": 49, "down": 51, "south": 52},
     71:  {"west": 47, "north": 65},
-    65:  {"south": 71, "east": 117, "west": 33, "north": 72, "down": 130}, # Bedquilt (canon 65) — down to canon 130 (Barren Room, bear)
+    # Bedquilt — canon 65. Canon `65 64 43` (E→64), `65 66 44`
+    # (W→66), `65 68 61` (SLAB→68), `65 39 29` (UP→39),
+    # `65 71 45` (N→71), `65 106 30` (DOWN→106). Plus several
+    # canon special-handler rows (80556 etc.) for randomized
+    # branches we don't fully model.
+    65:  {"east": 64, "west": 66, "slab": 68, "up": 39,
+          "north": 71, "down": 106},
     117: {"west": 65, "east": 118},          # troll-east gated below
     118: {"west": 117, "east": 120},
     # Deep cave loop — accessible after crossing troll bridge.
@@ -274,7 +280,13 @@ const ROOMS: Dictionary = {
     # Special-handler rows 27 312596/412021/412597 are the
     # fall-into-pit conditional cases handled engine-side.
     27:  {"north": 40, "west": 41, "over": 17},
-    69:  {"west": 17},                            # hall of mirrors (across)
+    # Canon 69 = secret N/S canyon above a large room. Canon
+    # `69 68 30 61` (DOWN/SLAB→68), `69 119 46` (S→119),
+    # `69 109 45` (N→109), `69 113 75` (RESERVOIR→113). The
+    # special-handler row 331120 is a randomized branch.
+    # Port-only "west: 17" hall-of-mirrors removed.
+    69:  {"down": 68, "slab": 68, "south": 119, "north": 109,
+          "reservoir": 113},
     # Mist + King hall + two-pit + plant + slab area. Hangs off
     # the top of small pit (14) via a stone staircase down. The
     # Hall of Mists (15) is the regional hub; King Hall (19) is
@@ -436,14 +448,37 @@ const ROOMS: Dictionary = {
     # (N/DOWN/HOLE→62).
     60:  {"east": 41, "up": 41, "crawl": 41, "west": 61,
           "north": 62, "down": 62, "hole": 62},
-    61:  {"west": 59, "east": 64},
-    62: {"south": 59},
-    63:  {"west": 60, "east": 64},
-    64: {"west": 63, "east": 66},
+    # Canon 61 (long featureless hall west end): `61 60 43`
+    # (E→60), `61 62 45` (N→62). Special-handler 100107 is
+    # the randomized "lost in maze" branch.
+    61:  {"east": 60, "north": 62},
+    # Canon 62 (high N/S + low E/W crossover): `62 60 44`
+    # (W→60), `62 63 45` (N→63), `62 30 43` (E→30 west side
+    # chamber Mt King), `62 61 46` (S→61).
+    62:  {"west": 60, "north": 63, "east": 30, "south": 61},
+    # Canon 63 (DEAD END): `63 62 46 11` (S/OUT→62).
+    63:  {"south": 62, "out": 62},
+    # Canon 64 (complex junction): `64 39 29 56 59` (UP/CLIMB/
+    # ROOM→39), `64 65 44 70` (W/BEDQUILT→65), `64 103 45 74`
+    # (N/SHELL→103), `64 106 43` (E→106).
+    64:  {"up": 39, "climb": 39, "room": 39, "west": 65,
+          "bedquilt": 65, "north": 103, "shell": 103, "east": 106},
     # --- Witt's End trio (66-68) ---
-    66:  {"west": 64, "east": 67, "down": 68},
-    67:  {"west": 66},                                                   # Witt's End — apparent dead-end
-    68:  {"up": 66},                                                     # Bottom of polished cone
+    # Canon 66 (swiss cheese room): `66 65 47` (NE→65), `66 67 44`
+    # (W→67), `66 77 25` (CANYON→77), `66 96 43` (E→96),
+    # `66 97 72` (ORIENTAL→97). Special 50556/80556 are
+    # randomized branches.
+    66:  {"ne": 65, "west": 67, "canyon": 77, "east": 96, "oriental": 97},
+    # Canon 67 (east end of TwoPit room): `67 66 43` (E→66),
+    # `67 23 44 42` (W/ACROSS→23), `67 24 30 31` (DOWN/PIT→24).
+    67:  {"east": 66, "west": 23, "across": 23, "down": 24, "pit": 24},
+    # Canon 68 (large low circular slab room): `68 23 46`
+    # (S→23), `68 69 29 56` (UP/CLIMB→69), `68 65 45` (N→65).
+    68:  {"south": 23, "up": 69, "climb": 69, "north": 65},
+    # Canon 70 (secret canyon above sizable passage): `70 71 45`
+    # (N→71), `70 65 30 23` (DOWN/PASSAGE→65), `70 111 46`
+    # (S→111).
+    70:  {"north": 71, "down": 65, "passage": 65, "south": 111},
     # --- Phase E: Bedquilt extensions, reservoir, treasury,
     # cliff-and-ladder descent, post-cave outdoors, forest grid ---
     # 72-86: deeper passages, soft room, reservoir, barren room.
