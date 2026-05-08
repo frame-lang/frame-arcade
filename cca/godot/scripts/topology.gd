@@ -186,7 +186,38 @@ const ROOMS: Dictionary = {
     # tunnel (gated on emerald-only inventory); north to Dark-room
     # (port-direction; canon NE). PLOVER chant teleports to 33.
     100: {"north": 101, "west": 99},
-    47:  {"west": 33, "east": 71, "up": 44}, # snake-east gated; up to secret canyon side branch
+    # Canon 41 = West End of Hall of Mists. Canon `41 42 46 29 23 56`
+    # (S/UP/PASSAGE/CLIMB→42), `41 27 43` (E→27), `41 59 45`
+    # (N→59), `41 60 44 17` (W/CRAWL→60).
+    41:  {"south": 42, "up": 42, "passage": 42, "climb": 42,
+          "east": 27, "north": 59, "west": 60, "crawl": 60},
+    # Canon 42 = "ALIKE" maze room. Canon `42 41 29` (UP→41),
+    # `42 42 45` (N→42 self loop), `42 43 43` (E→43),
+    # `42 45 46` (S→45), `42 80 44` (W→80).
+    42:  {"up": 41, "north": 42, "east": 43, "south": 45, "west": 80},
+    # Canon 43 = "ALIKE" maze room. `43 42 44` (W→42),
+    # `43 44 46` (S→44), `43 45 43` (E→45).
+    43:  {"west": 42, "south": 44, "east": 45},
+    # Canon 44 = "ALIKE" maze room. `44 43 43` (E→43),
+    # `44 48 30` (DOWN→48), `44 50 46` (S→50), `44 82 45` (N→82).
+    44:  {"east": 43, "down": 48, "south": 50, "north": 82},
+    # Canon 45 = "ALIKE" maze room. `45 42 44` (W→42),
+    # `45 43 45` (N→43), `45 46 43` (E→46), `45 47 46` (S→47),
+    # `45 87 29 30` (UP/DOWN→87).
+    45:  {"west": 42, "north": 43, "east": 46, "south": 47,
+          "up": 87, "down": 87},
+    # Canon 46 = DEAD END. `46 45 44 11` (W/OUT→45).
+    46:  {"west": 45, "out": 45},
+    # Canon 47 = DEAD END. `47 45 43 11` (E/OUT→45).
+    47:  {"east": 45, "out": 45},
+    # Canon 48 = DEAD END. `48 44 29 11` (UP/OUT→44).
+    48:  {"up": 44, "out": 44},
+    # Canon 49 = "ALIKE" maze room. `49 50 43` (E→50),
+    # `49 51 44` (W→51).
+    49:  {"east": 50, "west": 51},
+    # Canon 50 = "ALIKE" maze room. `50 44 43` (E→44),
+    # `50 49 44` (W→49), `50 51 30` (DOWN→51), `50 52 46` (S→52).
+    50:  {"east": 44, "west": 49, "down": 51, "south": 52},
     71:  {"west": 47, "north": 65},
     65:  {"south": 71, "east": 117, "west": 33, "north": 72, "down": 130}, # Bedquilt (canon 65) — down to canon 130 (Barren Room, bear)
     117: {"west": 65, "east": 118},          # troll-east gated below
@@ -350,13 +381,11 @@ const ROOMS: Dictionary = {
     # `39 65 70` (BEDQUILT→65).
     39:  {"east": 36, "passage": 36, "down": 64, "hole": 64,
           "floor": 64, "bedquilt": 65},
-    101: {"south": 100, "out": 100, "north": 43},                       # Dark-room — canon 101 (pyramid home)
-    43:  {"south": 101, "north": 44},                                    # Wide place
-    44:  {"south": 43, "north": 45, "down": 47},                         # Secret canyon
-    45:  {"south": 44, "east": 46},                                      # Tight place
-    46:  {"west": 45, "east": 48},                                       # Tall E/W passage
-    48:  {"west": 46, "east": 49},                                       # Boulders cluster
-    49:  {"west": 48},                                                   # Limestone passage (dead-end)
+    # Dark-room — canon 101 (pyramid home). Canon `101 100 46 71 11`
+    # (S/PLOVER/OUT→100). PLOVER chant handled by MagicWordTeleport.
+    101: {"south": 100, "out": 100},
+    # Rooms 43-50 already canon-aligned above as part of the
+    # "secret canyon / first maze" cluster.
     # --- Maze of twisty little passages, all alike (50-57) ---
     # All
     # 8 rooms share the same description ("a maze of twisty
@@ -369,14 +398,8 @@ const ROOMS: Dictionary = {
     # exit returns to room 204 (the way back out). Some
     # directions are missing to create dead-end "you can't go
     # that way" branches.
-    50: {"north": 51, "south": 52, "west": 53},
-    51:  {"north": 54, "south": 55, "west": 50},
-    52:  {"east": 56, "north": 57, "south": 50},
-    53:  {"east": 51, "south": 54},
-    54:  {"north": 50, "east": 56},
-    55:  {"east": 51, "south": 57},
-    56:  {"west": 52, "north": 54},
-    57:  {"north": 55, "south": 53, "east": 50},
+    # Room 50 already canon-aligned above. Rooms 51-57 will be
+    # rewritten in the next batch (canon `^5N\t` rows).
     # --- Rooms 58-64: assorted passages (canon 58 = DEAD END,
     # 59 = parallel low passage, 60-61 = long featureless hall,
     # 62 = crossover, 63 = DEAD END, 64 = complex junction). ---
