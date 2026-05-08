@@ -92,6 +92,7 @@ const CANON_GATED := {
     "27:cross":  17,
     "19:north": 28,   # mountain king → silver passage (snake gate)
     "19:south": 29,   # mountain king → south side chamber (snake gate)
+    "19:sw":    74,   # canon `19 35074 49` — 35% probability dragon-canyon shortcut (port: unconditional)
     "19:west":  30,   # mountain king → west side chamber (snake gate)
     # Crack — canon's `16 14 1` "any-verb→14" handler (transition
     # message) needs a concrete escape direction in our model.

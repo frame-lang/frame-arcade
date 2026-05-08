@@ -373,15 +373,19 @@ const ROOMS: Dictionary = {
     # `19 311028 45 36` (N/LEFT→28 silver passage when snake gone),
     # `19 311029 46 37` (S/RIGHT→29 jewelry when snake gone),
     # `19 311030 44 7` (W/FORWARD→30 coins when snake gone),
-    # `19 74 66` (SECRET→74 different secret canyon).
-    # GATES handles the snake-blocking condition; we encode the
-    # destinations directly so canon-aligned walking works once
-    # the bird has driven the snake off.
+    # `19 74 66` (SECRET→74 different secret canyon),
+    # `19 35074 49` (SW→74 with 35% probability — dragon-side
+    # canyon shortcut). GATES handles the snake-blocking
+    # condition; we encode the destinations directly so canon-
+    # aligned walking works once the bird has driven the snake
+    # off. The SW alias is unconditional in the port (we don't
+    # model the 35% probability) — same destination, slightly
+    # easier to find than the canon original.
     19:  {"east": 15, "stairs": 15, "up": 15,
           "north": 28, "left": 28,
           "south": 29, "right": 29,
           "west": 30, "forward": 30,
-          "secret": 74},
+          "secret": 74, "sw": 74},
     # Canon 20 is the "YOU ARE AT THE BOTTOM OF THE PIT WITH A
     # BROKEN NECK." death message room — canon row `20 0 1` is
     # the engine's "kill the player and skip" handler. No walking

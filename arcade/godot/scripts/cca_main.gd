@@ -410,7 +410,7 @@ var room_exits: Dictionary = {
           "north": 28, "left": 28,
           "south": 29, "right": 29,
           "west": 30, "forward": 30,
-          "secret": 74},
+          "secret": 74, "sw": 74},      # canon `19 35074 49` SW alias
     # Canon 20 is the "YOU ARE AT THE BOTTOM OF THE PIT WITH A
     # BROKEN NECK." death message room — canon row `20 0 1` is
     # the engine's "kill the player and skip" handler. No walking
