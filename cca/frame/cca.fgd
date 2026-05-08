@@ -4544,6 +4544,22 @@
                 self.bird.vanish()
                 self.player.drop(self.BIRD_ID)
                 plover_bird_msg = "As you start to chant, the magic of the Plover Room flares around the little bird in your hand. There is a brief, brilliant flash, and the bird is gone. "
+            # Canon clam carry-state branch at the Shell Room
+            # (canon 103). Going SOUTH with the clam (or oyster)
+            # in inventory canonically fails with msg #118 / #119
+            # because the five-foot shellfish doesn't fit through
+            # the narrow passage to canon 64. Other 103 exits
+            # (UP/DOWN/HALL/SHELL) proceed normally — only SOUTH
+            # is gated. Without this hook the player can carry
+            # the clam down an exit canon explicitly forbids.
+            #   canon `103 114618 46` → toting CLAM, msg 118
+            #   canon `103 115619 46` → toting OYSTER, msg 119
+            var here: int = self.player.get_room()
+            if here == 103 and dest == 64:
+                if self.player.carrying(self.CLAM_ID):
+                    return "You can't fit this five-foot clam through that little passage!"
+                if self.player.carrying(self.OYSTER_ID):
+                    return "You can't fit this five-foot oyster through that little passage!"
             if dest > 0:
                 self.player.move_to(dest)
             else:

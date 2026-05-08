@@ -77,6 +77,14 @@ const FSM_HANDLED := {
     "31:xyzzy":  "MagicWordTeleport (cca.fgd) — XYZZY 11 ↔ 3",
     "33:plugh":  "MagicWordTeleport (cca.fgd) — PLUGH 33 ↔ 3",
     "100:plugh": "MagicWordTeleport (cca.fgd) — PLUGH 100 ↔ 33",
+    # Clam carry-state branches at the Shell Room (canon 103).
+    # Adventure._verb_move (cca.fgd) checks for CLAM/OYSTER in
+    # inventory before the move and emits the canon msg #118 /
+    # #119 squeeze bumper without moving. Both 103-south rows
+    # in canon section 2 (114618 / 115619) collapse to the same
+    # port key because the gate is keyed on the move attempt;
+    # the message branch is internal.
+    "103:south": "Adventure._verb_move (cca.fgd) — clam/oyster squeeze at canon 103",
 }
 
 func _init():
