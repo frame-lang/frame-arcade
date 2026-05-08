@@ -85,6 +85,7 @@ const CANON_GATED := {
     "26:back":  88,
     "32:out":   19,   # snake-block message → bounce to 19
     "32:south": 19,
+    "32:back":  19,
     "40:out":   41,   # passage parallel to mists → bounce to 41
     "40:east":  41,
     "40:west":  41,
