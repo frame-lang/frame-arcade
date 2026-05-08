@@ -809,93 +809,85 @@ func _stages() -> Array:
             "asserts":    _assert_treasures_deposited(10),
             "checkpoint": "after_batch_a",
         },
-        # ----- Batch B: chest (deep cave) + spices (canon 127) + pyramid (canon 101) -----
-        # Three separate excursions on canonical homes:
-        #   - chest: pirate's stash at canon 18 (low room w/ steps note)
-        #   - spices: anteroom-to-volcano-to-boulders chain → 127
-        #   - pyramid: PLOVER round-trip → 100 → north → 101
-        # Chest excursion path: 3 → plugh → 33 → north 14 → down 15
-        # → south 18. Take chest. End at 18.
+        # ----- Batch B: chest (canon 18) + spices (canon 127) + pyramid (canon 101) -----
+        # Three excursions, each rooted at the well house:
+        #   - chest: 3 → 33 → E → 34 → UP → 15 → S → 18.
+        #   - spices: 3 → 33 → S → 28 → D → 36 → bedquilt → 65 →
+        #     W → 66 → oriental → 97 → W → 72 → SW → 118 → UP →
+        #     117 (troll vanished, bridge open) → OVER → 122 →
+        #     FORK → 124 → NE → 125 → E → 127.
+        #   - pyramid: 3 → 33 → PLOVER → 100 → N → 101.
         {
             "name":       "deep_cave_batch_b_takes",
             "from":       "after_batch_a",
             "actions":    [
-                # Canon: chest is dynamic — spawned by the
-                # pirate. The pirate's first roll isn't seeded
-                # to fire by this point in the test, so use the
-                # spawn_chest test rig to materialise it now.
+                # Canon: chest is dynamic — the pirate spawns
+                # it at canon 18 once it has stolen something.
+                # The pirate's roll isn't seeded to fire this
+                # early in the run, so we use the spawn_chest
+                # test rig to plant it at the canonical home.
                 ["spawn_chest", ""],
-                ["plugh", ""],          # 3 → 33 (Y2)
-                ["go", "north"],        # 33 → 14 (top of small pit)
-                ["go", "down"],         # 14 → 15 (Hall of Mists east end)
-                ["go", "south"],        # 15 → 18 (low room, canon stash)
+                ["plugh", ""],             # 3 → 33
+                ["go", "east"],            # 33 → 34
+                ["go", "up"],              # 34 → 15
+                ["go", "south"],           # 15 → 18 (low room, canon stash)
                 ["take", "chest"],
             ],
             "asserts":    _assert_batch_b_partial_carried,
             "checkpoint": "carrying_batch_b",
         },
-        # End of batch_b takes: at 18 with chest only. Reverse to
-        # well house, drop chest, then two more excursions for
-        # spices (canon 127) and pyramid (canon 101).
-        # Spices excursion path: 3 → plugh → 33 → west 65 → north
-        # 72 → north 73 → down 74 → north 75 → north 76 → north 77
-        # → east 78 → north 87 → down 119 → down 121 → north 123
-        # → north 126 → north 127. Take spices, then reverse the
-        # 14 commands back to 33, plugh → 3.
+        # Drop chest at 3, then two more excursions: spices
+        # (canon 127, via troll bridge + anteroom cluster) and
+        # pyramid (canon 101, PLOVER round trip).
         {
             "name":       "deposit_batch_b",
             "from":       "carrying_batch_b",
             "actions":    [
-                # Walk back from 18 → 3 (north 18 → 15, up 15 → 14,
-                # south 14 → 33, plugh 33 → 3).
+                # 18 → 3: 18 → N → 15 → N → 19 (snake gone) → N
+                # → 28 → N → 33 → plugh.
                 ["go", "north"],           # 18 → 15
-                ["go", "up"],              # 15 → 14
-                ["go", "south"],           # 14 → 33
+                ["go", "north"],           # 15 → 19
+                ["go", "north"],           # 19 → 28
+                ["go", "north"],           # 28 → 33
                 ["plugh", ""],             # 33 → 3
                 ["drop", "chest"],
-                # Spices excursion: 3 → 33 → 65 → 72 → 73 → 74 →
-                # 75 → 76 → 77 → 78 → 87 → 119 → 121 → 123 → 126
-                # → 127.
+                # --- Spices via the canon anteroom cluster ---
                 ["plugh", ""],             # 3 → 33
-                ["go", "west"],            # 33 → 65
-                ["go", "north"],           # 65 → 72
-                ["go", "north"],           # 72 → 73
-                ["go", "down"],            # 73 → 74
-                ["go", "north"],           # 74 → 75
-                ["go", "north"],           # 75 → 76
-                ["go", "north"],           # 76 → 77
-                ["go", "east"],            # 77 → 78
-                ["go", "north"],           # 78 → 87
-                ["go", "down"],            # 87 → 119
-                ["go", "down"],            # 119 → 121
-                ["go", "north"],           # 121 → 123
-                ["go", "north"],           # 123 → 126
-                ["go", "north"],           # 126 → 127 (Chamber of Boulders)
+                ["go", "south"],           # 33 → 28
+                ["go", "down"],            # 28 → 36
+                ["go", "bedquilt"],        # 36 → 65
+                ["go", "west"],            # 65 → 66
+                ["go", "oriental"],        # 66 → 97
+                ["go", "west"],            # 97 → 72
+                ["go", "sw"],              # 72 → 118
+                ["go", "up"],              # 118 → 117 (troll bridge — vanished)
+                ["go", "over"],            # 117 → 122 (R_NESIDE)
+                ["go", "fork"],            # 122 → 124
+                ["go", "ne"],              # 124 → 125
+                ["go", "east"],            # 125 → 127 (Chamber of Boulders)
                 ["take", "spices"],
-                # Reverse to 3.
-                ["go", "south"],           # 127 → 126
-                ["go", "south"],           # 126 → 123
-                ["go", "south"],           # 123 → 121
-                ["go", "up"],              # 121 → 119
-                ["go", "up"],              # 119 → 87
-                ["go", "south"],           # 87 → 78
-                ["go", "west"],            # 78 → 77
-                ["go", "south"],           # 77 → 76
-                ["go", "south"],           # 76 → 75
-                ["go", "south"],           # 75 → 74
-                ["go", "up"],              # 74 → 73
-                ["go", "south"],           # 73 → 72
-                ["go", "south"],           # 72 → 65
-                ["go", "west"],            # 65 → 33 (asymmetric "west": both
-                                           # 33 west → 65 and 65 west → 33)
+                # Reverse: 127 → W → 125 → S → 124 → W → 123 →
+                # W → 122 → OVER → 117 → SW → 118 → D → 72 →
+                # bedquilt → 65 → UP → 39 → E → 36 → UP → 28 →
+                # N → 33 → plugh.
+                ["go", "west"],            # 127 → 125
+                ["go", "south"],           # 125 → 124
+                ["go", "west"],            # 124 → 123
+                ["go", "west"],            # 123 → 122
+                ["go", "over"],            # 122 → 117
+                ["go", "sw"],              # 117 → 118
+                ["go", "down"],            # 118 → 72
+                ["go", "bedquilt"],        # 72 → 65
+                ["go", "up"],              # 65 → 39
+                ["go", "east"],            # 39 → 36
+                ["go", "up"],              # 36 → 28
+                ["go", "north"],           # 28 → 33
                 ["plugh", ""],             # 33 → 3
                 ["drop", "spices"],
-                # Pyramid via PLOVER: 3 → plugh → 33 → plover →
-                # 100 → north → 101 (Dark-room). Take pyramid,
-                # back south → 100 → plover → 33 → plugh → 3.
+                # --- Pyramid via PLOVER (canon 101) ---
                 ["plugh", ""],             # 3 → 33
                 ["plover", ""],            # 33 → 100
-                ["go", "north"],           # 100 → 101 (Dark-room)
+                ["go", "ne"],              # 100 → 101 (Dark-room — canon NE/DARK)
                 ["take", "pyramid"],
                 ["go", "south"],           # 101 → 100
                 ["plover", ""],            # 100 → 33
@@ -905,48 +897,57 @@ func _stages() -> Array:
             "asserts":    _assert_treasures_deposited(13),
             "checkpoint": "after_batch_b",
         },
-        # ----- Batch C: coins (canon 30) + chain (canon 130) -----
-        # Coins live at canon 30 (West side chamber Hall of Mt
-        # King) per advent.dat. Then pick up the chain at the
-        # troll bridge (130 was the bear's room; the chain is
-        # left behind once the bear is fed and lumbers off).
-        # Coins trip: 3 → plugh → 33 → north 14 → down 15 →
-        # west 19 → north 30, take, back via south → east → up
-        # → south → 33.
-        # Chain trip: from 33 → west 65 → east 117 (troll bridge).
+        # ----- Batch C: coins (canon 30) + chain (at canon 117) -----
+        # Coins live at canon 30 (West side chamber off Hall of
+        # Mountain King). The chain stays at canon 117 (troll
+        # bridge) where it was dropped to scare the troll — bear
+        # has by now lumbered off ($Released → not following).
+        # Coins trip: 3 → 33 → E → 34 → UP → 15 → N → 19 → W →
+        # 30. Take coins.
+        # Chain trip: 30 → E → 19 → N → 28 → N → 33 → S → 28 → D
+        # → 36 → bedquilt → 65 → W → 66 → oriental → 97 → W →
+        # 72 → SW → 118 → UP → 117. Take chain.
         {
             "name":       "deep_cave_batch_c_takes",
             "from":       "after_batch_b",
             "actions":    [
                 # --- Coins via Hall of Mt King ---
                 ["plugh", ""],             # 3 → 33
-                ["go", "north"],           # 33 → 14
-                ["go", "down"],            # 14 → 15
-                ["go", "west"],            # 15 → 19
-                ["go", "north"],           # 19 → 30 (West side chamber)
+                ["go", "east"],            # 33 → 34
+                ["go", "up"],              # 34 → 15
+                ["go", "north"],           # 15 → 19 (snake gone)
+                ["go", "west"],            # 19 → 30 (West side chamber)
                 ["take", "coins"],
-                ["go", "south"],           # 30 → 19
-                ["go", "east"],            # 19 → 15
-                ["go", "up"],              # 15 → 14
-                ["go", "south"],           # 14 → 33
-                # --- Chain pick-up at troll bridge (canon 15th
-                # treasure). Bear has long since lumbered off, so
-                # the chain is just a free treasure on the bridge.
-                ["go", "west"],            # 33 → 65
-                ["go", "east"],            # 65 → 117 troll bridge
+                # --- Chain pick-up at canon 117 (troll bridge) ---
+                ["go", "east"],            # 30 → 19
+                ["go", "north"],           # 19 → 28
+                ["go", "north"],           # 28 → 33
+                ["go", "south"],           # 33 → 28 (back south for the bedquilt route)
+                ["go", "down"],            # 28 → 36
+                ["go", "bedquilt"],        # 36 → 65
+                ["go", "west"],            # 65 → 66
+                ["go", "oriental"],        # 66 → 97
+                ["go", "west"],            # 97 → 72
+                ["go", "sw"],              # 72 → 118
+                ["go", "up"],              # 118 → 117 (troll bridge)
                 ["take", "chain"],
             ],
             "asserts":    _assert_batch_c_carried,
             "checkpoint": "carrying_batch_c",
         },
-        # End of batch_c takes: at 117. Reverse: west 117→65,
-        # west 65→33, plugh → 3 — drop coins + chain.
+        # 117 → SW → 118 → D → 72 → bedquilt → 65 → UP → 39 → E
+        # → 36 → UP → 28 → N → 33 → plugh → 3, drop coins+chain.
         {
             "name":       "deposit_batch_c",
             "from":       "carrying_batch_c",
             "actions":    [
-                ["go", "west"],            # 117 → 65
-                ["go", "west"],            # 65 → 33 (asymmetric)
+                ["go", "sw"],              # 117 → 118
+                ["go", "down"],            # 118 → 72
+                ["go", "bedquilt"],        # 72 → 65
+                ["go", "up"],              # 65 → 39
+                ["go", "east"],            # 39 → 36
+                ["go", "up"],              # 36 → 28
+                ["go", "north"],           # 28 → 33
                 ["plugh", ""],             # 33 → 3
                 ["drop", "coins"],
                 ["drop", "chain"],
@@ -1073,31 +1074,23 @@ func _stages() -> Array:
             "asserts":    _assert_eggs_back_at_giant,
         },
 
-        # Plant beanstalk: bottle + plant cross-FSM. From an
-        # already-grate-unlocked checkpoint, fill the bottle at
-        # the well house water source, walk down through the
-        # cave to the West Pit (room 23), pour. plant.water()
-        # transitions $Tiny → $Tall; bottle.pour() empties the
-        # bottle. Both side-effects must land for the canonical
-        # plant puzzle to work.
+        # Plant beanstalk fork: from after_first_deposit (3
+        # treasures down, player at 3, plant Tiny). Fill the
+        # bottle at the spring, PLUGH down to Y2, walk to the
+        # West Pit via the canon Bedquilt path, pour.
+        # plant.water() transitions $Tiny → $Tall.
         {
             "name":       "plant_watered_to_tall",
             "from":       "after_first_deposit",
             "actions":    [
-                ["fill", "bottle"],         # at room 3 — water source
-                ["go", "out"],              # 3 → 1 (canon: out)
-                ["go", "south"],            # 1 → 4 (canon: S)
-                ["go", "south"],            # 4 → 7 (canon: S)
-                ["go", "south"],            # 7 → 8 (canon: S)
-                ["go", "down"],             # 8 → 9 (grate already unlocked)
-                ["go", "west"],             # 9 → 10
-                ["go", "west"],             # 10 → 11
-                ["go", "east"],             # 11 → 12
-                ["go", "north"],            # 12 → 33
-                ["go", "north"],            # 33 → 14
-                ["go", "down"],             # 14 → 15
-                ["go", "north"],            # 15 → 21
-                ["go", "west"],             # 21 → 25 (canon West Pit, plant home)
+                ["fill", "bottle"],         # at room 3 — spring
+                ["plugh", ""],              # 3 → 33
+                ["go", "south"],            # 33 → 28
+                ["go", "down"],             # 28 → 36
+                ["go", "bedquilt"],         # 36 → 65
+                ["go", "slab"],             # 65 → 68
+                ["go", "south"],            # 68 → 23
+                ["go", "down"],             # 23 → 25 (West Pit)
                 ["water", "plant"],
             ],
             "asserts":    _assert_plant_tall,
