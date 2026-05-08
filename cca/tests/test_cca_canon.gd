@@ -97,6 +97,10 @@ var ARCHITECTURE_PROBES := [
     ["statuette is not a treasure",           "_probe_no_statuette",       "port: 16th treasure (port-only)"],
     ["108→115 walking corridor removed",      "_probe_no_108_corridor",    "port: walkable to Repository"],
     ["chest spawns at canon room 18",         "_probe_chest_room_canon",   "port: chest at port-132"],
+    ["rusty door at canon 94 oils via bottle","_probe_rusty_door",         "port: 94:north flat-bumpered, no puzzle"],
+    ["clam squeeze blocks 103:south",         "_probe_clam_squeeze",       "port: 103 walkable carrying shellfish"],
+    ["dark-room pit-fall after warning",      "_probe_dark_pit_fall",      "port: dark moves are silent"],
+    ["death-message rooms 20/21 kill",        "_probe_death_rooms",        "port: 20/21 are stuck rooms"],
 ]
 
 # ----- State -----
@@ -531,6 +535,74 @@ func _probe_chest_room_canon() -> bool:
     var adv = Cca.new()
     adv.setup_default_aspects()
     return adv.CHEST_ROOM == 18
+
+func _probe_rusty_door() -> bool:
+    # Canon 94 → 95 puzzle: door starts $Rusty, blocking
+    # NORTH/ENTER/CAVERN with msg #111. Filling the bottle at
+    # the oil source (canon 105) and POURing at canon 94
+    # transitions $Rusty → $Oiled with msg #114, after which
+    # all three access verbs walk through to canon 95.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    var starts_rusty: bool = adv.rusty_door.is_rusty()
+    # Synthetic setup: bottle in inventory, filled with oil at 105,
+    # walk to 94, POUR.
+    adv.player.take(adv.BOTTLE_ID)
+    adv.bottle_item.try_take(3)
+    adv.player.move_to(adv.OIL_SOURCE_ROOM)
+    adv.do_command("fill", "")
+    var has_oil: bool = adv.bottle.has_oil()
+    adv.player.move_to(adv.RUSTY_DOOR_ROOM)
+    var pour_resp: String = adv.do_command("pour", "")
+    var oiled_now: bool = not adv.rusty_door.is_rusty()
+    var canon_msg: bool = "freed up the hinges" in pour_resp
+    return starts_rusty and has_oil and oiled_now and canon_msg
+
+func _probe_clam_squeeze() -> bool:
+    # Canon 103:south refuses with msg #118 / #119 when the
+    # player carries the clam or the oyster (the five-foot
+    # shellfish doesn't fit through the narrow passage to 64).
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    adv.player.move_to(103)
+    adv.do_command("take", "clam")
+    var carrying: bool = adv.player.carrying(adv.CLAM_ID)
+    var resp: String = adv.do_command("move", "64")
+    var blocked: bool = adv.player_room() == 103
+    var canon_msg: bool = "five-foot clam" in resp
+    return carrying and blocked and canon_msg
+
+func _probe_dark_pit_fall() -> bool:
+    # Canon: motion in a dark cave room with the lamp out emits
+    # the canon "pitch dark" warning on the first attempt and
+    # has a 35% chance of fatal pit-fall on subsequent attempts.
+    # The warning marker is per-room — moving to a fresh dark
+    # room re-fires the warning.
+    var Driver = load("res://scripts/driver.gd")
+    var d = Driver.new()
+    d.fsm = Cca.new()
+    d.fsm.setup_default_aspects()
+    var rtl := RichTextLabel.new()
+    rtl.bbcode_enabled = true
+    d.output = rtl
+    d.fsm.player.move_to(11)        # debris room — dark, lamp off
+    var dark: bool = d.fsm.room_is_dark_now()
+    var fired: bool = d._check_dark_pit_hazard()    # first → warn
+    var marked: bool = d._dark_warned_room == 11
+    return dark and fired and marked
+
+func _probe_death_rooms() -> bool:
+    # Canon: rooms 20 ("at the bottom of the pit with a broken
+    # neck") and 21 ("you didn't make it") are death-message
+    # rooms. Anything routing the player there fires
+    # player.die() with the matching canon prose.
+    var adv = Cca.new()
+    adv.setup_default_aspects()
+    adv.player.move_to(35)
+    var resp: String = adv.do_command("move", "20")
+    var dead: bool = adv.player_state() == "dead"
+    var canon_msg: bool = "broke every bone" in resp
+    return dead and canon_msg
 
 # ----- Main -----
 func _init():
