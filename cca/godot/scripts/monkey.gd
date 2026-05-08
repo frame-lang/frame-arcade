@@ -64,7 +64,19 @@ const VERBS_ACTION := [
 # Directions stay separate — these get resolved into a
 # do_command("move", str(dest)) by consulting room_exits.
 const VERBS_DIR := ["north", "south", "east", "west",
-                    "up", "down", "in", "out", "enter"]
+                    "ne", "se", "sw", "nw",
+                    "up", "down", "in", "out", "enter",
+                    # Canon's object-named motion verbs — the
+                    # cave-aligned topology routes via these in
+                    # many rooms (HILL, FOREST, BUILDING, ...).
+                    # Including them lets the monkey explore
+                    # canon paths the compass-only set misses.
+                    "hill", "forest", "valley", "stream", "gully",
+                    "building", "stairs", "upstream", "downstream",
+                    "depression", "outdoors", "pit", "debris",
+                    "passage", "crawl", "cobbles", "surface",
+                    "over", "across", "climb", "left", "right",
+                    "forward", "back", "out", "hall"]
 
 # Nouns: every named entity Adventure can reason about. Empty
 # string is included so verbs like "look" / "score" can fire

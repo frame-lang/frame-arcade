@@ -75,6 +75,14 @@ const CANON_GATED := {
     "16:east":  14,
     "16:out":   14,
     "16:back":  14,
+    # Canon transition-message rooms (engine "any-verb→X"
+    # bouncebacks). Without engine support we add a single
+    # explicit escape direction.
+    "22:out":   15,   # dome unclimbable → bounce to 15
+    "22:back":  15,
+    "26:east":  88,   # clamber up plant → bounce to 88
+    "26:out":   88,
+    "26:back":  88,
 }
 
 var passed: int = 0

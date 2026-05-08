@@ -166,7 +166,11 @@ const ROOMS: Dictionary = {
     12:  {"east": 11, "west": 13, "up": 13, "down": 11, "in": 13,
           "pit": 14, "entrance": 9, "debris": 11},
     33:  {"up": 12, "south": 28, "down": 13, "east": 47, "west": 65, "north": 14},
-    28:  {"north": 33},                                                  # Low n/s passage at hole — canon 28 (silver home)
+    # Low n/s passage at hole — canon 28 (silver home). Canon
+    # `28 19 38 11 46` (HALL/OUT/S→19), `28 33 45 55` (N/Y2→33),
+    # `28 36 30 52` (DOWN/HOLE→36).
+    28:  {"south": 19, "out": 19, "hall": 19, "north": 33,
+          "down": 36, "hole": 36},
     # Bird chamber — canon row `13 9 64` (ENTRANCE→9),
     # `13 11 51` (DEBRIS→11), `13 12 25 43` (CANYON/E→12),
     # `13 14 23 31 44` (PASSAGE/PIT/W→14). XYZZY/PLUGH/PLOVER
@@ -226,7 +230,11 @@ const ROOMS: Dictionary = {
     # Canon row `18 15 38 11 45` (HALL/OUT/N→15). Pirate's
     # stash spawns here (CHEST_ROOM = 18).
     18:  {"north": 15, "out": 15, "hall": 15},
-    27:  {"east": 17, "west": 19},                # West bank of fissure — canon 27
+    # West bank of fissure — canon 27. Canon `27 17 41` (OVER→17
+    # gated by bridge), `27 40 45` (N→40), `27 41 44` (W→41).
+    # Special-handler rows 27 312596/412021/412597 are the
+    # fall-into-pit conditional cases handled engine-side.
+    27:  {"north": 40, "west": 41, "over": 17},
     69:  {"west": 17},                            # hall of mirrors (across)
     # Mist + King hall + two-pit + plant + slab area. Hangs off
     # the top of small pit (14) via a stone staircase down. The
@@ -269,14 +277,36 @@ const ROOMS: Dictionary = {
     # the engine's "kill the player and skip" handler. No walking
     # exits in canon. Port-only `north: 19` removed.
     20:  {},
-    29:  {"north": 19},                                                  # South side chamber — canon 29 (jewelry home)
-    30:  {"south": 19},                                                  # West side chamber Hall of Mt King — canon 30 (coins home)
-    21:  {"south": 15, "east": 22, "west": 25},                          # Two-pit room — canon-aligned: west to canon 25 (Bottom of west pit, plant)
-    22:  {"out": 21, "up": 21},                                          # East pit (dead-end)
-    25:  {"out": 21, "up": 24, "climb": 24},                             # Bottom of west pit — canon 25 (plant home)
-    24:  {"down": 25, "up": 23, "climb": 23},                            # Mid-beanstalk
-    23:  {"down": 24},                                                   # Top of vast crack (port-synth name; reachable up the beanstalk)
-    26: {"south": 19},                                    # Narrow corridor
+    # South side chamber — canon 29 (jewelry home). Canon
+    # `29 19 38 11 45` (HALL/OUT/N→19).
+    29:  {"north": 19, "out": 19, "hall": 19},
+    # West side chamber Hall of Mt King — canon 30 (coins home).
+    # Canon `30 19 38 11 43` (HALL/OUT/E→19), `30 62 44 29`
+    # (W/UP→62 secret canyon).
+    30:  {"east": 19, "out": 19, "hall": 19, "west": 62, "up": 62},
+    # Canon 21 = "YOU DIDN'T MAKE IT." death message; canon row
+    # `21 0 1` is the engine kill handler. No walking exits.
+    21:  {},
+    # Canon 22 = "THE DOME IS UNCLIMBABLE." transition message;
+    # canon row `22 15 1` bounces back to 15.
+    22:  {"out": 15, "back": 15},
+    # West pit (plant home) — canon 25. Canon `25 23 29 11`
+    # (UP→23 gated by plant tall), `25 26 56` (CLIMB→26 the
+    # transition "scurry through the hole" message).
+    25:  {"up": 23, "out": 23, "climb": 26},
+    # East pit — canon 24. Canon `24 67 29 11` (UP/OUT→67 east
+    # end of two-pit room).
+    24:  {"up": 67, "out": 67},
+    # West end of two-pit room — canon 23. Canon
+    # `23 67 43 42` (E/ACROSS→67), `23 68 44 61` (W/SLAB→68),
+    # `23 25 30 31` (DOWN/PIT→25).
+    23:  {"east": 67, "across": 67, "west": 68, "slab": 68,
+          "down": 25, "pit": 25},
+    # Canon 26 = "YOU CLAMBER UP THE PLANT AND SCURRY THROUGH
+    # THE HOLE AT THE TOP." transition; canon `26 88 1` bounces
+    # to canon 88 (decorated chamber). Single explicit east
+    # exit covers the player's escape.
+    26:  {"east": 88, "out": 88, "back": 88},
     31: {"north": 32},                                    # Window on pit (low)
     32:  {"south": 31},                                                  # Window on pit (high)
     34: {"north": 35},                                       # Low dust chamber
@@ -433,14 +463,14 @@ const GATES: Dictionary = {
     "17:east":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
-    # Beanstalk climb gates: 25→24 (canon West Pit → mid-beanstalk)
-    # needs at least $Tall; 24→23 (mid → top of crack) needs $Huge.
-    # Without water the plant is just a tiny shoot murmuring
-    # "water, water" — no climbing.
+    # Canon plant — single-jump model:
+    #   25 UP/OUT → 23 gated by plant tall (canon row
+    #   `25 23 29 11`, condition 11 = plant tall).
+    #   25 CLIMB → 26 gated by plant huge (canon row
+    #   `25 724031 56`, condition encodes plant huge).
     "25:up":     {"check": "plant_tall", "msg": "There is nothing here to climb. The plant is a tiny shoot, struggling for water."},
-    "25:climb":  {"check": "plant_tall", "msg": "There is nothing here to climb. The plant is a tiny shoot, struggling for water."},
-    "24:up":     {"check": "plant_huge", "msg": "The plant is too feeble to support your weight any higher."},
-    "24:climb":  {"check": "plant_huge", "msg": "The plant is too feeble to support your weight any higher."},
+    "25:out":    {"check": "plant_tall", "msg": "There is nothing here to climb. The plant is a tiny shoot, struggling for water."},
+    "25:climb":  {"check": "plant_huge", "msg": "The plant is too feeble to support your weight that high."},
     # Plover Room narrow tunnel — canon CCA permits only the
     # emerald (small enough) or empty hands through the squeeze.
     # Anything else and the player can't fit.
