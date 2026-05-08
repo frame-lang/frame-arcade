@@ -8,46 +8,30 @@ dashboard ([`tests/test_cca_conditional.gd`](tests/test_cca_conditional.gd)).
 
 ## Open
 
-### Crowther / Woods credit splash screen
+### Crowther / Woods credit splash screen — **DONE 2026-05-08**
 
-When CCA launches (either as the standalone `cca/godot/` build or
-from the arcade cabinet's chapter list), display a credit splash
-before the *"You are standing at the end of a road..."* opening:
+Implemented as the welcome panel in `Driver._print_welcome` (and
+the byte-equivalent mirror in `arcade/godot/scripts/cca_main.gd`).
+Every CCA session opens with explicit attribution to the original
+1976/77 work before any game prose, then the regular `> ` prompt
+takes over. Era-appropriate plain text, no emoji, era-appropriate
+amber palette.
 
-> **COLOSSAL CAVE ADVENTURE**
->
-> Originally created by **Will Crowther** (1976) and expanded by
-> **Don Woods** (1977) at the Stanford Artificial Intelligence
-> Laboratory. The 350-point release — the canonical version this
-> port follows — is preserved at the IF Archive as a public-domain
-> historical artifact.
->
-> *This Frame state-machine implementation is a faithful re-port
-> of the 1977 PDP-10 FORTRAN source ([`canon/advent.for`](canon/advent.for))
-> retrieved from the IF Archive. Every gameplay decision either
-> traces to the canon or is documented as a deliberate divergence
-> in [`CANON_DELTAS.md`](CANON_DELTAS.md).*
->
-> Press any key to enter the cave.
+The splash names:
+- Will Crowther (1976) and Don Woods (1977) by full name
+- Stanford AI Lab as the institutional context
+- The PDP-10 FORTRAN-IV source as the canon provenance
+- The Interactive Fiction Archive as the preservation venue
+- Public-domain historical record as the licensing posture
 
-Implementation notes:
+Test: `tests/test_cca_credit_splash.gd` exercises ten content
+checks (title, both names, both years, Stanford, FORTRAN
+provenance, IF Archive, public-domain, HELP hint) using the
+captured-driver pattern. All ten pass.
 
-- One screen, ~five seconds, dismissable on any keypress.
-- Standalone build: shows on first launch only; subsequent
-  launches go straight to the prompt.
-- Arcade build: shows every time CCA is selected from the cabinet
-  menu — the cabinet is presented to the player as "this chapter,"
-  not "the game," so Crowther/Woods get credited per session.
-- Background: maybe an ASCII rendering of the cave's well-house
-  text or a static image of a stalactite. Avoid emoji / contemporary
-  iconography; this is a 1977 game and the credit screen should feel
-  appropriate to the era.
-- The standalone splash should also link the IF Archive URL
-  (`https://www.ifarchive.org/if-archive/games/source/advent-original.tar.gz`)
-  so anyone curious about the original source can find it.
-
-Lives in: a new scene `godot/scenes/credits.tscn` + script
-`godot/scripts/credits.gd`. Wire from `driver.gd` `_ready()`.
+Future polish (not blocking): a literal first-launch-only flag
+(currently the welcome shows every session), an ASCII-art
+well-house header, and a clickable IF Archive URL.
 
 ---
 

@@ -1613,8 +1613,27 @@ func _print_player_input(text: String) -> void:
     output.append_text("[color=#888888]> %s[/color]\n" % text)
 
 func _print_welcome() -> void:
-    _println("[b]COLOSSAL CAVE ADVENTURE[/b] (Frame port)")
-    _println("Built on the Frame state machine DSL. Type [b]HELP[/b] for a list of commands.")
+    # Crowther/Woods credit splash — every CCA session opens
+    # with explicit attribution to the original 1976/77 work
+    # before any game prose. Era-appropriate plain text, no
+    # emoji or modern iconography. Synced from cca/godot/
+    # scripts/driver.gd; keep the two welcome panels identical.
+    var rule: String = "[color=#a89878]─────────────────────────────[/color]"
+    var msg: String = ""
+    msg += "[color=#e0c890][b]COLOSSAL CAVE ADVENTURE[/b][/color]\n"
+    msg += rule + "\n\n"
+    msg += "  Originally written by [b]Will Crowther[/b] (1976)\n"
+    msg += "  and expanded to the canonical 350-point version\n"
+    msg += "  by [b]Don Woods[/b] at the Stanford AI Lab (1977).\n\n"
+    msg += "[color=#a89878]"
+    msg += "  This Frame state-machine implementation re-ports\n"
+    msg += "  the original PDP-10 FORTRAN-IV source preserved at\n"
+    msg += "  the Interactive Fiction Archive. Public domain;\n"
+    msg += "  redistributed for historical record.\n"
+    msg += "[/color]\n"
+    msg += rule
+    _println(msg)
+    _println("Type [b]HELP[/b] for a list of commands.")
 
 func _print_help() -> void:
     # Canon msg #51 verbatim — Don Woods 1977 HELP output. The
