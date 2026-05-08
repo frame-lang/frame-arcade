@@ -1720,17 +1720,27 @@
         }
 
         # ------------------------------------------------------------
-        # $Vanished — terminal state for treasures the troll
-        # caught (canon bridge-toll). The Eggs-incantation
-        # `reappear(at_room)` deliberately doesn't pull a
-        # vanished treasure back; canonically, what the troll
-        # takes is gone for good.
+        # $Vanished — quasi-terminal state for treasures the troll
+        # caught (canon bridge-toll). Most treasures stay here
+        # forever once given to the troll, but eggs are special:
+        # the FEE FIE FOE FOO incantation canonically yanks them
+        # back to the giant chamber regardless of their location
+        # (per ODWY0350/advent.c — `move(EGGS, R_GIANT)` fires even
+        # when EGGS are at R_LIMBO via the troll). The incantation
+        # invokes `reappear(at_room)` on the eggs; we honor it by
+        # transitioning back to $InRoom. Other treasures are never
+        # subjected to a post-throw `reappear()` call (the
+        # incantation is eggs-only in `_verb_chant`), so they stay
+        # vanished as canon dictates.
         # ------------------------------------------------------------
         $Vanished {
             try_take(at_room: int): bool        { @@:(false) }
             try_drop(at_room: int): String      { @@:("vanished") }
             try_drop_soft(at_room: int): String { @@:("vanished") }
-            reappear(at_room: int)              {}
+            reappear(at_room: int) {
+                self.location_room = at_room
+                -> $InRoom
+            }
             consume()                            {}
             get_state(): String       { @@:("vanished") }
             get_location(): int       { @@:(-1) }

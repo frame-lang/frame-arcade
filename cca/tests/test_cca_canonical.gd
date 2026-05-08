@@ -697,56 +697,114 @@ func _stages() -> Array:
             "name":       "deposit_jewelry",
             "from":       "carrying_jewelry",
             "actions":    [
-                # From canon-29 (south side chamber) walk back
-                # to Y2 (33) and PLUGH to deposit.
+                # 29 → 19 (snake gone) → 28 (silver passage; snake
+                # gone) → 33 (Y2). Canon doesn't connect 14 → 33,
+                # so the return goes via 19 → 28 instead of via
+                # 14 → 15 → 19 → 28 — same destination, two fewer
+                # rooms.
                 ["go", "north"],           # 29 → 19 (Hall of Mt King)
-                ["go", "east"],            # 19 → 15 (Hall of Mists)
-                ["go", "up"],              # 15 → 14
-                ["go", "south"],           # 14 → 33 (Y2)
+                ["go", "north"],           # 19 → 28 (silver passage)
+                ["go", "north"],           # 28 → 33 (Y2)
                 ["plugh", ""],             # 33 → 3 (well house)
                 ["drop", "jewelry"],
             ],
             "asserts":    _assert_treasures_deposited(7),
             "checkpoint": "after_jewelry",
         },
-        # Walk back to the deep cave: 3 → 1 (plugh) → 33 → 65
-        # → 117 (bear+troll already cleared, bridge passable)
-        # → 118 → 120 → 97 (Oriental, vase). Long traversal;
-        # keep as one stage since each transition is just "go".
+        # Vase is fragile — dropping it without a pillow at the
+        # destination shatters it. Canon solution: drop the
+        # velvet pillow (at canon 96, Soft Room) at the well
+        # house first, then later drops onto pillow are soft
+        # landings. Path 3 → 96 → 3:
+        #   3 → plugh → 33 → S → 28 → D → 36 → bedquilt → 65 →
+        #   W → 66 → E → 96. Take pillow. Reverse via the
+        #   cliff (39): 96 → W → 66 → NE → 65 → UP → 39 → E →
+        #   36 → UP → 28 → N → 33 → plugh → 3. Drop pillow.
         {
-            "name":       "deep_cave_batch_a_takes",
+            "name":       "pillow_to_well_house",
             "from":       "after_jewelry",
             "actions":    [
                 ["plugh", ""],             # 3 → 33
-                ["go", "west"],            # 33 → 65
-                ["go", "east"],            # 65 → 117
-                ["go", "east"],            # 117 → 118
-                ["go", "east"],            # 118 → 120
-                ["go", "east"],            # 120 → 97
+                ["go", "south"],           # 33 → 28
+                ["go", "down"],            # 28 → 36
+                ["go", "bedquilt"],        # 36 → 65
+                ["go", "west"],            # 65 → 66
+                ["go", "east"],            # 66 → 96 (Soft Room)
+                ["take", "pillow"],
+                ["go", "west"],            # 96 → 66
+                ["go", "ne"],              # 66 → 65
+                ["go", "up"],              # 65 → 39 (cliff)
+                ["go", "east"],            # 39 → 36
+                ["go", "up"],              # 36 → 28
+                ["go", "north"],           # 28 → 33
+                ["plugh", ""],             # 33 → 3
+                ["drop", "pillow"],
+            ],
+            "asserts":    _assert_pillow_at_well_house,
+            "checkpoint": "after_pillow",
+        },
+        # Deep cave batch_a — vase (canon 97), eggs (canon 92,
+        # recalled), trident (canon 95). Canon path 3 → vase →
+        # eggs → trident:
+        #   3 → plugh → 33 → S → 28 → D → 36 → bedquilt → 65 →
+        #   W → 66 → oriental → 97 (Oriental Room). Take vase.
+        # Then walk to West Pit and climb the still-huge plant
+        # to get into the giant chamber:
+        #   97 → W → 72 → bedquilt → 65 → slab → 68 → S → 23 →
+        #   D → 25 → climb → 26 → E → 88 → W → 92. Take eggs.
+        # Magnificent Cavern is north of the giant chamber:
+        #   92 → N → 94 → N → 95. Take trident.
+        {
+            "name":       "deep_cave_batch_a_takes",
+            "from":       "after_pillow",
+            "actions":    [
+                ["plugh", ""],             # 3 → 33
+                ["go", "south"],           # 33 → 28
+                ["go", "down"],            # 28 → 36
+                ["go", "bedquilt"],        # 36 → 65
+                ["go", "west"],            # 65 → 66
+                ["go", "oriental"],        # 66 → 97
                 ["take", "vase"],
-                ["go", "east"],            # 97 → 92
+                ["go", "west"],            # 97 → 72
+                ["go", "bedquilt"],        # 72 → 65
+                ["go", "slab"],            # 65 → 68
+                ["go", "south"],           # 68 → 23
+                ["go", "down"],            # 23 → 25 (West Pit, plant huge)
+                ["go", "climb"],           # 25 → 26 (huge plant)
+                ["go", "east"],            # 26 → 88
+                ["go", "west"],            # 88 → 92 (Giant Room)
                 ["take", "eggs"],
-                ["go", "east"],            # 92 → 95
+                ["go", "north"],           # 92 → 94
+                ["go", "north"],           # 94 → 95 (Magnificent Cavern)
                 ["take", "trident"],
             ],
             "asserts":    _assert_batch_a_carried,
             "checkpoint": "carrying_batch_a",
         },
+        # Walk 95 → 3, dropping eggs/trident first then vase
+        # last so the vase lands on the pillow:
+        #   95 → S → 94 → S → 92 → S → 88 → D → 25 → UP → 23 →
+        #   W → 68 → N → 65 → UP → 39 → E → 36 → UP → 28 → N →
+        #   33 → plugh → 3.
         {
             "name":       "deposit_batch_a",
             "from":       "carrying_batch_a",
             "actions":    [
-                ["go", "west"],            # 95 → 92
-                ["go", "west"],            # 92 → 97
-                ["go", "west"],            # 97 → 120
-                ["go", "west"],            # 120 → 118
-                ["go", "west"],            # 118 → 117
-                ["go", "west"],            # 117 → 65
-                ["go", "west"],            # 65 → 33
+                ["go", "south"],           # 95 → 94
+                ["go", "south"],           # 94 → 92
+                ["go", "south"],           # 92 → 88
+                ["go", "down"],            # 88 → 25
+                ["go", "up"],              # 25 → 23 (plant tall lifts)
+                ["go", "west"],            # 23 → 68
+                ["go", "north"],           # 68 → 65
+                ["go", "up"],              # 65 → 39
+                ["go", "east"],            # 39 → 36
+                ["go", "up"],              # 36 → 28
+                ["go", "north"],           # 28 → 33
                 ["plugh", ""],             # 33 → 3
-                ["drop", "vase"],
                 ["drop", "eggs"],
                 ["drop", "trident"],
+                ["drop", "vase"],          # lands on pillow → preserved
             ],
             "asserts":    _assert_treasures_deposited(10),
             "checkpoint": "after_batch_a",
@@ -1273,6 +1331,11 @@ func _assert_plant_huge_at_west_pit(adv, t) -> void:
 func _assert_eggs_carried_at_giant(adv, t) -> void:
     t._expect("eggs carried",  adv.player.carrying(adv.EGGS_ID), true)
     t._expect("at giant chamber", adv.player_room(),     92)
+
+func _assert_pillow_at_well_house(adv, t) -> void:
+    t._expect("at well house",     adv.player_room(),                3)
+    t._expect("pillow not carried", adv.player.carrying(adv.PILLOW_ID), false)
+    t._expect("pillow at room 3",   adv.pillow_item.get_location(),   3)
 
 func _assert_dwarves_living(adv, t) -> void:
     t._expect("living dwarves", adv.living_dwarves(), 5)
