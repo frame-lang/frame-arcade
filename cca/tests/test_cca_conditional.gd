@@ -5,7 +5,7 @@ extends SceneTree
 # aligned) only checks canonical advent.dat section-2 rows
 # whose dest is < 300 (unconditional motions). Canon also has
 # 62 *special-handler* rows with dest >= 300 — bumper messages,
-# death routines, probabilistic alternates, and prop-gated
+# msg500 routines, probabilistic alternates, and prop-gated
 # conditional motions. Those are the audit's blind spot.
 #
 # This dashboard categorises every special-handler row and
@@ -14,16 +14,22 @@ extends SceneTree
 # categorised counts to track canon-fidelity progress over time.
 #
 # Categories:
-#   bumper   — dest 301..500: print remark, no movement.
-#              Cosmetic; the port's "no exit" branch already
-#              emits a generic message. Generally fine to skip.
-#   death    — dest 501..700: special death/transport routine
-#              (slit-squeeze lose, fissure-jump death, troll-
-#              bridge fall, volcano dive). Real gameplay.
-#   cond     — dest >= 1000 (encoded as CCC*1000+M): prop or
-#              probability-gated motion to a real room.
-#              Includes the troll-bridge crossing, plant gates,
-#              probabilistic maze rooms, etc.
+#   bumper  — dest 301..500: print remark N-300, no movement.
+#             Cosmetic; the port's "no exit" branch already emits
+#             a generic message. Adding canon-prose gates on top
+#             is a quality-of-life improvement, not a correctness
+#             requirement.
+#   msg500  — dest 501..1000: same idea as bumper but in a higher
+#             code range (canon msgs 95/96/126/148/153 — slit-
+#             squeeze, jump-off-bridge, treasury, volcano dive,
+#             dragon block). Mostly bumper-equivalent in canon
+#             effect; some early port commentary called these
+#             "deaths" but they are no-go messages, not real
+#             player.die() routines.
+#   cond    — dest >= 1000 (encoded as CCC*1000+M): prop or
+#             probability-gated motion to a real room. Includes
+#             the troll-bridge crossing, plant gates, probabilistic
+#             maze rooms, dark-pit fall (`14 150020 …`).
 
 const Topology = preload("res://scripts/topology.gd")
 
@@ -62,7 +68,7 @@ func _init():
         gates[k] = true
 
     var bumper_total: int = 0;   var bumper_covered: int = 0
-    var death_total:  int = 0;   var death_covered:  int = 0
+    var msg500_total:  int = 0;   var msg500_covered:  int = 0
     var cond_total:   int = 0;   var cond_covered:   int = 0
     var uncovered_per_room: Dictionary = {}
 
@@ -89,9 +95,9 @@ func _init():
         if category == "bumper":
             bumper_total += 1
             if any_covered: bumper_covered += 1
-        elif category == "death":
-            death_total += 1
-            if any_covered: death_covered += 1
+        elif category == "msg500":
+            msg500_total += 1
+            if any_covered: msg500_covered += 1
         elif category == "cond":
             cond_total += 1
             if any_covered: cond_covered += 1
@@ -102,7 +108,7 @@ func _init():
 
     print("Coverage:")
     print("  bumper (msg-only)         %d / %d" % [bumper_covered, bumper_total])
-    print("  death  (special death)    %d / %d" % [death_covered, death_total])
+    print("  msg500 (501..1000 bumpers) %d / %d" % [msg500_covered, msg500_total])
     print("  cond   (gated motion)     %d / %d" % [cond_covered, cond_total])
     print()
     print("Per-room uncovered rows (any-dir matched suffices for coverage):")
@@ -127,8 +133,8 @@ func _init():
     print()
     print("=== summary ===")
     print("PASS — informational dashboard (%d / %d total covered)" % [
-        bumper_covered + death_covered + cond_covered,
-        bumper_total + death_total + cond_total,
+        bumper_covered + msg500_covered + cond_covered,
+        bumper_total + msg500_total + cond_total,
     ])
     quit(0)
 
@@ -136,7 +142,7 @@ func _category(dest: int) -> String:
     if dest >= 301 and dest <= 500:
         return "bumper"
     if dest >= 501 and dest < 1000:
-        return "death"
+        return "msg500"
     return "cond"
 
 func _join(arr: Array) -> String:

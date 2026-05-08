@@ -792,7 +792,39 @@ const GATES: Dictionary = {
     "122:across": {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
     "122:cross":  {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
     "122:sw":     {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
-    "17:east":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    # Crystal bridge across the fissure. The gate lives on the
+    # crossing verbs (OVER/WEST/CROSS at 17, OVER/EAST/CROSS at
+    # 27) rather than 17:east — going east from the east bank is
+    # the way *back* to hall of mists, not across. Wave the rod
+    # at the fissure to materialise the bridge.
+    "17:over":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "27:over":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    # Canon JUMP-into-fissure: msg #38 "the fissure is too wide
+    # to jump". Adding so a player typing JUMP gets the canon
+    # text rather than a generic "no exit".
+    "17:jump":  {"check": "always",  "msg": "The fissure is too wide."},
+    "27:jump":  {"check": "always",  "msg": "The fissure is too wide."},
+    # Canon JUMP-off-troll-bridge: msg #96 "I respectfully
+    # suggest you go across the bridge instead of jumping."
+    "117:jump": {"check": "always",  "msg": "I respectfully suggest you go across the bridge instead of jumping."},
+    "122:jump": {"check": "always",  "msg": "I respectfully suggest you go across the bridge instead of jumping."},
+    # Canon SLIT/STREAM at rooms 7 (slit-in-streambed) and 38
+    # (deep cave streambed): msg #95 "You don't fit through a
+    # two-inch slit!"
+    "7:slit":    {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "7:stream":  {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "38:slit":   {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    "38:stream": {"check": "always", "msg": "You don't fit through a two-inch slit!"},
+    # Canon dragon-side secret canyon: msg #153 "The dragon
+    # looks rather nasty. You'd best not try to get by."
+    "119:east":    {"check": "always", "msg": "The dragon looks rather nasty. You'd best not try to get by."},
+    "119:forward": {"check": "always", "msg": "The dragon looks rather nasty. You'd best not try to get by."},
+    "121:north":   {"check": "always", "msg": "The dragon looks rather nasty. You'd best not try to get by."},
+    "121:forward": {"check": "always", "msg": "The dragon looks rather nasty. You'd best not try to get by."},
+    # Canon volcano dive (canon 126, breath-taking view): msg
+    # implies "you'd best not try to jump into a volcano". The
+    # canon special-handler is `126 610 30 39` (DOWN/JUMP).
+    "126:jump":  {"check": "always",  "msg": "Don't be ridiculous!"},
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     # Canon plant — single-jump model:

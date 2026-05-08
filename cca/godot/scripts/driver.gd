@@ -315,6 +315,17 @@ func _process_input(text: String) -> void:
             _println(fsm.request_hint(hint_name))
             return
 
+    # Canon "always-blocked" bumper gates — JUMP at the fissure
+    # / troll bridge / volcano, SLIT at the streambed slits, the
+    # dragon's east passage at canon 119/121. The verb itself
+    # isn't a direction, but canon emits a specific bumper text;
+    # gate the (room, verb) pair before the direction handler so
+    # the player gets canon prose rather than the FSM fallback.
+    var bumper_key: String = "%d:%s" % [fsm.player_room(), verb]
+    if bumper_key in gated_exits and gated_exits[bumper_key].check == "always":
+        _println(gated_exits[bumper_key].msg)
+        return
+
     # Direction verbs become MOVE with a resolved room ID.
     if verb in DIRECTIONS:
         _handle_movement(verb)
