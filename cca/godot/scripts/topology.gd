@@ -511,18 +511,35 @@ const ROOMS: Dictionary = {
     # Canon 80 (alike maze): `80 42 45` (N→42), `80 80 44` (W
     # self), `80 80 46` (S self), `80 81 43` (E→81).
     80:  {"north": 42, "west": 80, "south": 80, "east": 81},
-    81:  {"west": 80, "north": 78, "down": 83},                          # Wet room
-    82:  {"west": 79, "east": 83},                                       # Different cobble crawl
-    83:  {"up": 81, "west": 82, "east": 84},                             # Reservoir
-    84:  {"west": 83, "down": 85},                                       # Underground stream
-    85:  {"up": 84, "east": 86},                                         # Front of barren room
-    86:  {"west": 85},                                                   # Barren room (dead-end)
+    # Canon 81 (DEAD END): `81 80 44 11` (W/OUT→80).
+    81:  {"west": 80, "out": 80},
+    # Canon 82 (DEAD END): `82 44 46 11` (S/OUT→44? wait verb 44=W).
+    # Reading: `82 44 46 11` → dest 44 via verbs 46(S) and 11(OUT).
+    # So canon 82 S/OUT → 44.
+    82:  {"south": 44, "out": 44},
+    # Canon 83 (alike maze): `83 57 46` (S→57), `83 84 43` (E→84),
+    # `83 85 44` (W→85).
+    83:  {"south": 57, "east": 84, "west": 85},
+    # Canon 84 (alike maze): `84 57 45` (N→57), `84 83 44` (W→83),
+    # `84 114 50` (NW→114).
+    84:  {"north": 57, "west": 83, "nw": 114},
+    # Canon 85 (DEAD END): `85 83 43 11` (E/OUT→83).
+    85:  {"east": 83, "out": 83},
+    # Canon 86 (DEAD END): `86 52 29 11` (UP/OUT→52).
+    86:  {"up": 52, "out": 52},
     # 87-94: cliff brink, cylindrical canyon, treasury area.
     # Brought together off the secret canyons (78/93) and the
     # cliff-with-ladder (119) chain.
-    87:  {"east": 89, "down": 119, "south": 78},                         # Brink of cliff
-    89:  {"west": 87, "north": 90},                                      # Cylindrical canyon
-    90:  {"south": 89, "east": 91},                                      # Smooth passage
+    # Canon 87 (Brink of thirty-foot cliff). Canon `87 45 29 30`
+    # (UP/DOWN→45). The cliff descent is handled by the
+    # condition-based "fall into pit" branches engine-side.
+    87:  {"up": 45, "down": 45},
+    # Canon 89 (transition msg "nothing to climb"): `89 25 1`
+    # bounces to 25; explicit OUT/UP/BACK→25.
+    89:  {"out": 25, "up": 25, "back": 25},
+    # Canon 90 (transition msg "climb up plant out"): `90 23 1`
+    # bounces to 23; explicit OUT/UP/BACK→23.
+    90:  {"out": 23, "up": 23, "back": 23},
     91:  {"west": 90, "north": 93},                                      # Different soft passage
     93:  {"south": 91, "east": 94},                                      # Different fissure
     94:  {"west": 93},                                                   # Treasury (dead-end)
@@ -556,7 +573,12 @@ const ROOMS: Dictionary = {
     # Adventure 2 / 550-point edition, scheduled for Phase 7e
     # cleanup). Plus the canon Shell Room (103) and forest
     # variant (102).
-    88:  {"east": 76, "south": 90},                                      # Decorated chamber
+    # Canon 88 (decorated chamber, dragon's room? actually
+    # canon's "narrow east-stretching corridor"). Canon
+    # `88 25 30 56 43` (DOWN/CLIMB/E→25), `88 20 39` (JUMP→20
+    # death), `88 92 44 27` (W/GIANT→92).
+    88:  {"down": 25, "climb": 25, "east": 25,
+          "jump": 20, "west": 92, "giant": 92},
     140: {},                                                  # Vending Machine Room (port-synth at canon 140 — handled in Phase 7e)
     102: {},                                                 # Forest far south
     103: {"west": 16},                                                   # Shell Room — canon 103 (clam home)
