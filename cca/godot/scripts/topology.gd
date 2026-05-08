@@ -165,7 +165,11 @@ const ROOMS: Dictionary = {
     # Removed port-only N→33, S→11; canon has neither.
     12:  {"east": 11, "west": 13, "up": 13, "down": 11, "in": 13,
           "pit": 14, "entrance": 9, "debris": 11},
-    33:  {"up": 12, "south": 28, "down": 13, "east": 47, "west": 65, "north": 14},
+    # Y2 marker — canon 33. Canon `33 28 46` (S→28), `33 34 43 53 54`
+    # (E/WALL/BROKEN→34), `33 35 44` (W→35). PLUGH(65)→3 and
+    # PLOVER(71)→100 are magic words handled by MagicWordTeleport.
+    33:  {"south": 28, "east": 34, "west": 35,
+          "wall": 34, "broken": 34},
     # Low n/s passage at hole — canon 28 (silver home). Canon
     # `28 19 38 11 46` (HALL/OUT/S→19), `28 33 45 55` (N/Y2→33),
     # `28 36 30 52` (DOWN/HOLE→36).
@@ -200,7 +204,11 @@ const ROOMS: Dictionary = {
     # topology (the canonical maze prose still reads correct on
     # `look`) — full canon-exit encoding is a future polish step.
     131: {"west": 95, "east": 40, "north": 132, "south": 137},
-    40:  {"west": 131, "east": 132},
+    # Canon 40 = "VERY LOW WIDE PASSAGE PARALLEL TO HALL OF
+    # MISTS." Canon row `40 41 1` is a one-way bounce: any
+    # verb routes to 41 (West End of Hall of Mists). We add an
+    # explicit OUT/EAST/WEST/BACK→41 escape.
+    40:  {"out": 41, "east": 41, "west": 41, "back": 41},
     132: {"west": 40, "east": 133, "south": 131, "north": 138},
     133: {"west": 132, "east": 134, "south": 139},
     134: {"west": 133, "east": 135, "north": 136},
@@ -307,19 +315,41 @@ const ROOMS: Dictionary = {
     # to canon 88 (decorated chamber). Single explicit east
     # exit covers the player's escape.
     26:  {"east": 88, "out": 88, "back": 88},
-    31: {"north": 32},                                    # Window on pit (low)
-    32:  {"south": 31},                                                  # Window on pit (high)
-    34: {"north": 35},                                       # Low dust chamber
-    35:  {"south": 34, "north": 36},                                     # Sloping corridor
-    36:  {"south": 35, "west": 37},                                      # Above slab
-    37:  {"east": 36},                                                   # Slab room (dead-end)
+    # Canon 31 (PIT — bottomless pit, fall-to-death). Canon
+    # rows `31 524089 1` and `31 90 1` are death encodings; no
+    # walking exits.
+    31:  {},
+    # Canon 32 = "YOU CAN'T GET BY THE SNAKE." transition msg.
+    # Canon `32 19 1` bounces back to 19. Explicit OUT/BACK→19.
+    32:  {"out": 19, "back": 19, "south": 19},
+    # Canon 34 = jumble of rock with cracks. Canon `34 33 30 55`
+    # (DOWN/Y2→33), `34 15 29` (UP→15).
+    34:  {"down": 33, "up": 15},
+    # Canon 35 = sloping corridor with cracks. Canon `35 33 43 55`
+    # (E/Y2→33), `35 20 39` (JUMP→20 death pit).
+    35:  {"east": 33, "jump": 20},
+    # Canon 36 = dirty broken passage. Canon `36 37 43 17`
+    # (E/CRAWL→37), `36 28 29 52` (UP/HOLE→28), `36 39 44` (W→39),
+    # `36 65 70` (BEDQUILT→65).
+    36:  {"east": 37, "crawl": 37, "up": 28, "hole": 28,
+          "west": 39, "bedquilt": 65},
+    # Canon 37 = brink of pit. Canon `37 36 44 17` (W/CRAWL→36),
+    # `37 38 30 31 56` (DOWN/PIT/CLIMB→38).
+    37:  {"west": 36, "crawl": 36, "down": 38, "pit": 38, "climb": 38},
     # --- Side passages (39, 101 + 43-49) ---
     # 39 hangs off the Oriental Room (97) to the north. 101 is the
     # canon Dark-room — reachable from Plover (100) via
     # north (a one-way exit; you can't go back through Plover
     # without the magic word). 43-49 form a side branch off the
     # snake passage (47).
-    39:  {"south": 97},                                                  # Misty cavern
+    # Canon 38 = bottom of small pit. Canon `38 37 56 29 11`
+    # (CLIMB/UP→37 with condition).
+    38:  {"up": 37, "climb": 37, "out": 37},
+    # Canon 39 = large room with dusty rocks. Canon `39 36 43 23`
+    # (E/PASSAGE→36), `39 64 30 52 58` (DOWN/HOLE/FLOOR→64),
+    # `39 65 70` (BEDQUILT→65).
+    39:  {"east": 36, "passage": 36, "down": 64, "hole": 64,
+          "floor": 64, "bedquilt": 65},
     101: {"south": 100, "out": 100, "north": 43},                       # Dark-room — canon 101 (pyramid home)
     43:  {"south": 101, "north": 44},                                    # Wide place
     44:  {"south": 43, "north": 45, "down": 47},                         # Secret canyon
