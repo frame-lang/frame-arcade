@@ -914,6 +914,24 @@ var verb_synonyms: Dictionary = {
 const DIRECTIONS := ["north", "south", "east", "west", "up", "down",
                      "in", "out", "enter"]
 
+# Motion-like verbs that aren't compass directions but still
+# represent the player attempting to traverse — needed for canon's
+# dark-room pit-fall hazard, which canonically triggers on any
+# motion attempt while the player is in a dark cave room without
+# a lit lamp.
+const MOTION_VERBS := ["north", "south", "east", "west", "up", "down",
+                       "in", "out", "enter", "back", "forward",
+                       "jump", "climb", "pit", "steps", "dome",
+                       "passage", "slit", "stream", "cross", "over",
+                       "across", "left", "right", "ne", "nw", "se",
+                       "sw", "stairs", "crawl", "depression",
+                       "building", "house", "road", "hill", "valley",
+                       "forest", "gully", "outdoors", "surface"]
+
+# Canon dark-pit-fall probability per move attempt (matches the
+# Crowther/Woods 35% chance — see Quux ODWY0350/advent.c).
+const DARK_PIT_PCT := 35
+
 # ------------------------------------------------------------
 # Runtime
 # ------------------------------------------------------------
@@ -921,6 +939,11 @@ var fsm
 var output: RichTextLabel
 var input: LineEdit
 var _last_room: int = -1
+# Tracks whether the player has already been warned about the
+# darkness in their current room. Canon CCA gives one free turn —
+# the warning fires, and only on the *next* move attempt does the
+# pit-fall roll happen.
+var _dark_warned_room: int = -1
 var _save_path: String = "user://cca.save"     # cabinet convention: matches Arcade.save_path("cca")
 # 5-character-truncated verb-synonym lookup, populated in _ready()
 # from verb_synonyms. Mirrors canon's "first five letters" parser
@@ -1160,6 +1183,13 @@ func _process_input(text: String) -> void:
         _println(gated_exits[bumper_key].msg)
         return
 
+    # Canon dark-room pit-fall hazard. Any motion attempt from a
+    # dark cave room (lamp out) risks death. The first attempt in
+    # the room emits the canon warning; subsequent attempts roll
+    # the 35% pit-fall. Lighting the lamp clears the hazard.
+    if verb in MOTION_VERBS and _check_dark_pit_hazard():
+        return
+
     # Direction verbs become MOVE with a resolved room ID.
     if verb in DIRECTIONS:
         _handle_movement(verb)
@@ -1280,6 +1310,31 @@ func _handle_movement(direction: String) -> void:
     _check_lamp_warnings()
     _check_endgame_phase_change()
     _print_room()
+
+# ============================================================
+# Dark-room pit-fall hazard (canon CCA)
+# ============================================================
+# Returns true if the hazard fired (warning emitted *or* player
+# died), in which case the caller short-circuits the rest of
+# command handling. The "warn first, kill on the next attempt"
+# pattern matches Crowther/Woods canon: the player gets exactly
+# one free turn after entering a dark room before the 35% pit-
+# fall roll starts.
+func _check_dark_pit_hazard() -> bool:
+    var current: int = fsm.player_room()
+    if not fsm._room_is_dark(current):
+        if _dark_warned_room != -1:
+            _dark_warned_room = -1
+        return false
+    if current != _dark_warned_room:
+        _println("It is now pitch dark. If you proceed you will likely fall into a pit.")
+        _dark_warned_room = current
+        return true
+    if (randi() % 100) < DARK_PIT_PCT:
+        _println("You fell into a pit and broke every bone in your body!")
+        fsm.player.die()
+        return true
+    return false
 
 # ============================================================
 # Per-turn consequences
