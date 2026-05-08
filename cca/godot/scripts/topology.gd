@@ -606,20 +606,44 @@ const ROOMS: Dictionary = {
     88:  {"down": 25, "climb": 25, "east": 25,
           "jump": 20, "west": 92, "giant": 92},
     140: {},                                                  # Vending Machine Room (port-synth at canon 140 — handled in Phase 7e)
-    102: {},                                                 # Forest far south
-    103: {"west": 16},                                                   # Shell Room — canon 103 (clam home)
-    109: {"east": 113},                                                  # Low passage (curving west)
+    # Canon 102 (Arched Hall): `102 103 30 74 11` (DOWN/SHELL/OUT→103).
+    102: {"down": 103, "shell": 103, "out": 103},
+    # Canon 103 (Shell Room, clam home): `103 102 29 38` (UP/HALL→102),
+    # `103 104 30` (DOWN→104), `103 64 46` (S→64). Specials skipped.
+    103: {"up": 102, "hall": 102, "down": 104, "south": 64},
+    # Canon 109 (north/south canyon ~25 ft across): `109 69 46`
+    # (S→69), `109 113 45 75` (N/RESERVOIR→113).
+    109: {"south": 69, "north": 113, "reservoir": 113},
     113: {"west": 109, "down": 121},                                     # Wide chamber
     122: {"north": 121},                                                 # Anteroom — basalt
     124: {"east": 121},                                                  # Anteroom — red stone
     126: {"south": 123, "north": 127},                                  # Breath-taking view (canon 126; north to canon 127 Chamber of Boulders)
     # --- Round 10: canon-completion fillers (104-107, 110-114, 127-129) ---
     # Forest grid completion + inner-anteroom cluster.
-    104: {"south": 96, "east": 105},                                     # Dense forest
-    105: {"west": 104, "east": 106},                       # Scrub forest
-    106: {"west": 105, "north": 107},                                    # Forest clearing (water source flavor)
-    107: {"south": 106},                                    # Forest path
-    110: {"east": 109, "north": 111},                                    # Low passage with claw-marks
+    # Canon 104 (sloping corridor, ragged sharp walls): `104 103 29 74`
+    # (UP/SHELL→103), `104 105 30` (DOWN→105).
+    104: {"up": 103, "shell": 103, "down": 105},
+    # Canon 105 (cul-de-sac eight feet across): `105 104 29 11`
+    # (UP/OUT→104), `105 103 74` (SHELL→103).
+    105: {"up": 104, "out": 104, "shell": 103},
+    # Canon 106 (anteroom leading to large E passage): `106 64 29`
+    # (UP→64), `106 65 44` (W→65), `106 108 43` (E→108).
+    106: {"up": 64, "west": 65, "east": 108},
+    # Canon 107 = "MAZE OF TWISTY LITTLE PASSAGES, ALL DIFFERENT" —
+    # the second maze entry. Canon row sets all eight compass + UP +
+    # DOWN to scrambled destinations 131-139, plus DOWN→61.
+    # `107 131 46` (S→131), `107 132 49` (SW→132), `107 133 47` (NW→133),
+    # `107 134 48` (SE→134), `107 135 29` (UP→135), `107 136 50` (NW→136),
+    # `107 137 43` (E→137), `107 138 44` (W→138), `107 139 45` (N→139),
+    # `107 61 30` (DOWN→61).
+    # First-write wins so my generator captures one verb per (verb→dest)
+    # pair. The audit accepts canon rows in declaration order.
+    107: {"south": 131, "sw": 132, "nw": 133, "se": 134,
+          "up": 135, "east": 137, "west": 138, "north": 139,
+          "down": 61},
+    # Canon 110 (low window overlooking pit): `110 71 44` (W→71),
+    # `110 20 39` (JUMP→20 death pit).
+    110: {"west": 71, "jump": 20},
     111: {"south": 110, "east": 112, "down": 114},                       # Different secret canyon
     112: {"west": 111, "north": 113},                                    # Tall canyon
     114: {"up": 111},                                                    # Crystal grotto (dead-end)
