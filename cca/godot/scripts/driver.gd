@@ -383,21 +383,38 @@ func _process_input(text: String) -> void:
             if (randi() % 100) < bg.pct:
                 _println(bg.msg)
                 return
-        # Carrying-conditional bumper (canon row `15 150022 …`,
-        # the gold-blocks-the-steps puzzle). Fires here, in the
-        # bumper dispatch, so that non-direction movement verbs
-        # (PIT/STEPS/DOME/PASSAGE) and direction verbs without a
+        # Carrying-conditional gate. Fires here, in the bumper
+        # dispatch, so that non-direction movement verbs (PIT/
+        # STEPS/DOME/PASSAGE) and direction verbs without a
         # topology exit (15:EAST has no plain row) all trigger
-        # the canon "dome is unclimbable" prose. Direction verbs
-        # WITH a topology exit (15:UP→14) also pass through here
-        # first — the gate fires before _handle_movement gets
-        # a chance to walk the unconditional fall-through.
+        # the canon behaviour. Direction verbs WITH a topology
+        # exit (15:UP→14) also pass through here first — the
+        # gate fires before _handle_movement gets a chance to
+        # walk the unconditional fall-through.
+        #
+        # Two flavours, distinguished by the gate dict:
+        #   - msg only (e.g. `15 150022 …` — gold-blocks-the-
+        #     steps): print the canon prose and stay put.
+        #   - dest only (e.g. `14 150020 …` — gold falls into
+        #     the broken-neck pit at canon 20): walk the player
+        #     to dest, where the room's own death handler fires.
         if bg.check == "carrying":
             var bobj: String = bg.get("obj", "")
             if bobj != "" and bobj in fsm:
                 var boid: int = int(fsm.get(bobj))
                 if fsm.player.carrying(boid):
-                    _println(bg.msg)
+                    if "dest" in bg:
+                        var resp: String = fsm.do_command("move", str(bg.dest))
+                        _println(resp)
+                        fsm.tick()
+                        _check_pirate_steal()
+                        _check_lamp_warnings()
+                        _check_endgame_phase_change()
+                        _check_dwarf_axe()
+                        _check_player_death()
+                        _maybe_print_room_after_move()
+                    else:
+                        _println(bg.msg)
                     return
 
     # Canon dark-room pit-fall hazard. Any motion attempt from a
