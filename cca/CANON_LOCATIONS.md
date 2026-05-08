@@ -294,7 +294,7 @@ rather than via a special-routine dispatch.
 
 **Port `topology.gd` ROOMS[8]:** `{building→1, down→9, east→5, enter→9, forest→5, gully→7, in→9, north→7, south→5, upstream→7, west→5}`
 
-**Port GATES[8]:** down/grate, in/grate
+**Port GATES[8]:** down/grate, in/grate, enter/grate
 
 ---
 

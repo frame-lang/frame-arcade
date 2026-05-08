@@ -59,7 +59,7 @@ const VERB_TO_DIR := {
 const CANON_GATED := {
     "8:down":   9,    # depression → below grate (grate gate)
     "8:in":     9,
-    "8:enter":  9,
+    "8:enter":  9,   # canon `8 303009 3 19 30` — ENTER alongside IN/DOWN
     "9:up":     8,   # canon `9 303008 11 29` mirror of 8:down
     "9:out":    8,   # canon `9 303008 11 29` mirror of 8:in
     "11:depression": 8,  # canon `11 303008 63` — DEPRESSION teleport

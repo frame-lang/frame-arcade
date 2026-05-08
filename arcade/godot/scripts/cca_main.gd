@@ -904,7 +904,11 @@ var gated_exits: Dictionary = {
     "108:up":    {"check": "probability", "pct": 95, "msg": "You have crawled around in some little holes and wound up back in the main passage."},
     "108:down":  {"check": "probability", "pct": 95, "msg": "You have crawled around in some little holes and wound up back in the main passage."},
     "108:west":  {"check": "always", "msg": "You have crawled around in some little holes and found your way blocked by a recent cave-in. You are now back in the main passage."},
+    # Grate at depression (canon 8 → 9). Canon `8 303009 3 19 30`
+    # gates ENTER, IN, and DOWN — all three on the same condition.
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
+    "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
+    "8:enter":   {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     # Symmetric mirror at canon 9 (below grate) per canon section
     # 3 row `9 303008 11 29` — UP/OUT route back to 8 when grate
     # is unlocked, otherwise the canon "grate is locked" bumper.

@@ -958,8 +958,14 @@ const GATES: Dictionary = {
                   "msg": "You have crawled around in some little holes and wound up back in the main passage."},
     "108:west":  {"check": "always",
                   "msg": "You have crawled around in some little holes and found your way blocked by a recent cave-in. You are now back in the main passage."},
+    # Grate at depression (canon 8 → 9). Canon `8 303009 3 19 30`
+    # gates ENTER, IN, and DOWN on grate-unlocked; the port had
+    # 8:in/8:down gated but 8:enter ungated, letting players bypass
+    # the gate by typing ENTER. All three verbs now route through
+    # the same grate check.
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
+    "8:enter":   {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     # Symmetric mirror at canon 9 (below grate). Canon section 3
     # rows `9 303008 11 29` (OUT/UP → 8 when grate unlocked) and
     # `9 593 11` (OUT → msg #93 "the grate is locked"); both
