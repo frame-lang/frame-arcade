@@ -346,9 +346,19 @@ func _process_input(text: String) -> void:
     # gate the (room, verb) pair before the direction handler so
     # the player gets canon prose rather than the FSM fallback.
     var bumper_key: String = "%d:%s" % [fsm.player_room(), verb]
-    if bumper_key in gated_exits and gated_exits[bumper_key].check == "always":
-        _println(gated_exits[bumper_key].msg)
-        return
+    if bumper_key in gated_exits:
+        var bg: Dictionary = gated_exits[bumper_key]
+        if bg.check == "always":
+            _println(bg.msg)
+            return
+        # Rusty-door bumpers at canon 94 — ENTER/CAVERN aren't in
+        # DIRECTIONS so they reach this dispatch. Print the canon
+        # "rusty refuses" prose only while the door is still rusty;
+        # once oiled, fall through and let _handle_movement walk
+        # the regular topology exit (94:enter / 94:cavern → 95).
+        if bg.check == "rusty" and not fsm.rusty_door_oiled():
+            _println(bg.msg)
+            return
 
     # Canon dark-room pit-fall hazard. Any motion attempt from a
     # dark cave room (lamp out) risks death. The first attempt in
@@ -459,6 +469,11 @@ func _handle_movement(direction: String) -> void:
             _println(gate.msg)
             return
         if gate.check == "plover_squeeze" and fsm.plover_squeeze_blocked():
+            _println(gate.msg)
+            return
+        if gate.check == "rusty" and not fsm.rusty_door_oiled():
+            # Rusty iron door at canon 94 → 95. Blocks NORTH/ENTER/
+            # CAVERN until POUR OIL transitions the door FSM.
             _println(gate.msg)
             return
 

@@ -2102,6 +2102,60 @@
 
 
 # ------------------------------------------------------------
+# RustyDoor
+# ------------------------------------------------------------
+# Canon: at the north end of the immense N/S passage (canon 94),
+# a rusty door blocks the way to the Magnificent Cavern (canon
+# 95) where the trident treasure waits. The door's hinges are
+# stuck. Pouring oil from the bottle (filled at canon 105's
+# Pool of Oil) frees them, after which NORTH/ENTER/CAVERN at 94
+# all walk through to 95.
+#
+# Canon section 2 encodes the puzzle as two rows on the same
+# verb cluster:
+#   `94 309095 45 3 73`   conditional on cond 309 (door oiled)
+#                         → 95 via N/ENTER/CAVERN
+#   `94 611 45`           fallback msg #111 ("rusty refuses")
+#
+# Two-state FSM (same shape as Grate). The transition is one-
+# way: there's no "rust the door again" verb in canon. Save/
+# restore round-trips the state so resumption preserves whether
+# the player has progressed past the puzzle.
+#
+# State diagram:
+#
+#   $Rusty ── oil() ──► $Oiled (terminal)
+# ------------------------------------------------------------
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
+@@system RustyDoor : RefCounted {
+
+    interface:
+        oil(): String
+        get_state(): String
+        is_rusty(): bool
+
+    machine:
+
+        $Rusty {
+            oil(): String  {
+                -> $Oiled
+                @@:return("The oil has freed up the hinges so that the door will now move, although it requires some effort.")
+            }
+            get_state(): String      { @@:("rusty") }
+            is_rusty(): bool         { @@:(true) }
+        }
+
+        $Oiled {
+            oil(): String            { @@:("The hinges are already well-lubricated.") }
+            get_state(): String      { @@:("oiled") }
+            is_rusty(): bool         { @@:(false) }
+        }
+}
+
+
+# ------------------------------------------------------------
 # VendingMachine
 # ------------------------------------------------------------
 # Canon CCA Easter egg: at the Vending Machine Room (95) the
@@ -2591,6 +2645,7 @@
         bridge_built(): bool
         rod_in_inventory(): bool
         grate_locked(): bool
+        rusty_door_oiled(): bool
         keys_in_inventory(): bool
         vending_loaded(): bool
         plant_is_tall(): bool
@@ -3023,6 +3078,7 @@
             bridge_built(): bool       { @@:(self.crystal_bridge.is_built()) }
             rod_in_inventory(): bool   { @@:(self.rod_item.is_carried()) }
             grate_locked(): bool       { @@:(self.grate.is_locked()) }
+            rusty_door_oiled(): bool   { @@:(not self.rusty_door.is_rusty()) }
             keys_in_inventory(): bool  { @@:(self.keys_item.is_carried()) }
             vending_loaded(): bool     { @@:(self.vending.is_loaded()) }
             plant_is_tall(): bool      { @@:(self.plant.is_tall()) }
@@ -4422,10 +4478,11 @@
         _verb_pour(noun: String): String {
             # POUR with no noun, or POUR WATER, POUR OIL, POUR
             # BOTTLE — all pour the bottle's contents at the
-            # player's location. Special case: at the West Pit
-            # (canon 25) water grows the plant. Oil at the
-            # rusty-iron-door room would lubricate the door —
-            # canon room 94, not yet wired. Otherwise spills.
+            # player's location. Two cross-FSM cases land here:
+            #   - water at the West Pit (canon 25) grows the plant
+            #   - oil at the rusty-door room (canon 94) lubricates
+            #     the hinges, opening the way to canon 95
+            # Anywhere else, the bottle just spills.
             if noun != "" and noun != "bottle" and noun != "water" and noun != "oil":
                 return "You can't pour that."
             if not self.bottle_item.is_carried():
@@ -4434,11 +4491,15 @@
                 return "The bottle is empty."
             var r: int = self.player.get_room()
             var was_water: bool = self.bottle.has_water()
+            var was_oil: bool = self.bottle.has_oil()
             var msg: String = self.bottle.pour()
             if was_water and r == self.WEST_PIT_ROOM:
                 # Cross-FSM: water the plant.
                 var grow_msg: String = self.plant.water()
                 return "The water soaks into the soil. " + grow_msg
+            if was_oil and r == self.RUSTY_DOOR_ROOM and self.rusty_door.is_rusty():
+                # Cross-FSM: oil the hinges. Canonical msg #114.
+                return self.rusty_door.oil()
             return msg
         }
 
@@ -4683,6 +4744,14 @@
         # the cross-cuts.
         grate = @@Grate()
 
+        # Rusty iron door at the north end of the immense N/S
+        # passage (canon 94). Blocks NORTH/ENTER/CAVERN to the
+        # Magnificent Cavern (canon 95) until the player pours
+        # oil from the bottle on it. Cross-FSM choreography lives
+        # in Adventure._verb_pour; the door FSM itself only knows
+        # its $Rusty → $Oiled transition.
+        rusty_door = @@RustyDoor()
+
         # The Vending Machine in room 140 — canon's pre-endgame
         # Easter egg. Trade rare coins for fresh lamp batteries
         # (and lose the points the coins would score at the well
@@ -4774,6 +4843,7 @@
         BOTTLE_ID: int = 132
         BOTTLE_HOME_ROOM: int = 3     # well house
         OIL_SOURCE_ROOM: int = 105    # canon Pool of Oil (port stand-in)
+        RUSTY_DOOR_ROOM: int = 94     # immense N/S passage — rusty door blocks N to canon 95
         ROD_HOME_ROOM: int = 11       # debris room — same as gold
         ROD_ID: int = 130
         KEYS_ID: int = 131

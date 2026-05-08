@@ -85,6 +85,10 @@ const FSM_HANDLED := {
     # port key because the gate is keyed on the move attempt;
     # the message branch is internal.
     "103:south": "Adventure._verb_move (cca.fgd) — clam/oyster squeeze at canon 103",
+    # (Canon 94 → 95 rusty-door puzzle is registered via a
+    # topology GATES entry with check="rusty" — both canon
+    # rows there are already counted in the GATES branch above,
+    # no FSM_HANDLED entry needed.)
 }
 
 func _init():

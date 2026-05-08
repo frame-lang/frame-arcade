@@ -636,7 +636,8 @@ var room_exits: Dictionary = {
     # Canon 94 (Immense N/S passage): `94 92 46 27 23` (S/GIANT/
     # PASSAGE→92), `94 611 45` (special), `94 309095 45 3 73`
     # (N/CAVERN/ENTER→canon 95 with conditional).
-    94:  {"south": 92, "giant": 92, "passage": 92, "north": 95},
+    94:  {"south": 92, "giant": 92, "passage": 92,
+          "north": 95, "enter": 95, "cavern": 95},
     # 96-99: canon forest grid surrounding the road/valley.
     # All four are canonical (advent.dat "different forest, NE/SW/SE/NW").
     # Canon 96 (Soft Room): `96 66 44 11` (W/OUT→66).
@@ -863,9 +864,12 @@ var gated_exits: Dictionary = {
     "99:passage":  {"check": "always", "msg": "Something you're carrying won't fit through the tunnel with you. You'd best take inventory and drop something."},
     "100:passage": {"check": "always", "msg": "Something you're carrying won't fit through the tunnel with you. You'd best take inventory and drop something."},
     "100:out":     {"check": "always", "msg": "Something you're carrying won't fit through the tunnel with you. You'd best take inventory and drop something."},
-    "94:north":  {"check": "always", "msg": "The door is extremely rusty and refuses to open."},
-    "94:enter":  {"check": "always", "msg": "The door is extremely rusty and refuses to open."},
-    "94:cavern": {"check": "always", "msg": "The door is extremely rusty and refuses to open."},
+    # Rusty iron door at canon 94 → 95. Pour oil from the bottle
+    # at room 94 to lubricate the hinges; the gate then passes
+    # and N/ENTER/CAVERN walk through to the Magnificent Cavern.
+    "94:north":  {"check": "rusty",  "msg": "The door is extremely rusty and refuses to open."},
+    "94:enter":  {"check": "rusty",  "msg": "The door is extremely rusty and refuses to open."},
+    "94:cavern": {"check": "rusty",  "msg": "The door is extremely rusty and refuses to open."},
     "116:down":  {"check": "always", "msg": "The grate is locked."},
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
@@ -1179,9 +1183,19 @@ func _process_input(text: String) -> void:
     # direction handler so the canon prose lands rather than the
     # FSM fallback.
     var bumper_key: String = "%d:%s" % [fsm.player_room(), verb]
-    if bumper_key in gated_exits and gated_exits[bumper_key].check == "always":
-        _println(gated_exits[bumper_key].msg)
-        return
+    if bumper_key in gated_exits:
+        var bg: Dictionary = gated_exits[bumper_key]
+        if bg.check == "always":
+            _println(bg.msg)
+            return
+        # Rusty-door bumpers at canon 94 — ENTER/CAVERN aren't in
+        # DIRECTIONS so they reach this dispatch. Print the canon
+        # "rusty refuses" prose only while the door is still rusty;
+        # once oiled, fall through and let _handle_movement walk
+        # the regular topology exit (94:enter / 94:cavern → 95).
+        if bg.check == "rusty" and not fsm.rusty_door_oiled():
+            _println(bg.msg)
+            return
 
     # Canon dark-room pit-fall hazard. Any motion attempt from a
     # dark cave room (lamp out) risks death. The first attempt in
@@ -1283,6 +1297,10 @@ func _handle_movement(direction: String) -> void:
             _println(gate.msg)
             return
         if gate.check == "plant_tall" and not fsm.plant_is_tall():
+            _println(gate.msg)
+            return
+        if gate.check == "rusty" and not fsm.rusty_door_oiled():
+            # Rusty iron door at canon 94 → 95. Pour oil to open.
             _println(gate.msg)
             return
         if gate.check == "plover_squeeze" and fsm.plover_squeeze_blocked():

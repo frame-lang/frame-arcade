@@ -93,6 +93,13 @@ const CANON_GATED := {
     "19:north": 28,   # mountain king → silver passage (snake gate)
     "19:south": 29,   # mountain king → south side chamber (snake gate)
     "19:sw":    74,   # canon `19 35074 49` — 35% probability dragon-canyon shortcut (port: unconditional)
+    # Canon 94 → 95 via the rusty-door puzzle. Canon row
+    # `94 309095 45 3 73` says NORTH/ENTER/CAVERN all walk
+    # through to 95 once the door is oiled. Whitelisted as
+    # canon-equivalent (the gate is keyed by check="rusty").
+    "94:north":  95,
+    "94:enter":  95,
+    "94:cavern": 95,
     "19:west":  30,   # mountain king → west side chamber (snake gate)
     # Crack — canon's `16 14 1` "any-verb→14" handler (transition
     # message) needs a concrete escape direction in our model.
@@ -136,7 +143,7 @@ const CANON_GATED := {
     "122:nw":   123,  # NE/NW alias for the anteroom turn
     "124:nw":   125,
     "108:north":67,   # Witt's End → Bedquilt cluster (port shortcut)
-    "94:north": 95,   # Treasury → Magnificent Cavern path
+    # 94:north → 95 listed in the canon-94 block above (rusty-door puzzle).
 }
 
 var passed: int = 0

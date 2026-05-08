@@ -609,9 +609,13 @@ const ROOMS: Dictionary = {
     # (S/GIANT/OUT→92).
     93:  {"south": 92, "giant": 92, "out": 92},
     # Canon 94 (Immense N/S passage): `94 92 46 27 23` (S/GIANT/
-    # PASSAGE→92), `94 611 45` (special), `94 309095 45 3 73`
-    # (N/CAVERN/ENTER→canon 95 with conditional).
-    94:  {"south": 92, "giant": 92, "passage": 92, "north": 95},
+    # PASSAGE→92), `94 611 45` (msg #111 — rusty refuses, fallback
+    # for N when door still rusty), `94 309095 45 3 73` (N/CAVERN/
+    # ENTER→95 once the rusty door is oiled). All three N/CAVERN/
+    # ENTER aliases route to the same gate (`rusty`) which checks
+    # rusty_door_oiled() — pour oil from the bottle here to open.
+    94:  {"south": 92, "giant": 92, "passage": 92,
+          "north": 95, "enter": 95, "cavern": 95},
     # 96-99: canon forest grid surrounding the road/valley.
     # All four are canonical (advent.dat "different forest, NE/SW/SE/NW").
     # Canon 96 (Soft Room): `96 66 44 11` (W/OUT→66).
@@ -863,9 +867,15 @@ const GATES: Dictionary = {
     # Canon 94:north — `94 611 45` is msg #111 "the door is
     # extremely rusty and refuses to open." (Treasury access in
     # canon is via the rusty-door puzzle, not modelled here.)
-    "94:north":  {"check": "always", "msg": "The door is extremely rusty and refuses to open."},
-    "94:enter":  {"check": "always", "msg": "The door is extremely rusty and refuses to open."},
-    "94:cavern": {"check": "always", "msg": "The door is extremely rusty and refuses to open."},
+    # Rusty iron door at canon 94 → 95. Canon section 2 has two
+    # rows for the verb cluster N/ENTER/CAVERN: a conditional row
+    # `94 309095 45 3 73` (when door oiled, walk through to 95)
+    # and a fallback `94 611 45` (msg #111, "rusty refuses"). The
+    # `rusty` check defers to Adventure.rusty_door_oiled() — pour
+    # oil from the bottle at canon 94 to lubricate.
+    "94:north":  {"check": "rusty",  "msg": "The door is extremely rusty and refuses to open."},
+    "94:enter":  {"check": "rusty",  "msg": "The door is extremely rusty and refuses to open."},
+    "94:cavern": {"check": "rusty",  "msg": "The door is extremely rusty and refuses to open."},
     # Canon 116:down — `116 593 30` is msg #93 "the grate is
     # locked" variant (office grate near the repository).
     "116:down":  {"check": "always", "msg": "The grate is locked."},
