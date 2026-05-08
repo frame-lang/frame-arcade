@@ -51,7 +51,38 @@ canon 95/5 — observed 51 escapes / 949 bounces.
 
 ---
 
-### Probabilistic maze decoration (canon rooms 5, 65, 66, 108, 111)
+### Gold-blocks-the-steps puzzle (canon row `15 150022 …`) — **DONE 2026-05-08**
+
+Implemented via a new `carrying` gate type with two flavours:
+`msg`-only (print canon prose, stay put) and `dest`-only
+(walk to a destination room, where its own death handler
+fires). 6 gates at canon 15 (UP/EAST/PIT/STEPS/DOME/PASSAGE)
+emit "The dome is unclimbable." while carrying gold.
+
+Test: `tests/test_cca_gold_blocks_steps.gd` exercises four
+phases (blocked verbs with gold, free verbs with gold,
+walk without gold, drop+walk recovery). Companion canon
+test `tests/test_cca_gold_falls_pit.gd` exercises the canon
+14:150020 fall-to-death pair.
+
+Canonical playthrough rewritten so bird+snake clearance now
+precedes gold pickup; gold retrieval uses the canon long-way
+(19→east→15→south→18→take gold→15→down→19→north→28→33).
+52 stages still green.
+
+---
+
+### Gold-falls-pit death (canon row `14 150020 …`) — **DONE 2026-05-08**
+
+Companion to gold-blocks-the-steps. Canon 14 DOWN/PIT/STEPS
+while carrying gold dump the player into canon 20 (broken-
+neck pit-bottom death) where the existing room-entry death
+handler fires. Test exercises with-gold deaths via DOWN/
+PIT/STEPS, without-gold normal walk to 15, and drop+walk.
+
+---
+
+### Probabilistic maze decoration (canon rooms 5, 65, 66, 111)
 
 Canon's "twisty maze" rooms scramble compass directions to defeat
 mapping. Each maze room has 9-10 exits with carefully randomised
@@ -82,3 +113,9 @@ this section just notes session-level milestones.)
 - 2026-05 — fetched canonical 1977 FORTRAN source (`advent.for`)
   from IF Archive; `gen_locations.py` decoder validated against
   `advent.for` lines 105-122 specification.
+- 2026-05 — Witt's End 95/5 probability gate (canon 108).
+- 2026-05 — Crowther/Woods credit splash on every session.
+- 2026-05 — gold-blocks-the-steps + gold-falls-pit pair
+  (canon rows 15:150022 + 14:150020); canonical playthrough
+  reordered to bird→snake→gold; conditional-row coverage
+  43→44/62.
