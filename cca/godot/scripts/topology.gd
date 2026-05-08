@@ -380,13 +380,16 @@ const ROOMS: Dictionary = {
     # Special-handler row `15 150022 ...` is the rod-puzzle pit
     # check; encoded via gameplay logic.
     # Hall of Mists (canon 15). Plain rows: LEFT/SOUTH→18,
-    # FORWARD/HALL/WEST→17, STAIRS/DOWN/NORTH→19, UP→14.
-    # Canon row `15 34 55` adds Y2 verb → 34 (jumble of rocks)
-    # as the convenience-teleport shortcut. Note: canon row
-    # `15 150022 …` (UP/PIT/STEPS/DOME/PASSAGE/EAST → 22 if
-    # carrying GOLD = obj 50) is the canonical "you can't get
-    # the gold up the steps" puzzle — currently *not* modeled
-    # by the port; logged in TODO.md as a known divergence.
+    # FORWARD/HALL/WEST→17, STAIRS/DOWN/NORTH→19, UP→14, Y2→34.
+    # Canon row `15 150022 …` (UP/PIT/STEPS/DOME/PASSAGE/EAST →
+    # room 22 if carrying obj #50 = GOLD) is the canonical
+    # "you can't get the gold up the steps" puzzle. Encoded
+    # below via the GATES dict with check="carrying" + obj_id
+    # = GOLD_ID. Canon room 22's description ("THE DOME IS
+    # UNCLIMBABLE.") is the bumper text — the player stays at
+    # 15 and must take gold out via the canon long-way (down
+    # through the snake-cleared Hall of Mountain King 19 →
+    # silver passage 28 → Y2 33 → PLUGH home).
     15:  {"up": 14, "west": 17, "south": 18, "north": 19, "down": 19,
           "left": 18, "forward": 17, "hall": 17, "stairs": 19,
           "y2": 34},
@@ -983,6 +986,25 @@ const GATES: Dictionary = {
     "12:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
     "13:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
     "14:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
+    # "You can't get the gold up the steps." Canon row
+    # `15 150022 29 31 34 35 23 43` blocks UP/PIT/STEPS/DOME/
+    # PASSAGE/EAST at the Hall of Mists when the player is
+    # carrying obj #50 (gold). The canon dest is room 22, whose
+    # description IS the bumper message ("THE DOME IS
+    # UNCLIMBABLE.") and which itself is a forced-motion
+    # bouncer back to 15. The new "carrying" gate type takes
+    # an `obj` field naming a port-side ID accessor; the driver
+    # resolves it and fires when the player has the item in
+    # inventory. The canonical solution is to drop gold,
+    # navigate up via the cave, return via 19 → 28 → 33 with
+    # the snake gone — but the trapped gold forces the player
+    # to use the rod / bridge / Bedquilt long-way around.
+    "15:up":      {"check": "carrying", "obj": "GOLD_ID", "msg": "The dome is unclimbable."},
+    "15:east":    {"check": "carrying", "obj": "GOLD_ID", "msg": "The dome is unclimbable."},
+    "15:pit":     {"check": "carrying", "obj": "GOLD_ID", "msg": "The dome is unclimbable."},
+    "15:steps":   {"check": "carrying", "obj": "GOLD_ID", "msg": "The dome is unclimbable."},
+    "15:dome":    {"check": "carrying", "obj": "GOLD_ID", "msg": "The dome is unclimbable."},
+    "15:passage": {"check": "carrying", "obj": "GOLD_ID", "msg": "The dome is unclimbable."},
     # Canon plant — single-jump model:
     #   25 UP/OUT → 23 gated by plant tall (canon row
     #   `25 23 29 11`, condition 11 = plant tall).

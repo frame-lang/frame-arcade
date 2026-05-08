@@ -922,6 +922,24 @@ var gated_exits: Dictionary = {
     "13:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
     "14:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
     "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
+    # "You can't get the gold up the steps." Canon row
+    # `15 150022 29 31 34 35 23 43` blocks UP/PIT/STEPS/DOME/
+    # PASSAGE/EAST at the Hall of Mists when the player is
+    # carrying obj #50 (gold). The canon dest is room 22, whose
+    # description IS the bumper message ("THE DOME IS
+    # UNCLIMBABLE.") and which itself is a forced-motion
+    # bouncer back to 15. The "carrying" gate type takes an
+    # `obj` field naming a port-side ID accessor; the driver
+    # resolves it and fires when the player has the item in
+    # inventory. The canonical solution is to navigate up via
+    # the cave long-way (rod / bridge / Bedquilt) once the gold
+    # has been retrieved.
+    "15:up":      {"check": "carrying", "obj": "GOLD_ID", "msg": "The dome is unclimbable."},
+    "15:east":    {"check": "carrying", "obj": "GOLD_ID", "msg": "The dome is unclimbable."},
+    "15:pit":     {"check": "carrying", "obj": "GOLD_ID", "msg": "The dome is unclimbable."},
+    "15:steps":   {"check": "carrying", "obj": "GOLD_ID", "msg": "The dome is unclimbable."},
+    "15:dome":    {"check": "carrying", "obj": "GOLD_ID", "msg": "The dome is unclimbable."},
+    "15:passage": {"check": "carrying", "obj": "GOLD_ID", "msg": "The dome is unclimbable."},
     # Canon plant — single-jump model:
     #   25 UP/OUT → 23 gated by plant tall (canon row
     #   `25 23 29 11`, condition 11 = plant tall).
@@ -1252,6 +1270,22 @@ func _process_input(text: String) -> void:
             if (randi() % 100) < bg.pct:
                 _println(bg.msg)
                 return
+        # Carrying-conditional bumper (canon row `15 150022 …`,
+        # the gold-blocks-the-steps puzzle). Fires here, in the
+        # bumper dispatch, so that non-direction movement verbs
+        # (PIT/STEPS/DOME/PASSAGE) and direction verbs without a
+        # topology exit (15:EAST has no plain row) all trigger
+        # the canon "dome is unclimbable" prose. Direction verbs
+        # WITH a topology exit (15:UP→14) also pass through here
+        # first — the gate fires before _handle_movement gets
+        # a chance to walk the unconditional fall-through.
+        if bg.check == "carrying":
+            var bobj: String = bg.get("obj", "")
+            if bobj != "" and bobj in fsm:
+                var boid: int = int(fsm.get(bobj))
+                if fsm.player.carrying(boid):
+                    _println(bg.msg)
+                    return
 
     # Canon dark-room pit-fall hazard. Any motion attempt from a
     # dark cave room (lamp out) risks death. The first attempt in
@@ -1296,6 +1330,12 @@ func _parse(text: String) -> Array:
     # token (Don Woods 1977 startup banner). Truncate, then look
     # up in a pre-truncated synonym table that resolves back to
     # the canonical form for FSM dispatch.
+    # Lazily populate the truncation table on first parse — for
+    # production use _ready() runs first, but headless tests
+    # construct outside the scene tree, so _ready() is never
+    # called and the table would be empty.
+    if _verb_synonyms_5.is_empty():
+        _build_verb_synonyms_5()
     var parts: PackedStringArray = text.split(" ", false)
     if parts.is_empty():
         return ["", ""]
@@ -1320,7 +1360,19 @@ func _build_verb_synonyms_5() -> void:
     for key in verb_synonyms.keys():
         _verb_synonyms_5[_truncate5(key)] = verb_synonyms[key]
     for canon_verb in ["extinguish", "release", "attack", "examine",
-                       "unlock", "insert", "plover", "inventory"]:
+                       "unlock", "insert", "plover", "inventory",
+                       # Motion verbs > 5 chars that appear in
+                       # GATES keys or topology aliases. The
+                       # gate-key check uses the full canonical
+                       # verb, so the 5-char truncation must
+                       # restore here (e.g. "passa" → "passage"
+                       # so 15:passage gold-bumper can fire).
+                       "passage", "forward", "stream", "across",
+                       "stairs", "depression", "building", "valley",
+                       "bedquilt", "oriental", "cavern", "barren",
+                       "secret", "office", "cobbles", "awkward",
+                       "outdoors", "downstream", "upstream",
+                       "entrance", "surface", "reservoir"]:
         _verb_synonyms_5[_truncate5(canon_verb)] = canon_verb
 
 # ============================================================
@@ -1359,6 +1411,20 @@ func _handle_movement(direction: String) -> void:
             # Rusty iron door at canon 94 → 95. Pour oil to open.
             _println(gate.msg)
             return
+        if gate.check == "carrying":
+            # Inventory-conditional bumper. Used at canon 15 for
+            # the gold-blocks-the-steps puzzle (canon row
+            # `15 150022 …`). The gate's `obj` field names the
+            # port-side constant on Adventure (e.g. "GOLD_ID");
+            # we resolve it and check player.carrying(...). On
+            # match, emit the canon msg and stay put — forces
+            # the player to use the canon long-way out.
+            var obj_name: String = gate.get("obj", "")
+            if obj_name != "" and obj_name in fsm:
+                var obj_id: int = int(fsm.get(obj_name))
+                if fsm.player.carrying(obj_id):
+                    _println(gate.msg)
+                    return
         # `probability` gates are deliberately handled only in the
         # bumper-key dispatch above, not here. Rolling again at this
         # point would compound the probability (e.g. canon 95% → an

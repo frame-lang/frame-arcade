@@ -267,66 +267,36 @@ func _stages() -> Array:
             "asserts":    _assert_rod_carried,
             "checkpoint": "carrying_rod",
         },
-        # Canon: gold lives at room 18 ("low room with crude
-        # note, you won't get it up the steps"), reached only
-        # from Hall of Mists east end (15) → south. Path from
-        # debris (11): 11 west → 12 → up → 13 → west → 14 →
-        # down → 15 → south → 18. Take gold, then return to Y2
-        # (33) via the canonical XYZZY/PLUGH magic-word route
-        # since canon has no walking shortcut from 14 to 33.
-        {
-            "name":       "gold_taken_back_at_y2",
-            "from":       "carrying_rod",
-            "actions":    [
-                ["go", "west"],            # 11 → 12 (canon)
-                ["go", "up"],              # 12 → 13 (canon)
-                ["go", "west"],            # 13 → 14 (canon)
-                ["go", "down"],            # 14 → 15 (canon)
-                ["go", "south"],           # 15 → 18 (canon, gold-nugget room)
-                ["take", "gold"],
-                ["go", "north"],           # 18 → 15 (canon)
-                ["go", "up"],              # 15 → 14 (canon)
-                ["go", "east"],            # 14 → 13 (canon)
-                ["go", "east"],            # 13 → 12 (canon)
-                ["go", "east"],            # 12 → 11 (canon)
-                ["xyzzy", ""],             # 11 → 3 (well house)
-                ["plugh", ""],             # 3 → 33 (Y2 marker)
-            ],
-            "asserts":    _assert_rod_and_gold_carried,
-            "checkpoint": "carrying_rod_gold",
-        },
-        # carrying_rod_gold checkpoint is now AT Y2 (33).
-        # at_y2 stage is a no-op assert; downstream stages
-        # already chain off carrying_rod_gold via Y2.
-        {
-            "name":       "at_y2",
-            "from":       "carrying_rod_gold",
-            "actions":    [],
-            "asserts":    _assert_room(33),
-            "checkpoint": "at_y2",
-        },
+        # ----- Bird → snake clearance MUST happen before gold -----
+        # Canon row `15 150022 …` makes UP/EAST/PIT/STEPS/DOME/
+        # PASSAGE at room 15 print "The dome is unclimbable." when
+        # the player is carrying the gold (obj #50). That kills the
+        # easy 15→up→14→east→13 (Hall of Mists east → bird chamber)
+        # shortcut and forces the player to retrieve gold via the
+        # canon long-way: clear the snake first (so 19 reopens),
+        # take gold from 18, then escape via 15→down→19→north→28→
+        # north→33 (none of which are blocked).
+        #
+        # So the canonical-playthrough order is:
+        #   rod → bird → snake clear → gold → Y2 → dragon.
         {
             "name":       "bird_chamber",
-            "from":       "at_y2",
-            # Canon path Y2 (33) → bird chamber (13):
-            #   33 east → 34 (jumble of rock)
-            #   34 up   → 15 (Hall of Mists east end)
-            #   15 up   → 14 (top of small pit)
-            #   14 east → 13 (bird chamber)
+            "from":       "carrying_rod",
+            # Canon path debris (11) → bird chamber (13). Player has
+            # rod but no gold yet, so the 15: gold-gates are inert.
+            #   11 west → 12 (awkward sloping east/west canyon)
+            #   12 up   → 13 (bird chamber)
             "actions":    [
-                ["go", "east"],            # 33 → 34
-                ["go", "up"],              # 34 → 15
-                ["go", "up"],              # 15 → 14
-                ["go", "east"],            # 14 → 13
+                ["go", "west"],            # 11 → 12
+                ["go", "up"],              # 12 → 13
             ],
             "asserts":    _assert_room(13),
             "checkpoint": "bird_chamber",
         },
-        # Bird is carryable only because we don't have the rod
-        # in inventory yet. Wait — we DO have the rod. Canon
-        # CCA: bird won't approach if you carry the rod.
-        # We need to drop the rod first, take bird, pick rod
-        # back up. Test that real constraint.
+        # Canon CCA: the bird won't approach if the player is
+        # carrying the rod. Drop it, take the bird, pick it back
+        # up. The rod has to come back into inventory because we
+        # need it later to wave at the fissure (crystal bridge).
         {
             "name":       "bird_taken_drop_rod_first",
             "from":       "bird_chamber",
@@ -357,10 +327,46 @@ func _stages() -> Array:
             "asserts":    _assert_snake_cleared,
             "checkpoint": "snake_cleared",
         },
+        # ----- Gold via canon long-way (snake cleared) -----
+        # Canon: gold at room 18 ("low room with crude note, you
+        # won't get it up the steps"). With snake gone, 19 reopens
+        # in all directions; the player walks 19→east→15→south→18,
+        # picks up gold, and escapes via 15→down→19 (15:down NOT
+        # blocked by gold) → 19→north→28→north→33. None of those
+        # exits are in the canon row's blocked list (UP/EAST/PIT/
+        # STEPS/DOME/PASSAGE). The dome-bumper from canon room 22
+        # is what the player sees if they try the easy way out.
+        {
+            "name":       "gold_taken_back_at_y2",
+            "from":       "snake_cleared",
+            "actions":    [
+                ["go", "east"],            # 19 → 15 (back to Hall of Mists)
+                ["go", "south"],           # 15 → 18 (low room — gold lives here)
+                ["take", "gold"],
+                ["go", "north"],           # 18 → 15 (entering 15 — no gate fires)
+                ["go", "down"],            # 15 → 19 (15:down NOT in gold-block list)
+                ["go", "north"],           # 19 → 28 (silver passage; snake gone)
+                ["go", "north"],           # 28 → 33 (Y2)
+            ],
+            "asserts":    _assert_rod_and_gold_carried,
+            "checkpoint": "carrying_rod_gold",
+        },
+        # carrying_rod_gold checkpoint is AT Y2 (33).
+        # at_y2 stage is a no-op assert; downstream stages
+        # chain off it.
+        {
+            "name":       "at_y2",
+            "from":       "carrying_rod_gold",
+            "actions":    [],
+            "asserts":    _assert_room(33),
+            "checkpoint": "at_y2",
+        },
         # ----- Dragon at canon 119 (Secret canyon) -----
-        # Canon path Hall of Mt King (19, snake gone) → dragon
-        # canyon (119):
-        #   19 → north → 28 (silver passage; snake-gated)
+        # Canon path Y2 (33) → dragon canyon (119) via the
+        # silver passage and Bedquilt cluster. Player is still
+        # carrying gold here, but the route doesn't touch any
+        # gold-gated 15: exit.
+        #   33 → south → 28 (silver passage)
         #   28 → down  → 36 (dirty broken passage)
         #   36 → bedquilt → 65 (Bedquilt, long-distance verb)
         #   65 → slab  → 68 (slab room)
@@ -368,9 +374,9 @@ func _stages() -> Array:
         #   69 → south → 119 (DRAGON)
         {
             "name":       "at_dragon",
-            "from":       "snake_cleared",
+            "from":       "at_y2",
             "actions":    [
-                ["go", "north"],           # 19 → 28 (silver passage)
+                ["go", "south"],           # 33 → 28 (silver passage)
                 ["go", "down"],            # 28 → 36
                 ["go", "bedquilt"],        # 36 → 65
                 ["go", "slab"],            # 65 → 68

@@ -183,9 +183,23 @@ func _build_verb_synonyms_5() -> void:
     # Identity mappings for canonical FSM verbs > 5 chars whose
     # truncated form would otherwise miss the dispatch table.
     # Canonical form preserved so the FSM checks like
-    # `if verb == "extinguish"` keep matching.
+    # `if verb == "extinguish"` keep matching, and so that gate
+    # keys like "15:passage" (gold-blocks-steps) match against
+    # the full canonical form rather than the truncated stub.
     for canon_verb in ["extinguish", "release", "attack", "examine",
-                       "unlock", "insert", "plover", "inventory"]:
+                       "unlock", "insert", "plover", "inventory",
+                       # Motion verbs > 5 chars that appear in
+                       # GATES keys or topology aliases. The
+                       # gate-key check uses the full canonical
+                       # verb, so the 5-char truncation must
+                       # restore here (e.g. "passa" → "passage"
+                       # so 15:passage gold-bumper can fire).
+                       "passage", "forward", "stream", "across",
+                       "stairs", "depression", "building", "valley",
+                       "bedquilt", "oriental", "cavern", "barren",
+                       "secret", "office", "cobbles", "awkward",
+                       "outdoors", "downstream", "upstream",
+                       "entrance", "surface", "reservoir"]:
         _verb_synonyms_5[_truncate5(canon_verb)] = canon_verb
 
 func _build_ui() -> void:
@@ -369,6 +383,22 @@ func _process_input(text: String) -> void:
             if (randi() % 100) < bg.pct:
                 _println(bg.msg)
                 return
+        # Carrying-conditional bumper (canon row `15 150022 …`,
+        # the gold-blocks-the-steps puzzle). Fires here, in the
+        # bumper dispatch, so that non-direction movement verbs
+        # (PIT/STEPS/DOME/PASSAGE) and direction verbs without a
+        # topology exit (15:EAST has no plain row) all trigger
+        # the canon "dome is unclimbable" prose. Direction verbs
+        # WITH a topology exit (15:UP→14) also pass through here
+        # first — the gate fires before _handle_movement gets
+        # a chance to walk the unconditional fall-through.
+        if bg.check == "carrying":
+            var bobj: String = bg.get("obj", "")
+            if bobj != "" and bobj in fsm:
+                var boid: int = int(fsm.get(bobj))
+                if fsm.player.carrying(boid):
+                    _println(bg.msg)
+                    return
 
     # Canon dark-room pit-fall hazard. Any motion attempt from a
     # dark cave room (lamp out) risks death. The first attempt in
@@ -417,6 +447,12 @@ func _parse(text: String) -> Array:
     # mirror that for the verb token by truncating to 5 chars and
     # looking up against a pre-truncated synonym table, so the
     # canonical form dispatched downstream is still the full word.
+    # Lazily populate the truncation table on first parse — for
+    # production use _ready() runs first, but headless tests
+    # construct Driver outside the scene tree, so _ready() is
+    # never called and the table would be empty.
+    if _verb_synonyms_5.is_empty():
+        _build_verb_synonyms_5()
     # Noun-side 5-char truncation is a separate sub-pass (the FSM
     # checks against full-word noun strings throughout, so adding
     # noun truncation safely requires a dedicated noun-canonical
@@ -486,6 +522,20 @@ func _handle_movement(direction: String) -> void:
             # CAVERN until POUR OIL transitions the door FSM.
             _println(gate.msg)
             return
+        if gate.check == "carrying":
+            # Inventory-conditional bumper. Used at canon 15 for
+            # the gold-blocks-the-steps puzzle (canon row
+            # `15 150022 …`). The gate's `obj` field names the
+            # port-side constant on Adventure (e.g. "GOLD_ID");
+            # we resolve it and check player.carrying(...). On
+            # match, emit the canon msg and stay put — forces
+            # the player to use the canon long-way out.
+            var obj_name: String = gate.get("obj", "")
+            if obj_name != "" and obj_name in fsm:
+                var obj_id: int = int(fsm.get(obj_name))
+                if fsm.player.carrying(obj_id):
+                    _println(gate.msg)
+                    return
         # Note: `probability` gates are deliberately NOT re-checked
         # here. The bumper-key dispatch above (which fires for
         # *every* verb, including DIRECTIONS) already rolled the
