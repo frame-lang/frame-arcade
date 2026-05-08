@@ -359,6 +359,16 @@ func _process_input(text: String) -> void:
         if bg.check == "rusty" and not fsm.rusty_door_oiled():
             _println(bg.msg)
             return
+        # Probability gates (canon's compound `M*1000+N` rows
+        # where M is in the 1..99 range — currently only Witt's
+        # End). Roll once per attempt; on hit, emit the canon
+        # narration and stay put. On miss, fall through so the
+        # direction handler walks the topology exit if one exists,
+        # or emits the standard no-exit message.
+        if bg.check == "probability":
+            if (randi() % 100) < bg.pct:
+                _println(bg.msg)
+                return
 
     # Canon dark-room pit-fall hazard. Any motion attempt from a
     # dark cave room (lamp out) risks death. The first attempt in
@@ -476,6 +486,13 @@ func _handle_movement(direction: String) -> void:
             # CAVERN until POUR OIL transitions the door FSM.
             _println(gate.msg)
             return
+        # Note: `probability` gates are deliberately NOT re-checked
+        # here. The bumper-key dispatch above (which fires for
+        # *every* verb, including DIRECTIONS) already rolled the
+        # gate; if we got here, that roll missed, and the move
+        # should proceed unconditionally to the topology lookup.
+        # Re-rolling would compound the probability and produce a
+        # 99.75% effective bounce instead of the canon 95%.
 
     # Plover Room special: when leaving room 6 normally without
     # PLOVER, you can't. Stuck unless you use the magic word.

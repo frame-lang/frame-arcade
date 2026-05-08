@@ -95,7 +95,7 @@ var ARCHITECTURE_PROBES := [
     ["dwarves auto-wake after deep dwell",    "_probe_dwarf_auto_wake",    "port: only manual wake_dwarves()"],
     ["cave-closing teleports to Repository",  "_probe_repository_teleport","port: in_repository state but no teleport"],
     ["statuette is not a treasure",           "_probe_no_statuette",       "port: 16th treasure (port-only)"],
-    ["108→115 walking corridor removed",      "_probe_no_108_corridor",    "port: walkable to Repository"],
+    ["Witt's End canon: only E exits + 95% gate", "_probe_witts_end_canon", "port: walking corridor at 108:north"],
     ["chest spawns at canon room 18",         "_probe_chest_room_canon",   "port: chest at port-132"],
     ["rusty door at canon 94 oils via bottle","_probe_rusty_door",         "port: 94:north flat-bumpered, no puzzle"],
     ["clam squeeze blocks 103:south",         "_probe_clam_squeeze",       "port: 103 walkable carrying shellfish"],
@@ -521,13 +521,18 @@ func _probe_no_statuette() -> bool:
     adv.setup_default_aspects()
     return not (adv.has_method("statuette") or "statuette" in adv)
 
-func _probe_no_108_corridor() -> bool:
-    # Phase 7i: canon Repository is teleport-only. The 108→115
-    # walking corridor was removed.
-    var exits: Dictionary = {}
-    if Topology.ROOMS.has(108):
-        exits = Topology.ROOMS[108]
-    return not exits.has("east")
+func _probe_witts_end_canon() -> bool:
+    # Canon 108 (Witt's End) per advent.dat row `108 95556 …`
+    # has exactly one walking exit — `108 106 43` (E → 106, the
+    # 5% escape) — and a 95% probability bounce-back gate on
+    # E/N/S/NE/SE/SW/NW/UP/DOWN. Any other ROOMS exit is a port
+    # deviation; no probability gate means the puzzle isn't canon.
+    var exits: Dictionary = Topology.ROOMS.get(108, {})
+    var only_east: bool = exits.size() == 1 and exits.get("east", -1) == 106
+    var has_prob_gate: bool = false
+    if Topology.GATES.has("108:east"):
+        has_prob_gate = Topology.GATES["108:east"].get("check", "") == "probability"
+    return only_east and has_prob_gate
 
 func _probe_chest_room_canon() -> bool:
     # Phase 7a: pirate stash relocated from port-132 to canon 18

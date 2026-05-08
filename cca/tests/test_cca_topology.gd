@@ -142,7 +142,10 @@ const CANON_GATED := {
     "116:nw":   115,  # canon's NE-side of the corridor
     "122:nw":   123,  # NE/NW alias for the anteroom turn
     "124:nw":   125,
-    "108:north":67,   # Witt's End → Bedquilt cluster (port shortcut)
+    # 108:north was a port-only shortcut to canon 67. Removed
+    # — canon row `108 95556 ...` says NORTH (and most other
+    # directions) at Witt's End give a 95% bounce-back, not a
+    # walk to the Bedquilt cluster. Now gated as `probability`.
     # 94:north → 95 listed in the canon-94 block above (rusty-door puzzle).
 }
 

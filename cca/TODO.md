@@ -51,30 +51,19 @@ Lives in: a new scene `godot/scenes/credits.tscn` + script
 
 ---
 
-### Witt's End probability gate (canon-fidelity)
+### Witt's End probability gate (canon-fidelity) — **DONE 2026-05-08**
 
-Currently the port has `108:east → 106` as an unconditional
-walking corridor. Canon (`advent.dat` row `108 95556 ...`) gives
-every direction *except west* a 95% chance of bouncing back with
-canon msg #56 ("you have crawled around in some little holes and
-wound up back in the main passage"). Only on the 5% fail does
-EAST actually walk to canon 106; WEST always prints msg #126.
+Wired in commit pending: 9 `probability` GATES at `108:east/north/
+south/ne/nw/se/sw/up/down` with `pct=95`, plus the always-bumper
+at `108:west` for the cave-in message. Driver rolls once per
+attempt in the bumper-key dispatch (deliberately not re-rolled in
+`_handle_movement` to avoid compounding the probability). Removed
+the port-only `108:north → 67` walking shortcut. Architectural
+probe updated; conformance back to 50/50.
 
-The faithful implementation:
-
-- New `"check": "probability"` GATES type at `108:north/south/...`
-- The check inspects a probability percent in the gate value
-- Driver rolls `randi() % 100 < pct`; on success emits the bounce
-  message and stays put; on fail falls through to the topology dest
-
-This is the next canon-completion target. Implementation pattern
-mirrors the rusty-door work: extend GATES, extend the driver gate
-chain, sync the arcade mirror, add a focused test.
-
-The current `_probe_no_108_corridor` in `test_cca_canon.gd` should
-be revised to acknowledge that canon does have `e → 106` (just
-probabilistically), and refocus on the port-only `108:north → 67`
-shortcut as the actual deviation.
+Test: `tests/test_cca_witts_end.gd` rolls 1000 east attempts under
+a pinned RNG seed and asserts the distribution is within ±25 of
+canon 95/5 — observed 51 escapes / 949 bounces.
 
 ---
 

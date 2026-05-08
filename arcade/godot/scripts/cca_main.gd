@@ -664,7 +664,12 @@ var room_exits: Dictionary = {
     # `north → 67` shortcut to Bedquilt cluster (whitelisted in
     # the audit) so testing scaffolding can reach 108 from a
     # known checkpoint.
-    108: {"east": 106, "north": 67},
+    # Canon 108 (Witt's End): canon's three section-3 rows say
+    # 95% chance any of E/N/S/NE/SE/SW/NW/UP/DOWN prints msg #56
+    # and stays put; 5% E falls through to room 106; W is always
+    # the cave-in bumper msg #126. ROOMS holds only the canon
+    # `108 106 43` plain row; everything else is gated below.
+    108: {"east": 106},
     # Canon 115/116 = NE/SW Repository — reachable ONLY via the
     # cave-closing teleport that fires in Adventure.tick() when
     # endgame transitions to $InRepository. Walking corridor from
@@ -871,6 +876,21 @@ var gated_exits: Dictionary = {
     "94:enter":  {"check": "rusty",  "msg": "The door is extremely rusty and refuses to open."},
     "94:cavern": {"check": "rusty",  "msg": "The door is extremely rusty and refuses to open."},
     "116:down":  {"check": "always", "msg": "The grate is locked."},
+    # Witt's End probabilistic bounce-back. Per advent.dat row
+    # `108 95556 ...` and the FORTRAN spec, 95% of E/N/S/NE/SE/
+    # SW/NW/UP/DOWN attempts print msg #56 and stay put. Only
+    # the 5% E case actually walks to room 106; W is the always-
+    # bumper "cave-in" prose (canon msg #126).
+    "108:east":  {"check": "probability", "pct": 95, "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:north": {"check": "probability", "pct": 95, "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:south": {"check": "probability", "pct": 95, "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:ne":    {"check": "probability", "pct": 95, "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:se":    {"check": "probability", "pct": 95, "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:sw":    {"check": "probability", "pct": 95, "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:nw":    {"check": "probability", "pct": 95, "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:up":    {"check": "probability", "pct": 95, "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:down":  {"check": "probability", "pct": 95, "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:west":  {"check": "always", "msg": "You have crawled around in some little holes and found your way blocked by a recent cave-in. You are now back in the main passage."},
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     # Canon plant — single-jump model:
@@ -1196,6 +1216,13 @@ func _process_input(text: String) -> void:
         if bg.check == "rusty" and not fsm.rusty_door_oiled():
             _println(bg.msg)
             return
+        # Probability gates — currently only Witt's End (canon
+        # 108). Roll once per attempt; on hit, narrate and stay
+        # put; on miss, fall through to the topology lookup.
+        if bg.check == "probability":
+            if (randi() % 100) < bg.pct:
+                _println(bg.msg)
+                return
 
     # Canon dark-room pit-fall hazard. Any motion attempt from a
     # dark cave room (lamp out) risks death. The first attempt in
@@ -1303,6 +1330,11 @@ func _handle_movement(direction: String) -> void:
             # Rusty iron door at canon 94 → 95. Pour oil to open.
             _println(gate.msg)
             return
+        # `probability` gates are deliberately handled only in the
+        # bumper-key dispatch above, not here. Rolling again at this
+        # point would compound the probability (e.g. canon 95% → an
+        # effective 99.75% bounce). On a miss the move proceeds
+        # unconditionally to the topology lookup.
         if gate.check == "plover_squeeze" and fsm.plover_squeeze_blocked():
             _println(gate.msg)
             return

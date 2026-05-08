@@ -2021,7 +2021,9 @@ that lead in, any object/treasure/NPC placed there per canon section
 
 **Reached from:** 106 (EAST)
 
-**Port `topology.gd` ROOMS[108]:** `{east→106, north→67}`
+**Port `topology.gd` ROOMS[108]:** `{east→106}`
+
+**Port GATES[108]:** east/probability, north/probability, south/probability, ne/probability, se/probability, sw/probability, nw/probability, up/probability, down/probability, west/always
 
 ---
 

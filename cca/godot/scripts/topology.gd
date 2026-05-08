@@ -642,7 +642,17 @@ const ROOMS: Dictionary = {
     # `north → 67` shortcut to Bedquilt cluster (whitelisted in
     # the audit) so testing scaffolding can reach 108 from a
     # known checkpoint.
-    108: {"east": 106, "north": 67},
+    # Canon 108 (Witt's End): canon section 3 has three rows —
+    #   `108 95556 43 45 46 47 48 49 50 29 30`
+    #     all of E/N/S/NE/SE/SW/NW/UP/DOWN: 95% chance to print
+    #     msg #56 ("you have crawled around in some little holes
+    #     and wound up back in the main passage") and stay put.
+    #   `108 106 43`     5% E falls through: walk to 106.
+    #   `108 626 44`     W: always msg #126 ("...found your way
+    #                    blocked by a recent cave-in...").
+    # Only EAST is in ROOMS; the other 9 directions are gated by
+    # a `probability` GATES entry. See GATES below.
+    108: {"east": 106},
     # Canon 115/116 = NE/SW Repository — reachable ONLY via the
     # cave-closing teleport that fires in Adventure.tick() when
     # endgame transitions to $InRepository. Walking corridor from
@@ -879,6 +889,35 @@ const GATES: Dictionary = {
     # Canon 116:down — `116 593 30` is msg #93 "the grate is
     # locked" variant (office grate near the repository).
     "116:down":  {"check": "always", "msg": "The grate is locked."},
+    # Witt's End probabilistic bounce-back (canon row
+    # `108 95556 43 45 46 47 48 49 50 29 30`). 95% chance any of
+    # E/N/S/NE/SE/SW/NW/UP/DOWN prints canon msg #56 and the
+    # player stays put — the message *narrates* moving back to
+    # the main passage but the game state doesn't change. On the
+    # 5% fall-through, EAST proceeds to ROOMS[108]→106 (the only
+    # actual canon exit); the other directions get a "no exit"
+    # bumper since they have no plain row in canon section 3.
+    # WEST is the special-case `108 626 44` row — always msg #126.
+    "108:east":  {"check": "probability", "pct": 95,
+                  "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:north": {"check": "probability", "pct": 95,
+                  "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:south": {"check": "probability", "pct": 95,
+                  "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:ne":    {"check": "probability", "pct": 95,
+                  "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:se":    {"check": "probability", "pct": 95,
+                  "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:sw":    {"check": "probability", "pct": 95,
+                  "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:nw":    {"check": "probability", "pct": 95,
+                  "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:up":    {"check": "probability", "pct": 95,
+                  "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:down":  {"check": "probability", "pct": 95,
+                  "msg": "You have crawled around in some little holes and wound up back in the main passage."},
+    "108:west":  {"check": "always",
+                  "msg": "You have crawled around in some little holes and found your way blocked by a recent cave-in. You are now back in the main passage."},
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     # Canon plant — single-jump model:
