@@ -308,7 +308,17 @@ func _stages() -> Array:
         {
             "name":       "bird_chamber",
             "from":       "at_y2",
-            "actions":    [["go", "down"]],
+            # Canon path Y2 (33) → bird chamber (13):
+            #   33 east → 34 (jumble of rock)
+            #   34 up   → 15 (Hall of Mists east end)
+            #   15 up   → 14 (top of small pit)
+            #   14 east → 13 (bird chamber)
+            "actions":    [
+                ["go", "east"],            # 33 → 34
+                ["go", "up"],              # 34 → 15
+                ["go", "up"],              # 15 → 14
+                ["go", "east"],            # 14 → 13
+            ],
             "asserts":    _assert_room(13),
             "checkpoint": "bird_chamber",
         },
@@ -348,30 +358,24 @@ func _stages() -> Array:
             "checkpoint": "snake_cleared",
         },
         # ----- Dragon at canon 119 (Secret canyon) -----
-        # Canonical CCA places the dragon in a secret canyon
-        # reached from Bedquilt via the long sloping-corridor /
-        # Soft Room / steep canyon / brink-of-cliff chain. From
-        # snake_cleared at 19: east 15 → up 14 → south 33 → west
-        # 65 (Bedquilt) → north 72 → north 73 → down 74 → north
-        # 75 → north 76 → north 77 → east 78 → north 87 → down
-        # 119 (DRAGON).
+        # Canon path Hall of Mt King (19, snake gone) → dragon
+        # canyon (119):
+        #   19 → north → 28 (silver passage; snake-gated)
+        #   28 → down  → 36 (dirty broken passage)
+        #   36 → bedquilt → 65 (Bedquilt, long-distance verb)
+        #   65 → slab  → 68 (slab room)
+        #   68 → up    → 69 (secret N/S canyon above large room)
+        #   69 → south → 119 (DRAGON)
         {
             "name":       "at_dragon",
             "from":       "snake_cleared",
             "actions":    [
-                ["go", "east"],            # 19 → 15
-                ["go", "up"],              # 15 → 14
-                ["go", "south"],           # 14 → 33
-                ["go", "west"],            # 33 → 65
-                ["go", "north"],           # 65 → 72
-                ["go", "north"],           # 72 → 73
-                ["go", "down"],            # 73 → 74
-                ["go", "north"],           # 74 → 75
-                ["go", "north"],           # 75 → 76
-                ["go", "north"],           # 76 → 77
-                ["go", "east"],            # 77 → 78
-                ["go", "north"],           # 78 → 87 (brink of cliff)
-                ["go", "down"],            # 87 → 119 (DRAGON)
+                ["go", "north"],           # 19 → 28 (silver passage)
+                ["go", "down"],            # 28 → 36
+                ["go", "bedquilt"],        # 36 → 65
+                ["go", "slab"],            # 65 → 68
+                ["go", "up"],              # 68 → 69
+                ["go", "south"],           # 69 → 119 (DRAGON)
             ],
             "asserts":    _assert_at_dragon,
             "checkpoint": "facing_dragon",
@@ -384,12 +388,14 @@ func _stages() -> Array:
             "checkpoint": "dragon_dead",
         },
         # ----- Treasure haul: rug at 119, diamonds at canon 27 -----
-        # Canon: rug is under dragon at canon 119; diamonds live
-        # at room 27 (west bank fissure in Hall of Mists),
-        # entirely separate from dragon. After the kill, rug is
-        # taken at 119; then walk back the long way to 27 via
-        # 87 → 78 → 77 → ... → 33 → north 14 → north 17 → west
-        # 27 to take the diamonds.
+        # Canon: rug is under dragon at 119; diamonds at room 27
+        # (west bank fissure in Hall of Mists), entirely separate
+        # from dragon. After the kill, take the rug at 119, walk
+        # the canon route back to Y2 (33) through Bedquilt-cluster
+        # — 119 → N → 69 → D → 68 → N → 65 → UP → 39 → E → 36 →
+        # UP → 28 → N → 33 — then cross the fissure (33 → E → 34
+        # → UP → 15 → W → 17, wave rod to materialize the crystal
+        # bridge, OVER → 27).
         {
             "name":       "rug_taken",
             "from":       "dragon_dead",
@@ -401,21 +407,22 @@ func _stages() -> Array:
             "name":       "diamonds_taken_at_west_bank",
             "from":       "carrying_rug",
             "actions":    [
-                # Walk back 119 → 87 → 78 → 77 → 76 → 75 → 74 →
-                # 73 → 72 → 65 → 33, then to fissure 27.
-                ["go", "up"],              # 119 → 87
-                ["go", "south"],           # 87 → 78
-                ["go", "west"],            # 78 → 77
-                ["go", "south"],           # 77 → 76
-                ["go", "south"],           # 76 → 75
-                ["go", "south"],           # 75 → 74
-                ["go", "up"],              # 74 → 73
-                ["go", "south"],           # 73 → 72
-                ["go", "south"],           # 72 → 65
-                ["go", "west"],            # 65 → 33 (asymmetric "west")
-                ["go", "north"],           # 33 → 14
-                ["go", "north"],           # 14 → 17 (east bank fissure)
-                ["go", "west"],            # 17 → 27 (west bank — diamonds)
+                # 119 → 33 via canon Bedquilt-cluster ascent.
+                ["go", "north"],           # 119 → 69
+                ["go", "down"],            # 69 → 68
+                ["go", "north"],           # 68 → 65 (Bedquilt)
+                ["go", "up"],               # 65 → 39 (cliff)
+                ["go", "east"],            # 39 → 36
+                ["go", "up"],               # 36 → 28 (silver passage)
+                ["go", "north"],           # 28 → 33 (Y2)
+                # 33 → 17 via Hall of Mists west.
+                ["go", "east"],            # 33 → 34 (jumble of rock)
+                ["go", "up"],               # 34 → 15 (Hall of Mists)
+                ["go", "west"],            # 15 → 17 (east bank fissure)
+                # Build the crystal bridge so the fissure is
+                # crossable (and stays crossable on the way back).
+                ["wave", "rod"],
+                ["go", "over"],            # 17 → 27 (west bank — diamonds)
                 ["take", "diamonds"],
             ],
             "asserts":    _assert_diamonds_rug_carried,
@@ -425,11 +432,15 @@ func _stages() -> Array:
             "name":       "deposit_first_haul",
             "from":       "carrying_first_haul",
             "actions":    [
-                # Walk back from 27 → 17 → 14 → 33 → plugh → 3.
-                ["go", "east"],            # 27 → 17
-                ["go", "south"],           # 17 → 14
-                ["go", "south"],           # 14 → 33
-                ["plugh", ""],             # 33 → 3 well house
+                # 27 → 17 over the (still-built) crystal bridge,
+                # then back through Hall of Mt King via 19 (snake
+                # gone) to 28 → 33, and PLUGH home to drop.
+                ["go", "over"],            # 27 → 17
+                ["go", "east"],            # 17 → 15 (bridge built)
+                ["go", "down"],            # 15 → 19 (Hall of Mt King)
+                ["go", "north"],           # 19 → 28 (silver passage; snake gone)
+                ["go", "north"],           # 28 → 33 (Y2)
+                ["plugh", ""],             # 33 → 3 (well house)
                 ["drop", "diamonds"],
                 ["drop", "rug"],
                 ["drop", "gold"],
@@ -466,27 +477,31 @@ func _stages() -> Array:
         # ----- Pearl + Emerald from Plover Room -----
         # Canon: emerald lives in the Plover Room (canon 100),
         # but pearl is dynamic — extracted by BREAKing the clam
-        # (canon 103) with the rod. The pearl falls out at the
-        # break room. We do clam → oyster → pearl first, then
-        # the PLOVER trip for the emerald.
+        # at the Shell Room (canon 103). _verb_break makes the
+        # pearl reappear at the player's room, so we crack it
+        # right at 103 to avoid hauling it back through Bedquilt.
+        # Then walk 103 → 33 and PLOVER round-trip for the emerald.
         {
             "name":       "take_pearl_emerald",
             "from":       "after_silver",
             "actions":    [
-                # Pearl via clam-break.
+                # 3 → 103 via Y2 → silver passage → Bedquilt cluster.
                 ["plugh", ""],             # 3 → 33
-                ["go", "north"],           # 33 → 14
-                ["go", "down"],            # 14 → 15
-                ["go", "east"],            # 15 → 16 (east end of mists)
-                ["go", "east"],            # 16 → 103 (Shell Room)
+                ["go", "south"],           # 33 → 28 (silver passage)
+                ["go", "down"],            # 28 → 36
+                ["go", "bedquilt"],        # 36 → 65
+                ["go", "east"],            # 65 → 64 (complex junction)
+                ["go", "north"],           # 64 → 103 (Shell Room)
                 ["take", "clam"],
-                ["go", "west"],            # 103 → 16
-                ["break", "clam"],         # spawns oyster + pearl at 16
+                ["break", "clam"],         # pearl appears at 103
                 ["take", "pearl"],
-                # Walk back to 33 for the PLOVER trip.
-                ["go", "west"],            # 16 → 15
-                ["go", "up"],              # 15 → 14
-                ["go", "south"],           # 14 → 33
+                # 103 → 33 via cliff (39).
+                ["go", "south"],           # 103 → 64
+                ["go", "west"],            # 64 → 65 (Bedquilt)
+                ["go", "up"],               # 65 → 39 (cliff)
+                ["go", "east"],            # 39 → 36
+                ["go", "up"],               # 36 → 28
+                ["go", "north"],           # 28 → 33
                 # Emerald via PLOVER round trip.
                 ["plover", ""],            # 33 → 100
                 ["take", "emerald"],
@@ -1151,22 +1166,6 @@ func _init():
     print("=== CCA canonical playthrough (stage DAG) ===")
     print()
 
-    # Topology rebuild in progress — the stage paths in this
-    # test were written against port-only walking shortcuts
-    # (e.g., 14:south→33, 13:up→33) that canon doesn't have.
-    # The room-by-room canon-alignment pass is rewriting the
-    # topology; this long playthrough's path will be rewritten
-    # against canon paths once all 140 rooms land. Until then
-    # it'd cascade-fail on every batch and obscure the per-room
-    # progress. Pretend-pass and surface the count of attempted
-    # stages so the work is visible.
-    print("SKIP — canonical playthrough deferred until topology rebuild lands (room-by-room work in progress).")
-    print("PASS — canonical playthrough deferred (informational)")
-    quit(0)
-    return
-
-    # The original execution path below is preserved for the
-    # post-rebuild rewrite. Unreachable while the SKIP is in place.
     var stages: Array = _stages()
     for stage in stages:
         _run_stage(stage)

@@ -268,10 +268,12 @@ var room_exits: Dictionary = {
     # branches we don't fully model.
     65:  {"east": 64, "west": 66, "slab": 68, "up": 39,
           "north": 71, "down": 106},
-    # Canon 117 (one side of large chasm with troll): canon
-    # `117 118 49` (SW→118), special-handler rows 233660/332661/
-    # 303/332021/596 are troll-toll branches handled by GATES.
-    117: {"sw": 118, "east": 118},
+    # Canon 117 (R_SWSIDE — SW side of chasm; troll bridge):
+    # `117 118 49` SW→118 (descent into sloping corridor); the
+    # 233660/303/596 specials are the gated OVER/ACROSS/CROSS/NE
+    # crossing → R_TROLL → R_NESIDE (122). Per Quuxplusone Advent
+    # ODWY0350 R_SWSIDE entry. Gated on troll absent (see GATES).
+    117: {"sw": 118, "over": 122, "across": 122, "cross": 122, "ne": 122},
     # Canon 118 (other side of chasm): `118 72 30` (DOWN→72),
     # `118 117 29` (UP→117).
     118: {"down": 72, "up": 117},
@@ -713,11 +715,13 @@ var room_exits: Dictionary = {
     # Canon 113 (edge of large reservoir): `113 109 46 11 109`
     # (S/OUT/RESERVOIR→109).
     113: {"south": 109, "out": 109, "reservoir": 109},
-    # Canon 122 (other side of chasm post-troll): canon
+    # Canon 122 (R_NESIDE — far/NE side of chasm). Canon
     # `122 123 47` (NE→123), `122 124 77` (FORK→124),
     # `122 126 28` (VIEW→126), `122 129 40` (BARREN→129).
-    # Specials 233660/303/596 are toll-related.
-    122: {"ne": 123, "fork": 124, "view": 126, "barren": 129},
+    # OVER/ACROSS/CROSS/SW crosses back to R_SWSIDE (117) via
+    # R_TROLL; gated on troll being absent (see GATES).
+    122: {"ne": 123, "fork": 124, "view": 126, "barren": 129,
+          "over": 117, "across": 117, "cross": 117, "sw": 117},
     # Canon 124 (path forks): canon `124 123 44` (W→123),
     # `124 125 47 36` (NE/LEFT→125), `124 128 48 37 30`
     # (SE/RIGHT/DOWN→128), `124 126 28` (VIEW→126),
@@ -807,7 +811,17 @@ var gated_exits: Dictionary = {
     "19:left":   {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
     "19:right":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
     "19:forward":{"check": "snake",  "msg": "The snake glares at you and refuses to move."},
-    "117:east":  {"check": "troll",  "msg": "The troll bars your way until you pay tribute."},
+    # Troll bridge crossings (canon 117 ↔ 122). Every cross-the-
+    # chasm verb is gated on troll absence; the bear-and-chain
+    # combination at 117 vanishes the troll permanently.
+    "117:over":   {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
+    "117:across": {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
+    "117:cross":  {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
+    "117:ne":     {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
+    "122:over":   {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
+    "122:across": {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
+    "122:cross":  {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
+    "122:sw":     {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
     "17:east":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
     "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
     "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},

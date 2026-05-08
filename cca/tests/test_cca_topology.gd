@@ -66,7 +66,19 @@ const CANON_GATED := {
     "25:climb": 23,
     "99:east":  100,  # alcove → plover (squeeze gate)
     "100:west": 99,
-    "117:east": 118,  # troll bridge → cliff (troll gate)
+    # Troll bridge crossings (canon 117 ↔ 122) — encoded in
+    # canon section 2 only as `117 233660/303/… 41/42/47/69`
+    # special-handler rows. Per ODWY0350 R_SWSIDE/R_NESIDE the
+    # OVER/ACROSS/CROSS/NE+SW resolve to the opposite side via
+    # R_TROLL; we encode them as port-side gated exits.
+    "117:over":   122,
+    "117:across": 122,
+    "117:cross":  122,
+    "117:ne":     122,
+    "122:over":   117,
+    "122:across": 117,
+    "122:cross":  117,
+    "122:sw":     117,
     "19:north": 28,   # mountain king → silver passage (snake gate)
     "19:south": 29,   # mountain king → south side chamber (snake gate)
     "19:west":  30,   # mountain king → west side chamber (snake gate)
