@@ -218,6 +218,15 @@ var _look_detail_count: int = 0
 var _old_loc: int = -1
 var _old_loc2: int = -1
 
+# Canon msg #3 first-dwarf-encounter latch (advent.for STMT
+# 6000). Canon narrates msg #3 on the DFLAG 1→2 transition: "A
+# little dwarf just walked around a corner, saw you, threw a
+# little axe at you which missed, cursed, and ran away." The port
+# wakes the dwarves once at `_ready`, so we fire msg #3 the first
+# time the player enters a room where a stalking dwarf is — same
+# narrative beat, simpler trigger.
+var _dwarf_first_encounter_done: bool = false
+
 # Canon forced-motion rooms (cond=2 per advent.for line 393).
 # These rooms auto-bounce on entry; BACK from a non-forced
 # room into one of these would re-fire the bounce, so canon
@@ -749,6 +758,15 @@ func _process_input(text: String) -> void:
         _println("Oh, leave the poor unhappy bird alone.")
         return
 
+    # Canon TAKE KNIFE (advent.for STMT 9010 + msg #116). The
+    # player can never pick up a dwarf-thrown knife — they
+    # canonically vanish on impact. KNFLOC tracking is moot when
+    # the knife isn't a real item; we just emit the canon rebuff
+    # for any TAKE/GET KNIFE attempt.
+    if verb == "take" and noun == "knife":
+        _println("The dwarves' knives vanish as they strike the walls of the cave.")
+        return
+
     # Canon THROW AXE (advent.for STMT 9170). The port's
     # _verb_throw handles axe-at-dwarves and treasure-at-troll
     # but not the canon "axe glances off dragon / troll catches
@@ -995,6 +1013,17 @@ func _handle_movement(direction: String) -> void:
     # That's handled by the room having empty exits — the player
     # just gets the "you can't go that way" branch above.
 
+    # Canon dwarf-blocks-exit (advent.for STMT 71): if a stalking
+    # dwarf is at the destination room, msg #2 fires and the move
+    # is blocked. Canon checks ODLOC (last-turn dwarf position +
+    # DSEEN flag); the port simplifies to "any stalking dwarf at
+    # dest blocks". Forced-motion rooms bypass this rule (canon
+    # FORCED check), but the port's _walk_to_dest path handles
+    # forced rooms separately so this is movement-only.
+    if _dwarf_at_room(dest):
+        _println("A little dwarf with a big knife blocks your way.")
+        return
+
     # Tell the FSM to move; the FSM's _verb_move parses the noun
     # to_int and moves the player. The bus walks first (darkness
     # might consume "move" if dark — actually no, darkness only
@@ -1189,6 +1218,24 @@ func _check_dark_pit_hazard() -> bool:
         return true
     return false
 
+# Returns true if any stalking dwarf is currently at `room`.
+# Used by _handle_movement to block exit toward a dwarf-occupied
+# room (canon msg #2). The Adventure FSM holds five named Dwarf
+# instances; iterate them by name since framec doesn't expose
+# Array<@@system> and there's no per-room aggregator method.
+func _dwarf_at_room(room: int) -> bool:
+    if fsm.dwarf1.get_state() == "stalking" and fsm.dwarf1.get_room() == room:
+        return true
+    if fsm.dwarf2.get_state() == "stalking" and fsm.dwarf2.get_room() == room:
+        return true
+    if fsm.dwarf3.get_state() == "stalking" and fsm.dwarf3.get_room() == room:
+        return true
+    if fsm.dwarf4.get_state() == "stalking" and fsm.dwarf4.get_room() == room:
+        return true
+    if fsm.dwarf5.get_state() == "stalking" and fsm.dwarf5.get_room() == room:
+        return true
+    return false
+
 # ============================================================
 # Per-turn consequences
 # ============================================================
@@ -1302,6 +1349,13 @@ func _print_room() -> void:
     # says 'PLUGH'"). Doesn't fire during closing.
     if _last_room == 33 and not fsm.endgame_closing() and (randi() % 100) < 25:
         _println("A hollow voice says \"PLUGH\".")
+    # Canon msg #3 first-dwarf-encounter (advent.for STMT 6000).
+    # Fires once when the player first arrives in a room with a
+    # stalking dwarf — canon's DFLAG 1→2 transition narration.
+    if not _dwarf_first_encounter_done and _dwarf_at_room(_last_room):
+        _dwarf_first_encounter_done = true
+        _println("A little dwarf just walked around a corner, saw you, threw a little")
+        _println("axe at you which missed, cursed, and ran away.")
 
 # Resolve a noun token to a port object ID, or 0 if no match.
 # Used by FIND. Mirrors the inventory-builder's static name

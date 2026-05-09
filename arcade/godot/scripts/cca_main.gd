@@ -1140,6 +1140,9 @@ var _look_detail_count: int = 0
 # mirror for full inline doc on the OLDLOC/OLDLC2 mechanic.
 var _old_loc: int = -1
 var _old_loc2: int = -1
+
+# Canon msg #3 first-dwarf-encounter latch (advent.for STMT 6000).
+var _dwarf_first_encounter_done: bool = false
 const FORCED_ROOMS := [16, 22, 26, 32, 40, 59, 79, 89, 90, 113]
 
 # --- Exit dialog (Save / Quit) ---
@@ -1598,6 +1601,12 @@ func _process_input(text: String) -> void:
         _println("Oh, leave the poor unhappy bird alone.")
         return
 
+    # Canon TAKE KNIFE (advent.for STMT 9010 + msg #116) —
+    # dwarf-thrown knives vanish on impact, never carryable.
+    if verb == "take" and noun == "knife":
+        _println("The dwarves' knives vanish as they strike the walls of the cave.")
+        return
+
     # Canon THROW AXE (advent.for STMT 9170). Pre-check the
     # dragon/troll/bear room cases so canon prose lands; then
     # fall through to fsm.do_command for the dwarf-attack
@@ -1814,6 +1823,11 @@ func _handle_movement(direction: String) -> void:
     # That's handled by the room having empty exits — the player
     # just gets the "you can't go that way" branch above.
 
+    # Canon dwarf-blocks-exit (advent.for STMT 71) — msg #2.
+    if _dwarf_at_room(dest):
+        _println("A little dwarf with a big knife blocks your way.")
+        return
+
     # Tell the FSM to move; the FSM's _verb_move parses the noun
     # to_int and moves the player. The bus walks first (darkness
     # might consume "move" if dark — actually no, darkness only
@@ -1945,6 +1959,22 @@ func _check_dark_pit_hazard() -> bool:
         return true
     return false
 
+# Returns true if any stalking dwarf is currently at `room`.
+# Used by _handle_movement to block exit toward a dwarf-occupied
+# room (canon msg #2).
+func _dwarf_at_room(room: int) -> bool:
+    if fsm.dwarf1.get_state() == "stalking" and fsm.dwarf1.get_room() == room:
+        return true
+    if fsm.dwarf2.get_state() == "stalking" and fsm.dwarf2.get_room() == room:
+        return true
+    if fsm.dwarf3.get_state() == "stalking" and fsm.dwarf3.get_room() == room:
+        return true
+    if fsm.dwarf4.get_state() == "stalking" and fsm.dwarf4.get_room() == room:
+        return true
+    if fsm.dwarf5.get_state() == "stalking" and fsm.dwarf5.get_room() == room:
+        return true
+    return false
+
 # ============================================================
 # Per-turn consequences
 # ============================================================
@@ -2048,6 +2078,11 @@ func _print_room() -> void:
     # visit to room 33 prints msg #8.
     if _last_room == 33 and not fsm.endgame_closing() and (randi() % 100) < 25:
         _println("A hollow voice says \"PLUGH\".")
+    # Canon msg #3 first-dwarf-encounter (advent.for STMT 6000).
+    if not _dwarf_first_encounter_done and _dwarf_at_room(_last_room):
+        _dwarf_first_encounter_done = true
+        _println("A little dwarf just walked around a corner, saw you, threw a little")
+        _println("axe at you which missed, cursed, and ran away.")
 
 # Resolve a noun token to a port object ID, or 0 if no match.
 func _resolve_object_id(noun: String) -> int:

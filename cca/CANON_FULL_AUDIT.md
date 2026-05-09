@@ -348,8 +348,8 @@ Comprehensive map is impractical to inline here — strategic table:
 | Canon msg # | Use | Port status |
 |---|---|---|
 | 1 | Welcome banner | ✓ — adapted in `_print_welcome` (with credit splash) |
-| 2 | Dwarf with knife blocks way | 🔴 — port doesn't fire on movement-blocked-by-dwarf |
-| 3 | First dwarf encounter narration | 🔴 |
+| 2 | Dwarf with knife blocks way | ✓ — `_handle_movement` calls `_dwarf_at_room(dest)` before committing the move; if any of the five Dwarf instances is `$Stalking` at the destination room, msg #2 fires verbatim and the move is blocked. Test: `test_cca_dwarf_canon.gd` Phases 1–2. |
+| 3 | First dwarf encounter narration | ✓ — `_print_room` checks `_dwarf_first_encounter_done` latch + `_dwarf_at_room(_last_room)`; on the first visit to a stalking-dwarf room, narrates canon msg #3 ("walked around a corner, threw a little axe at you which missed") and sets the latch so it never fires again. Test: `test_cca_dwarf_canon.gd` Phase 3. |
 | 4 | Threatening dwarf | ✓ — driver fires on dwarf attack |
 | 5/6/7 | Knife-throw outcomes | ✓ |
 | 8 | Hollow voice "PLUGH" at Y2 | ✓ — `_print_room` rolls 25% at canon room 33 when not endgame-closing. Test: `test_cca_cave_y2_back.gd` Phase 4 (1000-visit distribution, ±5σ tolerance) + Phase 5 (no false fires at non-Y2 rooms). |
@@ -397,7 +397,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 112 | "Plant won't grow with oil" | 🟡 |
 | 113/114 | Door oil / water | ✓ |
 | 115 | Plant deep roots | ✓ |
-| 116 | Knife caveat | 🔴 — KNFLOC not modeled (no "you'd best leave that knife alone" warning) |
+| 116 | "Knives vanish as they strike the walls" | ✓ — TAKE KNIFE / GET KNIFE driver intercept emits canon msg #116 verbatim. Port doesn't model KNFLOC (knives aren't real items in the inventory) — every TAKE attempt rebuffs with the canon prose. Test: `test_cca_dwarf_canon.gd` Phase 4. |
 | 117 | Plover squeeze | ✓ |
 | 118/119 | Clam/oyster squeeze | ✓ |
 | 120-125 | Clam/oyster open dialogue | ✓ |
@@ -641,7 +641,7 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | Knife miss/hit probability ramp `95*(DFLAG-2)/1000` | yes | port has flat probability | 🔴 |
 | First throw always misses (DFLAG transition) | yes | port may not match | 🟡 |
 | Drop axe at first encounter | yes | ✓ | ✓ |
-| Block player exit if dwarf at NEWLOC (msg #2) | yes | 🔴 | not implemented |
+| Block player exit if dwarf at NEWLOC (msg #2) | yes | ✓ | see msg #2 row in §6 |
 | Player throws axe → 33% kill | yes | ✓ | ✓ |
 | First-kill prints msg #149 | yes | ✓ | ✓ |
 | FEED dwarf → DFLAG++ (anger) | yes | 🔴 | not implemented |
