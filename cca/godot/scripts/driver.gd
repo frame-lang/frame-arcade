@@ -872,8 +872,10 @@ func _process_input(text: String) -> void:
             _println("It's not hungry (it's merely pinin' for the fjords). Besides, you have no bird seed.")
             return
         if noun == "dwarf":
-            # canon msg #103 — also makes the dwarves angrier,
-            # but full DFLAG ramping is out-of-scope here.
+            # canon msg #103 + DFLAG bump (advent.for STMT 9213).
+            # bump_dwarf_anger raises the knife-throw hit pct via
+            # the canon `95*(DFLAG-2)/1000` ramp.
+            fsm.bump_dwarf_anger()
             _println("You fool, dwarves eat only coal! Now you've made him *really* mad!!")
             return
         if noun == "troll":

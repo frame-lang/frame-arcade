@@ -123,13 +123,16 @@ func _init():
     _expect("4th death permadead",    adv_f.player_state(),   "permadead")
 
     # --- Dwarf attacks: deterministic seed-based test ---
-    print("Dwarf throws axe deterministically:")
+    # Canon advent.for STMT 6090 hit rate = `95*(DFLAG-2)/1000`.
+    # Default dwarf_anger=2 → 0% hit (dwarves never connect until
+    # the player FEEDs them). Bump anger to canon DFLAG=10 for the
+    # ramp test (~76% hit pct, so 30 ticks reliably kills).
+    print("Dwarf throws axe deterministically (anger=10 ramp):")
     var adv_g = Cca.new()
     adv_g.setup_default_aspects()
     adv_g.wake_dwarves()
-    # dwarf1 spawns in room 12 (awkward canyon). Move player
-    # there and tick a few times — eventually the 25%-roll
-    # dwarf will hit.
+    for _i in 8:
+        adv_g.bump_dwarf_anger()      # 2 → 10
     adv_g.player.move_to(12)
     var hit_after: int = -1
     for i in 30:

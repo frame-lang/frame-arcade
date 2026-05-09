@@ -1064,7 +1064,7 @@
     interface:
         wake_up(at_room: int)
         attack()                   # player attacks dwarf — may kill
-        try_throw_axe(): bool      # dwarf attacks player — may hit
+        try_throw_axe(anger: int): bool  # dwarf attacks player — hit pct ramps with anger
         flee()                     # dwarf disengages
         get_state(): String
         get_room(): int
@@ -1079,7 +1079,7 @@
                 self.room = at_room
                 -> $Stalking
             }
-            try_throw_axe(): bool {
+            try_throw_axe(anger: int): bool {
                 @@:(false)             # not yet on the field
             }
             get_state(): String      { @@:("hidden") }
@@ -1103,17 +1103,30 @@
                 if roll < 70:
                     -> $Dead
             }
-            try_throw_axe(): bool {
+            try_throw_axe(anger: int): bool {
                 # Dwarf throws an axe at the player. Separate
                 # PRNG counter from the player-attacks-dwarf
                 # rolls so the two streams don't interfere.
-                # 25% hit rate matches canonical CCA odds.
+                #
+                # Canon advent.for STMT 6090ish: hit rate is
+                #     95 * (DFLAG - 2) / 1000
+                # where DFLAG=2 is first combat (always misses),
+                # DFLAG=3..N ramp the hit pct as the dwarves
+                # grow angrier (FEED dwarf bumps DFLAG, in canon
+                # SETTING the hit rate floor higher each time).
+                # DFLAG=2 → 0% (always miss); DFLAG=10 → 76%.
+                # Anger floor is 2 (post-first-combat); guard
+                # against negative ramps for callers that pass
+                # dwarf_anger before it's been bumped past 2.
                 self.attack_step = self.attack_step + 1
                 var x: int = self.seed * 22695477 + self.attack_step * 1664525
                 x = ((x >> 16) ^ x) * 1013904223
                 x = x & 0xffffffff
                 var roll: int = x % 100
-                @@:(roll < 25)
+                var hit_pct: int = 0
+                if anger > 2:
+                    hit_pct = 95 * (anger - 2) / 10
+                @@:(roll < hit_pct)
             }
             flee() {
                 -> $Hidden
@@ -1127,7 +1140,7 @@
 
         $Dead {
             # Terminal. The player's axe-throw connected.
-            try_throw_axe(): bool {
+            try_throw_axe(anger: int): bool {
                 @@:(false)
             }
             get_state(): String      { @@:("dead") }
@@ -2610,6 +2623,8 @@
         attack_dwarf_in_room(): String        # tries the dwarf at player's location
         living_dwarves(): int
         dwarf_threw_axe(): bool               # latched flag — driver reads & clears
+        bump_dwarf_anger()                    # FEED dwarf increments anger (canon DFLAG++)
+        get_dwarf_anger(): int                # current dwarf anger (canon DFLAG, floor 2)
 
         # Endgame
         deposit_treasure()
@@ -2859,6 +2874,16 @@
                 self.dwarf4.wake_up(65)   # bedquilt / bear chamber (canon 65)
                 self.dwarf5.wake_up(118)  # cliff with ledge (beyond bridge)
             }
+
+            bump_dwarf_anger() {
+                # FEED dwarf in canon (advent.for STMT 9213) raises
+                # DFLAG by one, ramping the knife-throw hit pct via
+                # `95*(DFLAG-2)/1000`. Each FEED makes them angrier;
+                # there's no upper cap in canon (DFLAG can climb to
+                # 20 for save-game branch, etc.) so we just add 1.
+                self.dwarf_anger = self.dwarf_anger + 1
+            }
+            get_dwarf_anger(): int { @@:(self.dwarf_anger) }
 
             attack_dwarf_in_room(): String {
                 var r: int = self.player.get_room()
@@ -3200,35 +3225,35 @@
             # whether the axe was already there ($InRoom) or
             # never existed yet ($InRoom with location -1).
             if self.dwarf1.get_state() == "stalking" and self.dwarf1.get_room() == room:
-                var d1_hit: bool = self.dwarf1.try_throw_axe()
+                var d1_hit: bool = self.dwarf1.try_throw_axe(self.dwarf_anger)
                 self.axe_item.place(room)
                 if d1_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
             if self.dwarf2.get_state() == "stalking" and self.dwarf2.get_room() == room:
-                var d2_hit: bool = self.dwarf2.try_throw_axe()
+                var d2_hit: bool = self.dwarf2.try_throw_axe(self.dwarf_anger)
                 self.axe_item.place(room)
                 if d2_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
             if self.dwarf3.get_state() == "stalking" and self.dwarf3.get_room() == room:
-                var d3_hit: bool = self.dwarf3.try_throw_axe()
+                var d3_hit: bool = self.dwarf3.try_throw_axe(self.dwarf_anger)
                 self.axe_item.place(room)
                 if d3_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
             if self.dwarf4.get_state() == "stalking" and self.dwarf4.get_room() == room:
-                var d4_hit: bool = self.dwarf4.try_throw_axe()
+                var d4_hit: bool = self.dwarf4.try_throw_axe(self.dwarf_anger)
                 self.axe_item.place(room)
                 if d4_hit:
                     self.dwarf_axe_flag = true
                     self.player.die()
                     return
             if self.dwarf5.get_state() == "stalking" and self.dwarf5.get_room() == room:
-                var d5_hit: bool = self.dwarf5.try_throw_axe()
+                var d5_hit: bool = self.dwarf5.try_throw_axe(self.dwarf_anger)
                 self.axe_item.place(room)
                 if d5_hit:
                     self.dwarf_axe_flag = true
@@ -4200,6 +4225,13 @@
         }
 
         _verb_feed(noun: String): String {
+            # Canon FEED dwarf (advent.for STMT 9213): bumps DFLAG
+            # so subsequent knife-throw rolls hit harder. The
+            # canon prose msg #103 fires from the driver's intercept
+            # ladder; here we just side-effect the anger bump.
+            if noun == "dwarf":
+                self.bump_dwarf_anger()
+                return "You fool, dwarves eat only coal! Now you've made him *really* mad!!"
             if noun != "bear":
                 return "I don't know how to feed that."
             if self.player.get_room() != self.BEAR_HOME_ROOM:
@@ -5022,4 +5054,9 @@
         deep_cave_turns: int = 0
         dwarves_auto_woken: bool = false
         DWARF_WAKE_THRESHOLD: int = 13   # canon ≈ 13 deep-cave turns
+        # Canon dwarf anger counter (advent.for DFLAG). Floor of 2
+        # represents post-first-combat ("dwarves are now actively
+        # fighting") — knife-throw hit pct = 95*(anger-2)/1000.
+        # FEED dwarf bumps this; without FEEDs the rate stays at 0%.
+        dwarf_anger: int = 2
 }

@@ -638,13 +638,13 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | 5% trigger at LOC>=15 | yes | port may use different trigger | 🟡 |
 | Random walk (no backtrack unless forced) | yes | port has dwarf wander logic | ✓ |
 | Avoid forced/pirate-forbidden/dwarves-forbidden rooms | yes | partial | 🟡 |
-| Knife miss/hit probability ramp `95*(DFLAG-2)/1000` | yes | port has flat probability | 🔴 |
+| Knife miss/hit probability ramp `95*(DFLAG-2)/1000` | yes | Adventure `dwarf_anger` (canon DFLAG) field, default 2; `Dwarf.try_throw_axe(anger)` rolls against `95*(anger-2)/10` per canon STMT 6090. Anger=2 → 0% (always miss), anger=10 → 76%. Test: `test_cca_dwarf_anger.gd` Phases 1–3 (1000-roll distributions, ±5σ). | ✓ |
 | First throw always misses (DFLAG transition) | yes | port may not match | 🟡 |
 | Drop axe at first encounter | yes | ✓ | ✓ |
 | Block player exit if dwarf at NEWLOC (msg #2) | yes | ✓ | see msg #2 row in §6 |
 | Player throws axe → 33% kill | yes | ✓ | ✓ |
 | First-kill prints msg #149 | yes | ✓ | ✓ |
-| FEED dwarf → DFLAG++ (anger) | yes | 🔴 | not implemented |
+| FEED dwarf → DFLAG++ (anger) | yes | ✓ | driver FEED-dwarf intercept calls `fsm.bump_dwarf_anger()` alongside the canon msg #103 prose; FSM-side `_verb_feed` also bumps as a defensive fallback. Test: `test_cca_dwarf_anger.gd` Phase 5. |
 
 ### 12.2 Pirate (dwarf 6)
 

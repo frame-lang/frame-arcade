@@ -1677,6 +1677,8 @@ func _process_input(text: String) -> void:
             _println("It's not hungry (it's merely pinin' for the fjords). Besides, you have no bird seed.")
             return
         if noun == "dwarf":
+            # canon msg #103 + DFLAG bump (advent.for STMT 9213).
+            fsm.bump_dwarf_anger()
             _println("You fool, dwarves eat only coal! Now you've made him *really* mad!!")
             return
         if noun == "troll":
