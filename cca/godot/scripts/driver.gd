@@ -847,18 +847,24 @@ func _process_input(text: String) -> void:
     # returns the response string.
     var response: String = fsm.do_command(verb, noun)
     # Canon "unknown verb" randomization (advent.for STMT 3000):
-    # SPK=60 default, 20% chance #61, 20% chance #13. The FSM
-    # emits "I don't know how to '<verb>'." for any verb it
-    # doesn't recognize; we substitute the canon random variant
-    # so the player sees authentic prose.
+    #     SPK = 60
+    #     IF (PCT(20)) SPK = 61
+    #     IF (PCT(20)) SPK = 13
+    # Two chained PCT(20) calls produce a 64% / 16% / 20% mix:
+    # 80%×80%=64% stays at #60; 80%×20%=16% lands on #61; 20%
+    # always overrides to #13 regardless of the first check.
+    # FSM emits "I don't know how to '<verb>'." for unknown verbs;
+    # we substitute the canon msg matching one of these three
+    # rolls.
     if response.begins_with("I don't know how to '"):
-        var roll: int = randi() % 100
-        if roll < 60:
-            response = "Eh?"               # canon msg #60
-        elif roll < 80:
-            response = "I beg your pardon?" # canon msg #61
+        var roll1: int = randi() % 100
+        var roll2: int = randi() % 100
+        if roll2 < 20:
+            response = "I don't understand that!"   # canon msg #13
+        elif roll1 < 20:
+            response = "What?"                       # canon msg #61
         else:
-            response = "I don't understand that!" # canon msg #13
+            response = "I don't know that word."     # canon msg #60
     _println(response)
 
     # Per-turn upkeep: lamp battery, endgame timer, hint

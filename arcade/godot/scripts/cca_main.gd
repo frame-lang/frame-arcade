@@ -1665,15 +1665,18 @@ func _process_input(text: String) -> void:
     # transforms xyzzy/plugh/plover into MOVE, etc.) and
     # returns the response string.
     var response: String = fsm.do_command(verb, noun)
-    # Canon "unknown verb" randomization (advent.for STMT 3000).
+    # Canon "unknown verb" randomization (advent.for STMT 3000):
+    # SPK=60; IF(PCT(20))SPK=61; IF(PCT(20))SPK=13. Two chained
+    # PCT(20) calls produce a 64% / 16% / 20% distribution.
     if response.begins_with("I don't know how to '"):
-        var roll: int = randi() % 100
-        if roll < 60:
-            response = "Eh?"
-        elif roll < 80:
-            response = "I beg your pardon?"
+        var roll1: int = randi() % 100
+        var roll2: int = randi() % 100
+        if roll2 < 20:
+            response = "I don't understand that!"   # canon msg #13
+        elif roll1 < 20:
+            response = "What?"                       # canon msg #61
         else:
-            response = "I don't understand that!"
+            response = "I don't know that word."     # canon msg #60
     _println(response)
 
     # Per-turn upkeep: lamp battery, endgame timer, hint

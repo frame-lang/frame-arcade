@@ -376,9 +376,9 @@ Comprehensive map is impractical to inline here — strategic table:
 | 47/48/49 | Dwarf kill/dodge/bare hands | ✓ |
 | 54 | "OK" | ✓ |
 | 56 | "Wound up back in main passage" (Witt's End / mazes) | ✓ |
-| 60/61 | "Eh?" / "I beg your pardon?" | 🔴 — random alternates not implemented |
+| 60/61 | "I don't know that word." / "What?" | ✓ — driver post-processes the FSM's "I don't know how to '<verb>'." into the canon STMT 3000 mix via two chained `PCT(20)` rolls (64% msg #60 / 16% msg #61 / 20% msg #13). Test: `test_cca_flavor_msgs.gd` Phase 4 (1000-roll distribution, ±5σ tolerances). |
 | 62/63 | Cave hint Q/A | ✓ |
-| 70 | "Your feet are wet" | 🔴 |
+| 70 | "Your feet are now wet" | ✓ — see §18 row for ENTER STREAM/WATER. Driver intercept above the DIRECTIONS check emits canon msg #70 verbatim. Test: `test_cca_lamp_quit_etc.gd` Phase 1. |
 | 71 | "I just lost my appetite" | ✓ — driver `eat` intercept: NPC nouns → "Don't be ridiculous!" rebuff; any other non-food noun → canon msg #71 verbatim. Test: `test_cca_verb_defaults.gd` Phases 2–3. |
 | 72 | Food consumed | ✓ |
 | 76 | "Peculiar. Nothing unexpected happens." | ✓ — RUB handler now branches on noun: LAMP → msg #75 ("Rubbing the electric lamp..."); else → msg #76 verbatim. Test: `test_cca_verb_defaults.gd` Phases 4–5. |
@@ -408,8 +408,8 @@ Comprehensive map is impractical to inline here — strategic table:
 | 130 | "Nothing leaves" closing | ✓ |
 | 131 | "Looks as though you're dead" | ✓ |
 | 132 | Repository flash | ✓ |
-| 133/134/135 | Endgame BLAST outcomes | 🔴 |
-| 136 | "Disturbed dwarves" | 🔴 |
+| 133/134/135 | Endgame BLAST outcomes | ✓ — driver `blast` handler dispatches by `(rod2_here, room)` triple per canon advent.for STMT 9230: rod2-here → msg #135 ("splashed across the walls", `blast_klutz`, +25); room 115 sans rod → msg #134 ("river of molten lava", `blast_wrong_way`, +30); else → msg #133 ("cheering band of friendly elves", `blast_mastery`, +45). All three transition Endgame to $Won. Test: `test_cca_endgame_blast.gd`. |
+| 136 | "The resulting ruckus has awakened the dwarves" | ✓ — emitted by both endgame BREAK MIRROR and WAKE handlers, paired with msg #197 / msg #199 respectively, followed by `player.die()`. Test: `test_cca_endgame_blast.gd`. |
 | 137 | "Leave the poor unhappy bird alone" | ✓ — driver `attack` intercept for noun "bird" emits canon msg #137 verbatim. KILL/FIGHT synonyms route through "attack" so all three forms work. Test: `test_cca_attack_bird.gd`. |
 | 138 | "I daresay whatever you want is around here somewhere" | ✓ — emitted by FIND handler when `endgame_state() == "in_repository"`. See msg #59 row for the full FIND priority ladder. |
 | 140 | "You can't get there from here" | 🟡 — port emits "no longer seem to remember" (msg #91) when BACK has no path. Canon msg #140 is the no-exit fallback used by general motion attempts. The driver's general no-exit emits "There is no way to go in that direction." which is canon-flavor-equivalent. |
@@ -518,7 +518,7 @@ section-6 message used when the verb has no other applicable handling.
 | ON (7) | 39 (lamp now on) | ✓ |
 | OFF (8) | 40 (lamp now off) | ✓ |
 | WAVE (9) | 29 | ✓ |
-| CALM (10) | 7 (one of them gets you) | 🔴 |
+| CALM (10) | 14 ("would you care to explain how") | ✓ — driver intercepts CALM/TAME and emits canon msg #14 ("I'm game. Would you care to explain how?"). The canon msg #7 in advent.dat is a row-2 special-handler msg for CLAM/oyster, unrelated to the verb default — port maps to the more useful msg #14 default. |
 | WALK (11) | 8 (hollow voice) | 🟡 |
 | KILL (12) | 44 ("nothing here to attack") | ✓ |
 | POUR (13) | 78 ("you can't pour that") | ✓ |
@@ -531,13 +531,13 @@ section-6 message used when the verb has no other applicable handling.
 | INVENTORY (20) | 98 (carrying nothing) | ✓ |
 | FEED (21) | 14 ("game, would you care") | 🟡 |
 | FILL (22) | 29 | ✓ |
-| BLAST (23) | 54 (default OK) | 🔴 |
+| BLAST (23) | 54 (default OK) | ✓ — pre-CLOSED emits "Blasting requires dynamite." See msg #133/#134/#135 row in §6 for the closed-state ladder. |
 | SCORE (24) | (no default) | ✓ |
 | FOO (25) | 42 ("nothing happens") | ✓ |
-| BRIEF (26) | 156 (acknowledgement) | 🔴 |
+| BRIEF (26) | 156 (acknowledgement) | ✓ — see msg #156 row in §6. |
 | READ (27) | 0 (no default) | 🟡 |
 | BREAK (28) | 54 | 🟡 |
-| WAKE (29) | 54 | 🔴 |
+| WAKE (29) | 54 | ✓ — pre-CLOSED emits "I don't understand that." (canon msg #13). See msg #199 row in §6 for the endgame WAKE-the-dwarves death. |
 | SUSPEND (30) | (no default) | 🟡 |
 | HOURS (31) | (no default) | (no canon default) | ✓ — see §4.3 |
 
@@ -686,7 +686,7 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | ATTACK with YES → killed, dragon moves to 120 (center) | yes | 🟡 — port doesn't move dragon to center, doesn't move player |
 | Rug under dragon, becomes free | yes | ✓ |
 | FEED dragon → "nothing edible" | yes | ✓ |
-| Bird thrown at live dragon → bird dies | yes | 🔴 |
+| Bird thrown at live dragon → bird dies | yes | ✓ — see msg #154 row in §6. THROW BIRD and DROP BIRD both route through `release bird`; Bird FSM transitions $Released → $Dead at canon 119 with dragon alive. Test: `test_cca_npc_throws.gd`. |
 
 ### 12.6 Troll
 

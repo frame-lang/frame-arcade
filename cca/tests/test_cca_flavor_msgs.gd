@@ -76,12 +76,18 @@ func _init():
         _capture(d3, "feed snake"), "wants to eat")
 
     # ----- Phase 4: unknown-verb random distribution -----
-    print("Phase 4: unknown-verb randomization (canon STMT 3000, 60/20/20)")
+    # Canon advent.for STMT 3000:
+    #     SPK = 60
+    #     IF (PCT(20)) SPK = 61
+    #     IF (PCT(20)) SPK = 13
+    # Two chained PCT(20) calls: 80%×80% = 64% msg #60,
+    # 80%×20% = 16% msg #61, 20% msg #13.
+    print("Phase 4: unknown-verb randomization (canon STMT 3000, 64/16/20)")
     seed(0xCABBA9E)
     var d4 := _make_driver()
-    var c_eh: int = 0
-    var c_pardon: int = 0
-    var c_understand: int = 0
+    var c_60: int = 0       # canon msg #60
+    var c_61: int = 0       # canon msg #61
+    var c_13: int = 0       # canon msg #13
     var c_other: int = 0
     for i in 1000:
         var pre: int = d4.captured.size()
@@ -89,32 +95,32 @@ func _init():
         var lines: Array = d4.captured.slice(pre)
         var matched: bool = false
         for line in lines:
-            if "Eh?" in line:
-                c_eh += 1; matched = true; break
-            if "I beg your pardon" in line:
-                c_pardon += 1; matched = true; break
+            if "I don't know that word" in line:
+                c_60 += 1; matched = true; break
+            if "What?" in line:
+                c_61 += 1; matched = true; break
             if "I don't understand that" in line:
-                c_understand += 1; matched = true; break
+                c_13 += 1; matched = true; break
         if not matched:
             c_other += 1
-    print("  observed: Eh=%d / pardon=%d / understand=%d / other=%d"
-        % [c_eh, c_pardon, c_understand, c_other])
-    # Wide tolerance: 60% / 20% / 20% over 1000.
-    if c_eh < 540 or c_eh > 660:
-        print("  FAIL: Eh? hit count %d outside [540, 660]" % c_eh)
+    print("  observed: msg#60=%d / msg#61=%d / msg#13=%d / other=%d"
+        % [c_60, c_61, c_13, c_other])
+    # ±5σ tolerances: msg#60 ~640±76, msg#61 ~160±58, msg#13 ~200±63.
+    if c_60 < 564 or c_60 > 716:
+        print("  FAIL: msg#60 count %d outside [564, 716]" % c_60)
         failures += 1
     else:
-        print("  ok   Eh? hit ~600 (in [540, 660])")
-    if c_pardon < 150 or c_pardon > 250:
-        print("  FAIL: pardon hit count %d outside [150, 250]" % c_pardon)
+        print("  ok   msg#60 'I don't know that word' ~640 (in [564, 716])")
+    if c_61 < 102 or c_61 > 218:
+        print("  FAIL: msg#61 count %d outside [102, 218]" % c_61)
         failures += 1
     else:
-        print("  ok   pardon hit ~200 (in [150, 250])")
-    if c_understand < 150 or c_understand > 250:
-        print("  FAIL: understand hit count %d outside [150, 250]" % c_understand)
+        print("  ok   msg#61 'What?' ~160 (in [102, 218])")
+    if c_13 < 137 or c_13 > 263:
+        print("  FAIL: msg#13 count %d outside [137, 263]" % c_13)
         failures += 1
     else:
-        print("  ok   understand hit ~200 (in [150, 250])")
+        print("  ok   msg#13 'don't understand' ~200 (in [137, 263])")
     if c_other != 0:
         print("  FAIL: %d 'other' lines — randomization missed cases" % c_other)
         failures += 1
