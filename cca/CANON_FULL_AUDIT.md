@@ -273,7 +273,7 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 | 24 | SCORE | (driver-handled) | ✓ |
 | 25 | FEE/FIE/FOE/FOO | `_verb_chant` | ✓ |
 | 26 | BRIEF | driver "brief" handler | ✓ — sets `_brief_mode` + `_visited_rooms` so revisits skip long descriptions; LOOK still re-displays. Test: `test_cca_minor_verbs.gd` Phase 2. |
-| 27 | READ | `_verb_read` | 🟡 — handles MAGAZINE, missing TABLET/MESSAGE/OYSTER-clue |
+| 27 | READ | `_verb_read` + driver intercepts | ✓ — FSM handles MAGAZINE; driver intercepts cover TABLET (canon 101), MESSAGE (canon 140), OYSTER hint chain (msgs #192/193/194 with Y/N + 10pt cost), and ROD2 dynamite reveal at endgame. Tests: `test_cca_scenery_flavor.gd`, `test_cca_oyster_hint.gd`, `test_cca_rod2_dynamite.gd`. |
 | 28 | BREAK | `_verb_break` (FSM) + driver "break mirror" | ✓ — VASE/CLAM via FSM; MIRROR intercepted in driver: pre-CLOSED returns canon msg #146, in-repository emits canon msg #197 + #136 dwarf-wake death. Test: `test_cca_endgame_blast.gd` Phases 7-8. |
 | 29 | WAKE | ✓ — driver "wake" handler. Pre-CLOSED: "I don't understand". In-repository: emits canon msg #199 + #136, fires `player.die()`. Test: `test_cca_endgame_blast.gd` Phases 5-6. |
 | 30 | SUSPEND | `driver._process_input` "suspend" handler | ✓ — prints canon LATNCY warning ("I can suspend your adventure for you so that you can resume later, but you will have to wait at least 45 minutes before continuing.") followed by "... or not." wink, then saves instantly. PAUSE alias routes here too; plain SAVE stays silent for modern UX. **User signed off 2026-05-08.** Test: `test_cca_pdp10_easter_eggs.gd` |
@@ -309,7 +309,7 @@ For each object with multiple PROP states, port must support state cycling.
 | GRATE (3) | 0=locked, 1=unlocked | `Grate` | ✓ |
 | CAGE (4) | 0 only | Item | ✓ |
 | ROD (5) | 0 only | Item | ✓ |
-| ROD2 (6) | 0..2 (decoy state, dynamite at endgame) | Item | 🟡 — missing dynamite (BLAST) state |
+| ROD2 (6) | 0..2 (decoy state, dynamite at endgame) | Item + driver intercept | ✓ — Item FSM tracks the marked rod's location (placed at dwarf-kill rooms via `mark_rod_item.place(r)` from `attack_dwarf_in_room`). Driver EXAMINE/READ ROD intercept reveals "stick of dynamite" prose in $InRepository, "rusty mark" elsewhere. Test: `test_cca_rod2_dynamite.gd`. |
 | BIRD (8) | 0=free, 1=in-cage | `Bird` | ✓ |
 | DOOR (9) | 0=rusty, 1=oiled | `RustyDoor` | ✓ |
 | SNAKE (11) | 0=present, 1=gone | `Snake` | ✓ |
@@ -519,7 +519,7 @@ section-6 message used when the verb has no other applicable handling.
 | OFF (8) | 40 (lamp now off) | ✓ |
 | WAVE (9) | 29 | ✓ |
 | CALM (10) | 14 ("would you care to explain how") | ✓ — driver intercepts CALM/TAME and emits canon msg #14 ("I'm game. Would you care to explain how?"). The canon msg #7 in advent.dat is a row-2 special-handler msg for CLAM/oyster, unrelated to the verb default — port maps to the more useful msg #14 default. |
-| WALK (11) | 8 (hollow voice) | 🟡 |
+| WALK (11) | 8 (hollow voice) | ✓ — see msg #8 row in §6. Y2 whisper at canon room 33 fires 25% per visit (driver `_print_room`). Test: `test_cca_cave_y2_back.gd`. |
 | KILL (12) | 44 ("nothing here to attack") | ✓ |
 | POUR (13) | 78 ("you can't pour that") | ✓ |
 | EAT (14) | 71 ("just lost my appetite") | ✓ — see msg #71 row above. |
@@ -535,10 +535,10 @@ section-6 message used when the verb has no other applicable handling.
 | SCORE (24) | (no default) | ✓ |
 | FOO (25) | 42 ("nothing happens") | ✓ |
 | BRIEF (26) | 156 (acknowledgement) | ✓ — see msg #156 row in §6. |
-| READ (27) | 0 (no default) | 🟡 |
+| READ (27) | 0 (no default) | ✓ — see §10 Action verbs row 27 above. Port wires READ for MAGAZINE (FSM) + TABLET, MESSAGE, OYSTER, ROD2 (driver intercepts). Tests: `test_cca_scenery_flavor.gd`, `test_cca_oyster_hint.gd`, `test_cca_rod2_dynamite.gd`. |
 | BREAK (28) | 54 | 🟡 |
 | WAKE (29) | 54 | ✓ — pre-CLOSED emits "I don't understand that." (canon msg #13). See msg #199 row in §6 for the endgame WAKE-the-dwarves death. |
-| SUSPEND (30) | (no default) | 🟡 |
+| SUSPEND (30) | (no default) | ✓ — driver "suspend" handler emits canon-flavored "save your adventure" prose ending with the canonical "... or not." quip and triggers the save flow. PAUSE / SAVE are synonyms. See `_process_input` "suspend" branch. |
 | HOURS (31) | (no default) | (no canon default) | ✓ — see §4.3 |
 
 ---
@@ -570,7 +570,7 @@ Canon oil at: 24.
 | 95 | water | ✓ — `_at_water_source` includes canon 95 (magnificent cavern). Test: `test_cca_liquid_sources.gd`. |
 | 113 | water | ✓ — `_at_water_source` includes canon 113 (edge of underground reservoir). Test: `test_cca_liquid_sources.gd`. |
 
-🟡 Port has FILL working at well-house (canon 1/3/4/7) and oil source.
+✓ Port has FILL working at all canon water sources (1, 3, 4, 7, 38, 95, 113) and the canon oil source (24, the Bottom of Eastern Pit). Test: `test_cca_liquid_sources.gd`.
 Reservoir water for the bottle isn't a canon necessity.
 
 ### 9.3 Pirate-forbidden rooms (bit 3)
@@ -654,7 +654,7 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | Wanders, only enters non-forbidden rooms | yes | 🟡 — forbidden list may be incomplete |
 | Steals when player carries treasure (not chest) | yes | ✓ |
 | Doesn't take pyramid from Plover/Dark | yes | 🟡 — port may take it |
-| Stash is at CHLOC; MESSAG goes to CHLOC2=140 | yes | 🟡 — message object not modeled |
+| Stash is at CHLOC; MESSAG goes to CHLOC2=140 | yes | ✓ — driver READ/EXAMINE MESSAGE intercept fires at canon 140 (CHLOC2 mirror room) emitting canon msg #191. Pirate stash mechanic itself is wired through Pirate.try_steal + Adventure relocation. Test: `test_cca_scenery_flavor.gd`. |
 | 20% rustling msg #127 between visits | yes | 🟡 |
 | `TALLY==TALLY2+1` and chest-only-outstanding hint (msg #186) | yes | ✓ — driver `_check_chest_hint()` runs once per turn (in the move-completion check chain): when `treasures_deposited() == 14` AND `chest.is_deposited() == false` AND chest not in player inventory, fires canon msg #186 verbatim ("Shiver me timbers!... I'd best hie meself off to the maze to hide me chest!") and sets a one-shot latch. Test: `test_cca_chest_hint.gd` (9 assertions). |
 
