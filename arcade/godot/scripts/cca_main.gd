@@ -1144,6 +1144,9 @@ var _old_loc2: int = -1
 # Canon msg #3 first-dwarf-encounter latch (advent.for STMT 6000).
 var _dwarf_first_encounter_done: bool = false
 
+# Canon chest-only-outstanding hint latch (msg #186, fires once).
+var _chest_hint_done: bool = false
+
 # Canon OYSTER hint chain (advent.dat msgs #192/193/194).
 var _oyster_prompt_active: bool = false
 var _oyster_revealed: bool = false
@@ -1764,12 +1767,13 @@ func _process_input(text: String) -> void:
     fsm.tick()
 
     # Driver-side per-turn checks: pirate-steals, lamp
-    # warnings, endgame phase changes, dwarf axe hits, player
-    # death. We surface text the FSM can't know how to render.
+    # warnings, endgame phase changes, dwarf axe hits, chest
+    # hint, player death.
     _check_pirate_steal()
     _check_lamp_warnings()
     _check_endgame_phase_change()
     _check_dwarf_axe()
+    _check_chest_hint()
     _check_player_death()
     _maybe_print_room_after_move()
 
@@ -1919,6 +1923,7 @@ func _handle_movement(direction: String) -> void:
     _check_pirate_steal()
     _check_lamp_warnings()
     _check_endgame_phase_change()
+    _check_chest_hint()
     _print_room()
 
 # ============================================================
@@ -2082,6 +2087,25 @@ func _check_lamp_warnings() -> void:
 func _check_dwarf_axe() -> void:
     if fsm.dwarf_threw_axe():
         _println("[color=#cc7777][i]A dwarf throws an axe at you — and connects! The axe finds your back.[/i][/color]")
+
+# Canon chest-only-outstanding hint (advent.for STMT 6020, msg
+# #186). Fires once when 14 of 15 treasures are deposited and
+# the chest is still missing.
+func _check_chest_hint() -> void:
+    if _chest_hint_done:
+        return
+    if fsm.chest.is_deposited():
+        return
+    if fsm.player.carrying(CHEST_ID):
+        return
+    if fsm.treasures_deposited() < 14:
+        return
+    _chest_hint_done = true
+    _println("There are faint rustling noises from the darkness behind you. As you")
+    _println("turn toward them, the beam of your lamp falls across a bearded pirate.")
+    _println("He is carrying a large chest. \"Shiver me timbers!\" he cries, \"I've")
+    _println("been spotted! I'd best hie meself off to the maze to hide me chest!\"")
+    _println("With that, he vanishes into the gloom.")
 
 func _check_player_death() -> void:
     if _awaiting_revive:

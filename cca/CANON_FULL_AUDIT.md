@@ -656,7 +656,7 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | Doesn't take pyramid from Plover/Dark | yes | 🟡 — port may take it |
 | Stash is at CHLOC; MESSAG goes to CHLOC2=140 | yes | 🟡 — message object not modeled |
 | 20% rustling msg #127 between visits | yes | 🟡 |
-| `TALLY==TALLY2+1` and chest-only-outstanding hint (msg #186) | yes | 🔴 |
+| `TALLY==TALLY2+1` and chest-only-outstanding hint (msg #186) | yes | ✓ — driver `_check_chest_hint()` runs once per turn (in the move-completion check chain): when `treasures_deposited() == 14` AND `chest.is_deposited() == false` AND chest not in player inventory, fires canon msg #186 verbatim ("Shiver me timbers!... I'd best hie meself off to the maze to hide me chest!") and sets a one-shot latch. Test: `test_cca_chest_hint.gd` (9 assertions). |
 
 ### 12.3 Snake
 
