@@ -833,7 +833,7 @@ Per advent.for STMT 20000.
 
 | Mechanic | Canon | Port |
 |---|---|---|
-| BACK = walk OLDLOC (or OLDLC2 if OLDLOC was forced) | yes | 🔴 |
+| BACK = walk OLDLOC (or OLDLC2 if OLDLOC was forced) | yes | ✓ — driver "back" handler. Tracks `_old_loc` + `_old_loc2` in `_handle_movement` and `_walk_to_dest` before each move. BACK looks up an exit from the current room to the target; if forced-room with explicit topology `back` exit, uses that. msg #140 ("no longer seem to remember") on no path. RETREAT is an alias. Test: `test_cca_back_verb.gd`. |
 | LOOK = re-display long form | yes | ✓ |
 | LOOK count = 3 then suppress (msg #15) | yes | 🔴 |
 | CAVE outdoors → msg #57 | yes | 🔴 |

@@ -1064,6 +1064,7 @@ var verb_synonyms: Dictionary = {
     "brief": "brief",
     "rub": "rub",
     "say": "say",
+    "back": "back", "retreat": "back",
 }
 
 # Direction keywords that map to room navigation. These get
@@ -1127,6 +1128,12 @@ var _visited_rooms: Dictionary = {}
 # Canon IWEST counter (advent.for line 901) — 10th typed
 # "WEST" fires msg #17 once.
 var _iwest_count: int = 0
+
+# Canon BACK history (advent.for STMT 20-25). See cca/godot
+# mirror for full inline doc on the OLDLOC/OLDLC2 mechanic.
+var _old_loc: int = -1
+var _old_loc2: int = -1
+const FORCED_ROOMS := [16, 22, 26, 32, 40, 59, 79, 89, 90, 113]
 
 # --- Exit dialog (Save / Quit) ---
 # Frame state machine that owns the dialog's modal logic.
@@ -1474,6 +1481,29 @@ func _process_input(text: String) -> void:
                 return
             _println("Okay, \"%s\"." % noun)
             return
+        "back":
+            # Canon BACK (advent.for STMT 20-25). See cca/godot
+            # mirror for full inline doc.
+            var bk_current: int = fsm.player_room()
+            var bk_exits: Dictionary = room_exits.get(bk_current, {})
+            if "back" in bk_exits:
+                _handle_movement("back")
+                return
+            var k: int = _old_loc
+            if k in FORCED_ROOMS:
+                k = _old_loc2
+            if k < 0:
+                _println("Sorry, but I no longer seem to remember how it was you got here.")
+                return
+            if k == bk_current:
+                _println("Where?")
+                return
+            for bk_dir in bk_exits:
+                if bk_exits[bk_dir] == k:
+                    _handle_movement(bk_dir)
+                    return
+            _println("Sorry, but I no longer seem to remember how it was you got here.")
+            return
 
     # Canon "always-blocked" bumper gates and conditional rows.
     # The (room, verb) key may map to either a single rule
@@ -1700,6 +1730,8 @@ func _handle_movement(direction: String) -> void:
     # might consume "move" if dark — actually no, darkness only
     # gates look/examine; CCA-canon: you CAN move in the dark,
     # but you might fall in a pit).
+    _old_loc2 = _old_loc
+    _old_loc = current
     var response: String = fsm.do_command("move", str(dest))
     # We use our own room descriptions (via FSM's look) rather
     # than the FSM's move-response — it's more atmospheric.
@@ -1787,6 +1819,8 @@ func _try_bumper_rule(bg: Dictionary) -> bool:
     return false
 
 func _walk_to_dest(dest_room: int) -> void:
+    _old_loc2 = _old_loc
+    _old_loc = fsm.player_room()
     var resp: String = fsm.do_command("move", str(dest_room))
     _println(resp)
     fsm.tick()

@@ -127,6 +127,8 @@ var verb_synonyms: Dictionary = {
     "brief": "brief",
     "rub": "rub",
     "say": "say",
+    # Canon BACK / RETREAT — driver-handled retreat to OLDLOC.
+    "back": "back", "retreat": "back",
 }
 
 # Direction keywords that map to room navigation. These get
@@ -196,6 +198,21 @@ var _visited_rooms: Dictionary = {}
 # types "WEST" instead of "W" ten times, msg #17 fires once
 # ("If you prefer, simply type W rather than WEST.").
 var _iwest_count: int = 0
+
+# Canon BACK history (advent.for STMT 20-25, vars OLDLOC and
+# OLDLC2). On a successful move, _old_loc2 ← _old_loc, then
+# _old_loc ← previous-room. BACK uses _old_loc unless that
+# room is forced-motion, in which case it falls back to
+# _old_loc2 — matches canon's "if you BACK from a forced room,
+# you go two rooms back."
+var _old_loc: int = -1
+var _old_loc2: int = -1
+
+# Canon forced-motion rooms (cond=2 per advent.for line 393).
+# These rooms auto-bounce on entry; BACK from a non-forced
+# room into one of these would re-fire the bounce, so canon
+# skips them and uses _old_loc2 instead.
+const FORCED_ROOMS := [16, 22, 26, 32, 40, 59, 79, 89, 90, 113]
 
 # 5-character-truncated verb-synonym lookup. Derived from
 # verb_synonyms at _ready() so canon's "first five letters" parser
@@ -596,6 +613,33 @@ func _process_input(text: String) -> void:
                 return
             _println("Okay, \"%s\"." % noun)
             return
+        "back":
+            # Canon BACK (advent.for STMT 20-25). Find an exit
+            # from the current room to OLDLOC; if OLDLOC is
+            # forced-motion, use OLDLC2 instead. If no path
+            # exists, msg #140. If "back" is an explicit topology
+            # exit (forced-room escape verbs added per the
+            # canon-march), use that directly.
+            var bk_current: int = fsm.player_room()
+            var bk_exits: Dictionary = room_exits.get(bk_current, {})
+            if "back" in bk_exits:
+                _handle_movement("back")
+                return
+            var k: int = _old_loc
+            if k in FORCED_ROOMS:
+                k = _old_loc2
+            if k < 0:
+                _println("Sorry, but I no longer seem to remember how it was you got here.")
+                return
+            if k == bk_current:
+                _println("Where?")
+                return
+            for bk_dir in bk_exits:
+                if bk_exits[bk_dir] == k:
+                    _handle_movement(bk_dir)
+                    return
+            _println("Sorry, but I no longer seem to remember how it was you got here.")
+            return
 
     # Canon "always-blocked" bumper gates and conditional rows.
     # The (room, verb) key may map to either a single rule
@@ -841,6 +885,9 @@ func _handle_movement(direction: String) -> void:
     # might consume "move" if dark — actually no, darkness only
     # gates look/examine; CCA-canon: you CAN move in the dark,
     # but you might fall in a pit).
+    # Capture BACK history before the move fires.
+    _old_loc2 = _old_loc
+    _old_loc = current
     var response: String = fsm.do_command("move", str(dest))
     # We use our own room descriptions (via FSM's look) rather
     # than the FSM's move-response — it's more atmospheric.
@@ -976,6 +1023,9 @@ func _try_bumper_rule(bg: Dictionary) -> bool:
 # bumper rules whose `dest` field routes to a destination room
 # (e.g. canon 14:down with gold → room 20 death).
 func _walk_to_dest(dest_room: int) -> void:
+    # Capture BACK history before the move fires.
+    _old_loc2 = _old_loc
+    _old_loc = fsm.player_room()
     var resp: String = fsm.do_command("move", str(dest_room))
     _println(resp)
     fsm.tick()
