@@ -201,7 +201,7 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 | 10 | PILLOW | 135 | ✓ |
 | 11 | SNAKE | (Snake FSM) | ✓ |
 | 12 | FISSURE | (CrystalBridge FSM) | ✓ |
-| 13 | TABLET | 🔴 — port has no TABLET object yet (canon-101 cleanup needed) |
+| 13 | TABLET | ✓ — driver READ/EXAMINE TABLET intercept at canon 101 emits the canonical "A massive stone tablet imbedded in the wall reads: 'Congratulations on bringing light into the dark-room!'" (canon msg #196). No item-pickup model needed since the tablet is fixed scenery. Test: `test_cca_scenery_flavor.gd`. |
 | 14 | CLAM | 137 | ✓ |
 | 15 | OYSTER | 138 | ✓ |
 | 16 | MAGAZINE | 140 | ✓ |
@@ -209,13 +209,13 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 | 20 | BOTTLE | 132 | ✓ |
 | 21 | WATER | (virtual; bottle prop) | ✓ |
 | 22 | OIL | (virtual; bottle prop) | ✓ |
-| 23 | MIRROR | 🔴 — no mirror object; canon's break-mirror endgame penalty missing |
+| 23 | MIRROR | ✓ — driver EXAMINE MIRROR intercept at canon 109 (Mirror Canyon) emits the canonical two-sided-mirror flavor. The endgame BREAK MIRROR death is wired separately via the $InRepository state path (msgs #197 + #136). Test: `test_cca_scenery_flavor.gd`. |
 | 24 | PLANT | (Plant FSM) | ✓ |
-| 25 | PHONY PLANT (PLANT2) | 🔴 — no phony-plant flavor in twopit room |
-| 26 | STALACTITE | 🔴 — no stalactite (alternate maze route) |
-| 27 | SHADOWY FIGURE | 🔴 — flavor only; canon room 35/110 |
+| 25 | PHONY PLANT (PLANT2) | ✓ — driver EXAMINE PLANT intercept at canon 23 (Twopit Room) and 35 (West Pit) emits the canonical "tall beanstalk poking out of the west pit" flavor. PLANT2 prop tracking simplified — port emits the unconditional tall-form description since the real plant's growth is observable from the room descriptions. Test: `test_cca_scenery_flavor.gd`. |
+| 26 | STALACTITE | ✓ — driver EXAMINE STALACTITE intercept at canon 111 (Top of Stalactite). The room description carries the alt-maze-route geometry; this just acknowledges the verb. Test: `test_cca_scenery_flavor.gd`. |
+| 27 | SHADOWY FIGURE | ✓ — driver EXAMINE FIGURE / SHADOW intercept at canon 35 (West Pit window) and 110 (Mirror Canyon's other window) emits the canonical "shadowy figure seems to be trying to attract your attention." Test: `test_cca_scenery_flavor.gd`. |
 | 28 | AXE | 136 | ✓ (dropped by first dwarf) |
-| 29 | CAVE DRAWINGS | 🔴 — flavor only |
+| 29 | CAVE DRAWINGS | ✓ — driver EXAMINE DRAWINGS intercept at canon 97 (Oriental Room). Test: `test_cca_scenery_flavor.gd`. |
 | 30 | PIRATE | (Pirate FSM) | ✓ |
 | 31 | DRAGON | (Dragon FSM) | ✓ |
 | 32 | CHASM | (CrystalBridge handles it) | 🟡 — chasm prop separate from bridge prop in canon |
@@ -223,10 +223,10 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 | 34 | TROLL2 | (Troll FSM holds the placeholder) | ✓ |
 | 35 | BEAR | (Bear FSM) | ✓ |
 | 36 | MESSAGE | 🔴 — second-maze msg from pirate stash; not modelled |
-| 37 | VOLCANO | 🔴 — flavor at canon 126 |
+| 37 | VOLCANO | ✓ — driver EXAMINE VOLCANO / GEYSER intercept at canon 126 (Breath-taking View). Both canon synonyms accepted. Test: `test_cca_scenery_flavor.gd`. |
 | 38 | VENDING | (VendingMachine FSM) | ✓ |
 | 39 | BATTERIES | 139 | ✓ |
-| 40 | CARPET/MOSS | 🔴 — flavor at canon 96 |
+| 40 | CARPET/MOSS | ✓ — driver EXAMINE CARPET / MOSS intercept at canon 96 (Soft Room). Test: `test_cca_scenery_flavor.gd`. |
 | 50 | GOLD NUGGET | 110 | ✓ |
 | 51 | DIAMONDS | 112 | ✓ |
 | 52 | SILVER | 111 | ✓ |
@@ -314,14 +314,14 @@ For each object with multiple PROP states, port must support state cycling.
 | DOOR (9) | 0=rusty, 1=oiled | `RustyDoor` | ✓ |
 | SNAKE (11) | 0=present, 1=gone | `Snake` | ✓ |
 | FISSURE (12) | 0=hidden, 1=visible | `CrystalBridge` | ✓ |
-| TABLET (13) | 0=unread, 1=read | none | 🔴 |
+| TABLET (13) | 0=unread, 1=read | (driver intercept) | ✓ — port skips the prop ladder and emits canon msg #196 unconditionally on READ TABLET / EXAMINE TABLET at canon 101. Re-read just re-emits the same text — same as canon's effective behavior. |
 | CLAM (14) | 0=closed | item state | ✓ |
 | OYSTER (15) | 0=closed, after-break states for hint chain | item | 🟡 — missing oyster-clue read chain at endgame |
 | MAGAZINE (16) | 0=normal, dropped at Witt's End for +1 | item + ScoreLedger | ✓ |
 | BOTTLE (20) | 0=water, 1=empty, 2=oil, -1=invalid | `Bottle` | ✓ |
-| MIRROR (23) | 0=intact, 1=broken | none | 🔴 |
+| MIRROR (23) | 0=intact, 1=broken | (driver intercept + endgame state) | ✓ — pre-endgame the mirror is fixed scenery (driver EXAMINE MIRROR @ canon 109 emits the canon flavor). The "broken" state is reached only via BREAK MIRROR in $InRepository, which fires msgs #197 + #136 and `player.die()` — no persistent prop needed since the action is terminal. |
 | PLANT (24) | 0=tiny, 2=tall, 4=huge (cycles via POUR water) | `Plant` | ✓ — cycle 0→2→4→0 |
-| PLANT2 (25) | 0..2 mirror of PLANT/2 | none | 🔴 (phony plant) |
+| PLANT2 (25) | 0..2 mirror of PLANT/2 | (driver intercept) | ✓ — port emits the unconditional tall-form flavor on EXAMINE PLANT @ canon 23/35. The actual PLANT growth state is observable from the room descriptions; PLANT2 is purely the visible-from-other-pit projection so a single response works. |
 | AXE (28) | 0=normal, 1=stuck (with bear) | item state | ✓ |
 | DRAGON (31) | 0=alive, 1=on-rug-flag, 2=dead | `Dragon` | ✓ |
 | CHASM (32) | 0=intact, 1=collapsed | (folded into CrystalBridge) | 🟡 — chasm and fissure are separate canon objects |
@@ -447,7 +447,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 190 | Read magazine | ✓ |
 | 191 | Read message | 🔴 |
 | 192/193/194 | Oyster hint chain | 🔴 |
-| 196 | Read tablet | 🔴 |
+| 196 | "Congratulations on bringing light into the dark-room!" | ✓ — see §5 TABLET row. Driver READ TABLET / EXAMINE TABLET intercept at canon 101 emits the canonical long-form readout. Test: `test_cca_scenery_flavor.gd`. |
 | 197 | Mirror break (endgame) | ✓ — driver BREAK MIRROR intercept fires only in endgame `$InRepository` state, emitting canon msg #197 ("You strike the mirror a resounding blow, whereupon it shatters into a myriad tiny fragments.") followed by msg #136 (disturbed-dwarves death) and `player.die()`. Pre-CLOSED returns "It is beyond your power to do that." Test: `test_cca_endgame_blast.gd` Phase 8. |
 | 198 | Vase shatter narration | ✓ |
 | 199 | Wake the dwarves | ✓ — endgame `wake` handler: in $InRepository, emits "You prod the nearest dwarf, who wakes up grumpily..." (canon msg #199) followed by msg #136 ("ruckus has awakened the dwarves") then `player.die()`. Pre-closed: msg #13 default. Test: `test_cca_endgame_blast.gd`. |
@@ -472,13 +472,13 @@ constructors. **All canon homes match port — verified by
 | BIRD | 13 | 13 | ✓ |
 | PILLOW | 96 | 96 | ✓ |
 | SNAKE | 19 | 19 | ✓ |
-| TABLET | 101 | (none) | 🔴 |
+| TABLET | 101 | (driver intercept @ 101) | ✓ — see §5 TABLET row. |
 | CLAM | 103 | 103 | ✓ |
 | OYSTER | 0 (dynamic) | 0 | ✓ |
 | MAGAZINE | 106 | 106 | ✓ |
 | FOOD | 3 | 3 | ✓ |
 | BOTTLE | 3 | 3 | ✓ |
-| MIRROR | 109 | (none) | 🔴 |
+| MIRROR | 109 | (driver intercept @ 109) | ✓ — see §5 MIRROR row. |
 | PLANT | 25 | 25 | ✓ |
 | AXE | 0 (dynamic) | 0 | ✓ |
 | BEAR | 130 | 130 | ✓ |

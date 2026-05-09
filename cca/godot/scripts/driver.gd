@@ -858,6 +858,58 @@ func _process_input(text: String) -> void:
         # which knows the bear case and emits a sensible
         # default for unknown nouns.
 
+    # Canon scenery EXAMINE/READ flavor (advent.dat section 5
+    # objects 13/23/25/26/27/29/36/37/40 — the in-scene-only
+    # flavor objects that don't have inventory items but do have
+    # canonical examine prose). Each handler is gated on the
+    # player's current room so the noun only resolves in the
+    # canonical room.
+    if verb == "read" or verb == "examine":
+        var er: int = fsm.player_room()
+        # Object 13 — STONE TABLET at canon 101 (Dark-Room).
+        # Canon msg #196 = the long-form table-readout.
+        if noun == "tablet" and er == 101:
+            _println("A massive stone tablet imbedded in the wall reads:")
+            _println("\"Congratulations on bringing light into the dark-room!\"")
+            return
+        # Object 23 — MIRROR at canon 109 (Mirror Canyon).
+        # Pre-endgame the canon prose is the long-form room desc;
+        # we surface a one-line examine to acknowledge the verb.
+        if noun == "mirror" and er == 109:
+            _println("It's a two-sided mirror suspended high above the canyon floor.")
+            _println("Provided for the dwarves, who as you know are extremely vain.")
+            return
+        # Object 27 — SHADOWY FIGURE at canon 35 (West Pit) and
+        # canon 110 (Mirror Canyon's other side window).
+        if (noun == "figure" or noun == "shadow") and (er == 35 or er == 110):
+            _println("The shadowy figure seems to be trying to attract your attention.")
+            return
+        # Object 26 — STALACTITE at canon 111 (Top of Stalactite).
+        if noun == "stalactite" and er == 111:
+            _println("It's a large stalactite extending from the roof and almost reaching the floor below.")
+            return
+        # Object 29 — CAVE DRAWINGS at canon 97 (Oriental Room).
+        if (noun == "drawings" or noun == "drawing") and er == 97:
+            _println("The cave drawings are ancient and Oriental in style.")
+            return
+        # Object 37 — VOLCANO/GEYSER at canon 126 (Breath-taking
+        # View). Also accept "geyser" as canon synonym.
+        if (noun == "volcano" or noun == "geyser") and er == 126:
+            _println("Great gouts of molten lava come surging out of an active volcano,")
+            _println("cascading back down into the depths.")
+            return
+        # Object 40 — CARPET/MOSS at canon 96 (Soft Room).
+        if (noun == "carpet" or noun == "moss") and er == 96:
+            _println("The carpet is soft and the moss-covered ceiling muffles every sound.")
+            return
+        # Object 25 — PHONY PLANT (PLANT2) at the Twopit Room
+        # (canon 23, west pit visible at 35). Canon prop reflects
+        # the real plant's growth state in another pit; without
+        # tracking PLANT2 props we emit the unconditional flavor.
+        if (noun == "plant" or noun == "plant2") and (er == 23 or er == 35):
+            _println("It's the top of a tall beanstalk poking out of the west pit.")
+            return
+
     # All other verbs: pass to the FSM. Adventure's bus
     # dispatches through the aspects (DarknessGate may
     # consume look/examine in dark rooms, MagicWordTeleport

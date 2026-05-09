@@ -1668,6 +1668,37 @@ func _process_input(text: String) -> void:
                 _println("There's nothing here it wants to eat (except perhaps you).")
             return
 
+    # Canon scenery EXAMINE/READ flavor (advent.dat section 5).
+    if verb == "read" or verb == "examine":
+        var er: int = fsm.player_room()
+        if noun == "tablet" and er == 101:
+            _println("A massive stone tablet imbedded in the wall reads:")
+            _println("\"Congratulations on bringing light into the dark-room!\"")
+            return
+        if noun == "mirror" and er == 109:
+            _println("It's a two-sided mirror suspended high above the canyon floor.")
+            _println("Provided for the dwarves, who as you know are extremely vain.")
+            return
+        if (noun == "figure" or noun == "shadow") and (er == 35 or er == 110):
+            _println("The shadowy figure seems to be trying to attract your attention.")
+            return
+        if noun == "stalactite" and er == 111:
+            _println("It's a large stalactite extending from the roof and almost reaching the floor below.")
+            return
+        if (noun == "drawings" or noun == "drawing") and er == 97:
+            _println("The cave drawings are ancient and Oriental in style.")
+            return
+        if (noun == "volcano" or noun == "geyser") and er == 126:
+            _println("Great gouts of molten lava come surging out of an active volcano,")
+            _println("cascading back down into the depths.")
+            return
+        if (noun == "carpet" or noun == "moss") and er == 96:
+            _println("The carpet is soft and the moss-covered ceiling muffles every sound.")
+            return
+        if (noun == "plant" or noun == "plant2") and (er == 23 or er == 35):
+            _println("It's the top of a tall beanstalk poking out of the west pit.")
+            return
+
     # All other verbs: pass to the FSM. Adventure's bus
     # dispatches through the aspects (DarknessGate may
     # consume look/examine in dark rooms, MagicWordTeleport
