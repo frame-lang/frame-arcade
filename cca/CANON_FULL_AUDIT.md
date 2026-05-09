@@ -131,7 +131,7 @@ These are pure bumper messages on motion attempts. Per-row port status:
 | `23 648 52` | msg #148 | HOLE @ 23 ("too far up") | ✓ — `23:hole` always-bumper at GATES emits "It is too far up for you to reach." Test: `test_cca_topology.gd` (gate-shape audit). |
 | `27 312596 39` | msg #96 | JUMP @ 27 | ✓ |
 | `27 412597 41 42 43 69` | msg #97 | OVER/ACROSS/E/CROSS @ 27 | ✓ |
-| `38 595` | msg #95 | SLIT/STREAM/DOWN/UP/UPSTREAM/DOWNSTREAM @ 38 | 🔴 — port doesn't model canon-38 (is the Bottom of Pit with stream) |
+| `38 595` | msg #95 | SLIT/STREAM/DOWN/UPSTREAM/DOWNSTREAM @ 38 | ✓ — five always-bumper gates at GATES (`38:slit`, `38:stream`, `38:down`, `38:upstream`, `38:downstream`) emit "You don't fit through a two-inch slit!" UP @ 38 is the legitimate exit (back to canon 37). Test: `test_cca_canon_38.gd`. |
 | `65 80556 46` | msg #56 | SOUTH @ 65, 80% | ✓ — `65:south` chain (probability 80% bumper). Test: `test_cca_maze_decoration.gd` Phase 2. |
 | `65 80556 29` | msg #56 | UP @ 65, 80% | ✓ — `65:up` chain (probability 80% bumper, 50% to 70). Test: `test_cca_maze_decoration.gd` Phase 2. |
 | `65 60556 45` | msg #56 | NORTH @ 65, 60% | ✓ — `65:north` chain (probability 60% bumper, 75% to 72). Test: `test_cca_maze_decoration.gd` Phase 2. |
