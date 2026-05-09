@@ -128,16 +128,16 @@ These are pure bumper messages on motion attempts. Per-row port status:
 | `9 593` | msg #93 | OUT @ 9 (locked grate) | ✓ — covered by grate gate at `9:out` |
 | `17 312596 39` | msg #96 | JUMP @ 17 | ✓ — see §1.3 |
 | `17 412597 41 42 44 69` | msg #97 | OVER/ACROSS/W/CROSS @ 17 | ✓ — see §1.3 |
-| `23 648 52` | msg #148 | HOLE @ 23 ("too far up") | 🔴 — port has no `23:hole` gate |
+| `23 648 52` | msg #148 | HOLE @ 23 ("too far up") | ✓ — `23:hole` always-bumper at GATES emits "It is too far up for you to reach." Test: `test_cca_topology.gd` (gate-shape audit). |
 | `27 312596 39` | msg #96 | JUMP @ 27 | ✓ |
 | `27 412597 41 42 43 69` | msg #97 | OVER/ACROSS/E/CROSS @ 27 | ✓ |
 | `38 595` | msg #95 | SLIT/STREAM/DOWN/UP/UPSTREAM/DOWNSTREAM @ 38 | 🔴 — port doesn't model canon-38 (is the Bottom of Pit with stream) |
-| `65 80556 46` | msg #56 | SOUTH @ 65, 80% | 🔴 (probability) |
-| `65 80556 29` | msg #56 | UP @ 65, 80% | 🔴 |
-| `65 60556 45` | msg #56 | NORTH @ 65, 60% | 🔴 |
-| `65 80556 30` | msg #56 | DOWN @ 65, 80% | 🔴 |
-| `66 80556 46` | msg #56 | SOUTH @ 66, 80% | 🔴 |
-| `66 50556 50` | msg #56 | NW @ 66, 50% | 🔴 |
+| `65 80556 46` | msg #56 | SOUTH @ 65, 80% | ✓ — `65:south` chain (probability 80% bumper). Test: `test_cca_maze_decoration.gd` Phase 2. |
+| `65 80556 29` | msg #56 | UP @ 65, 80% | ✓ — `65:up` chain (probability 80% bumper, 50% to 70). Test: `test_cca_maze_decoration.gd` Phase 2. |
+| `65 60556 45` | msg #56 | NORTH @ 65, 60% | ✓ — `65:north` chain (probability 60% bumper, 75% to 72). Test: `test_cca_maze_decoration.gd` Phase 2. |
+| `65 80556 30` | msg #56 | DOWN @ 65, 80% | ✓ — `65:down` chain (probability 80% bumper). Test: `test_cca_maze_decoration.gd` Phase 2. |
+| `66 80556 46` | msg #56 | SOUTH @ 66, 80% | ✓ — `66:south` chain (probability 80% bumper). Test: `test_cca_maze_decoration.gd` Phase 3. |
+| `66 50556 50` | msg #56 | NW @ 66, 50% | ✓ — `66:nw` chain (probability 50% bumper). Test: `test_cca_maze_decoration.gd` Phase 3. |
 | `94 611 45` | msg #111 | NORTH @ 94 (rusty door) | ✓ |
 | `103 114618 46` | msg #118 | SOUTH @ 103 carrying clam | ✓ |
 | `103 115619 46` | msg #119 | SOUTH @ 103 carrying oyster | ✓ |
@@ -222,7 +222,7 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 | 33 | TROLL | (Troll FSM) | ✓ |
 | 34 | TROLL2 | (Troll FSM holds the placeholder) | ✓ |
 | 35 | BEAR | (Bear FSM) | ✓ |
-| 36 | MESSAGE | 🔴 — second-maze msg from pirate stash; not modelled |
+| 36 | MESSAGE | ✓ — driver READ/EXAMINE MESSAGE intercept at canon 140 (second-maze stash mirror, CHLOC2). Emits canon msg #191 verbatim. Test: `test_cca_scenery_flavor.gd`. |
 | 37 | VOLCANO | ✓ — driver EXAMINE VOLCANO / GEYSER intercept at canon 126 (Breath-taking View). Both canon synonyms accepted. Test: `test_cca_scenery_flavor.gd`. |
 | 38 | VENDING | (VendingMachine FSM) | ✓ |
 | 39 | BATTERIES | 139 | ✓ |
@@ -417,7 +417,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 142 | INFO text | 🟡 — port has INFO but text differs |
 | 143 | Score continue prompt | ✓ |
 | 144/145 | Vase fill | ✓ |
-| 148 | "Too far up" | 🔴 (23:hole) |
+| 148 | "It is too far up for you to reach" | ✓ — see §2 row for `23:hole`. Always-bumper at GATES. |
 | 149 | First dwarf killed | ✓ |
 | 150 | Clam/oyster strong | ✓ |
 | 151 | "Start over" (FOO sequence) | ✓ |
@@ -445,7 +445,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 185 | Wandered out, lamp dead → forced quit | ✓ — `_check_lamp_warnings` detects lamp `$Out` + LOC <= 8 (above-ground rooms 1–8) and emits msg #185 "I'm afraid we'll have to call it a day", followed by `get_tree().quit()` guarded by `is_inside_tree()` for headless-test compatibility. Test: `test_cca_lamp_quit_etc.gd` Phases 3–4 (verifies msg fires above-ground; verifies it does NOT fire below-ground). |
 | 186 | "Faint rustling" (pirate hint) | 🟡 |
 | 190 | Read magazine | ✓ |
-| 191 | Read message | 🔴 |
+| 191 | "This is not the maze where the pirate leaves his treasure chest" | ✓ — see §5 MESSAGE row. Driver READ/EXAMINE MESSAGE intercept @ canon 140. |
 | 192/193/194 | Oyster hint chain | ✓ — driver READ/EXAMINE OYSTER on the in-place oyster (post-clam-break) drives a Y/N prompt: msg #192 ("Hmmm, this looks like a clue, ... cost you 10 points...") then YES → msg #193 reveal + 10-pt deduction (both `score_hints` and `real_score`); NO cancels with no penalty; re-read after reveal → msg #194 ("same thing it did before"). Test: `test_cca_oyster_hint.gd` (18 assertions). |
 | 196 | "Congratulations on bringing light into the dark-room!" | ✓ — see §5 TABLET row. Driver READ TABLET / EXAMINE TABLET intercept at canon 101 emits the canonical long-form readout. Test: `test_cca_scenery_flavor.gd`. |
 | 197 | Mirror break (endgame) | ✓ — driver BREAK MIRROR intercept fires only in endgame `$InRepository` state, emitting canon msg #197 ("You strike the mirror a resounding blow, whereupon it shatters into a myriad tiny fragments.") followed by msg #136 (disturbed-dwarves death) and `player.die()`. Pre-CLOSED returns "It is beyond your power to do that." Test: `test_cca_endgame_blast.gd` Phase 8. |

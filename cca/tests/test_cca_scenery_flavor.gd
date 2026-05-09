@@ -103,6 +103,14 @@ func _init():
         _capture_at(d, 23, "examine plant"),
         "tall beanstalk poking out of the west pit")
 
+    # ----- MESSAGE @ 140 (second-maze stash mirror) -----
+    _expect_any_match("READ MESSAGE @ 140 → canon msg #191",
+        _capture_at(d, 140, "read message"),
+        "not the maze where the pirate leaves")
+    _expect_any_match("EXAMINE MESSAGE @ 140 → same canon msg",
+        _capture_at(d, 140, "examine message"),
+        "not the maze where the pirate leaves")
+
     if failures == 0:
         print("PASS — section-5 scenery flavor honors canon")
     else:

@@ -905,6 +905,13 @@ func _process_input(text: String) -> void:
             _println("A massive stone tablet imbedded in the wall reads:")
             _println("\"Congratulations on bringing light into the dark-room!\"")
             return
+        # Object 36 — MESSAGE in second maze, placed at canon
+        # CHLOC2=140 (the second-maze mirror of the pirate stash).
+        # READ MESSAGE → canon msg #191.
+        if noun == "message" and er == 140:
+            _println("There is a message scrawled in the dust in a flowery script, reading:")
+            _println("\"This is not the maze where the pirate leaves his treasure chest.\"")
+            return
         # Object 15 — OYSTER hint chain (advent.dat msgs
         # #192/193/194). The oyster is post-clam-break scenery in
         # the room; reading the underside reveals the magic-words
