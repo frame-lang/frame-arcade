@@ -896,6 +896,30 @@ var gated_exits: Dictionary = {
     # and 74:west=121 for the regular pre-kill route.
     "69:south": {"check": "dragon_killed", "dest": 120},
     "74:west":  {"check": "dragon_killed", "dest": 120},
+    # Probabilistic-maze decoration (canon's twisty-maze rooms).
+    # See cca/godot/scripts/topology.gd for full per-room canon
+    # row mapping; this block is a byte-equivalent mirror.
+    "5:forest":  [{"check": "probability", "pct": 50, "dest": 5}],
+    "5:forward": [{"check": "probability", "pct": 50, "dest": 5}],
+    "5:north":   [{"check": "probability", "pct": 50, "dest": 5}],
+    "65:south": [{"check": "probability", "pct": 80, "msg": "You have crawled around in some little holes and wound up back in the main passage."}],
+    "65:up": [
+        {"check": "probability", "pct": 80, "msg":  "You have crawled around in some little holes and wound up back in the main passage."},
+        {"check": "probability", "pct": 50, "dest": 70},
+    ],
+    "65:north": [
+        {"check": "probability", "pct": 60, "msg":  "You have crawled around in some little holes and wound up back in the main passage."},
+        {"check": "probability", "pct": 75, "dest": 72},
+    ],
+    "65:down":  [{"check": "probability", "pct": 80, "msg": "You have crawled around in some little holes and wound up back in the main passage."}],
+    "66:south": [{"check": "probability", "pct": 80, "msg": "You have crawled around in some little holes and wound up back in the main passage."}],
+    "66:nw":    [{"check": "probability", "pct": 50, "msg": "You have crawled around in some little holes and wound up back in the main passage."}],
+    "111:down": [
+        {"check": "probability", "pct": 40, "dest": 50},
+        {"check": "probability", "pct": 50, "dest": 53},
+    ],
+    "111:jump":  [{"check": "probability", "pct": 40, "dest": 50}],
+    "111:climb": [{"check": "probability", "pct": 40, "dest": 50}],
     "7:slit":          {"check": "always", "msg": "You don't fit through a two-inch slit!"},
     "7:stream":        {"check": "always", "msg": "You don't fit through a two-inch slit!"},
     "7:down":          {"check": "always", "msg": "You don't fit through a two-inch slit!"},

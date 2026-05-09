@@ -79,18 +79,20 @@ Source: ADVENT_DAT_INVENTORY.md section 3 conditional table (45 rows).
 
 | Row | Canon | Port status |
 |---|---|---|
-| `5 50005 6 7 45` | FOREST/FORWARD/NORTH @ 5, 50% → 5 (forest random walk) | 🔴 |
+| `5 50005 6 7 45` | FOREST/FORWARD/NORTH @ 5, 50% → 5 (forest random walk) | ✓ — GATES `5:forest`/`5:forward`/`5:north` each `[{probability pct=50 dest=5}]`. Net: 50% self-loop / 50% topology fallback (FOREST→6 unconditional; FORWARD/NORTH no exit). Test: `test_cca_maze_decoration.gd`. |
 | `19 35074 49` | SW @ 19, 35% → 74 (dragon-canyon shortcut) | ✓ — wired as first rule in the GATES `19:sw` chain (check=probability, pct=35, dest=74). Topology row 19 no longer has unconditional `sw`. Test: `test_cca_19_sw_chain.gd` (Phase 5 verifies 35% hit rate in 1000 isolated rolls). |
-| `65 80556 46` | SOUTH @ 65, 80% → msg #56 | 🔴 |
-| `65 80556 29` | UP @ 65, 80% → msg #56 | 🔴 |
-| `65 50070 29` | UP @ 65, 50% → room 70 | 🔴 |
-| `65 60556 45` | NORTH @ 65, 60% → msg #56 | 🔴 |
-| `65 75072 45` | NORTH @ 65, 75% → room 72 | 🔴 |
-| `65 80556 30` | DOWN @ 65, 80% → msg #56 | 🔴 |
-| `66 80556 46` | SOUTH @ 66, 80% → msg #56 | 🔴 |
-| `66 50556 50` | NW @ 66, 50% → msg #56 | 🔴 |
-| `111 40050 30 39 56` | DOWN/JUMP/CLIMB @ 111, 40% → 50 | 🔴 |
-| `111 50053 30` | DOWN @ 111, 50% → 53 | 🔴 |
+| `65 80556 46` | SOUTH @ 65, 80% → msg #56 | ✓ — GATES `65:south` chain (Bedquilt) |
+| `65 80556 29` | UP @ 65, 80% → msg #56 | ✓ — first rule of `65:up` chain |
+| `65 50070 29` | UP @ 65, 50% → room 70 | ✓ — second rule of `65:up` chain |
+| `65 60556 45` | NORTH @ 65, 60% → msg #56 | ✓ — first rule of `65:north` chain |
+| `65 75072 45` | NORTH @ 65, 75% → room 72 | ✓ — second rule of `65:north` chain |
+| `65 80556 30` | DOWN @ 65, 80% → msg #56 | ✓ — GATES `65:down` chain |
+| `66 80556 46` | SOUTH @ 66, 80% → msg #56 | ✓ — GATES `66:south` chain (Swiss Cheese) |
+| `66 50556 50` | NW @ 66, 50% → msg #56 | ✓ — GATES `66:nw` chain |
+| `111 40050 30 39 56` | DOWN/JUMP/CLIMB @ 111, 40% → 50 | ✓ — first rule of `111:down`/`111:jump`/`111:climb` chains (stalactite). |
+| `111 50053 30` | DOWN @ 111, 50% → 53 | ✓ — second rule of `111:down` chain. |
+
+All 11 maze-decoration rows verified by `test_cca_maze_decoration.gd` (22 distribution checks, 1000 rolls each, all dead-on canon).
 
 ### 1.5 Forbidden-to-dwarves (M=100)
 

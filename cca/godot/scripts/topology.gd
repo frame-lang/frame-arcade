@@ -933,6 +933,60 @@ const GATES: Dictionary = {
     # fires. Post-kill: walk to 120.
     "69:south": {"check": "dragon_killed", "dest": 120},
     "74:west":  {"check": "dragon_killed", "dest": 120},
+    # ============================================================
+    # Probabilistic-maze decoration (canon's "twisty maze, all
+    # different" rooms). Each (room, verb) is a chain of
+    # probability rolls walked in canonical section-3 order; the
+    # first that hits wins. Misses fall through to the topology
+    # row (or no-exit if topology has no entry). Net player
+    # experience: random-walk feel that defeats simple mapping,
+    # exactly what canon intended.
+    # ============================================================
+    # Canon room 5 (open forest) — `5 50005 6 7 45`: FOREST/
+    # FORWARD/NORTH 50% self-loop. Topology has 5:forest=6
+    # unconditional, so chain effect: 50% stay, 50% walk to 6.
+    # FORWARD and NORTH have no topology entry → 50% stay,
+    # 50% no-exit (canon wandering-lost-in-forest feel).
+    "5:forest":  [{"check": "probability", "pct": 50, "dest": 5}],
+    "5:forward": [{"check": "probability", "pct": 50, "dest": 5}],
+    "5:north":   [{"check": "probability", "pct": 50, "dest": 5}],
+    # Canon room 65 (Bedquilt) — six maze-decoration rows.
+    # Topology fallbacks (after all probability rolls miss): no
+    # SOUTH; UP→39; NORTH→71; DOWN→106. Net distribution per
+    # canon `65 …` rows:
+    #   south: 80% msg / 20% no-exit
+    #   up:    80% msg / 10% to 70 / 10% to 39 (topology)
+    #   north: 60% msg / 30% to 72 / 10% to 71 (topology)
+    #   down:  80% msg / 20% to 106 (topology)
+    "65:south": [{"check": "probability", "pct": 80, "msg": "You have crawled around in some little holes and wound up back in the main passage."}],
+    "65:up": [
+        {"check": "probability", "pct": 80, "msg":  "You have crawled around in some little holes and wound up back in the main passage."},
+        {"check": "probability", "pct": 50, "dest": 70},
+    ],
+    "65:north": [
+        {"check": "probability", "pct": 60, "msg":  "You have crawled around in some little holes and wound up back in the main passage."},
+        {"check": "probability", "pct": 75, "dest": 72},
+    ],
+    "65:down":  [{"check": "probability", "pct": 80, "msg": "You have crawled around in some little holes and wound up back in the main passage."}],
+    # Canon room 66 (Swiss Cheese) — two maze-decoration rows.
+    # No topology fallback for SOUTH or NW, so:
+    #   south: 80% msg / 20% no-exit
+    #   nw:    50% msg / 50% no-exit
+    "66:south": [{"check": "probability", "pct": 80, "msg": "You have crawled around in some little holes and wound up back in the main passage."}],
+    "66:nw":    [{"check": "probability", "pct": 50, "msg": "You have crawled around in some little holes and wound up back in the main passage."}],
+    # Canon room 111 (top of stalactite) — `111 40050 30 39 56`
+    # and `111 50053 30`. DOWN/JUMP/CLIMB 40% to 50; DOWN gets
+    # additional 50% to 53; topology has DOWN→45 unconditional.
+    # Net distribution:
+    #   down:  40% to 50 / 30% to 53 / 30% to 45 (topology)
+    #   jump:  40% to 50 / 60% no-exit
+    #   climb: 40% to 50 / 60% no-exit
+    "111:down": [
+        {"check": "probability", "pct": 40, "dest": 50},
+        {"check": "probability", "pct": 50, "dest": 53},
+    ],
+    "111:jump":  [{"check": "probability", "pct": 40, "dest": 50}],
+    "111:climb": [{"check": "probability", "pct": 40, "dest": 50}],
     # Canon SLIT/STREAM at rooms 7 (slit-in-streambed) and 38
     # (deep cave streambed): msg #95 "You don't fit through a
     # two-inch slit!"
