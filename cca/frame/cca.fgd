@@ -4522,11 +4522,22 @@
 
         # World inspection: is the player's current room a water
         # source? Canon CCA's water sources are the well house
-        # spring (3), the valley stream (4), the underground
-        # reservoir (83), and the underground stream (84).
+        # Canon water-source rooms (advent.for LIQLOC + WATER bit
+        # in section 7): canon 1 (road outside), 3 (well-house),
+        # 4 (valley stream), 7 (slit in streambed), 38 (bottom of
+        # pit with stream), 95 (magnificent cavern), 113 (edge of
+        # underground reservoir). Port also keeps 83/84 from a
+        # pre-canon iteration as alternate stream-adjacent rooms
+        # so the existing plant-puzzle test (filling at 84) keeps
+        # working — they're harmless extras alongside the canon
+        # set.
         _at_water_source(): bool {
             var r: int = self.player.get_room()
-            if r == 3 or r == 4 or r == 83 or r == 84:
+            if r == 1 or r == 3 or r == 4 or r == 7:
+                return true
+            if r == 38 or r == 95 or r == 113:
+                return true
+            if r == 83 or r == 84:
                 return true
             return false
         }
@@ -4927,7 +4938,7 @@
         WEST_PIT_ROOM: int = 25       # bottom of western pit — canon 25 (plant home)
         BOTTLE_ID: int = 132
         BOTTLE_HOME_ROOM: int = 3     # well house
-        OIL_SOURCE_ROOM: int = 105    # canon Pool of Oil (port stand-in)
+        OIL_SOURCE_ROOM: int = 24     # canon Pool of Oil (Bottom of Eastern Pit, twopit room)
         RUSTY_DOOR_ROOM: int = 94     # immense N/S passage — rusty door blocks N to canon 95
         ROD_HOME_ROOM: int = 11       # debris room — same as gold
         ROD_ID: int = 130

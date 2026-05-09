@@ -565,10 +565,10 @@ Canon oil at: 24.
 | 3 | water | ✓ |
 | 4 | water | ✓ |
 | 7 | water | ✓ |
-| 24 | oil | 🔴 — port has oil at 24? need to verify; oil source previously documented at canon-94/Bottle.fgd |
-| 38 | water | 🔴 — port doesn't model canon-38 |
-| 95 | water | 🔴 |
-| 113 | water | 🔴 — reservoir water; port has reservoir but liquid not modeled |
+| 24 | oil | ✓ — `OIL_SOURCE_ROOM = 24` (canon Bottom of Eastern Pit). FILL bottle at canon 24 yields oil. Test: `test_cca_liquid_sources.gd`. |
+| 38 | water | ✓ — `_at_water_source` includes canon 38 (Bottom of Pit with stream). Test: `test_cca_liquid_sources.gd`. |
+| 95 | water | ✓ — `_at_water_source` includes canon 95 (magnificent cavern). Test: `test_cca_liquid_sources.gd`. |
+| 113 | water | ✓ — `_at_water_source` includes canon 113 (edge of underground reservoir). Test: `test_cca_liquid_sources.gd`. |
 
 🟡 Port has FILL working at well-house (canon 1/3/4/7) and oil source.
 Reservoir water for the bottle isn't a canon necessity.
