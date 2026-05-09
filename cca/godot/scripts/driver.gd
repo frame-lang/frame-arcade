@@ -909,6 +909,20 @@ func _process_input(text: String) -> void:
     # canonical room.
     if verb == "read" or verb == "examine":
         var er: int = fsm.player_room()
+        # Canon ROD2 prop change (advent.dat object 6 prop ladder).
+        # Pre-CLOSED: ROD2 examines as "a black rod with a rusty
+        # mark on the end" — same flavor as the mundane ROD.
+        # Post-CLOSED ($InRepository): the rod's prop reveals as
+        # dynamite; this is the canonical "you've got the BLAST
+        # ingredient now" moment. Drivers EXAMINE ROD here, so
+        # we branch by endgame_state(); the mark_rod_here check
+        # disambiguates the marked rod from the regular rod.
+        if noun == "rod" and fsm.mark_rod_here():
+            if fsm.endgame_state() == "in_repository":
+                _println("It looks suspiciously like a stick of dynamite. Better not let it get near a flame.")
+            else:
+                _println("A small black rod with a rusty mark on the end.")
+            return
         # Object 13 — STONE TABLET at canon 101 (Dark-Room).
         # Canon msg #196 = the long-form table-readout.
         if noun == "tablet" and er == 101:

@@ -763,7 +763,7 @@ may differ.
 
 | Mechanic | Canon | Port |
 |---|---|---|
-| ROD2 has dynamite prop only after closing | yes | 🔴 |
+| ROD2 has dynamite prop only after closing | yes | ✓ — driver EXAMINE/READ ROD intercept branches on `endgame_state()`: pre-CLOSED → "A small black rod with a rusty mark on the end"; post-CLOSED ($InRepository) → "It looks suspiciously like a stick of dynamite. Better not let it get near a flame." Gated on `mark_rod_here()` so the regular ROD doesn't trigger the dynamite reveal. Test: `test_cca_rod2_dynamite.gd`. |
 | BLAST nothing → msg #67 ("BLASTING REQUIRES DYNAMITE.") | yes | ✓ — driver "blast" handler, pre-CLOSED branch |
 | BLAST at LOC=115 → BONUS=134, +30 | yes | ✓ — `Adventure.blast_wrong_way()` |
 | BLAST with rod2 here → BONUS=135, +25 | yes | ✓ — `Adventure.blast_klutz()` |

@@ -1697,6 +1697,14 @@ func _process_input(text: String) -> void:
     # Canon scenery EXAMINE/READ flavor (advent.dat section 5).
     if verb == "read" or verb == "examine":
         var er: int = fsm.player_room()
+        # Canon ROD2 prop change (advent.dat object 6) — dynamite
+        # only reveals after the cave has CLOSED ($InRepository).
+        if noun == "rod" and fsm.mark_rod_here():
+            if fsm.endgame_state() == "in_repository":
+                _println("It looks suspiciously like a stick of dynamite. Better not let it get near a flame.")
+            else:
+                _println("A small black rod with a rusty mark on the end.")
+            return
         if noun == "tablet" and er == 101:
             _println("A massive stone tablet imbedded in the wall reads:")
             _println("\"Congratulations on bringing light into the dark-room!\"")
