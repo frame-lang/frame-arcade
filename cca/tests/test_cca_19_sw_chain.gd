@@ -161,7 +161,15 @@ func _init():
             g_bumpers += 1
             for line in d2.captured.slice(pre):
                 var lo: String = line.to_lower()
-                if "can't go" in lo or "no exit" in lo or "don't know" in lo:
+                # Canon-faithful fallbacks: "can't go" (no exit
+                # in topology), "don't know" (FSM verb-unknown),
+                # plus the post-3000 randomized variants
+                # introduced when the unknown-verb msgs were
+                # canonized: "eh?", "beg your pardon", "don't
+                # understand that".
+                if ("can't go" in lo or "no exit" in lo or "don't know" in lo
+                        or "eh?" in lo or "beg your pardon" in lo
+                        or "don't understand" in lo):
                     saw_fallback = true
                 if "snake" in lo:
                     saw_snake_msg2 = true

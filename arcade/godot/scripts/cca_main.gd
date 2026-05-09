@@ -1582,12 +1582,49 @@ func _process_input(text: String) -> void:
             fsm.player.drop(EMERALD_ID)
             _println("As you start to chant, the emerald slips from your grasp and falls to the floor.")
 
+    # Canon CALM/TAME — verb 10, no-op flavor stub.
+    if verb == "calm" or verb == "tame":
+        _println("I'm game. Would you care to explain how?")
+        return
+
+    # Canon EAT variants — msg #71 for ridiculous targets.
+    if verb == "eat" and noun in ["bird", "snake", "clam", "oyster", "dwarf", "dragon", "troll", "bear"]:
+        _println("Don't be ridiculous!")
+        return
+
+    # Canon FEED variants — non-bear targets.
+    if verb == "feed":
+        if noun == "bird":
+            _println("It's not hungry (it's merely pinin' for the fjords). Besides, you have no bird seed.")
+            return
+        if noun == "dwarf":
+            _println("You fool, dwarves eat only coal! Now you've made him *really* mad!!")
+            return
+        if noun == "troll":
+            _println("Gluttony is not one of the troll's vices. Avarice, however, is.")
+            return
+        if noun == "snake" or noun == "dragon":
+            if noun == "dragon" and not fsm.dragon_alive():
+                _println("Don't be ridiculous!")
+            else:
+                _println("There's nothing here it wants to eat (except perhaps you).")
+            return
+
     # All other verbs: pass to the FSM. Adventure's bus
     # dispatches through the aspects (DarknessGate may
     # consume look/examine in dark rooms, MagicWordTeleport
     # transforms xyzzy/plugh/plover into MOVE, etc.) and
     # returns the response string.
     var response: String = fsm.do_command(verb, noun)
+    # Canon "unknown verb" randomization (advent.for STMT 3000).
+    if response.begins_with("I don't know how to '"):
+        var roll: int = randi() % 100
+        if roll < 60:
+            response = "Eh?"
+        elif roll < 80:
+            response = "I beg your pardon?"
+        else:
+            response = "I don't understand that!"
     _println(response)
 
     # Per-turn upkeep: lamp battery, endgame timer, hint

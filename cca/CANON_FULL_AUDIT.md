@@ -256,11 +256,11 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 | 7 | ON/LIGHT | `_verb_light` (lamp on) | ✓ |
 | 8 | OFF/EXTINGUISH | `_verb_extinguish` | ✓ |
 | 9 | WAVE | `_verb_wave` | ✓ |
-| 10 | CALM/TAME | 🔴 — no canon "OK" stub for CALM/TAME |
+| 10 | CALM/TAME | driver "calm"/"tame" handler | ✓ — emits canon msg #14 ("would you care to explain how?"). Test: `test_cca_flavor_msgs.gd` Phase 1. |
 | 11 | WALK/GO/RUN | (driver consumes) | ✓ |
 | 12 | KILL/ATTACK | `_verb_attack` | ✓ |
 | 13 | POUR | `_verb_pour` | ✓ |
-| 14 | EAT | `_verb_eat` | 🟡 — port has FOOD eaten but missing canon msg #71 ("don't have appetite") for ridiculous targets |
+| 14 | EAT | `_verb_eat` (FSM) + driver intercept | ✓ — driver intercepts EAT for bird/snake/clam/oyster/dwarf/dragon/troll/bear, emits canon msg #71 prose. FSM still handles EAT FOOD. Test: `test_cca_flavor_msgs.gd` Phase 2. |
 | 15 | DRINK | `_verb_drink` | ✓ |
 | 16 | RUB | driver "rub" handler | ✓ — emits canon msg #76 prose. Test: `test_cca_minor_verbs.gd` Phase 3. |
 | 17 | TOSS/THROW | `_verb_throw` | ✓ |
@@ -842,7 +842,7 @@ Per advent.for STMT 20000.
 | ENTER X (other) → re-dispatch as X | yes | 🟡 |
 | WATER/OIL PLANT → re-dispatch as POUR | yes | ✓ |
 | WEST counter (msg #17 every 10) | yes | ✓ — see §6 row for msg #17 |
-| Random "I don't understand" 20%/20% (msg #60/#61/#13) | yes | 🔴 |
+| Random "I don't understand" 20%/20% (msg #60/#61/#13) | yes | ✓ — fsm.do_command's "I don't know how to '<verb>'." response is post-processed by the driver: 60% msg #60 "Eh?", 20% msg #61 "I beg your pardon?", 20% msg #13 "I don't understand that!". Test: `test_cca_flavor_msgs.gd` Phase 4 (1000-roll distribution). |
 
 ---
 

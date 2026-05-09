@@ -744,12 +744,71 @@ func _process_input(text: String) -> void:
         # fall through — fsm.do_command runs the regular PLOVER
         # teleport via MagicWordTeleport.
 
+    # Canon CALM/TAME verb (advent.for verb 10, default msg #7
+    # "one of them gets you"). Canon's CALM is a no-op
+    # placeholder verb — typing it just gets you stabbed by a
+    # dwarf. The port uses msg #14 ("would you care to explain")
+    # since msg #7 only makes sense in the dwarf-attack context.
+    if verb == "calm" or verb == "tame":
+        _println("I'm game. Would you care to explain how?")
+        return
+
+    # Canon EAT variants (advent.for STMT 9140). EAT FOOD is
+    # handled by the FSM (consumes, returns canon msg). EAT
+    # ridiculous-targets returns canon msg #71 "don't have
+    # appetite". The FSM currently emits "I don't know how to
+    # eat that" for these; intercepted here for canon prose.
+    if verb == "eat" and noun in ["bird", "snake", "clam", "oyster", "dwarf", "dragon", "troll", "bear"]:
+        _println("Don't be ridiculous!")
+        return
+
+    # Canon FEED variants (advent.for STMT 9210/9212/9213). The
+    # FSM's _verb_feed only knows about the bear; canon has a
+    # ladder for other targets. Match canon prose for each.
+    if verb == "feed":
+        if noun == "bird":
+            # canon msg #100
+            _println("It's not hungry (it's merely pinin' for the fjords). Besides, you have no bird seed.")
+            return
+        if noun == "dwarf":
+            # canon msg #103 — also makes the dwarves angrier,
+            # but full DFLAG ramping is out-of-scope here.
+            _println("You fool, dwarves eat only coal! Now you've made him *really* mad!!")
+            return
+        if noun == "troll":
+            # canon msg #182
+            _println("Gluttony is not one of the troll's vices. Avarice, however, is.")
+            return
+        if noun == "snake" or noun == "dragon":
+            # canon msg #102 / #110 (dragon dead variant)
+            if noun == "dragon" and not fsm.dragon_alive():
+                _println("Don't be ridiculous!")
+            else:
+                _println("There's nothing here it wants to eat (except perhaps you).")
+            return
+        # noun == "bear" or any other → fall through to FSM,
+        # which knows the bear case and emits a sensible
+        # default for unknown nouns.
+
     # All other verbs: pass to the FSM. Adventure's bus
     # dispatches through the aspects (DarknessGate may
     # consume look/examine in dark rooms, MagicWordTeleport
     # transforms xyzzy/plugh/plover into MOVE, etc.) and
     # returns the response string.
     var response: String = fsm.do_command(verb, noun)
+    # Canon "unknown verb" randomization (advent.for STMT 3000):
+    # SPK=60 default, 20% chance #61, 20% chance #13. The FSM
+    # emits "I don't know how to '<verb>'." for any verb it
+    # doesn't recognize; we substitute the canon random variant
+    # so the player sees authentic prose.
+    if response.begins_with("I don't know how to '"):
+        var roll: int = randi() % 100
+        if roll < 60:
+            response = "Eh?"               # canon msg #60
+        elif roll < 80:
+            response = "I beg your pardon?" # canon msg #61
+        else:
+            response = "I don't understand that!" # canon msg #13
     _println(response)
 
     # Per-turn upkeep: lamp battery, endgame timer, hint
