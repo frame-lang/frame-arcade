@@ -382,7 +382,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 71 | "I just lost my appetite" | ✓ — driver `eat` intercept: NPC nouns → "Don't be ridiculous!" rebuff; any other non-food noun → canon msg #71 verbatim. Test: `test_cca_verb_defaults.gd` Phases 2–3. |
 | 72 | Food consumed | ✓ |
 | 76 | "Peculiar. Nothing unexpected happens." | ✓ — RUB handler now branches on noun: LAMP → msg #75 ("Rubbing the electric lamp..."); else → msg #76 verbatim. Test: `test_cca_verb_defaults.gd` Phases 4–5. |
-| 81-90 | Death taunt + resurrection pairs | 🟡 — port has resurrection but messages don't match canon pairs |
+| 81-90 | Death taunt + resurrection pairs | ✓ — `_check_player_death` branches on death count: 1st → msg #81 ("Oh dear..."), 2nd → msg #83 ("clumsy oaf"), 3rd → msg #85 ("out of orange smoke"). YES revive branches on prior death count: 1st → msg #82 ("don't blame me... POOF!"), 2nd → msg #84 ("where did I put my orange smoke"). NO answer or $Permadead → msg #86 ("if you're so smart, do it yourself"). All canon prose verbatim. Test: `test_cca_death_resurrection.gd` (7 assertions). |
 | 91 | "I don't remember how you got here" | ✓ — BACK fallback in `_verb_back`: when `_old_loc` is unset (or no path from current room to it) emits "Sorry, but I no longer seem to remember how it was you got here." Test: `test_cca_cave_y2_back.gd` Phase 3. |
 | 93 | "Can't go through locked grate" | ✓ |
 | 94 | "I believe what you want is right here with you." | ✓ — FIND priority ladder now includes the canon AT(OBJ) branch. New helper `_object_in_room(obj_id, room)` dispatches per-object via `is_in_room()` (Items) or `get_location() == room` (Treasures + Bird). Test: `test_cca_find_msg94.gd` (8 assertions). |

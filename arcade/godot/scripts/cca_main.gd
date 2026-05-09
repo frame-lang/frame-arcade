@@ -1311,15 +1311,28 @@ func _process_input(text: String) -> void:
     # also uses yes/no and we don't want a state collision.)
     if _awaiting_revive:
         if verb == "yes":
+            # Canon advent.for STMT 16100: revive-text varies by
+            # death count via msg #82/#84.
+            var prior_deaths: int = fsm.player.get_deaths()
             fsm.player.revive()
             _awaiting_revive = false
-            _println("[color=#88dd88]You stagger to your feet, alive again. The cave entrance is before you.[/color]")
+            if prior_deaths == 1:
+                _println("[color=#88dd88]All right. But don't blame me if something goes wr......")
+                _println("                --- POOF!! ---")
+                _println("You are engulfed in a cloud of orange smoke. Coughing and gasping,")
+                _println("you emerge from the smoke and find....[/color]")
+            elif prior_deaths == 2:
+                _println("[color=#88dd88]Okay, now where did I put my orange smoke?....   >POOF!<")
+                _println("Everything disappears in a dense cloud of orange smoke.[/color]")
+            else:
+                _println("[color=#88dd88]>POOF!< (somehow.)[/color]")
             _last_room = -1   # force room re-print
             _print_room()
             return
         if verb == "no":
             _awaiting_revive = false
-            _println("[color=#cc4444]Then this is the end of you. Goodbye.[/color]")
+            # Canon msg #86.
+            _println("[color=#cc4444]Okay, if you're so smart, do it yourself! I'm leaving![/color]")
             await get_tree().create_timer(2.0).timeout
             # Game-over: return to the cabinet menu rather than
             # killing the whole cabinet. The dead-player state
@@ -2139,12 +2152,22 @@ func _check_player_death() -> void:
     var s: String = fsm.player_state()
     if s == "dead":
         _awaiting_revive = true
+        # Canon advent.for STMT 16000: prompt text varies by
+        # death count via msg #81/#83/#85.
         var deaths: int = fsm.player.get_deaths()
-        var prompt: String = "[color=#cc4444][b]You have died. (Death %d of %d.)[/b][/color]\n[i]Do you want to be resurrected?[/i] (YES/NO)" % [
-            deaths, 4]
-        _println(prompt)
+        if deaths == 1:
+            _println("[color=#cc4444]Oh dear, you seem to have gotten yourself killed. I might be able to")
+            _println("help you out, but I've never really done this before. Do you want me")
+            _println("to try to reincarnate you?[/color]")
+        elif deaths == 2:
+            _println("[color=#cc4444]You clumsy oaf, you've done it again! I don't know how long I can")
+            _println("keep this up. Do you want me to try reincarnating you again?[/color]")
+        else:
+            _println("[color=#cc4444]Now you've really done it! I'm out of orange smoke! You don't expect")
+            _println("me to do a decent reincarnation without any orange smoke, do you?[/color]")
     elif s == "permadead":
-        _println("[color=#cc4444][b]You have used up your three resurrections. This is the end.[/b][/color]")
+        # Canon msg #86.
+        _println("[color=#cc4444][b]Okay, if you're so smart, do it yourself! I'm leaving![/b][/color]")
         await get_tree().create_timer(2.0).timeout
         Arcade.return_to_menu()
 
