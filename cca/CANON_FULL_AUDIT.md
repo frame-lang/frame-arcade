@@ -57,23 +57,23 @@ Source: ADVENT_DAT_INVENTORY.md section 3 conditional table (45 rows).
 | `13 303008 63` | DEPRESSION @ 13 if grate unlocked → 8 | mirror | ✓ | GATES `13:depression` |
 | `14 303008 63` | DEPRESSION @ 14 if grate unlocked → 8 | mirror | ✓ | GATES `14:depression` |
 | `17 312596 39` | JUMP @ 17 if fissure prop != 0 → msg #96 ("use the bridge") | jump-into-fissure | ✓ | `topology.gd` GATES `17:jump` always-bumper |
-| `17 412021 7` | FORWARD @ 17 if fissure prop != 1 → room 21 (didn't make it) | fissure forward (no bridge) | 🔴 | port has crystal_bridge gate on OVER/ACROS/CROSS/WEST but FORWARD without bridge falls through to "you can't go that way" instead of the canon room-21 death |
+| `17 412021 7` | FORWARD @ 17 if fissure prop != 1 → room 21 (didn't make it) | fissure forward (no bridge) | ✓ | GATES `17:forward` `check=bridge` `dest=21` (canon `412021` decoded). Pre-bridge: walk to 21 → die via room-entry handler. Post-bridge: gate falls through; topology has no FORWARD so no-exit fires. Test: `test_cca_prop_gates.gd` Phase 1+2. |
 | `17 412597 41 42 44 69` | OVER/ACROS/W/CROSS @ 17 if fissure prop != 1 → msg #97 ("no way across") | fissure cross (no bridge) | ✓ | `topology.gd` GATES `17:over/across/west/cross` `check=bridge` with msg |
 | `19 311028 45 36` | NORTH/LEFT @ 19 if snake gone → 28 | snake-cleared NORTH | ✓ | GATES `19:north`/`19:left` `check=snake` (block when blocking) |
 | `19 311029 46 37` | SOUTH/RIGHT @ 19 if snake gone → 29 | snake-cleared SOUTH | ✓ | GATES `19:south`/`19:right` `check=snake` |
 | `19 311030 44 7` | WEST/FORWARD @ 19 if snake gone → 30 | snake-cleared WEST | ✓ | GATES `19:west`/`19:forward` `check=snake` |
 | `25 724031 56` | CLIMB @ 25 if plant prop != 4 → 31 | climb beanstalk before huge | 🟡 | port has `plant_huge` gate at `25:climb` blocking when plant not huge; canon's branch routes to room 31 which is "you can't get there from here" — port emits the bumper message |
 | `27 312596 39` | JUMP @ 27 if fissure prop != 0 → msg #96 | mirror | ✓ | GATES `27:jump` |
-| `27 412021 7` | FORWARD @ 27 if fissure prop != 1 → room 21 | mirror | 🔴 | same gap as 17:forward |
+| `27 412021 7` | FORWARD @ 27 if fissure prop != 1 → room 21 | mirror | ✓ | GATES `27:forward` `check=bridge` `dest=21`, mirror of 17:forward. Test: `test_cca_prop_gates.gd` Phase 1. |
 | `27 412597 41 42 43 69` | OVER/ACROS/E/CROSS @ 27 if fissure prop != 1 → msg #97 | mirror | ✓ | GATES `27:over/across/east/cross` |
 | `31 524089 v1` | any-verb @ 31 if plant prop != 2 → room 89 | failed-climb bounce | 🟡 | port treats room 31 as forced-motion bouncer with explicit out-route (`OUT/BACK`) — canon uses any-verb fallback per cond=2 |
-| `69 331120 46` | SOUTH @ 69 if dragon prop != 0 → room 120 | dragon-killed shortcut | 🔴 | port topology has 69:south → 119 unconditionally; canon's "south after dragon dies" routes to 120 (the connecting canyon) |
-| `74 331120 44` | WEST @ 74 if dragon prop != 0 → room 120 | dragon-killed mirror | 🔴 | same gap |
+| `69 331120 46` | SOUTH @ 69 if dragon prop != 0 → room 120 | dragon-killed shortcut | ✓ | GATES `69:south` `check=dragon_killed` `dest=120`. Pre-kill: gate falls through; topology row 69:south=119 walks normally. Post-kill: gate fires, walks to 120 (the connecting canyon). Test: `test_cca_prop_gates.gd` Phase 3+4. |
+| `74 331120 44` | WEST @ 74 if dragon prop != 0 → room 120 | dragon-killed mirror | ✓ | GATES `74:west` `check=dragon_killed` `dest=120`, mirror of 69:south. Test: `test_cca_prop_gates.gd` Phase 3+4. |
 | `94 309095 45 3 73` | NORTH/ENTER/CAVERN @ 94 if door prop != 0 → 95 | rusty-door open | ✓ | GATES `94:north/enter/cavern` `check=rusty` |
 | `108 95556 ...` | E/N/S/NE/SE/SW/NW/UP/DOWN @ Witt's End, 95% prob → msg #56 | Witt's End bounce | ✓ | GATES `108:*` `check=probability` pct=95 |
 | `108 626 44` | WEST @ 108, unconditional → msg #126 (cave-in) | Witt's End west | ✓ | GATES `108:west` always-bumper |
 | `117 332661 41` | OVER @ 117 if chasm prop != 0 → msg #161 (no longer any way) | post-bear chasm | 🟡 | port handles via `troll.state == "vanished"` gate but the canon condition is `chasm prop` (state of chasm, not troll) |
-| `117 332021 39` | JUMP @ 117 if chasm prop != 0 → room 21 (didn't make it) | jump after bear-fall | 🔴 | port has `117:jump` always-bumper msg #96; canon's post-bear jump is a death |
+| `117 332021 39` | JUMP @ 117 if chasm prop != 0 → room 21 (didn't make it) | jump after bear-fall | ✓ | GATES `117:jump` is now a chain: rule 1 `chasm_collapsed` `dest=21` (post-bear → die), rule 2 `always` msg #96 (pre-bear → "use the bridge"). Same chain at `122:jump`. Port models chasm-collapsed via the troll FSM's `$Vanished` terminal state. Test: `test_cca_prop_gates.gd` Phase 5+6. |
 
 ### 1.4 Probability-only rows (M=1..99)
 

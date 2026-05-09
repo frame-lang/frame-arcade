@@ -873,8 +873,29 @@ var gated_exits: Dictionary = {
     # canon prose lands rather than the FSM fallback.
     "17:jump":  {"check": "always", "msg": "The fissure is too wide."},
     "27:jump":  {"check": "always", "msg": "The fissure is too wide."},
-    "117:jump": {"check": "always", "msg": "I respectfully suggest you go across the bridge instead of jumping."},
-    "122:jump": {"check": "always", "msg": "I respectfully suggest you go across the bridge instead of jumping."},
+    # Canon `17/27 412021 7` — FORWARD across fissure with no
+    # bridge walks to canon 21 (death). Bridge-built case falls
+    # through; topology has no `forward` so no-exit fires.
+    "17:forward": {"check": "bridge", "dest": 21},
+    "27:forward": {"check": "bridge", "dest": 21},
+    # Canon `117 332021 39` / `122 332021 39` — JUMP after bear-
+    # bridge collapse walks to canon 21 (death). Pre-collapse
+    # falls through to the unconditional msg #96 ("use the
+    # bridge"). Encoded as a chain.
+    "117:jump": [
+        {"check": "chasm_collapsed", "dest": 21},
+        {"check": "always",          "msg":  "I respectfully suggest you go across the bridge instead of jumping."},
+    ],
+    "122:jump": [
+        {"check": "chasm_collapsed", "dest": 21},
+        {"check": "always",          "msg":  "I respectfully suggest you go across the bridge instead of jumping."},
+    ],
+    # Canon `69 331120 46` / `74 331120 44` — post-dragon-kill
+    # shortcut to canon 120 (the connecting canyon). Pre-kill
+    # falls through; topology has unconditional 69:south=119
+    # and 74:west=121 for the regular pre-kill route.
+    "69:south": {"check": "dragon_killed", "dest": 120},
+    "74:west":  {"check": "dragon_killed", "dest": 120},
     "7:slit":          {"check": "always", "msg": "You don't fit through a two-inch slit!"},
     "7:stream":        {"check": "always", "msg": "You don't fit through a two-inch slit!"},
     "7:down":          {"check": "always", "msg": "You don't fit through a two-inch slit!"},
@@ -1560,6 +1581,40 @@ func _try_bumper_rule(bg: Dictionary) -> bool:
                 else:
                     _println(bg.msg)
                 return true
+        return false
+    # "bridge" — fires while crystal bridge is NOT built. Used
+    # for fissure-jump-to-death (canon `17/27 412021 7` → walk
+    # to 21) and fissure-no-cross bumpers (canon `17/27 412597`).
+    if bg.check == "bridge":
+        if not fsm.bridge_built():
+            if "dest" in bg:
+                _walk_to_dest(int(bg.dest))
+            else:
+                _println(bg.msg)
+            return true
+        return false
+    # "dragon_killed" — fires after dragon slain. Used for the
+    # post-kill shortcut rows (canon `69/74 331120` → walk to
+    # canon 120, the connecting canyon).
+    if bg.check == "dragon_killed":
+        if not fsm.dragon_alive():
+            if "dest" in bg:
+                _walk_to_dest(int(bg.dest))
+            else:
+                _println(bg.msg)
+            return true
+        return false
+    # "chasm_collapsed" — fires after the bear-falls-bridge
+    # sequence (troll FSM in $Vanished). Used for canon
+    # `117 332661 41` (OVER → msg #161) and `117 332021 39`
+    # (JUMP → walk to canon 21 death).
+    if bg.check == "chasm_collapsed":
+        if fsm.troll_state() == "vanished":
+            if "dest" in bg:
+                _walk_to_dest(int(bg.dest))
+            else:
+                _println(bg.msg)
+            return true
         return false
     return false
 

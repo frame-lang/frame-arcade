@@ -695,6 +695,50 @@ func _try_bumper_rule(bg: Dictionary) -> bool:
                     _println(bg.msg)
                 return true
         return false
+    # "bridge" — canon `prop(fissure) != 1` rows: fires while the
+    # crystal bridge is NOT yet built. Used for the fissure-jump-
+    # to-death rows (canon `17/27 412021 7` → walk to canon 21 if
+    # bridge missing) and the OVER/ACROSS/W/CROSS bumper rows
+    # (canon `17/27 412597 …` → emit msg #97). Both flavours
+    # supported via `dest` vs `msg`. Falls through once bridge
+    # built (so the player walks to 27 / 17 normally).
+    if bg.check == "bridge":
+        if not fsm.bridge_built():
+            if "dest" in bg:
+                _walk_to_dest(int(bg.dest))
+            else:
+                _println(bg.msg)
+            return true
+        return false
+    # "dragon_killed" — canon `prop(dragon) != 0` rows: fires
+    # *after* the player has slain the dragon (prop=2). Used for
+    # the post-kill shortcut rows: canon `69 331120 46` (south →
+    # 120) and `74 331120 44` (west → 120) open up the connecting
+    # canyon once the dragon is no longer blocking it.
+    if bg.check == "dragon_killed":
+        if not fsm.dragon_alive():
+            if "dest" in bg:
+                _walk_to_dest(int(bg.dest))
+            else:
+                _println(bg.msg)
+            return true
+        return false
+    # "chasm_collapsed" — canon `prop(chasm) != 0` rows: fires
+    # *after* the bear-falls-bridge sequence has destroyed the
+    # crossing. Used for canon `117 332661 41` (OVER → msg #161
+    # "no longer any way across") and `117 332021 39` (JUMP →
+    # walk to canon 21 death). Port models chasm state via the
+    # troll FSM's "vanished" terminal state (set by Adventure._
+    # verb_drop when the bear is dropped at troll). The check
+    # passes through the troll FSM accessor.
+    if bg.check == "chasm_collapsed":
+        if fsm.troll_state() == "vanished":
+            if "dest" in bg:
+                _walk_to_dest(int(bg.dest))
+            else:
+                _println(bg.msg)
+            return true
+        return false
     # Unknown check type — defensive fall-through. Any gate type
     # only handled by _handle_movement (snake/troll/bridge/grate/
     # plant_*/plover_squeeze) at the topology stage will reach

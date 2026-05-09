@@ -893,15 +893,46 @@ const GATES: Dictionary = {
     "27:across": {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
     "27:east":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
     "27:cross":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    # Canon `17 412021 7` and `27 412021 7` — FORWARD across
+    # the fissure when the bridge isn't built routes to canon
+    # 21 ("YOU DIDN'T MAKE IT.") which fires player.die() on
+    # entry. Pre-bridge: walk to 21, die. Bridge built: gate
+    # falls through, regular topology takes over. The
+    # OVER/ACROSS/W/CROSS rows already use `bridge` with a msg
+    # (canon `412597 …` → msg #97); this adds the FORWARD-with-
+    # dest variant.
+    "17:forward": {"check": "bridge", "dest": 21},
+    "27:forward": {"check": "bridge", "dest": 21},
     # Canon JUMP-into-fissure: msg #38 "the fissure is too wide
     # to jump". Adding so a player typing JUMP gets the canon
     # text rather than a generic "no exit".
     "17:jump":  {"check": "always",  "msg": "The fissure is too wide."},
     "27:jump":  {"check": "always",  "msg": "The fissure is too wide."},
-    # Canon JUMP-off-troll-bridge: msg #96 "I respectfully
-    # suggest you go across the bridge instead of jumping."
-    "117:jump": {"check": "always",  "msg": "I respectfully suggest you go across the bridge instead of jumping."},
-    "122:jump": {"check": "always",  "msg": "I respectfully suggest you go across the bridge instead of jumping."},
+    # Canon JUMP at the troll bridge has TWO rows:
+    #   `117 596 39`    → unconditional msg #96 "I respectfully
+    #                     suggest you go across the bridge".
+    #   `117 332021 39` → if chasm prop != 0 (post-bear, chasm
+    #                     collapsed) → walk to canon 21 (death).
+    # Encoded as a chain: chasm-collapsed first (post-bear
+    # death), unconditional bridge-suggestion second (pre-bear
+    # bumper). Bear-falls-bridge sets `troll.state == "vanished"`
+    # in the port; the chasm_collapsed check reads that.
+    "117:jump": [
+        {"check": "chasm_collapsed", "dest": 21},
+        {"check": "always",          "msg":  "I respectfully suggest you go across the bridge instead of jumping."},
+    ],
+    "122:jump": [
+        {"check": "chasm_collapsed", "dest": 21},
+        {"check": "always",          "msg":  "I respectfully suggest you go across the bridge instead of jumping."},
+    ],
+    # Canon `69 331120 46` and `74 331120 44` — SOUTH @ 69 and
+    # WEST @ 74 only open *after* the dragon is slain (canon
+    # condition: prop(dragon) != 0). Both walk to canon 120 (the
+    # connecting canyon between dragon's two halves). Pre-kill:
+    # gate falls through, topology has no exit, no-exit msg
+    # fires. Post-kill: walk to 120.
+    "69:south": {"check": "dragon_killed", "dest": 120},
+    "74:west":  {"check": "dragon_killed", "dest": 120},
     # Canon SLIT/STREAM at rooms 7 (slit-in-streambed) and 38
     # (deep cave streambed): msg #95 "You don't fit through a
     # two-inch slit!"
