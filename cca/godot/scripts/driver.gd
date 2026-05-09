@@ -101,6 +101,12 @@ var verb_synonyms: Dictionary = {
     "help": "help", "?": "help",
     "info": "info",
     "hint": "hint",
+    "hours": "hours",
+    # Canon WIZARD/MAINT/MAGIC verbs — flavor easter eggs that
+    # narrate the 1977 PDP-10 timesharing dialogue. See the
+    # _process_input handlers for the full canon prose.
+    "wizard": "wizard",
+    "maint": "maint", "maintenance": "maint", "magic": "maint",
 }
 
 # Direction keywords that map to room navigation. These get
@@ -351,6 +357,66 @@ func _process_input(text: String) -> void:
         "hint":
             var hint_name: String = noun if noun != "" else "bird"
             _println(fsm.request_hint(hint_name))
+            return
+        "hours":
+            # Canon HOURS (advent.for line 8310 → SUBROUTINE HOURS at
+            # 2639). On the 1977 PDP-10 this printed the timesharing
+            # window during which the cave was open to non-wizards
+            # (`WKDAY`/`WKEND`/`HOLID` bitmasks of prime-time hours).
+            # In a single-user desktop port that whole machinery is
+            # vestigial — the cave is always available — so we honor
+            # the verb with the canonical translation: a brief banner
+            # that says exactly that and points at the canon
+            # provenance for anyone curious about the history.
+            _println("Colossal Cave is open all day, every day.")
+            _println("(In the original 1977 PDP-10 release this verb")
+            _println("printed the timesharing schedule during which")
+            _println("non-wizards could play. On a desktop port the")
+            _println("cave has no off-hours.)")
+            return
+        "wizard":
+            # Canon WIZARD (advent.for SUBROUTINE WIZARD at line 2578).
+            # In 1977 this was a real authentication dialogue: msg #16
+            # "ARE YOU A WIZARD?" → msg #17 "PROVE IT! SAY THE MAGIC
+            # WORD!" → a hashed challenge from DATIME → either msg #19
+            # "OH DEAR, YOU REALLY *ARE* A WIZARD!" or msg #20 "FOO,
+            # YOU ARE NOTHING BUT A CHARLATAN!". Wizards could then
+            # bypass prime-time gating, edit cave hours, and resume
+            # saved games early.
+            #
+            # The challenge response is computed from the system clock
+            # plus a hashed magic-number known only to whoever set up
+            # the timesharing instance — there is no fixed answer to
+            # type. We narrate the canon dialogue verbatim in a single
+            # turn (no Y/N prompt), end on canon msg #20. Players who
+            # remember Don Woods's original dare will recognise it.
+            _println("\"Are you a wizard?\"")
+            _println("\"Prove it!  Say the magic word!\"")
+            _println("\"That is not what I thought it was.  Do you know what I thought it was?\"")
+            _println("\"Foo, you are nothing but a charlatan!\"")
+            return
+        "maint", "magic":
+            # Canon MAINT (advent.for SUBROUTINE MAINT at line 2521).
+            # Triggered in 1977 by typing "MAGIC MODE" as the very
+            # first command of a session: ran WIZARD authentication,
+            # then let the wizard edit cave hours, the magic word, the
+            # message of the day, the demo length, and the suspend
+            # latency. Wrote a new core image on exit so the next
+            # session would pick up the changes.
+            #
+            # On a desktop port the cave needs no maintenance — there
+            # are no hours to edit, no demo cap to set, no MOTD to
+            # post. We honor the verb with a wink: canon msg #1 (the
+            # tall wizard in grey), gently rewritten to fit the
+            # situation, followed by canon msg #20 for completeness.
+            _println("A large cloud of green smoke appears in front of you. It clears")
+            _println("away to reveal a tall wizard, clothed in grey. He fixes you with")
+            _println("a steely glare and declares, \"Maintenance mode requires a real")
+            _println("PDP-10 and a sysadmin who knew Don Woods. This is neither.\"")
+            _println("With that he makes a single pass over you with his hands, and")
+            _println("you find yourself right back where you started.")
+            _println("")
+            _println("\"Foo, you are nothing but a charlatan!\"")
             return
 
     # Canon "always-blocked" bumper gates — JUMP at the fissure

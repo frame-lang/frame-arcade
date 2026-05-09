@@ -275,7 +275,7 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 | 28 | BREAK | `_verb_break` | 🟡 — handles VASE+CLAM, missing endgame MIRROR break |
 | 29 | WAKE | 🔴 — endgame "wake the dwarves" not implemented |
 | 30 | SUSPEND | (driver maps to SAVE) | 🟡 — semantic match but message is different |
-| 31 | HOURS | ⚪ — PDP-10-only, requires sign-off to scope-out |
+| 31 | HOURS | `driver._process_input` "hours" handler | ✓ — emits canon-faithful "open all day, every day" banner with PDP-10 provenance footnote. **User signed off 2026-05-08.** Sister verbs WIZARD + MAINT/MAGIC/"MAGIC MODE" landed alongside, narrating canon section-12 msg #1/#16/#17/#18/#20 dialogues. Test: `test_cca_pdp10_easter_eggs.gd` |
 
 ### 4.4 Special verbs (3000+id) — none in this section
 
@@ -537,7 +537,7 @@ section-6 message used when the verb has no other applicable handling.
 | BREAK (28) | 54 | 🟡 |
 | WAKE (29) | 54 | 🔴 |
 | SUSPEND (30) | (no default) | 🟡 |
-| HOURS (31) | (no default) | ⚪ (PDP-10) |
+| HOURS (31) | (no default) | (no canon default) | ✓ — see §4.3 |
 
 ---
 
@@ -911,7 +911,7 @@ mechanism.
 | PROP cycles | 30 | 22 | 5 | 3 | 0 |
 | Section-6 messages (high-impact) | ~70 surveyed | 40 | 18 | 12 | 0 |
 | Object placements | 35 | 33 | 1 | 1 | 0 |
-| Action verbs | 31 | 18 | 6 | 6 | 1 (HOURS) |
+| Action verbs | 31 | 19 | 6 | 6 | 0 |
 | COND lit rooms | 14 | 14 | 0 | 0 | 0 |
 | COND liquid rooms | 8 | 4 | 1 | 3 | 0 |
 | COND pirate-forbidden | 18 | partial | partial | 0 | 0 |
@@ -932,7 +932,7 @@ mechanism.
 - ✓ implemented: ~250
 - 🟡 partial: ~60
 - 🔴 missing: ~75
-- ⚪ scope-deferred (with sign-off pending): 2 (HOURS, save-latency)
+- ⚪ scope-deferred (with sign-off pending): 1 (save-latency only — HOURS landed 2026-05-08 with WIZARD + MAINT/MAGIC sister verbs as canon-flavored easter eggs)
 
 Total tracked items: ~390.
 
@@ -948,5 +948,5 @@ subtle divergence. These are the highest-risk for shipping a
 The 🔴 missing items are concrete features to implement — the
 companion `CANON_FULL_PLAN.md` orders them by dependency.
 
-The 2 ⚪ items (HOURS verb and save-latency) are PDP-10-specific and
+The 1 remaining ⚪ item (save-latency) is PDP-10-specific and
 require user sign-off to defer. Without sign-off they remain 🔴.
