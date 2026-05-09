@@ -103,7 +103,7 @@ const CANON_GATED := {
     "27:cross":  17,
     "19:north": 28,   # mountain king → silver passage (snake gate)
     "19:south": 29,   # mountain king → south side chamber (snake gate)
-    "19:sw":    74,   # canon `19 35074 49` — 35% probability dragon-canyon shortcut (port: unconditional)
+    "19:sw":    74,   # canon `19 35074 49` (35% prob) + `19 211032 49` (snake-here bumper) — port wires both as a GATES chain at 19:sw; topology no longer has the unconditional walk so this whitelist entry is now historical (audit skips dest≥300 rows anyway).
     # Canon 94 → 95 via the rusty-door puzzle. Canon row
     # `94 309095 45 3 73` says NORTH/ENTER/CAVERN all walk
     # through to 95 once the door is oiled. Whitelisted as

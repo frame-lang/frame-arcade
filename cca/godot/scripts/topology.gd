@@ -400,25 +400,28 @@ const ROOMS: Dictionary = {
     # canon's NULL-verb handling, we add a single explicit
     # OUT/EAST/BACK route to 14 so the player can escape.
     16:  {"east": 14, "out": 14, "back": 14},
-    # Hall of the Mountain King — canon 19. Canon row
+    # Hall of the Mountain King — canon 19. Canon section 3:
     # `19 15 10 29 43` (STAIRS/UP/E→15), `19 32 45` (N→32 is the
     # snake-block message room, fired when condition fails),
     # `19 311028 45 36` (N/LEFT→28 silver passage when snake gone),
     # `19 311029 46 37` (S/RIGHT→29 jewelry when snake gone),
     # `19 311030 44 7` (W/FORWARD→30 coins when snake gone),
-    # `19 74 66` (SECRET→74 different secret canyon),
-    # `19 35074 49` (SW→74 with 35% probability — dragon-side
-    # canyon shortcut). GATES handles the snake-blocking
-    # condition; we encode the destinations directly so canon-
-    # aligned walking works once the bird has driven the snake
-    # off. The SW alias is unconditional in the port (we don't
-    # model the 35% probability) — same destination, slightly
-    # easier to find than the canon original.
+    # `19 35074 49` (SW→74 with 35% probability),
+    # `19 211032 49` (SW→32 if snake here-or-carried),
+    # `19 74 66` (SHELL→74 unconditional alias).
+    #
+    # GATES handles the snake-blocking condition for N/S/W; SW
+    # is encoded as a *chain* (probability + snake) at GATES
+    # `19:sw` so that 35% rolls walk to 74 and the rest see the
+    # snake-block bumper. The unconditional `sw: 74` walking
+    # exit was removed when the chain was wired (commit 2026-05),
+    # so canon's "65% chance of bumper / no-exit" semantics
+    # surface correctly.
     19:  {"east": 15, "stairs": 15, "up": 15,
           "north": 28, "left": 28,
           "south": 29, "right": 29,
           "west": 30, "forward": 30,
-          "secret": 74, "sw": 74},
+          "secret": 74},
     # Canon 20 is the "YOU ARE AT THE BOTTOM OF THE PIT WITH A
     # BROKEN NECK." death message room — canon row `20 0 1` is
     # the engine's "kill the player and skip" handler. No walking
@@ -846,6 +849,26 @@ const GATES: Dictionary = {
     "19:left":   {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
     "19:right":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
     "19:forward":{"check": "snake",  "msg": "The snake glares at you and refuses to move."},
+    # Canon SW from Hall of Mountain King — TWO rows in section
+    # 3 walked in order:
+    #   `19 35074 49`  → 35% probability to canon 74 (the secret
+    #                     E/W canyon, dragon-side back-door).
+    #   `19 211032 49` → if snake here-or-carried, walk to canon
+    #                     32 (the "YOU CAN'T GET BY THE SNAKE."
+    #                     forced-motion bumper that bounces back).
+    # The chain-aware bumper dispatch evaluates these in order:
+    # probability rolls first; on hit walks to 74, on miss falls
+    # through to the snake check; if snake is present, prints
+    # canon msg and stays put; if snake gone and prob missed,
+    # falls through to topology — which has no `sw` exit at 19,
+    # so the engine prints the standard no-exit message. Net
+    # canon behavior:
+    #   pre-snake: 35% to 74, 65% snake bumper.
+    #   post-snake: 35% to 74, 65% no exit.
+    "19:sw": [
+        {"check": "probability", "pct": 35, "dest": 74},
+        {"check": "snake",       "msg":  "You can't get by the snake."},
+    ],
     # Troll bridge crossings (canon 117 ↔ 122). The troll
     # blocks every cross-the-chasm verb until it pays toll
     # (treasure thrown) or vanishes (chain dropped + bear).

@@ -42,7 +42,7 @@ Source: ADVENT_DAT_INVENTORY.md section 3 conditional table (45 rows).
 
 | Row | Canon | Decoded | Port status | Port location |
 |---|---|---|---|---|
-| `19 211032 49` | SW @ 19, snake-here-or-toted → room 32 (snake-block bumper) | snake-follows | 🔴 | port models snake as fixed; the M=211 row gates a *second* SW destination dependent on whether snake is present in player's room |
+| `19 211032 49` | SW @ 19, snake-here-or-toted → room 32 (snake-block bumper) | snake-follows | ✓ | wired as second rule in the GATES `19:sw` chain (check=snake, msg "You can't get by the snake."); test: `test_cca_19_sw_chain.gd`. Port doesn't model toted snake (snake is FIXED in canon and the port), so the row reduces to "snake here" — equivalent in observable behavior. |
 | `117 233660 41 42 47 69` | OVER/ACROS/CROSS/NE @ 117, troll-here-or-toted → msg #160 ("troll refuses to let you cross") | troll bridge gate | 🟡 | port has `troll.is_blocking_bridge()` gate; canon condition is *here-or-carrying*, port is *blocking* state |
 | `122 233660 41 42 47 49` | OVER/ACROS/CROSS/SW @ 122, troll-here-or-toted → msg #160 | mirror | 🟡 | same |
 
@@ -80,7 +80,7 @@ Source: ADVENT_DAT_INVENTORY.md section 3 conditional table (45 rows).
 | Row | Canon | Port status |
 |---|---|---|
 | `5 50005 6 7 45` | FOREST/FORWARD/NORTH @ 5, 50% → 5 (forest random walk) | 🔴 |
-| `19 35074 49` | SW @ 19, 35% → 74 (dragon-canyon shortcut) | 🟡 (port has unconditional walk, missing 35% probability) |
+| `19 35074 49` | SW @ 19, 35% → 74 (dragon-canyon shortcut) | ✓ — wired as first rule in the GATES `19:sw` chain (check=probability, pct=35, dest=74). Topology row 19 no longer has unconditional `sw`. Test: `test_cca_19_sw_chain.gd` (Phase 5 verifies 35% hit rate in 1000 isolated rolls). |
 | `65 80556 46` | SOUTH @ 65, 80% → msg #56 | 🔴 |
 | `65 80556 29` | UP @ 65, 80% → msg #56 | 🔴 |
 | `65 50070 29` | UP @ 65, 50% → room 70 | 🔴 |

@@ -443,69 +443,24 @@ func _process_input(text: String) -> void:
             _println("\"Foo, you are nothing but a charlatan!\"")
             return
 
-    # Canon "always-blocked" bumper gates — JUMP at the fissure
-    # / troll bridge / volcano, SLIT at the streambed slits, the
-    # dragon's east passage at canon 119/121. The verb itself
-    # isn't a direction, but canon emits a specific bumper text;
-    # gate the (room, verb) pair before the direction handler so
-    # the player gets canon prose rather than the FSM fallback.
+    # Canon "always-blocked" bumper gates and conditional rows.
+    # The (room, verb) key may map to either a single rule
+    # (Dictionary) or an ordered chain of rules (Array). Canon
+    # section 3 has *multiple rows* per (from, verb) for
+    # conditional dispatch — e.g. `19 35074 49` (35% → 74)
+    # followed by `19 211032 49` (snake-here → 32). The chain
+    # walks rules in order; the first that fires wins, the rest
+    # are skipped. A rule that "doesn't apply" (probability
+    # missed, condition false) falls through to the next rule.
+    # Rules whose conditions all fail leave control to
+    # _handle_movement / topology / no-exit fallback.
     var bumper_key: String = "%d:%s" % [fsm.player_room(), verb]
     if bumper_key in gated_exits:
-        var bg: Dictionary = gated_exits[bumper_key]
-        if bg.check == "always":
-            _println(bg.msg)
-            return
-        # Rusty-door bumpers at canon 94 — ENTER/CAVERN aren't in
-        # DIRECTIONS so they reach this dispatch. Print the canon
-        # "rusty refuses" prose only while the door is still rusty;
-        # once oiled, fall through and let _handle_movement walk
-        # the regular topology exit (94:enter / 94:cavern → 95).
-        if bg.check == "rusty" and not fsm.rusty_door_oiled():
-            _println(bg.msg)
-            return
-        # Probability gates (canon's compound `M*1000+N` rows
-        # where M is in the 1..99 range — currently only Witt's
-        # End). Roll once per attempt; on hit, emit the canon
-        # narration and stay put. On miss, fall through so the
-        # direction handler walks the topology exit if one exists,
-        # or emits the standard no-exit message.
-        if bg.check == "probability":
-            if (randi() % 100) < bg.pct:
-                _println(bg.msg)
+        var entry = gated_exits[bumper_key]
+        var rules: Array = entry if entry is Array else [entry]
+        for rule in rules:
+            if _try_bumper_rule(rule):
                 return
-        # Carrying-conditional gate. Fires here, in the bumper
-        # dispatch, so that non-direction movement verbs (PIT/
-        # STEPS/DOME/PASSAGE) and direction verbs without a
-        # topology exit (15:EAST has no plain row) all trigger
-        # the canon behaviour. Direction verbs WITH a topology
-        # exit (15:UP→14) also pass through here first — the
-        # gate fires before _handle_movement gets a chance to
-        # walk the unconditional fall-through.
-        #
-        # Two flavours, distinguished by the gate dict:
-        #   - msg only (e.g. `15 150022 …` — gold-blocks-the-
-        #     steps): print the canon prose and stay put.
-        #   - dest only (e.g. `14 150020 …` — gold falls into
-        #     the broken-neck pit at canon 20): walk the player
-        #     to dest, where the room's own death handler fires.
-        if bg.check == "carrying":
-            var bobj: String = bg.get("obj", "")
-            if bobj != "" and bobj in fsm:
-                var boid: int = int(fsm.get(bobj))
-                if fsm.player.carrying(boid):
-                    if "dest" in bg:
-                        var resp: String = fsm.do_command("move", str(bg.dest))
-                        _println(resp)
-                        fsm.tick()
-                        _check_pirate_steal()
-                        _check_lamp_warnings()
-                        _check_endgame_phase_change()
-                        _check_dwarf_axe()
-                        _check_player_death()
-                        _maybe_print_room_after_move()
-                    else:
-                        _println(bg.msg)
-                    return
 
     # Canon dark-room pit-fall hazard. Any motion attempt from a
     # dark cave room (lamp out) risks death. The first attempt in
@@ -669,6 +624,98 @@ func _handle_movement(direction: String) -> void:
     _check_lamp_warnings()
     _check_endgame_phase_change()
     _print_room()
+
+# ============================================================
+# Bumper-rule evaluator (canon section-3 single-row resolver)
+# ============================================================
+# Evaluates one rule from the GATES chain at (room, verb) and
+# returns true if the rule fired (verb consumed; caller should
+# return). Returns false if the rule's preconditions weren't met
+# and the next rule in the chain (or topology fallback) should
+# be tried.
+#
+# Each rule has a `check` field naming the test, plus optional
+# `dest` (walk to room), `msg` (print and stay put), `pct`
+# (probability percent), and `obj` (port-side ID accessor name).
+# A rule with `dest` walks via fsm._verb_move so the destination
+# room's entry handler fires (e.g. canon 20/21 deaths). A rule
+# with `msg` only prints and returns. The exact fields each
+# `check` understands are documented inline below.
+func _try_bumper_rule(bg: Dictionary) -> bool:
+    # "always" — unconditional bumper. Used for canon msg500 rows
+    # like JUMP at the fissure, SLIT at the streambed, etc.
+    if bg.check == "always":
+        _println(bg.msg)
+        return true
+    # "rusty" — fires only while the rusty-door FSM is in the
+    # un-oiled state. Once oiled, falls through so _handle_movement
+    # walks the regular topology exit (94:enter / 94:cavern → 95).
+    if bg.check == "rusty":
+        if not fsm.rusty_door_oiled():
+            _println(bg.msg)
+            return true
+        return false
+    # "snake" — fires while the snake is blocking the canyon at
+    # canon 19. Mirrored from _handle_movement's gate handler so
+    # bumper-dispatch chains (e.g. 19:sw probability + snake) can
+    # consult it. Falls through if snake gone.
+    if bg.check == "snake":
+        if fsm.snake.is_blocking():
+            _println(bg.msg)
+            return true
+        return false
+    # "probability" — canon's M*1000+N rows where M is in 1..99.
+    # Roll once per attempt. On hit: walk to `dest` (with full
+    # per-turn upkeep) if dest is set; else print `msg` and stay
+    # put. On miss: fall through to the next rule. Used by
+    # Witt's End (msg-only) and the 19:sw 35% dragon-canyon
+    # shortcut (dest=74).
+    if bg.check == "probability":
+        if (randi() % 100) < bg.pct:
+            if "dest" in bg:
+                _walk_to_dest(int(bg.dest))
+            else:
+                _println(bg.msg)
+            return true
+        return false
+    # "carrying" — canon's `M*1000+N` rows where M is 100..200,
+    # i.e. carrying obj M-100. Two flavours:
+    #   - msg only (e.g. `15 150022 …` — gold-blocks-the-steps):
+    #     print and stay put.
+    #   - dest only (e.g. `14 150020 …` — gold-falls-pit-to-20):
+    #     walk to dest, room's own death handler fires.
+    if bg.check == "carrying":
+        var bobj: String = bg.get("obj", "")
+        if bobj != "" and bobj in fsm:
+            var boid: int = int(fsm.get(bobj))
+            if fsm.player.carrying(boid):
+                if "dest" in bg:
+                    _walk_to_dest(int(bg.dest))
+                else:
+                    _println(bg.msg)
+                return true
+        return false
+    # Unknown check type — defensive fall-through. Any gate type
+    # only handled by _handle_movement (snake/troll/bridge/grate/
+    # plant_*/plover_squeeze) at the topology stage will reach
+    # here from chains and harmlessly skip; the topology lookup
+    # in _handle_movement handles those gates instead.
+    return false
+
+# Walk the player to `dest_room` via fsm._verb_move and run all
+# the per-turn upkeep that direction-handling does. Used by
+# bumper rules whose `dest` field routes to a destination room
+# (e.g. canon 14:down with gold → room 20 death).
+func _walk_to_dest(dest_room: int) -> void:
+    var resp: String = fsm.do_command("move", str(dest_room))
+    _println(resp)
+    fsm.tick()
+    _check_pirate_steal()
+    _check_lamp_warnings()
+    _check_endgame_phase_change()
+    _check_dwarf_axe()
+    _check_player_death()
+    _maybe_print_room_after_move()
 
 # ============================================================
 # Dark-room pit-fall hazard (canon CCA)
