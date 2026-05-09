@@ -744,7 +744,7 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 |---|---|---|
 | CLOCK2 init = 50 | yes | 🟡 |
 | Decrements after CLOCK1<0 | yes | ✓ |
-| CLOCK2 cap = 15 if PANIC | yes | 🔴 |
+| CLOCK2 cap = 15 if PANIC | yes | ✓ — Endgame `$Closing.panic()` caps `$.timer` at 15.0 on first call (PANIC latch via `$.panicked: bool`); subsequent calls are no-ops. Adventure exposes `endgame_panic()` and `endgame_panicked()`. Driver intercept in `_handle_movement` fires when `endgame_closing()` and dest in 1..8: emits canon msg #130 ("This exit is closed. Please leave via main office."), calls `endgame_panic()`, blocks the move. Test: `test_cca_endgame_panic.gd`. |
 | CLOCK2==0 → repository setup (msg #132), CLOSED=true | yes | ✓ |
 | Player teleported to canon 115 | yes | ✓ |
 | Specific objects placed at 115/116 | yes | 🟡 — port may not match all |

@@ -1221,11 +1221,18 @@
         # $InRepository → $Won.
         detonate()
 
+        # Canon panic (advent.for STMT 2): when the player tries
+        # to leave the cave during $Closing, msg #130 fires and
+        # CLOCK2 is capped at 15. Subsequent attempts don't
+        # re-cap (PANIC latch). No-op outside $Closing.
+        panic()
+
         # Queries for the orchestrator
         get_state(): String
         is_closing(): bool
         in_repository(): bool
         is_won(): bool
+        is_panicked(): bool
         treasures_count(): int
         closing_timer(): float
 
@@ -1248,10 +1255,14 @@
             detonate() {
                 # No-op outside the repository.
             }
+            panic() {
+                # No-op — panic only meaningful in $Closing.
+            }
             get_state(): String         { @@:("active") }
             is_closing(): bool          { @@:(false) }
             in_repository(): bool       { @@:(false) }
             is_won(): bool              { @@:(false) }
+            is_panicked(): bool         { @@:(false) }
             treasures_count(): int      { @@:(self.treasures) }
             closing_timer(): float      { @@:(0.0) }
         }
@@ -1264,6 +1275,7 @@
         # ------------------------------------------------------------
         $Closing {
             $.timer: float = 0.0
+            $.panicked: bool = false
 
             $>() {
                 $.timer = self.CLOSING_DURATION
@@ -1285,10 +1297,23 @@
                 # No-op until in repository.
             }
 
+            panic() {
+                # Canon advent.for STMT 2: first attempt to leave
+                # the cave during $Closing caps CLOCK2 at 15
+                # ticks. The PANIC latch prevents further caps —
+                # subsequent attempts emit msg #130 (driver-side)
+                # but don't shorten the timer further.
+                if not $.panicked:
+                    $.panicked = true
+                    if $.timer > 15.0:
+                        $.timer = 15.0
+            }
+
             get_state(): String         { @@:("closing") }
             is_closing(): bool          { @@:(true) }
             in_repository(): bool       { @@:(false) }
             is_won(): bool              { @@:(false) }
+            is_panicked(): bool         { @@:($.panicked) }
             treasures_count(): int      { @@:(self.treasures) }
             closing_timer(): float      { @@:($.timer) }
         }
@@ -1312,10 +1337,14 @@
                 # a treasure inside the repository. Defensive
                 # no-op.
             }
+            panic() {
+                # No-op — already past $Closing.
+            }
             get_state(): String         { @@:("in_repository") }
             is_closing(): bool          { @@:(false) }
             in_repository(): bool       { @@:(true) }
             is_won(): bool              { @@:(false) }
+            is_panicked(): bool         { @@:(false) }
             treasures_count(): int      { @@:(self.treasures) }
             closing_timer(): float      { @@:(0.0) }
         }
@@ -1327,10 +1356,12 @@
             tick() {}
             treasure_deposited() {}
             detonate() {}
+            panic() {}
             get_state(): String         { @@:("won") }
             is_closing(): bool          { @@:(false) }
             in_repository(): bool       { @@:(false) }
             is_won(): bool              { @@:(true) }
+            is_panicked(): bool         { @@:(false) }
             treasures_count(): int      { @@:(self.treasures) }
             closing_timer(): float      { @@:(0.0) }
         }
@@ -2647,6 +2678,8 @@
         endgame_closing(): bool
         endgame_won(): bool
         endgame_timer(): float
+        endgame_panic()                       # canon CLOCK2 cap on PANIC
+        endgame_panicked(): bool
 
         # Hints (parameterized × 3 parallel)
         request_hint(name: String): String
@@ -2994,6 +3027,8 @@
             endgame_closing(): bool   { @@:(self.endgame.is_closing()) }
             endgame_won(): bool       { @@:(self.endgame.is_won()) }
             endgame_timer(): float    { @@:(self.endgame.closing_timer()) }
+            endgame_panic()           { self.endgame.panic() }
+            endgame_panicked(): bool  { @@:(self.endgame.is_panicked()) }
 
             request_hint(name: String): String {
                 # Each hint has different text. The Hint system

@@ -1893,6 +1893,13 @@ func _handle_movement(direction: String) -> void:
     # That's handled by the room having empty exits — the player
     # just gets the "you can't go that way" branch above.
 
+    # Canon panic (advent.for STMT 2) — msg #130 + CLOCK2 cap @15.
+    if fsm.endgame_closing() and dest >= 1 and dest <= 8:
+        _println("A mysterious recorded voice groans into life and announces:")
+        _println("    \"This exit is closed. Please leave via main office.\"")
+        fsm.endgame_panic()
+        return
+
     # Canon dwarf-blocks-exit (advent.for STMT 71) — msg #2.
     if _dwarf_at_room(dest):
         _println("A little dwarf with a big knife blocks your way.")

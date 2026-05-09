@@ -1120,6 +1120,17 @@ func _handle_movement(direction: String) -> void:
     # That's handled by the room having empty exits — the player
     # just gets the "you can't go that way" branch above.
 
+    # Canon panic (advent.for STMT 2): during $Closing, if the
+    # player tries to move to a surface room (canon dest 1..8
+    # excluding 0), msg #130 fires, the move is blocked, and
+    # CLOCK2 caps at 15. Subsequent attempts re-emit msg #130
+    # but don't re-cap (PANIC latch on the Endgame side).
+    if fsm.endgame_closing() and dest >= 1 and dest <= 8:
+        _println("A mysterious recorded voice groans into life and announces:")
+        _println("    \"This exit is closed. Please leave via main office.\"")
+        fsm.endgame_panic()
+        return
+
     # Canon dwarf-blocks-exit (advent.for STMT 71): if a stalking
     # dwarf is at the destination room, msg #2 fires and the move
     # is blocked. Canon checks ODLOC (last-turn dwarf position +
