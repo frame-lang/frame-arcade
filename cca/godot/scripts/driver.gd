@@ -649,6 +649,40 @@ func _process_input(text: String) -> void:
         _println("It is beyond your power to do that.")
         return
 
+    # Canon DROP BIRD (advent.for STMT 9020 inline branches at
+    # snake/dragon rooms). The port's _verb_drop doesn't know
+    # the bird; the equivalent gameplay lives in _verb_release
+    # which already handles snake (msg #30) and dragon (msg #154)
+    # via the Bird FSM's $Released vs $Dead transitions. Re-
+    # route DROP BIRD here so canon syntax works.
+    if verb == "drop" and noun == "bird":
+        _process_input("release bird")
+        return
+
+    # Canon THROW AXE (advent.for STMT 9170). The port's
+    # _verb_throw handles axe-at-dwarves and treasure-at-troll
+    # but not the canon "axe glances off dragon / troll catches
+    # axe / bear catches axe" outcomes. Intercept here for the
+    # canon prose; the existing _verb_throw still handles the
+    # dwarf-attack and treasure-toll cases via fall-through.
+    if verb == "throw" and noun == "axe":
+        var here_room: int = fsm.player_room()
+        if here_room == 119 and fsm.dragon_alive():
+            # Canon msg #152 — axe doesn't even break the skin.
+            _println("The axe bounces harmlessly off the dragon's thick scales.")
+            return
+        if here_room == 117 and fsm.troll.is_blocking_bridge():
+            # Canon msg #158 — troll deftly catches the axe.
+            _println("The troll deftly catches the axe, examines it carefully, and tosses")
+            _println("it back, declaring, \"Good workmanship, but it's not valuable enough.\"")
+            return
+        if here_room == 130 and fsm.bear_state() == "hungry":
+            # Canon msg #164 — bear catches and is unimpressed.
+            _println("The axe misses and lands near the bear where you can't get at it.")
+            return
+        # Fall through to the FSM's existing _verb_throw which
+        # handles the dwarf-attack (and missing-axe) path.
+
     # All other verbs: pass to the FSM. Adventure's bus
     # dispatches through the aspects (DarknessGate may
     # consume look/examine in dark rooms, MagicWordTeleport

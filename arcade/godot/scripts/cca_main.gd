@@ -1519,6 +1519,29 @@ func _process_input(text: String) -> void:
         _println("It is beyond your power to do that.")
         return
 
+    # Canon DROP BIRD (advent.for STMT 9020). Re-route to
+    # _verb_release which has the dragon/snake special cases.
+    if verb == "drop" and noun == "bird":
+        _process_input("release bird")
+        return
+
+    # Canon THROW AXE (advent.for STMT 9170). Pre-check the
+    # dragon/troll/bear room cases so canon prose lands; then
+    # fall through to fsm.do_command for the dwarf-attack
+    # path.
+    if verb == "throw" and noun == "axe":
+        var here_room: int = fsm.player_room()
+        if here_room == 119 and fsm.dragon_alive():
+            _println("The axe bounces harmlessly off the dragon's thick scales.")
+            return
+        if here_room == 117 and fsm.troll.is_blocking_bridge():
+            _println("The troll deftly catches the axe, examines it carefully, and tosses")
+            _println("it back, declaring, \"Good workmanship, but it's not valuable enough.\"")
+            return
+        if here_room == 130 and fsm.bear_state() == "hungry":
+            _println("The axe misses and lands near the bear where you can't get at it.")
+            return
+
     # All other verbs: pass to the FSM. Adventure's bus
     # dispatches through the aspects (DarknessGate may
     # consume look/examine in dark rooms, MagicWordTeleport

@@ -432,7 +432,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 161 | "No longer any way across" | 🟡 |
 | 162 | Bear-falls-bridge death | ✓ |
 | 163 | "Troll runs from bear" | ✓ |
-| 164 | "Throw axe at bear" | 🔴 |
+| 164 | "Throw axe at bear" | ✓ — driver "throw axe" intercept emits canon prose at room 130 with bear hungry. Test: `test_cca_npc_throws.gd` Phase 5. |
 | 165/166/167/168/169/170 | Bear states | 🟡 — partial coverage |
 | 171/172/173 | Chain unlock/lock | ✓ |
 | 175 | "Sorry no more hints" | ✓ |
@@ -676,7 +676,7 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | FEED FOOD when bear hungry → tame, axe drops | yes | ✓ |
 | UNLOCK chain → bear freed | yes | ✓ |
 | Drop bear at troll → troll runs, bridge collapses → death if toted across | yes | ✓ |
-| Throw axe at bear → bear catches, axe stuck | yes | 🔴 |
+| Throw axe at bear → bear catches, axe stuck | yes | 🟡 — canon prose emitted (msg #164); axe still in player inventory (canon "stuck on bear" mechanic would need an Item.fix accessor — minor flavor gap) |
 
 ### 12.5 Dragon
 
@@ -697,7 +697,7 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | Throw treasure → troll vanishes, treasure lost | yes | ✓ |
 | Bear crosses bridge → chasm collapses (PROP CHASM=1) | yes | ✓ |
 | FEED troll → "no edible food" | yes | 🔴 |
-| Throw axe at troll → "deftly catches" msg #158 | yes | 🔴 |
+| Throw axe at troll → "deftly catches" msg #158 | yes | ✓ — driver "throw axe" intercept fires at room 117 with troll blocking. Test: `test_cca_npc_throws.gd` Phase 4. |
 
 ### 12.7 Bird
 
@@ -707,7 +707,7 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | Won't enter inventory if rod toted (msg #26) | yes | ✓ |
 | Won't enter inventory without cage (msg #27) | yes | ✓ |
 | Drop bird at snake → snake driven (msg #30) | yes | ✓ |
-| Drop bird at dragon → bird vaporized (msg #154) | yes | 🔴 |
+| Drop bird at dragon → bird vaporized (msg #154) | yes | ✓ — driver "drop bird" intercept routes to RELEASE BIRD; existing Bird FSM transitions to $Dead at canon 119 emitting the dragon-vaporize msg. Test: `test_cca_npc_throws.gd` Phase 2. |
 | ATTACK bird → killed (msg #45) | yes | ✓ |
 
 ---
