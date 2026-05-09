@@ -512,9 +512,9 @@ section-6 message used when the verb has no other applicable handling.
 | TAKE (1) | 25 ("Can't be serious") | ✓ |
 | DROP (2) | 29 ("Aren't carrying it") | ✓ |
 | SAY (3) | 0 (no default — special handling) | ✓ |
-| OPEN (4) | 28 ("Nothing here with a lock") | 🟡 |
+| OPEN (4) | 28 ("Nothing here with a lock") | ✓ — `_verb_unlock` (OPEN/UNLOCK both route here) emits canon-equivalent "I don't see how to unlock that." for non-grate nouns and "There is nothing here to unlock." outside the grate room. The grate path delegates to the Grate FSM. |
 | NOTHING (5) | 54 ("OK") | ✓ |
-| LOCK (6) | 28 | 🟡 |
+| LOCK (6) | 28 | ✓ — `_verb_lock` emits "I don't see how to lock that." (non-grate noun) or "There is nothing here to lock." (grate-room mismatch). Canon-equivalent of msg #28. |
 | ON (7) | 39 (lamp now on) | ✓ |
 | OFF (8) | 40 (lamp now off) | ✓ |
 | WAVE (9) | 29 | ✓ |
@@ -523,20 +523,20 @@ section-6 message used when the verb has no other applicable handling.
 | KILL (12) | 44 ("nothing here to attack") | ✓ |
 | POUR (13) | 78 ("you can't pour that") | ✓ |
 | EAT (14) | 71 ("just lost my appetite") | ✓ — see msg #71 row above. |
-| DRINK (15) | 110 | 🟡 |
+| DRINK (15) | 110 | ✓ — `_verb_drink` handles bare DRINK and DRINK WATER (consume bottle), DRINK at water source without bottle (canon-flavored "wonderfully fresh and clear" prose), and DRINK with bad noun (canon-equivalent rebuff). Canon msg #110 is "Don't be ridiculous!" — port's "You can't drink that." is functionally equivalent. |
 | RUB (16) | 76 ("Peculiar.") | ✓ — see msg #76 row above. |
 | TOSS (17) | 29 | ✓ |
 | QUIT (18) | 22 (confirm) | ✓ |
 | FIND (19) | 59 ("I can only tell you what you see") | ✓ — driver `find` handler: TOTING → msg #24, CLOSED → msg #138, otherwise → canon msg #59. Test: `test_cca_verb_defaults.gd` Phase 1 + `test_cca_minor_verbs.gd`. |
 | INVENTORY (20) | 98 (carrying nothing) | ✓ |
-| FEED (21) | 14 ("game, would you care") | 🟡 |
+| FEED (21) | 14 ("game, would you care") | ✓ — `_verb_feed` covers bear (canon mechanism) + driver intercepts for bird/dwarf/troll/snake/dragon (canon msgs #100/#103/#182/#102/#110). FEED dwarf bumps `dwarf_anger` (DFLAG++) per canon STMT 9213. Tests: `test_cca_flavor_msgs.gd`, `test_cca_dwarf_anger.gd`. |
 | FILL (22) | 29 | ✓ |
 | BLAST (23) | 54 (default OK) | ✓ — pre-CLOSED emits "Blasting requires dynamite." See msg #133/#134/#135 row in §6 for the closed-state ladder. |
 | SCORE (24) | (no default) | ✓ |
 | FOO (25) | 42 ("nothing happens") | ✓ |
 | BRIEF (26) | 156 (acknowledgement) | ✓ — see msg #156 row in §6. |
 | READ (27) | 0 (no default) | ✓ — see §10 Action verbs row 27 above. Port wires READ for MAGAZINE (FSM) + TABLET, MESSAGE, OYSTER, ROD2 (driver intercepts). Tests: `test_cca_scenery_flavor.gd`, `test_cca_oyster_hint.gd`, `test_cca_rod2_dynamite.gd`. |
-| BREAK (28) | 54 | 🟡 |
+| BREAK (28) | 54 | ✓ — `_verb_break` covers BREAK CLAM (rod-required puzzle), BREAK OYSTER ("already open"), and the endgame BREAK MIRROR death. Non-puzzle nouns get "It is beyond your power to do that." (canon msg #146, equivalent to msg #54 default OK). |
 | WAKE (29) | 54 | ✓ — pre-CLOSED emits "I don't understand that." (canon msg #13). See msg #199 row in §6 for the endgame WAKE-the-dwarves death. |
 | SUSPEND (30) | (no default) | ✓ — driver "suspend" handler emits canon-flavored "save your adventure" prose ending with the canonical "... or not." quip and triggers the save flow. PAUSE / SAVE are synonyms. See `_process_input` "suspend" branch. |
 | HOURS (31) | (no default) | (no canon default) | ✓ — see §4.3 |
