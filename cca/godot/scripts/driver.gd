@@ -119,6 +119,14 @@ var verb_synonyms: Dictionary = {
     # to the matching FSM method.
     "blast": "blast", "detonate": "blast",
     "wake": "wake",
+    # Canon flavor verbs that the FSM doesn't know about. Each
+    # is a small driver-side handler producing canon-aligned
+    # prose; some (FIND, SAY) consult FSM state but most are
+    # purely textual.
+    "find": "find", "where": "find",
+    "brief": "brief",
+    "rub": "rub",
+    "say": "say",
 }
 
 # Direction keywords that map to room navigation. These get
@@ -174,6 +182,20 @@ var _awaiting_revive: bool = false
 # QUIT NOW?"). Set when QUIT is typed; the next yes/no answer
 # either exits the game or cancels.
 var _quit_pending: bool = false
+
+# Canon BRIEF flag (advent.for STMT 8260 sets ABBNUM=10000 to
+# suppress long-form descriptions after the first visit).
+# Port interpretation: when brief_mode is true, revisits to
+# rooms already in _visited_rooms skip the full description
+# (the player just sees the next prompt). Typing LOOK still
+# works to re-display.
+var _brief_mode: bool = false
+var _visited_rooms: Dictionary = {}
+
+# Canon IWEST counter (advent.for line 901). When the player
+# types "WEST" instead of "W" ten times, msg #17 fires once
+# ("If you prefer, simply type W rather than WEST.").
+var _iwest_count: int = 0
 
 # 5-character-truncated verb-synonym lookup. Derived from
 # verb_synonyms at _ready() so canon's "first five letters" parser
@@ -292,6 +314,16 @@ func _on_text_submitted(text: String) -> void:
     input.call_deferred("grab_focus")
 
 func _process_input(text: String) -> void:
+    # Canon WEST counter (advent.for line 901). Counts raw
+    # "WEST" tokens before they get normalized to "west" by
+    # the synonym table. On the 10th WEST, fire canon msg #17
+    # one-shot. The word "w" doesn't trigger.
+    var raw_first: String = text.strip_edges().split(" ", false)[0] if not text.strip_edges().is_empty() else ""
+    if raw_first == "west":
+        _iwest_count = _iwest_count + 1
+        if _iwest_count == 10:
+            _println("If you prefer, simply type W rather than WEST.")
+
     var parsed := _parse(text)
     var verb: String = parsed[0]
     var noun: String = parsed[1]
@@ -505,6 +537,64 @@ func _process_input(text: String) -> void:
             _println("knives at you! All of them get you!")
             fsm.player.die()
             _check_player_death()
+            return
+        "find":
+            # Canon FIND (advent.for STMT 9190). Possible
+            # responses, in canon priority order:
+            #   TOTING(OBJ)            → msg #24 ("You are already
+            #                              carrying it!")
+            #   AT(OBJ) (here visible) → msg #94 ("I believe what
+            #                              you want is right here
+            #                              with you.")
+            #   CLOSED                 → msg #138 ("I daresay
+            #                              whatever you want is
+            #                              around here somewhere.")
+            #   otherwise              → msg #59 (cave-finding hint)
+            # The port checks player.carrying() for the toting
+            # branch; "AT(OBJ) here visible" requires per-object
+            # is_in_room accessors that we don't all expose, so
+            # we conservatively fall through to the canon default
+            # for non-carried objects. This matches canon's "the
+            # game won't help you find things" design.
+            var find_obj_id: int = _resolve_object_id(noun)
+            if find_obj_id > 0 and fsm.player.carrying(find_obj_id):
+                _println("You are already carrying it!")
+                return
+            if fsm.endgame_state() == "in_repository":
+                _println("I daresay whatever you want is around here somewhere.")
+                return
+            _println("I don't know where the cave is, but hereabouts no stream can run on the surface for long. I would try the stream.")
+            return
+        "brief":
+            # Canon BRIEF (advent.for STMT 8260). Sets ABBNUM=10000
+            # so room descriptions after the first visit are short.
+            # Port toggles _brief_mode; `_print_room` consults it
+            # before deciding long vs short form.
+            _brief_mode = true
+            _println("Okay, from now on I'll only describe a place in full the first time")
+            _println("you come to it. To get the full description, say LOOK.")
+            return
+        "rub":
+            # Canon RUB (advent.for STMT 9160). For the LAMP, no
+            # special effect (canon lets the verb fire, no msg
+            # changes). For everything else, msg #76 "rubbing the
+            # electric lamp is not productive" — slightly off-key
+            # since the canon msg names the lamp specifically; in
+            # canon SPK starts at 76 and falls through to 2011
+            # which would still emit msg #76 for non-LAMP rubs.
+            _println("Rubbing the electric lamp is not particularly rewarding. Anyway, nothing exciting happens.")
+            return
+        "say":
+            # Canon SAY (advent.for STMT 9030). If noun is a
+            # canon magic word, re-dispatch as that verb (so
+            # SAY XYZZY teleports). Otherwise echo: "Okay, X".
+            if noun == "":
+                _println("Say what?")
+                return
+            if noun in ["xyzzy", "plugh", "plover", "fee", "fie", "foe", "foo"]:
+                _process_input(noun)
+                return
+            _println("Okay, \"%s\"." % noun)
             return
 
     # Canon "always-blocked" bumper gates and conditional rows.
@@ -964,6 +1054,11 @@ func _maybe_print_room_after_move() -> void:
     var current: int = fsm.player_room()
     if current != _last_room:
         _last_room = current
+        # Canon BRIEF: skip the long room display on revisit.
+        # The player can always type LOOK to re-display.
+        if _brief_mode and _visited_rooms.has(current):
+            return
+        _visited_rooms[current] = true
         _print_room()
 
 # ============================================================
@@ -973,6 +1068,48 @@ func _print_room() -> void:
     _last_room = fsm.player_room()
     var desc: String = fsm.do_command("look", "")
     _println("[color=#aabbcc][b]%s[/b][/color]" % desc)
+    # Canon Y2 whisper (advent.for line 808): at canon room 33,
+    # 25% chance per visit to print msg #8 ("a hollow voice
+    # says 'PLUGH'"). Doesn't fire during closing.
+    if _last_room == 33 and not fsm.endgame_closing() and (randi() % 100) < 25:
+        _println("A hollow voice says \"PLUGH\".")
+
+# Resolve a noun token to a port object ID, or 0 if no match.
+# Used by FIND. Mirrors the inventory-builder's static name
+# table; not a synonym engine — just the canon vocabulary
+# words. Multi-word names ("gold nugget") are also accepted.
+func _resolve_object_id(noun: String) -> int:
+    var n: String = noun.strip_edges().to_lower()
+    if n == "":
+        return 0
+    if n in ["bird"]:                   return BIRD_ID
+    if n in ["chain"]:                  return CHAIN_ID
+    if n in ["gold", "nugget", "gold nugget"]: return GOLD_ID
+    if n in ["silver", "bars", "silver bars"]: return SILVER_ID
+    if n in ["diamonds"]:               return DIAMONDS_ID
+    if n in ["jewelry"]:                return JEWELRY_ID
+    if n in ["pearl"]:                  return PEARL_ID
+    if n in ["vase"]:                   return VASE_ID
+    if n in ["eggs"]:                   return EGGS_ID
+    if n in ["trident"]:                return TRIDENT_ID
+    if n in ["emerald"]:                return EMERALD_ID
+    if n in ["spices"]:                 return SPICES_ID
+    if n in ["chest"]:                  return CHEST_ID
+    if n in ["pyramid"]:                return PYRAMID_ID
+    if n in ["rug"]:                    return RUG_ID
+    if n in ["coins"]:                  return COINS_ID
+    if n in ["rod"]:                    return ROD_ID
+    if n in ["keys"]:                   return KEYS_ID
+    if n in ["bottle"]:                 return BOTTLE_ID
+    if n in ["cage"]:                   return CAGE_ID
+    if n in ["food"]:                   return FOOD_ID
+    if n in ["pillow"]:                 return PILLOW_ID
+    if n in ["axe"]:                    return AXE_ID
+    if n in ["clam"]:                   return CLAM_ID
+    if n in ["oyster"]:                 return OYSTER_ID
+    if n in ["magazine"]:               return MAGAZINE_ID
+    if n in ["batteries"]:              return BATTERIES_ID
+    return 0
 
 # ============================================================
 # Inventory

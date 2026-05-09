@@ -249,7 +249,7 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 |---|---|---|---|
 | 1 | TAKE/CARRY/KEEP | `_verb_take` | ✓ |
 | 2 | DROP/RELEASE | `_verb_drop` | ✓ |
-| 3 | SAY | (handled in driver via verb dispatch) | 🟡 — port doesn't echo non-magic words "Okay, X" the way canon does |
+| 3 | SAY | driver "say" handler | ✓ — non-magic noun → `Okay, "<word>"`; magic words (xyzzy/plugh/plover/fee/fie/foe/foo) re-dispatch via `_process_input(noun)`. Test: `test_cca_minor_verbs.gd` Phase 4. |
 | 4 | OPEN/UNLOCK | `_verb_unlock` | ✓ |
 | 5 | NOTHING/NULL | (handled by driver "OK" fallback) | ✓ |
 | 6 | LOCK | `_verb_lock` | ✓ |
@@ -262,17 +262,17 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 | 13 | POUR | `_verb_pour` | ✓ |
 | 14 | EAT | `_verb_eat` | 🟡 — port has FOOD eaten but missing canon msg #71 ("don't have appetite") for ridiculous targets |
 | 15 | DRINK | `_verb_drink` | ✓ |
-| 16 | RUB | 🔴 — no port handler; canon msg #76 ("not productive") for non-LAMP rubs |
+| 16 | RUB | driver "rub" handler | ✓ — emits canon msg #76 prose. Test: `test_cca_minor_verbs.gd` Phase 3. |
 | 17 | TOSS/THROW | `_verb_throw` | ✓ |
 | 18 | QUIT | (driver-handled) | ✓ |
-| 19 | FIND | 🔴 — no port handler for FIND verb |
+| 19 | FIND | driver "find" handler | ✓ — checks `player.carrying(obj)` first (msg #24), then in-repository (msg #138), else canon hint (msg #59). Object resolution via `_resolve_object_id` (static name table). Test: `test_cca_minor_verbs.gd` Phase 1. |
 | 20 | INVENTORY | (driver-handled) | ✓ |
 | 21 | FEED | `_verb_feed` | ✓ |
 | 22 | FILL | `_verb_fill` | ✓ |
 | 23 | BLAST | ✓ — driver `_process_input` "blast" handler dispatches to `Adventure.blast_mastery/wrong_way/klutz` based on canon conditions (closed-state, LOC=115, mark_rod_here). Pre-CLOSED → msg #67. Three CLOSED outcomes award canon bonus +45/+30/+25 and transition Endgame to $Won. Test: `test_cca_endgame_blast.gd` Phases 1-4. |
 | 24 | SCORE | (driver-handled) | ✓ |
 | 25 | FEE/FIE/FOE/FOO | `_verb_chant` | ✓ |
-| 26 | BRIEF | 🔴 — no port BRIEF (would gate description verbosity) |
+| 26 | BRIEF | driver "brief" handler | ✓ — sets `_brief_mode` + `_visited_rooms` so revisits skip long descriptions; LOOK still re-displays. Test: `test_cca_minor_verbs.gd` Phase 2. |
 | 27 | READ | `_verb_read` | 🟡 — handles MAGAZINE, missing TABLET/MESSAGE/OYSTER-clue |
 | 28 | BREAK | `_verb_break` (FSM) + driver "break mirror" | ✓ — VASE/CLAM via FSM; MIRROR intercepted in driver: pre-CLOSED returns canon msg #146, in-repository emits canon msg #197 + #136 dwarf-wake death. Test: `test_cca_endgame_blast.gd` Phases 7-8. |
 | 29 | WAKE | ✓ — driver "wake" handler. Pre-CLOSED: "I don't understand". In-repository: emits canon msg #199 + #136, fires `player.die()`. Test: `test_cca_endgame_blast.gd` Phases 5-6. |
@@ -360,7 +360,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 14 | "Would you care to explain how" | 🟡 |
 | 15 | "Sorry but I am not allowed" | 🔴 — LOOK detail counter not modeled |
 | 16 | "It is now pitch dark" | ✓ — `_check_dark_pit_hazard` |
-| 17 | "If you prefer simply type W" | 🔴 — IWEST counter not tracked |
+| 17 | "If you prefer simply type W" | ✓ — `_iwest_count` tracks raw "WEST" tokens (not "w") and fires msg #17 once on the 10th. Test: `test_cca_minor_verbs.gd` Phase 5. |
 | 18 | "Are you trying to catch the bird?" | ✓ — Hint 5 |
 | 19 | Bird hint | ✓ |
 | 20/21 | Snake question/hint | ✓ |
@@ -841,7 +841,7 @@ Per advent.for STMT 20000.
 | ENTER STREAM/WATER → msg #70 | yes | 🔴 |
 | ENTER X (other) → re-dispatch as X | yes | 🟡 |
 | WATER/OIL PLANT → re-dispatch as POUR | yes | ✓ |
-| WEST counter (msg #17 every 10) | yes | 🔴 |
+| WEST counter (msg #17 every 10) | yes | ✓ — see §6 row for msg #17 |
 | Random "I don't understand" 20%/20% (msg #60/#61/#13) | yes | 🔴 |
 
 ---

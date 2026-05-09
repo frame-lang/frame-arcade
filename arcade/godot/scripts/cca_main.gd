@@ -1060,6 +1060,10 @@ var verb_synonyms: Dictionary = {
     "maint": "maint", "maintenance": "maint", "magic": "maint",
     "blast": "blast", "detonate": "blast",
     "wake": "wake",
+    "find": "find", "where": "find",
+    "brief": "brief",
+    "rub": "rub",
+    "say": "say",
 }
 
 # Direction keywords that map to room navigation. These get
@@ -1114,6 +1118,15 @@ var _pirate_already_stole: bool = false
 # prints the resurrection prompt, and pauses normal verb
 # processing until the player answers yes/no.
 var _awaiting_revive: bool = false
+
+# Canon BRIEF flag (advent.for STMT 8260) — when set, revisits
+# to already-seen rooms skip the full description.
+var _brief_mode: bool = false
+var _visited_rooms: Dictionary = {}
+
+# Canon IWEST counter (advent.for line 901) — 10th typed
+# "WEST" fires msg #17 once.
+var _iwest_count: int = 0
 
 # --- Exit dialog (Save / Quit) ---
 # Frame state machine that owns the dialog's modal logic.
@@ -1252,6 +1265,14 @@ func _on_text_submitted(text: String) -> void:
     input.call_deferred("grab_focus")
 
 func _process_input(text: String) -> void:
+    # Canon WEST counter (advent.for line 901). On the 10th
+    # typed "WEST", fire msg #17 once. "w" doesn't trigger.
+    var raw_first: String = text.strip_edges().split(" ", false)[0] if not text.strip_edges().is_empty() else ""
+    if raw_first == "west":
+        _iwest_count = _iwest_count + 1
+        if _iwest_count == 10:
+            _println("If you prefer, simply type W rather than WEST.")
+
     var parsed := _parse(text)
     var verb: String = parsed[0]
     var noun: String = parsed[1]
@@ -1423,6 +1444,35 @@ func _process_input(text: String) -> void:
             _println("knives at you! All of them get you!")
             fsm.player.die()
             _check_player_death()
+            return
+        "find":
+            # Canon FIND (advent.for STMT 9190). See cca/godot
+            # mirror for full inline canon-spec docs.
+            var find_obj_id: int = _resolve_object_id(noun)
+            if find_obj_id > 0 and fsm.player.carrying(find_obj_id):
+                _println("You are already carrying it!")
+                return
+            if fsm.endgame_state() == "in_repository":
+                _println("I daresay whatever you want is around here somewhere.")
+                return
+            _println("I don't know where the cave is, but hereabouts no stream can run on the surface for long. I would try the stream.")
+            return
+        "brief":
+            _brief_mode = true
+            _println("Okay, from now on I'll only describe a place in full the first time")
+            _println("you come to it. To get the full description, say LOOK.")
+            return
+        "rub":
+            _println("Rubbing the electric lamp is not particularly rewarding. Anyway, nothing exciting happens.")
+            return
+        "say":
+            if noun == "":
+                _println("Say what?")
+                return
+            if noun in ["xyzzy", "plugh", "plover", "fee", "fie", "foe", "foo"]:
+                _process_input(noun)
+                return
+            _println("Okay, \"%s\"." % noun)
             return
 
     # Canon "always-blocked" bumper gates and conditional rows.
@@ -1820,6 +1870,9 @@ func _maybe_print_room_after_move() -> void:
     var current: int = fsm.player_room()
     if current != _last_room:
         _last_room = current
+        if _brief_mode and _visited_rooms.has(current):
+            return
+        _visited_rooms[current] = true
         _print_room()
 
 # ============================================================
@@ -1829,6 +1882,43 @@ func _print_room() -> void:
     _last_room = fsm.player_room()
     var desc: String = fsm.do_command("look", "")
     _println("[color=#aabbcc][b]%s[/b][/color]" % desc)
+    # Canon Y2 whisper (advent.for line 808): 25% chance per
+    # visit to room 33 prints msg #8.
+    if _last_room == 33 and not fsm.endgame_closing() and (randi() % 100) < 25:
+        _println("A hollow voice says \"PLUGH\".")
+
+# Resolve a noun token to a port object ID, or 0 if no match.
+func _resolve_object_id(noun: String) -> int:
+    var n: String = noun.strip_edges().to_lower()
+    if n == "":                                  return 0
+    if n in ["bird"]:                            return BIRD_ID
+    if n in ["chain"]:                           return CHAIN_ID
+    if n in ["gold", "nugget", "gold nugget"]:   return GOLD_ID
+    if n in ["silver", "bars", "silver bars"]:   return SILVER_ID
+    if n in ["diamonds"]:                        return DIAMONDS_ID
+    if n in ["jewelry"]:                         return JEWELRY_ID
+    if n in ["pearl"]:                           return PEARL_ID
+    if n in ["vase"]:                            return VASE_ID
+    if n in ["eggs"]:                            return EGGS_ID
+    if n in ["trident"]:                         return TRIDENT_ID
+    if n in ["emerald"]:                         return EMERALD_ID
+    if n in ["spices"]:                          return SPICES_ID
+    if n in ["chest"]:                           return CHEST_ID
+    if n in ["pyramid"]:                         return PYRAMID_ID
+    if n in ["rug"]:                             return RUG_ID
+    if n in ["coins"]:                           return COINS_ID
+    if n in ["rod"]:                             return ROD_ID
+    if n in ["keys"]:                            return KEYS_ID
+    if n in ["bottle"]:                          return BOTTLE_ID
+    if n in ["cage"]:                            return CAGE_ID
+    if n in ["food"]:                            return FOOD_ID
+    if n in ["pillow"]:                          return PILLOW_ID
+    if n in ["axe"]:                             return AXE_ID
+    if n in ["clam"]:                            return CLAM_ID
+    if n in ["oyster"]:                          return OYSTER_ID
+    if n in ["magazine"]:                        return MAGAZINE_ID
+    if n in ["batteries"]:                       return BATTERIES_ID
+    return 0
 
 # ============================================================
 # Inventory
