@@ -136,8 +136,47 @@ func _init():
     _expect_any_match("MAINTENANCE routes to MAINT handler",
         mt_lines, "wizard, clothed in grey")
 
+    # ----- SUSPEND -----
+    # Canon SUSPEND (advent.for STMT 8300) printed the 45-minute
+    # latency warning and exited on YES. Port: prints the canon
+    # warning + "... or not." wink and saves instantly.
+    print("Phase 7: SUSPEND — canon latency warning, '... or not' wink, instant save")
+    var d7 := _make_driver()
+    var s_lines: Array = _capture(d7, "suspend")
+    _expect("SUSPEND produced output",                   s_lines.size() > 0,      true)
+    _expect_any_match("SUSPEND opens with canon LATNCY warning",
+        s_lines, "I can suspend your adventure")
+    _expect_any_match("SUSPEND cites canon 45-minute latency",
+        s_lines, "45 minutes")
+    _expect_any_match("SUSPEND adds the 'or not' wink",
+        s_lines, "... or not.")
+    _expect_any_match("SUSPEND saves instantly (the 'Saved.' ack)",
+        s_lines, "Saved")
+
+    # ----- PAUSE alias -----
+    print("Phase 8: PAUSE — alias for SUSPEND")
+    var d8 := _make_driver()
+    var p_lines: Array = _capture(d8, "pause")
+    _expect("PAUSE produced output",                     p_lines.size() > 0,      true)
+    _expect_any_match("PAUSE routes to SUSPEND handler",
+        p_lines, "I can suspend your adventure")
+    _expect_any_match("PAUSE also includes the 'or not' wink",
+        p_lines, "... or not.")
+
+    # ----- SAVE stays silent (no canon flavor) -----
+    print("Phase 9: SAVE — silent modern UX, no canon flavor")
+    var d9 := _make_driver()
+    var sv_lines: Array = _capture(d9, "save")
+    _expect("SAVE produced output",                      sv_lines.size() > 0,     true)
+    _expect_no_match("SAVE doesn't print the canon SUSPEND warning",
+        sv_lines, "I can suspend your adventure")
+    _expect_no_match("SAVE doesn't print the 'or not' wink",
+        sv_lines, "... or not.")
+    _expect_any_match("SAVE confirms with 'Saved.'",
+        sv_lines, "Saved")
+
     if failures == 0:
-        print("PASS — HOURS / WIZARD / MAINT honor canon with canon-flavored prose")
+        print("PASS — HOURS / WIZARD / MAINT / SUSPEND honor canon with canon-flavored prose")
     else:
         print("FAIL — %d assertion(s) failed" % failures)
     quit(failures)

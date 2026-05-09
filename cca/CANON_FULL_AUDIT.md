@@ -274,7 +274,7 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 | 27 | READ | `_verb_read` | 🟡 — handles MAGAZINE, missing TABLET/MESSAGE/OYSTER-clue |
 | 28 | BREAK | `_verb_break` | 🟡 — handles VASE+CLAM, missing endgame MIRROR break |
 | 29 | WAKE | 🔴 — endgame "wake the dwarves" not implemented |
-| 30 | SUSPEND | (driver maps to SAVE) | 🟡 — semantic match but message is different |
+| 30 | SUSPEND | `driver._process_input` "suspend" handler | ✓ — prints canon LATNCY warning ("I can suspend your adventure for you so that you can resume later, but you will have to wait at least 45 minutes before continuing.") followed by "... or not." wink, then saves instantly. PAUSE alias routes here too; plain SAVE stays silent for modern UX. **User signed off 2026-05-08.** Test: `test_cca_pdp10_easter_eggs.gd` |
 | 31 | HOURS | `driver._process_input` "hours" handler | ✓ — emits canon-faithful "open all day, every day" banner with PDP-10 provenance footnote. **User signed off 2026-05-08.** Sister verbs WIZARD + MAINT/MAGIC/"MAGIC MODE" landed alongside, narrating canon section-12 msg #1/#16/#17/#18/#20 dialogues. Test: `test_cca_pdp10_easter_eggs.gd` |
 
 ### 4.4 Special verbs (3000+id) — none in this section
@@ -808,7 +808,7 @@ Per advent.for STMT 20000.
 |---|---|---|
 | SAVE/RESTORE verbs | yes (SUSPEND/RESTART) | ✓ |
 | State persistence | full game state | ✓ — Frame `@@[persist]` |
-| Latency requirement (PDP-10) | yes | ⚪ (PDP-10 only — needs sign-off) |
+| Latency requirement (PDP-10) | yes | ✓ — SUSPEND/PAUSE narrate the canon 45-minute warning then save instantly with a "... or not." wink; SAVE stays silent. **User signed off 2026-05-08.** See §4.3 SUSPEND row. |
 
 ---
 
@@ -921,7 +921,7 @@ mechanism.
 | Lamp / batteries | 6 | 4 | 1 | 1 | 0 |
 | Endgame | 8 | 3 | 3 | 2 | 0 |
 | Scoring | 13 | 6 | 4 | 3 | 0 |
-| Save / restore | 3 | 2 | 0 | 0 | 1 (latency) |
+| Save / restore | 3 | 3 | 0 | 0 | 0 |
 | Death | 8 | 5 | 2 | 0 | 0 |
 | BACK / random nav | 10 | 1 | 1 | 8 | 0 |
 | Magic words | 11 | 7 | 1 | 3 | 0 |
@@ -932,7 +932,7 @@ mechanism.
 - ✓ implemented: ~250
 - 🟡 partial: ~60
 - 🔴 missing: ~75
-- ⚪ scope-deferred (with sign-off pending): 1 (save-latency only — HOURS landed 2026-05-08 with WIZARD + MAINT/MAGIC sister verbs as canon-flavored easter eggs)
+- ⚪ scope-deferred (with sign-off pending): **0** — all PDP-10-specific verbs landed 2026-05-08 as canon-flavored easter eggs (HOURS, WIZARD, MAINT/MAGIC/"MAGIC MODE", SUSPEND/PAUSE)
 
 Total tracked items: ~390.
 
@@ -948,5 +948,7 @@ subtle divergence. These are the highest-risk for shipping a
 The 🔴 missing items are concrete features to implement — the
 companion `CANON_FULL_PLAN.md` orders them by dependency.
 
-The 1 remaining ⚪ item (save-latency) is PDP-10-specific and
-require user sign-off to defer. Without sign-off they remain 🔴.
+All PDP-10-specific items (HOURS, WIZARD, MAINT/MAGIC/"MAGIC MODE",
+SUSPEND/PAUSE) landed 2026-05-08 as canon-flavored easter eggs that
+narrate what the original 1977 release did and explain why the
+machinery doesn't apply on a desktop port. **No items remain ⚪.**

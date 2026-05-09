@@ -986,8 +986,12 @@ var verb_synonyms: Dictionary = {
     "y": "yes",                            # n is north; "no" must be typed
     "quit": "quit", "exit": "quit",
     "save": "save", "restore": "load", "load": "load",
-    # Canon SUSPEND / PAUSE map to SAVE per msg #142 INFO text.
-    "suspend": "save", "pause": "save",
+    # SUSPEND / PAUSE route to a canon-flavored handler that
+    # narrates the original 1977 PDP-10 latency warning and
+    # then saves instantly anyway. Plain SAVE stays silent for
+    # modern UX; players who type SUSPEND specifically get the
+    # easter egg. See the "suspend" handler in _process_input.
+    "suspend": "suspend", "pause": "suspend",
     "score": "score",
     "help": "help", "?": "help",
     "info": "info",
@@ -1257,6 +1261,21 @@ func _process_input(text: String) -> void:
             return
         "load":
             _load_game()
+            return
+        "suspend":
+            # Canon SUSPEND (advent.for STMT 8300, around line 1791).
+            # In 1977 this printed the "wait at least N minutes" warning
+            # (formatted from `LATNCY`, default 45), asked YES/NO, and
+            # on yes called CIAO to write the core image and exit. The
+            # latency was an anti-save-scum measure on the multi-user
+            # PDP-10. On a desktop port saves are owned by the player,
+            # so we honor the verb with the canon prose and a wink,
+            # then save instantly. SAVE stays silent.
+            _println("I can suspend your adventure for you so that you can resume later, but")
+            _println("you will have to wait at least 45 minutes before continuing.")
+            _println("")
+            _println("... or not.")
+            _save_game()
             return
         "hint":
             var hint_name: String = noun if noun != "" else "bird"
