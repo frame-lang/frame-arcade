@@ -1542,6 +1542,16 @@ func _process_input(text: String) -> void:
             _println("The axe misses and lands near the bear where you can't get at it.")
             return
 
+    # Canon routine 302 — Plover-emerald drop. At canon Y2 (33)
+    # or Plover Room (100), invoking PLOVER while carrying the
+    # emerald drops it at the current room before teleporting.
+    if verb == "plover":
+        var here_pl: int = fsm.player_room()
+        if (here_pl == 33 or here_pl == 100) and fsm.player.carrying(EMERALD_ID):
+            fsm.emerald.try_drop(here_pl)
+            fsm.player.drop(EMERALD_ID)
+            _println("As you start to chant, the emerald slips from your grasp and falls to the floor.")
+
     # All other verbs: pass to the FSM. Adventure's bus
     # dispatches through the aspects (DarknessGate may
     # consume look/examine in dark rooms, MagicWordTeleport

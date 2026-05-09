@@ -33,8 +33,8 @@ Source: ADVENT_DAT_INVENTORY.md section 3 conditional table (45 rows).
 |---|---|---|---|---|
 | `14 150020 30 31 34` | DOWN/PIT/STEPS @ 14, carrying GOLD → room 20 (death) | gold-falls-pit | ✓ | `topology.gd` GATES `14:down/pit/steps` carrying-with-dest=20; `test_cca_gold_falls_pit.gd` |
 | `15 150022 29 31 34 35 23 43` | UP/PIT/STEPS/DOME/PASSAGE/EAST @ 15, carrying GOLD → room 22 (dome unclimbable) | gold-blocks-steps | ✓ | `topology.gd` GATES `15:up/east/pit/steps/dome/passage` carrying-with-msg; `test_cca_gold_blocks_steps.gd` |
-| `33 159302 71` | PLOVER @ Y2, carrying EMERALD → routine 302 (drop emerald, force squeeze) | plover-emerald drop | 🔴 | port's `MagicWordTeleport` always teleports unconditionally; routine 302 not implemented |
-| `100 159302 71` | PLOVER @ 100, carrying EMERALD → routine 302 | mirror | 🔴 | same as above |
+| `33 159302 71` | PLOVER @ Y2, carrying EMERALD → routine 302 (drop emerald, force squeeze) | plover-emerald drop | ✓ | driver "plover" intercept fires before fsm.do_command. At rooms 33/100 with emerald carried: `emerald.try_drop(here) + player.drop(EMERALD_ID)` then falls through to MagicWordTeleport's normal teleport. Net: emerald stays at the source room; player is on the other side without it. Test: `test_cca_plover_emerald.gd`. |
+| `100 159302 71` | PLOVER @ 100, carrying EMERALD → routine 302 | mirror | ✓ | same handler — rooms 33 and 100 share the intercept. |
 | `103 114618 46` | SOUTH @ 103, carrying CLAM → msg #118 ("can't fit clam through") | clam squeeze | ✓ | `cca.fgd` Adventure._verb_move clam check; test_cca_clam_squeeze |
 | `103 115619 46` | SOUTH @ 103, carrying OYSTER → msg #119 ("can't fit oyster through") | oyster squeeze | ✓ | same handler, oyster branch |
 
@@ -110,8 +110,8 @@ Source: ADVENT_DAT_INVENTORY.md section 3 bumper table (6 rows).
 |---|---|---|---|
 | `99 301 43 23` | EAST/PASSAGE/TUNNEL @ 99 → routine 301 | plover squeeze | ✓ — `plover_squeeze_blocked()` |
 | `100 301 44 23 11` | WEST/PASSAGE/TUNNEL/OUT @ 100 → routine 301 | plover squeeze mirror | ✓ |
-| `33 159302 71` | PLOVER @ 33 if EMERALD held → routine 302 | plover transport drop-emerald | 🔴 (see §1.1) |
-| `100 159302 71` | PLOVER @ 100 if EMERALD held → routine 302 | mirror | 🔴 |
+| `33 159302 71` | PLOVER @ 33 if EMERALD held → routine 302 | plover transport drop-emerald | ✓ — driver intercept; see §1.1 |
+| `100 159302 71` | PLOVER @ 100 if EMERALD held → routine 302 | mirror | ✓ |
 | `117 303 41` | OVER @ 117 → routine 303 | troll bridge | ✓ — `Adventure._verb_move` + Troll FSM |
 | `122 303 41` | OVER @ 122 → routine 303 | troll bridge mirror | ✓ |
 
@@ -290,7 +290,7 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 |---|---|---|---|
 | XYZZY | 62 (motion verb) | `MagicWordTeleport` aspect: 11 ↔ 3 | ✓ |
 | PLUGH | 65 | `MagicWordTeleport`: 33 ↔ 3, 100 ↔ 33 | ✓ |
-| PLOVER | 71 | `MagicWordTeleport`: 33 ↔ 100 | 🟡 — missing routine 302 (emerald drop) |
+| PLOVER | 71 | `MagicWordTeleport`: 33 ↔ 100 + driver "plover" intercept (routine 302) | ✓ |
 | Y2 | 55 | (motion verb, alias for PLUGH dest) | ✓ |
 | FEE/FIE/FOE/FOO | 2025 (action) | `EggsIncantation` FSM | ✓ |
 
@@ -854,7 +854,7 @@ Per advent.for STMT 20000.
 | PLUGH 33↔3 | yes | ✓ |
 | PLUGH 100→33 | yes | ✓ |
 | PLOVER 33↔100 | yes | ✓ |
-| PLOVER + emerald → routine 302 (drop emerald) | yes | 🔴 |
+| PLOVER + emerald → routine 302 (drop emerald) | yes | ✓ |
 | Y2 alias for PLUGH dest | yes | ✓ |
 | 25% PLUGH-whisper at canon 33 | yes | 🔴 |
 | 50%-then-canon "old worn-out magic word" (msg #50) for unmatched | yes | 🟡 |

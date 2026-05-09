@@ -683,6 +683,23 @@ func _process_input(text: String) -> void:
         # Fall through to the FSM's existing _verb_throw which
         # handles the dwarf-attack (and missing-axe) path.
 
+    # Canon routine 302 — Plover-emerald drop (advent.for STMT
+    # 30200). At canon Y2 (33) or Plover Room (100), invoking
+    # PLOVER while carrying the emerald drops it at the current
+    # room before teleporting. Net effect: the player has to
+    # use the squeeze (routine 301) to retrieve the emerald
+    # afterwards. The base PLOVER teleport runs immediately
+    # after via fsm.do_command, so this block only handles the
+    # emerald-drop side-effect.
+    if verb == "plover":
+        var here_pl: int = fsm.player_room()
+        if (here_pl == 33 or here_pl == 100) and fsm.player.carrying(EMERALD_ID):
+            fsm.emerald.try_drop(here_pl)
+            fsm.player.drop(EMERALD_ID)
+            _println("As you start to chant, the emerald slips from your grasp and falls to the floor.")
+        # fall through — fsm.do_command runs the regular PLOVER
+        # teleport via MagicWordTeleport.
+
     # All other verbs: pass to the FSM. Adventure's bus
     # dispatches through the aspects (DarknessGate may
     # consume look/examine in dark rooms, MagicWordTeleport
