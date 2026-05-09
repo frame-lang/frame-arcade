@@ -316,7 +316,7 @@ For each object with multiple PROP states, port must support state cycling.
 | FISSURE (12) | 0=hidden, 1=visible | `CrystalBridge` | ✓ |
 | TABLET (13) | 0=unread, 1=read | (driver intercept) | ✓ — port skips the prop ladder and emits canon msg #196 unconditionally on READ TABLET / EXAMINE TABLET at canon 101. Re-read just re-emits the same text — same as canon's effective behavior. |
 | CLAM (14) | 0=closed | item state | ✓ |
-| OYSTER (15) | 0=closed, after-break states for hint chain | item | 🟡 — missing oyster-clue read chain at endgame |
+| OYSTER (15) | 0=closed, after-break states for hint chain | item + driver | ✓ — Item FSM holds the oyster's in-room state (spawned at the clam-break room, post-break). Driver's `_oyster_revealed` latch tracks the post-msg-#193 state for the re-read variant. See msgs #192/193/194 row in §6 for the full chain. |
 | MAGAZINE (16) | 0=normal, dropped at Witt's End for +1 | item + ScoreLedger | ✓ |
 | BOTTLE (20) | 0=water, 1=empty, 2=oil, -1=invalid | `Bottle` | ✓ |
 | MIRROR (23) | 0=intact, 1=broken | (driver intercept + endgame state) | ✓ — pre-endgame the mirror is fixed scenery (driver EXAMINE MIRROR @ canon 109 emits the canon flavor). The "broken" state is reached only via BREAK MIRROR in $InRepository, which fires msgs #197 + #136 and `player.die()` — no persistent prop needed since the action is terminal. |
@@ -446,7 +446,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 186 | "Faint rustling" (pirate hint) | 🟡 |
 | 190 | Read magazine | ✓ |
 | 191 | Read message | 🔴 |
-| 192/193/194 | Oyster hint chain | 🔴 |
+| 192/193/194 | Oyster hint chain | ✓ — driver READ/EXAMINE OYSTER on the in-place oyster (post-clam-break) drives a Y/N prompt: msg #192 ("Hmmm, this looks like a clue, ... cost you 10 points...") then YES → msg #193 reveal + 10-pt deduction (both `score_hints` and `real_score`); NO cancels with no penalty; re-read after reveal → msg #194 ("same thing it did before"). Test: `test_cca_oyster_hint.gd` (18 assertions). |
 | 196 | "Congratulations on bringing light into the dark-room!" | ✓ — see §5 TABLET row. Driver READ TABLET / EXAMINE TABLET intercept at canon 101 emits the canonical long-form readout. Test: `test_cca_scenery_flavor.gd`. |
 | 197 | Mirror break (endgame) | ✓ — driver BREAK MIRROR intercept fires only in endgame `$InRepository` state, emitting canon msg #197 ("You strike the mirror a resounding blow, whereupon it shatters into a myriad tiny fragments.") followed by msg #136 (disturbed-dwarves death) and `player.die()`. Pre-CLOSED returns "It is beyond your power to do that." Test: `test_cca_endgame_blast.gd` Phase 8. |
 | 198 | Vase shatter narration | ✓ |

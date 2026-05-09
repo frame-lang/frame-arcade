@@ -1143,6 +1143,10 @@ var _old_loc2: int = -1
 
 # Canon msg #3 first-dwarf-encounter latch (advent.for STMT 6000).
 var _dwarf_first_encounter_done: bool = false
+
+# Canon OYSTER hint chain (advent.dat msgs #192/193/194).
+var _oyster_prompt_active: bool = false
+var _oyster_revealed: bool = false
 const FORCED_ROOMS := [16, 22, 26, 32, 40, 59, 79, 89, 90, 113]
 
 # --- Exit dialog (Save / Quit) ---
@@ -1322,6 +1326,23 @@ func _process_input(text: String) -> void:
             return
         _println("Please answer yes or no.")
         return
+
+    # Canon oyster-clue Y/N prompt (advent.dat msg #192). YES
+    # costs 10 points and reveals msg #193, NO cancels.
+    if _oyster_prompt_active:
+        if verb == "yes":
+            _oyster_prompt_active = false
+            _oyster_revealed = true
+            _println("It says, \"There is something strange about this place, such that one")
+            _println("of the words I've always known now has a new effect.\"")
+            fsm.score_hints = fsm.score_hints - 10
+            fsm.real_score = fsm.real_score - 10
+            return
+        if verb == "no":
+            _oyster_prompt_active = false
+            _println("OK.")
+            return
+        _oyster_prompt_active = false
 
     # UI-only verbs (driver-handled, never reach the FSM).
     match verb:
@@ -1674,6 +1695,17 @@ func _process_input(text: String) -> void:
         if noun == "tablet" and er == 101:
             _println("A massive stone tablet imbedded in the wall reads:")
             _println("\"Congratulations on bringing light into the dark-room!\"")
+            return
+        # Object 15 — OYSTER hint chain (advent.dat msgs
+        # #192/193/194). Reading the underside reveals the magic-
+        # words hint at a 10-point cost.
+        if noun == "oyster" and fsm.oyster_item.is_in_room(er):
+            if _oyster_revealed:
+                _println("It says the same thing it did before.")
+                return
+            _oyster_prompt_active = true
+            _println("Hmmm, this looks like a clue, which means it'll cost you 10 points to")
+            _println("read it. Should I go ahead and read it anyway?")
             return
         if noun == "mirror" and er == 109:
             _println("It's a two-sided mirror suspended high above the canyon floor.")

@@ -227,6 +227,16 @@ var _old_loc2: int = -1
 # narrative beat, simpler trigger.
 var _dwarf_first_encounter_done: bool = false
 
+# Canon OYSTER hint chain (advent.dat msgs #192/193/194). READ
+# OYSTER on the in-place oyster (post-clam-break) costs 10 points
+# but reveals the magic-words hint. Canon flow:
+#   READ OYSTER (first time)  → msg #192 prompt (Y/N, 10-pt cost)
+#   YES                        → msg #193 reveal + 10-pt deduction
+#   NO                         → cancel, no penalty
+#   READ OYSTER (after reveal) → msg #194 ("same thing")
+var _oyster_prompt_active: bool = false
+var _oyster_revealed: bool = false
+
 # Canon forced-motion rooms (cond=2 per advent.for line 393).
 # These rooms auto-bounce on entry; BACK from a non-forced
 # room into one of these would re-fire the bounce, so canon
@@ -386,6 +396,29 @@ func _process_input(text: String) -> void:
         _quit_pending = false
         # Fall through to normal processing — canon: any non-yes
         # answer cancels the quit prompt.
+
+    # Canon oyster-clue Y/N prompt (advent.dat msg #192). Player
+    # has READ OYSTER on the in-place oyster; answering YES costs
+    # 10 points and reveals msg #193, NO cancels with no penalty.
+    if _oyster_prompt_active:
+        if verb == "yes":
+            _oyster_prompt_active = false
+            _oyster_revealed = true
+            _println("It says, \"There is something strange about this place, such that one")
+            _println("of the words I've always known now has a new effect.\"")
+            # Canon 10-point cost for the oyster clue (advent.for
+            # SPK=192/193 chain). Hits both the per-component
+            # ledger and the aggregate score so the score line
+            # remains consistent.
+            fsm.score_hints = fsm.score_hints - 10
+            fsm.real_score = fsm.real_score - 10
+            return
+        if verb == "no":
+            _oyster_prompt_active = false
+            _println("OK.")
+            return
+        _oyster_prompt_active = false
+        # Any other answer cancels the prompt and falls through.
 
     if _awaiting_revive:
         if verb == "yes":
@@ -871,6 +904,19 @@ func _process_input(text: String) -> void:
         if noun == "tablet" and er == 101:
             _println("A massive stone tablet imbedded in the wall reads:")
             _println("\"Congratulations on bringing light into the dark-room!\"")
+            return
+        # Object 15 — OYSTER hint chain (advent.dat msgs
+        # #192/193/194). The oyster is post-clam-break scenery in
+        # the room; reading the underside reveals the magic-words
+        # hint at a 10-point cost.
+        if noun == "oyster" and fsm.oyster_item.is_in_room(er):
+            if _oyster_revealed:
+                _println("It says the same thing it did before.")
+                return
+            # First read: prompt for the cost.
+            _oyster_prompt_active = true
+            _println("Hmmm, this looks like a clue, which means it'll cost you 10 points to")
+            _println("read it. Should I go ahead and read it anyway?")
             return
         # Object 23 — MIRROR at canon 109 (Mirror Canyon).
         # Pre-endgame the canon prose is the long-form room desc;
