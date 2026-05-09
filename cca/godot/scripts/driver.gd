@@ -1397,6 +1397,25 @@ func _check_pirate_steal() -> void:
     if msg != "":
         _pirate_already_stole = true
         _println("[color=#cc8855][i]%s[/color][/i]" % msg)
+        return
+    _check_pirate_rustle()
+
+# Canon msg #127 (advent.for STMT 6080-ish): while the pirate is
+# stalking and the player is in a deep-cave room (canon LOC>=15),
+# there's a ~20% chance per turn to emit the "faint rustling
+# noises" hint — the canonical heads-up that the pirate is
+# somewhere nearby. Factored out of `_check_pirate_steal` so
+# tests can exercise the rustle path independently from the
+# steal-roll → $Vanished transition.
+func _check_pirate_rustle() -> void:
+    if fsm.pirate_state() != "stalking":
+        return
+    if _pirate_already_stole:
+        return
+    if fsm.player_room() < 15:
+        return
+    if (randi() % 100) < 20:
+        _println("[color=#cc8855][i]There are faint rustling noises from the darkness behind you.[/i][/color]")
 
 func _check_lamp_warnings() -> void:
     var msg: String = fsm.get_lamp_message()

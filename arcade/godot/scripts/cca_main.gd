@@ -2084,6 +2084,20 @@ func _check_pirate_steal() -> void:
     if msg != "":
         _pirate_already_stole = true
         _println("[color=#cc8855][i]%s[/i][/color]" % msg)
+        return
+    _check_pirate_rustle()
+
+# Canon msg #127 (advent.for STMT 6080-ish): ~20% per-turn
+# rustling-noise hint while pirate is active in deep cave.
+func _check_pirate_rustle() -> void:
+    if fsm.pirate_state() != "stalking":
+        return
+    if _pirate_already_stole:
+        return
+    if fsm.player_room() < 15:
+        return
+    if (randi() % 100) < 20:
+        _println("[color=#cc8855][i]There are faint rustling noises from the darkness behind you.[/i][/color]")
 
 func _check_lamp_warnings() -> void:
     var msg: String = fsm.get_lamp_message()

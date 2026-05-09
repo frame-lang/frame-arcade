@@ -402,7 +402,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 118/119 | Clam/oyster squeeze | ✓ |
 | 120-125 | Clam/oyster open dialogue | ✓ |
 | 126 | Witt's End cave-in | ✓ |
-| 127 | "Faint rustling sounds" (pirate hint) | 🟡 — pirate runs but rustling msg not always fired |
+| 127 | "There are faint rustling noises from the darkness behind you." | ✓ — driver `_check_pirate_rustle()` fires per turn after `_check_pirate_steal` when the pirate is `$Stalking`, the steal-roll missed, the player is in a deep-cave room (canon LOC>=15), and `_pirate_already_stole` is false. ~20% rate per canon STMT 6080. Test: `test_cca_pirate_rustling.gd` (1000-roll distribution, ±5σ tolerance). |
 | 128 | Pirate steals | ✓ |
 | 129 | Closing announcement | ✓ |
 | 130 | "Nothing leaves" closing | ✓ |
