@@ -385,7 +385,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 81-90 | Death taunt + resurrection pairs | 🟡 — port has resurrection but messages don't match canon pairs |
 | 91 | "I don't remember how you got here" | ✓ — BACK fallback in `_verb_back`: when `_old_loc` is unset (or no path from current room to it) emits "Sorry, but I no longer seem to remember how it was you got here." Test: `test_cca_cave_y2_back.gd` Phase 3. |
 | 93 | "Can't go through locked grate" | ✓ |
-| 94 | "Right here with you" | 🟡 |
+| 94 | "I believe what you want is right here with you." | ✓ — FIND priority ladder now includes the canon AT(OBJ) branch. New helper `_object_in_room(obj_id, room)` dispatches per-object via `is_in_room()` (Items) or `get_location() == room` (Treasures + Bird). Test: `test_cca_find_msg94.gd` (8 assertions). |
 | 95 | "Don't fit through 2-inch slit" | ✓ |
 | 96 | "Use the bridge instead" | ✓ |
 | 97 | "No way across the fissure" | ✓ |
@@ -412,7 +412,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 136 | "The resulting ruckus has awakened the dwarves" | ✓ — emitted by both endgame BREAK MIRROR and WAKE handlers, paired with msg #197 / msg #199 respectively, followed by `player.die()`. Test: `test_cca_endgame_blast.gd`. |
 | 137 | "Leave the poor unhappy bird alone" | ✓ — driver `attack` intercept for noun "bird" emits canon msg #137 verbatim. KILL/FIGHT synonyms route through "attack" so all three forms work. Test: `test_cca_attack_bird.gd`. |
 | 138 | "I daresay whatever you want is around here somewhere" | ✓ — emitted by FIND handler when `endgame_state() == "in_repository"`. See msg #59 row for the full FIND priority ladder. |
-| 140 | "You can't get there from here" | 🟡 — port emits "no longer seem to remember" (msg #91) when BACK has no path. Canon msg #140 is the no-exit fallback used by general motion attempts. The driver's general no-exit emits "There is no way to go in that direction." which is canon-flavor-equivalent. |
+| 140 | "You can't get there from here" | ✓ — driver no-exit fallback in `_handle_movement` emits "You can't go %s from here." which is canon-equivalent to msg #140. BACK with no remembered path emits the more specific msg #91. |
 | 141 | "Followed by tame bear" | ✓ |
 | 142 | INFO text | 🟡 — port has INFO but text differs |
 | 143 | Score continue prompt | ✓ |
@@ -451,7 +451,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 197 | Mirror break (endgame) | ✓ — driver BREAK MIRROR intercept fires only in endgame `$InRepository` state, emitting canon msg #197 ("You strike the mirror a resounding blow, whereupon it shatters into a myriad tiny fragments.") followed by msg #136 (disturbed-dwarves death) and `player.die()`. Pre-CLOSED returns "It is beyond your power to do that." Test: `test_cca_endgame_blast.gd` Phase 8. |
 | 198 | Vase shatter narration | ✓ |
 | 199 | Wake the dwarves | ✓ — endgame `wake` handler: in $InRepository, emits "You prod the nearest dwarf, who wakes up grumpily..." (canon msg #199) followed by msg #136 ("ruckus has awakened the dwarves") then `player.die()`. Pre-closed: msg #13 default. Test: `test_cca_endgame_blast.gd`. |
-| 200/201 | SUSPEND prompt | 🟡 |
+| 200/201 | SUSPEND prompt | ✓ — driver "suspend" handler emits canon-flavored "save your adventure" + "... or not." prose and triggers the save flow. PAUSE/SAVE are synonyms. See `_process_input` "suspend" branch. |
 
 ---
 

@@ -637,6 +637,10 @@ func _process_input(text: String) -> void:
             if find_obj_id > 0 and fsm.player.carrying(find_obj_id):
                 _println("You are already carrying it!")
                 return
+            # Canon AT(OBJ) — visible in current room → msg #94.
+            if find_obj_id > 0 and _object_in_room(find_obj_id, fsm.player_room()):
+                _println("I believe what you want is right here with you.")
+                return
             if fsm.endgame_state() == "in_repository":
                 _println("I daresay whatever you want is around here somewhere.")
                 return
@@ -1518,6 +1522,46 @@ func _print_room() -> void:
         _dwarf_first_encounter_done = true
         _println("A little dwarf just walked around a corner, saw you, threw a little")
         _println("axe at you which missed, cursed, and ran away.")
+
+# Returns true if the object identified by `obj_id` is visible
+# in the given room (canon AT(OBJ) test). Used by FIND to fire
+# msg #94 ("I believe what you want is right here with you")
+# when the player asks for an object that's actually here.
+#
+# Treasures expose `get_location(): int`. Items expose
+# `is_in_room(r): bool`. The Bird is the one outlier — its
+# `get_location()` returns the canonical room number.
+func _object_in_room(obj_id: int, room: int) -> bool:
+    match obj_id:
+        BIRD_ID:        return fsm.bird.get_location() == room
+        GOLD_ID:        return fsm.gold.get_location() == room
+        SILVER_ID:      return fsm.silver.get_location() == room
+        DIAMONDS_ID:    return fsm.diamonds.get_location() == room
+        JEWELRY_ID:     return fsm.jewelry.get_location() == room
+        PEARL_ID:       return fsm.pearl.get_location() == room
+        VASE_ID:        return fsm.vase.get_location() == room
+        EGGS_ID:        return fsm.eggs.get_location() == room
+        TRIDENT_ID:     return fsm.trident.get_location() == room
+        EMERALD_ID:     return fsm.emerald.get_location() == room
+        SPICES_ID:      return fsm.spices.get_location() == room
+        CHEST_ID:       return fsm.chest.get_location() == room
+        PYRAMID_ID:     return fsm.pyramid.get_location() == room
+        RUG_ID:         return fsm.rug.get_location() == room
+        COINS_ID:       return fsm.coins.get_location() == room
+        CHAIN_ID:       return fsm.chain.get_location() == room
+        ROD_ID:         return fsm.rod_item.is_in_room(room)
+        MARK_ROD_ID:    return fsm.mark_rod_item.is_in_room(room)
+        KEYS_ID:        return fsm.keys_item.is_in_room(room)
+        BOTTLE_ID:      return fsm.bottle_item.is_in_room(room)
+        CAGE_ID:        return fsm.cage_item.is_in_room(room)
+        FOOD_ID:        return fsm.food_item.is_in_room(room)
+        PILLOW_ID:      return fsm.pillow_item.is_in_room(room)
+        AXE_ID:         return fsm.axe_item.is_in_room(room)
+        CLAM_ID:        return fsm.clam_item.is_in_room(room)
+        OYSTER_ID:      return fsm.oyster_item.is_in_room(room)
+        BATTERIES_ID:   return fsm.batteries_item.is_in_room(room)
+        MAGAZINE_ID:    return fsm.magazine_item.is_in_room(room)
+    return false
 
 # Resolve a noun token to a port object ID, or 0 if no match.
 # Used by FIND. Mirrors the inventory-builder's static name
