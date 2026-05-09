@@ -4620,6 +4620,10 @@
                 # Cross-FSM: water the plant.
                 var grow_msg: String = self.plant.water()
                 return "The water soaks into the soil. " + grow_msg
+            if was_oil and r == self.WEST_PIT_ROOM:
+                # Canon msg #112 (advent.dat msgs section): the
+                # plant rejects oil and asks for water instead.
+                return "The plant indignantly shakes the oil off its leaves and asks, \"Water?\""
             if was_oil and r == self.RUSTY_DOOR_ROOM and self.rusty_door.is_rusty():
                 # Cross-FSM: oil the hinges. Canonical msg #114.
                 return self.rusty_door.oil()

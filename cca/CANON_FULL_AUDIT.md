@@ -394,7 +394,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 104/105/106/107/108 | Bottle interactions | ✓ |
 | 110 | "Don't be ridiculous" (volcano) | ✓ |
 | 111 | "Door extremely rusty" | ✓ |
-| 112 | "Plant won't grow with oil" | 🟡 |
+| 112 | "The plant indignantly shakes the oil off its leaves and asks, 'Water?'" | ✓ — `_verb_pour` (Adventure) detects `was_oil and r == WEST_PIT_ROOM` and emits canon msg #112 verbatim. Plant FSM stays in current state (no growth). Test: `test_cca_pour_oil_plant.gd`. |
 | 113/114 | Door oil / water | ✓ |
 | 115 | Plant deep roots | ✓ |
 | 116 | "Knives vanish as they strike the walls" | ✓ — TAKE KNIFE / GET KNIFE driver intercept emits canon msg #116 verbatim. Port doesn't model KNFLOC (knives aren't real items in the inventory) — every TAKE attempt rebuffs with the canon prose. Test: `test_cca_dwarf_canon.gd` Phase 4. |
