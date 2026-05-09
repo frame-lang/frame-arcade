@@ -1469,7 +1469,7 @@ func _process_input(text: String) -> void:
             if fsm.endgame_state() == "in_repository":
                 _println("I daresay whatever you want is around here somewhere.")
                 return
-            _println("I don't know where the cave is, but hereabouts no stream can run on the surface for long. I would try the stream.")
+            _println("I can only tell you what you see as you move about and manipulate things. I cannot tell you where remote things are.")
             return
         "brief":
             _brief_mode = true
@@ -1477,7 +1477,12 @@ func _process_input(text: String) -> void:
             _println("you come to it. To get the full description, say LOOK.")
             return
         "rub":
-            _println("Rubbing the electric lamp is not particularly rewarding. Anyway, nothing exciting happens.")
+            # Canon RUB (advent.for STMT 9160). LAMP → msg #75;
+            # anything else → msg #76.
+            if noun == "lamp":
+                _println("Rubbing the electric lamp is not particularly rewarding. Anyway, nothing exciting happens.")
+            else:
+                _println("Peculiar. Nothing unexpected happens.")
             return
         "say":
             if noun == "":
@@ -1620,10 +1625,16 @@ func _process_input(text: String) -> void:
         _println("I'm game. Would you care to explain how?")
         return
 
-    # Canon EAT variants — msg #71 for ridiculous targets.
-    if verb == "eat" and noun in ["bird", "snake", "clam", "oyster", "dwarf", "dragon", "troll", "bear"]:
-        _println("Don't be ridiculous!")
-        return
+    # Canon EAT variants — NPC nouns get the canon "Don't be
+    # ridiculous!" rebuff; any other non-food noun gets canon
+    # msg #71 verbatim.
+    if verb == "eat":
+        if noun in ["bird", "snake", "clam", "oyster", "dwarf", "dragon", "troll", "bear"]:
+            _println("Don't be ridiculous!")
+            return
+        if noun != "" and noun != "food":
+            _println("I think I just lost my appetite.")
+            return
 
     # Canon FEED variants — non-bear targets.
     if verb == "feed":

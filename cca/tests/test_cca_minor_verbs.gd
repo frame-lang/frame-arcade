@@ -67,10 +67,10 @@ func _init():
     # ----- Phase 1: FIND -----
     print("Phase 1: FIND verb")
     var d := _make_driver()
-    # FIND with no carry → cave-finding hint (canon msg #59)
+    # FIND with no carry → canon msg #59
     var l: Array = _capture(d, "find bird")
-    _expect_any_match("FIND BIRD (not carried) → canon hint",
-        l, "I don't know where the cave is")
+    _expect_any_match("FIND BIRD (not carried) → canon msg #59",
+        l, "I can only tell you what you see")
     # FIND with carry → "you are already carrying it!"
     d.fsm.player.take(d.fsm.GOLD_ID)
     var l2: Array = _capture(d, "find gold")

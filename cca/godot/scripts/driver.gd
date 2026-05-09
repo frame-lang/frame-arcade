@@ -590,7 +590,7 @@ func _process_input(text: String) -> void:
             if fsm.endgame_state() == "in_repository":
                 _println("I daresay whatever you want is around here somewhere.")
                 return
-            _println("I don't know where the cave is, but hereabouts no stream can run on the surface for long. I would try the stream.")
+            _println("I can only tell you what you see as you move about and manipulate things. I cannot tell you where remote things are.")
             return
         "brief":
             # Canon BRIEF (advent.for STMT 8260). Sets ABBNUM=10000
@@ -602,14 +602,14 @@ func _process_input(text: String) -> void:
             _println("you come to it. To get the full description, say LOOK.")
             return
         "rub":
-            # Canon RUB (advent.for STMT 9160). For the LAMP, no
-            # special effect (canon lets the verb fire, no msg
-            # changes). For everything else, msg #76 "rubbing the
-            # electric lamp is not productive" — slightly off-key
-            # since the canon msg names the lamp specifically; in
-            # canon SPK starts at 76 and falls through to 2011
-            # which would still emit msg #76 for non-LAMP rubs.
-            _println("Rubbing the electric lamp is not particularly rewarding. Anyway, nothing exciting happens.")
+            # Canon RUB (advent.for STMT 9160). LAMP → msg #75
+            # ("rubbing the electric lamp is not particularly
+            # rewarding"). Anything else → msg #76 ("Peculiar.
+            # Nothing unexpected happens.")
+            if noun == "lamp":
+                _println("Rubbing the electric lamp is not particularly rewarding. Anyway, nothing exciting happens.")
+            else:
+                _println("Peculiar. Nothing unexpected happens.")
             return
         "say":
             # Canon SAY (advent.for STMT 9030). If noun is a
@@ -793,13 +793,17 @@ func _process_input(text: String) -> void:
         return
 
     # Canon EAT variants (advent.for STMT 9140). EAT FOOD is
-    # handled by the FSM (consumes, returns canon msg). EAT
-    # ridiculous-targets returns canon msg #71 "don't have
-    # appetite". The FSM currently emits "I don't know how to
-    # eat that" for these; intercepted here for canon prose.
-    if verb == "eat" and noun in ["bird", "snake", "clam", "oyster", "dwarf", "dragon", "troll", "bear"]:
-        _println("Don't be ridiculous!")
-        return
+    # handled by the FSM (consumes, returns canon msg). NPC
+    # targets get the canon "Don't be ridiculous!" rebuff (msg
+    # #71's flavor variant for animate targets). All other non-
+    # food nouns get canon msg #71 verbatim.
+    if verb == "eat":
+        if noun in ["bird", "snake", "clam", "oyster", "dwarf", "dragon", "troll", "bear"]:
+            _println("Don't be ridiculous!")
+            return
+        if noun != "" and noun != "food":
+            _println("I think I just lost my appetite.")
+            return
 
     # Canon FEED variants (advent.for STMT 9210/9212/9213). The
     # FSM's _verb_feed only knows about the bear; canon has a

@@ -379,9 +379,9 @@ Comprehensive map is impractical to inline here — strategic table:
 | 60/61 | "Eh?" / "I beg your pardon?" | 🔴 — random alternates not implemented |
 | 62/63 | Cave hint Q/A | ✓ |
 | 70 | "Your feet are wet" | 🔴 |
-| 71 | "Don't have appetite" | 🔴 |
+| 71 | "I just lost my appetite" | ✓ — driver `eat` intercept: NPC nouns → "Don't be ridiculous!" rebuff; any other non-food noun → canon msg #71 verbatim. Test: `test_cca_verb_defaults.gd` Phases 2–3. |
 | 72 | Food consumed | ✓ |
-| 76 | "Rubbing isn't productive" | 🔴 |
+| 76 | "Peculiar. Nothing unexpected happens." | ✓ — RUB handler now branches on noun: LAMP → msg #75 ("Rubbing the electric lamp..."); else → msg #76 verbatim. Test: `test_cca_verb_defaults.gd` Phases 4–5. |
 | 81-90 | Death taunt + resurrection pairs | 🟡 — port has resurrection but messages don't match canon pairs |
 | 91 | "I don't remember how you got here" | ✓ — BACK fallback in `_verb_back`: when `_old_loc` is unset (or no path from current room to it) emits "Sorry, but I no longer seem to remember how it was you got here." Test: `test_cca_cave_y2_back.gd` Phase 3. |
 | 93 | "Can't go through locked grate" | ✓ |
@@ -411,7 +411,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 133/134/135 | Endgame BLAST outcomes | 🔴 |
 | 136 | "Disturbed dwarves" | 🔴 |
 | 137 | "OK" attack-bird | 🔴 (port doesn't differentiate) |
-| 138 | "Unsuspectingly close" | 🔴 (FIND) |
+| 138 | "I daresay whatever you want is around here somewhere" | ✓ — emitted by FIND handler when `endgame_state() == "in_repository"`. See msg #59 row for the full FIND priority ladder. |
 | 140 | "You can't get there from here" | 🟡 — port emits "no longer seem to remember" (msg #91) when BACK has no path. Canon msg #140 is the no-exit fallback used by general motion attempts. The driver's general no-exit emits "There is no way to go in that direction." which is canon-flavor-equivalent. |
 | 141 | "Followed by tame bear" | ✓ |
 | 142 | INFO text | 🟡 — port has INFO but text differs |
@@ -424,7 +424,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 152 | "Axe glances" (dragon) | ✓ |
 | 153 | Dragon block | ✓ |
 | 154 | Bird vs dragon (death) | 🔴 |
-| 156 | BRIEF acknowledgement | 🔴 |
+| 156 | BRIEF acknowledgement | ✓ — `brief` handler emits canon msg #156 verbatim ("Okay, from now on I'll only describe a place in full the first time you come to it. To get the full description, say LOOK.") and toggles `_brief_mode`. Test: `test_cca_minor_verbs.gd`. |
 | 157 | Troll laughs | ✓ |
 | 158 | Troll catches axe | 🔴 — port doesn't fire on throw axe at troll |
 | 159 | Treasure to troll | ✓ |
@@ -450,7 +450,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 196 | Read tablet | 🔴 |
 | 197 | Mirror break (endgame) | 🔴 |
 | 198 | Vase shatter narration | ✓ |
-| 199 | Wake the dwarves | 🔴 |
+| 199 | Wake the dwarves | ✓ — endgame `wake` handler: in $InRepository, emits "You prod the nearest dwarf, who wakes up grumpily..." (canon msg #199) followed by msg #136 ("ruckus has awakened the dwarves") then `player.die()`. Pre-closed: msg #13 default. Test: `test_cca_endgame_blast.gd`. |
 | 200/201 | SUSPEND prompt | 🟡 |
 
 ---
@@ -522,12 +522,12 @@ section-6 message used when the verb has no other applicable handling.
 | WALK (11) | 8 (hollow voice) | 🟡 |
 | KILL (12) | 44 ("nothing here to attack") | ✓ |
 | POUR (13) | 78 ("you can't pour that") | ✓ |
-| EAT (14) | 71 ("don't have appetite") | 🔴 |
+| EAT (14) | 71 ("just lost my appetite") | ✓ — see msg #71 row above. |
 | DRINK (15) | 110 | 🟡 |
-| RUB (16) | 76 ("not productive") | 🔴 |
+| RUB (16) | 76 ("Peculiar.") | ✓ — see msg #76 row above. |
 | TOSS (17) | 29 | ✓ |
 | QUIT (18) | 22 (confirm) | ✓ |
-| FIND (19) | 59 ("I'd recommend looking") | 🔴 |
+| FIND (19) | 59 ("I can only tell you what you see") | ✓ — driver `find` handler: TOTING → msg #24, CLOSED → msg #138, otherwise → canon msg #59. Test: `test_cca_verb_defaults.gd` Phase 1 + `test_cca_minor_verbs.gd`. |
 | INVENTORY (20) | 98 (carrying nothing) | ✓ |
 | FEED (21) | 14 ("game, would you care") | 🟡 |
 | FILL (22) | 29 | ✓ |
