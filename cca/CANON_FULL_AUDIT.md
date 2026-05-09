@@ -773,7 +773,7 @@ may differ.
 
 CLOSED + BREAK MIRROR → msg #197, GOTO 19000 (dwarves wake → death).
 
-**Status: 🔴**
+**Status: ✓** — driver BREAK MIRROR intercept gated on `endgame_state() == "in_repository"` emits canon msg #197 ("You strike the mirror a resounding blow, whereupon it shatters into a myriad tiny fragments.") followed by msg #136 (disturbed-dwarves death narration) and `player.die()`. Pre-CLOSED returns the action default ("It is beyond your power to do that."). Test: `test_cca_endgame_blast.gd`.
 
 ---
 
@@ -930,25 +930,33 @@ mechanism.
 | Dark hazard | 4 | 3 | 1 | 0 | 0 |
 | Forced motion | 10 | 10 | 0 | 0 | 0 |
 
-**Grand totals (approximate, hand-tallied above):**
-- ✓ implemented: ~250
-- 🟡 partial: ~60
-- 🔴 missing: ~75
-- ⚪ scope-deferred (with sign-off pending): **0** — all PDP-10-specific verbs landed 2026-05-08 as canon-flavored easter eggs (HOURS, WIZARD, MAINT/MAGIC/"MAGIC MODE", SUSPEND/PAUSE)
+**Grand totals (live count from rg-symbol-count, updated as the
+audit changes):**
+- ✓ implemented: ~480
+- 🟡 partial: ~75
+- 🔴 missing: 0 implementable items remaining (4 unicode marks left
+  in this file are all meta — legend, table header, summary text)
+- ⚪ scope-deferred: **0** — all PDP-10-specific verbs landed
+  2026-05-08 as canon-flavored easter eggs (HOURS, WIZARD,
+  MAINT/MAGIC/"MAGIC MODE", SUSPEND/PAUSE)
 
-Total tracked items: ~390.
+Total tracked items: ~555 distinct rows across 19 audit sections.
 
 ---
 
-## Glossary of partial / missing items requiring user attention
+## Glossary of partial items requiring user attention
 
 The 🟡 partial entries are the ones where current port behavior
 **looks** canon-correct but a careful read of `advent.for` reveals a
 subtle divergence. These are the highest-risk for shipping a
 "100% canon" claim that wouldn't survive a code review.
 
-The 🔴 missing items are concrete features to implement — the
-companion `CANON_FULL_PLAN.md` orders them by dependency.
+**No 🔴 items remain.** Every concrete canon mechanic surveyed in
+this audit has shipped, with focused tests covering the canonical
+behavior. The remaining 🟡 partials are mostly internal-state
+mirror details (specific msg-text variants, prop ladders that
+collapse to driver-side intercepts, score-component breakdowns)
+that don't change observable gameplay.
 
 All PDP-10-specific items (HOURS, WIZARD, MAINT/MAGIC/"MAGIC MODE",
 SUSPEND/PAUSE) landed 2026-05-08 as canon-flavored easter eggs that
