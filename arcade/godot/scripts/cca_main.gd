@@ -1593,6 +1593,11 @@ func _process_input(text: String) -> void:
         _process_input("release bird")
         return
 
+    # Canon ATTACK/KILL BIRD (advent.for STMT 9120) — msg #137.
+    if verb == "attack" and noun == "bird":
+        _println("Oh, leave the poor unhappy bird alone.")
+        return
+
     # Canon THROW AXE (advent.for STMT 9170). Pre-check the
     # dragon/troll/bear room cases so canon prose lands; then
     # fall through to fsm.do_command for the dwarf-attack

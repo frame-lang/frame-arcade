@@ -742,6 +742,13 @@ func _process_input(text: String) -> void:
         _process_input("release bird")
         return
 
+    # Canon ATTACK/KILL BIRD (advent.for STMT 9120) — msg #137:
+    # "Oh, leave the poor unhappy bird alone." Bypasses the FSM's
+    # default attack handling for the bird specifically.
+    if verb == "attack" and noun == "bird":
+        _println("Oh, leave the poor unhappy bird alone.")
+        return
+
     # Canon THROW AXE (advent.for STMT 9170). The port's
     # _verb_throw handles axe-at-dwarves and treasure-at-troll
     # but not the canon "axe glances off dragon / troll catches

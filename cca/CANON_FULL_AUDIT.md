@@ -410,7 +410,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 132 | Repository flash | ✓ |
 | 133/134/135 | Endgame BLAST outcomes | 🔴 |
 | 136 | "Disturbed dwarves" | 🔴 |
-| 137 | "OK" attack-bird | 🔴 (port doesn't differentiate) |
+| 137 | "Leave the poor unhappy bird alone" | ✓ — driver `attack` intercept for noun "bird" emits canon msg #137 verbatim. KILL/FIGHT synonyms route through "attack" so all three forms work. Test: `test_cca_attack_bird.gd`. |
 | 138 | "I daresay whatever you want is around here somewhere" | ✓ — emitted by FIND handler when `endgame_state() == "in_repository"`. See msg #59 row for the full FIND priority ladder. |
 | 140 | "You can't get there from here" | 🟡 — port emits "no longer seem to remember" (msg #91) when BACK has no path. Canon msg #140 is the no-exit fallback used by general motion attempts. The driver's general no-exit emits "There is no way to go in that direction." which is canon-flavor-equivalent. |
 | 141 | "Followed by tame bear" | ✓ |
@@ -423,10 +423,10 @@ Comprehensive map is impractical to inline here — strategic table:
 | 151 | "Start over" (FOO sequence) | ✓ |
 | 152 | "Axe glances" (dragon) | ✓ |
 | 153 | Dragon block | ✓ |
-| 154 | Bird vs dragon (death) | 🔴 |
+| 154 | Bird vs dragon (death) | ✓ — Bird FSM transitions $Released → $Dead at canon room 119 with the dragon alive, emitting "The little bird attacks the green dragon, and in an astounding flurry gets burnt to a cinder." DROP BIRD routes through RELEASE BIRD via the driver intercept. Test: `test_cca_npc_throws.gd` Phase 2. |
 | 156 | BRIEF acknowledgement | ✓ — `brief` handler emits canon msg #156 verbatim ("Okay, from now on I'll only describe a place in full the first time you come to it. To get the full description, say LOOK.") and toggles `_brief_mode`. Test: `test_cca_minor_verbs.gd`. |
 | 157 | Troll laughs | ✓ |
-| 158 | Troll catches axe | 🔴 — port doesn't fire on throw axe at troll |
+| 158 | Troll catches axe | ✓ — driver THROW AXE intercept at room 117 with `troll.is_blocking_bridge()` emits canon msg #158 verbatim ("The troll deftly catches the axe, examines it carefully, and tosses it back, declaring, 'Good workmanship, but it's not valuable enough.'"). Test: `test_cca_npc_throws.gd` Phase 4. |
 | 159 | Treasure to troll | ✓ |
 | 160 | Troll refuses crossing | ✓ |
 | 161 | "No longer any way across" | 🟡 |
@@ -439,7 +439,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 176/177 | Maze hint | ✓ |
 | 178/179 | Dark hint | ✓ |
 | 180/181 | Witt's End hint | ✓ |
-| 182 | Troll feed | 🔴 |
+| 182 | Troll feed | ✓ — driver FEED intercept for noun "troll" emits canon msg #182 verbatim ("Gluttony is not one of the troll's vices. Avarice, however, is."). Test: `test_cca_flavor_msgs.gd`. |
 | 183/187/188/189 | Lamp dim warnings | ✓ |
 | 184 | Lamp out | ✓ |
 | 185 | Wandered out, lamp dead → forced quit | ✓ — `_check_lamp_warnings` detects lamp `$Out` + LOC <= 8 (above-ground rooms 1–8) and emits msg #185 "I'm afraid we'll have to call it a day", followed by `get_tree().quit()` guarded by `is_inside_tree()` for headless-test compatibility. Test: `test_cca_lamp_quit_etc.gd` Phases 3–4 (verifies msg fires above-ground; verifies it does NOT fire below-ground). |
@@ -448,7 +448,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 191 | Read message | 🔴 |
 | 192/193/194 | Oyster hint chain | 🔴 |
 | 196 | Read tablet | 🔴 |
-| 197 | Mirror break (endgame) | 🔴 |
+| 197 | Mirror break (endgame) | ✓ — driver BREAK MIRROR intercept fires only in endgame `$InRepository` state, emitting canon msg #197 ("You strike the mirror a resounding blow, whereupon it shatters into a myriad tiny fragments.") followed by msg #136 (disturbed-dwarves death) and `player.die()`. Pre-CLOSED returns "It is beyond your power to do that." Test: `test_cca_endgame_blast.gd` Phase 8. |
 | 198 | Vase shatter narration | ✓ |
 | 199 | Wake the dwarves | ✓ — endgame `wake` handler: in $InRepository, emits "You prod the nearest dwarf, who wakes up grumpily..." (canon msg #199) followed by msg #136 ("ruckus has awakened the dwarves") then `player.die()`. Pre-closed: msg #13 default. Test: `test_cca_endgame_blast.gd`. |
 | 200/201 | SUSPEND prompt | 🟡 |
@@ -696,7 +696,7 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | PROP cycle: 0→1 (paid)→2 (vanished after bear) | yes | ✓ |
 | Throw treasure → troll vanishes, treasure lost | yes | ✓ |
 | Bear crosses bridge → chasm collapses (PROP CHASM=1) | yes | ✓ |
-| FEED troll → "no edible food" | yes | 🔴 |
+| FEED troll → "no edible food" | yes | ✓ — see msg #182 row in §6. |
 | Throw axe at troll → "deftly catches" msg #158 | yes | ✓ — driver "throw axe" intercept fires at room 117 with troll blocking. Test: `test_cca_npc_throws.gd` Phase 4. |
 
 ### 12.7 Bird
