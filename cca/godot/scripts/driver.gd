@@ -130,6 +130,9 @@ var verb_synonyms: Dictionary = {
     # Canon BACK / RETREAT — driver-handled retreat to OLDLOC.
     "back": "back", "retreat": "back",
     "look": "look",
+    # Canon CAVE (advent.for STMT 40) — purely informational verb:
+    # outdoors → msg #57, indoors → msg #58.
+    "cave": "cave",
 }
 
 # Direction keywords that map to room navigation. These get
@@ -619,6 +622,15 @@ func _process_input(text: String) -> void:
                 _process_input(noun)
                 return
             _println("Okay, \"%s\"." % noun)
+            return
+        "cave":
+            # Canon CAVE (advent.for STMT 40). Outdoors (canon rooms
+            # 1–8) → msg #57; indoors → msg #58. Pure flavor — no
+            # state change.
+            if fsm.player_room() <= 8:
+                _println("I don't know where the cave is, but hereabouts no stream can run on the surface for long. I would try the stream.")
+            else:
+                _println("I need more detailed instructions to do that.")
             return
         "look":
             # Canon LOOK (advent.for STMT 30). Print msg #15 up to

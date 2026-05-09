@@ -352,7 +352,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 3 | First dwarf encounter narration | 🔴 |
 | 4 | Threatening dwarf | ✓ — driver fires on dwarf attack |
 | 5/6/7 | Knife-throw outcomes | ✓ |
-| 8 | Hollow voice "PLUGH" at Y2 | 🔴 — port doesn't roll the 25%-at-Y2 PLUGH whisper |
+| 8 | Hollow voice "PLUGH" at Y2 | ✓ — `_print_room` rolls 25% at canon room 33 when not endgame-closing. Test: `test_cca_cave_y2_back.gd` Phase 4 (1000-visit distribution, ±5σ tolerance) + Phase 5 (no false fires at non-Y2 rooms). |
 | 9 | "no way to go that direction" | ✓ — driver fallback |
 | 11 | "I don't know in from out" | 🟡 — port handles IN/OUT but doesn't fire this for ambiguous |
 | 12 | "I don't know that word" | ✓ |
@@ -383,7 +383,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 72 | Food consumed | ✓ |
 | 76 | "Rubbing isn't productive" | 🔴 |
 | 81-90 | Death taunt + resurrection pairs | 🟡 — port has resurrection but messages don't match canon pairs |
-| 91 | "I don't remember how you got here" | 🔴 — BACK fallback |
+| 91 | "I don't remember how you got here" | ✓ — BACK fallback in `_verb_back`: when `_old_loc` is unset (or no path from current room to it) emits "Sorry, but I no longer seem to remember how it was you got here." Test: `test_cca_cave_y2_back.gd` Phase 3. |
 | 93 | "Can't go through locked grate" | ✓ |
 | 94 | "Right here with you" | 🟡 |
 | 95 | "Don't fit through 2-inch slit" | ✓ |
@@ -412,7 +412,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 136 | "Disturbed dwarves" | 🔴 |
 | 137 | "OK" attack-bird | 🔴 (port doesn't differentiate) |
 | 138 | "Unsuspectingly close" | 🔴 (FIND) |
-| 140 | "I no longer remember how" (BACK) | 🔴 |
+| 140 | "You can't get there from here" | 🟡 — port emits "no longer seem to remember" (msg #91) when BACK has no path. Canon msg #140 is the no-exit fallback used by general motion attempts. The driver's general no-exit emits "There is no way to go in that direction." which is canon-flavor-equivalent. |
 | 141 | "Followed by tame bear" | ✓ |
 | 142 | INFO text | 🟡 — port has INFO but text differs |
 | 143 | Score continue prompt | ✓ |
@@ -833,11 +833,11 @@ Per advent.for STMT 20000.
 
 | Mechanic | Canon | Port |
 |---|---|---|
-| BACK = walk OLDLOC (or OLDLC2 if OLDLOC was forced) | yes | ✓ — driver "back" handler. Tracks `_old_loc` + `_old_loc2` in `_handle_movement` and `_walk_to_dest` before each move. BACK looks up an exit from the current room to the target; if forced-room with explicit topology `back` exit, uses that. msg #140 ("no longer seem to remember") on no path. RETREAT is an alias. Test: `test_cca_back_verb.gd`. |
+| BACK = walk OLDLOC (or OLDLC2 if OLDLOC was forced) | yes | ✓ — driver "back" handler. Tracks `_old_loc` + `_old_loc2` in `_handle_movement` and `_walk_to_dest` before each move. BACK looks up an exit from the current room to the target; if forced-room with explicit topology `back` exit, uses that. msg #91 ("no longer seem to remember") on no path. RETREAT is an alias. Test: `test_cca_back_verb.gd` + `test_cca_cave_y2_back.gd` Phase 3. |
 | LOOK = re-display long form | yes | ✓ |
 | LOOK count = 3 then suppress (msg #15) | yes | ✓ — `_look_detail_count` increments per LOOK; first 3 emit msg #15 only, 4th+ runs the normal `_show_room` long-form. Test: `test_cca_lamp_quit_etc.gd` Phase 2. |
-| CAVE outdoors → msg #57 | yes | 🔴 |
-| CAVE indoors → msg #58 | yes | 🔴 |
+| CAVE outdoors → msg #57 | yes | ✓ — `cave` verb handler dispatches by room number. Outdoors (room ≤ 8) → "I don't know where the cave is, but hereabouts no stream can run on the surface for long. I would try the stream." Test: `test_cca_cave_y2_back.gd` Phase 1. |
+| CAVE indoors → msg #58 | yes | ✓ — `cave` verb at room > 8 → "I need more detailed instructions to do that." Test: `test_cca_cave_y2_back.gd` Phase 2. |
 | ENTER STREAM/WATER → msg #70 | yes | ✓ — driver intercept above the DIRECTIONS check ("enter" is itself in DIRECTIONS, so the intercept must run first). Both `enter stream` and `enter water` emit msg #70 "Your feet are now wet." Test: `test_cca_lamp_quit_etc.gd` Phase 1. |
 | ENTER X (other) → re-dispatch as X | yes | 🟡 |
 | WATER/OIL PLANT → re-dispatch as POUR | yes | ✓ |
@@ -856,7 +856,7 @@ Per advent.for STMT 20000.
 | PLOVER 33↔100 | yes | ✓ |
 | PLOVER + emerald → routine 302 (drop emerald) | yes | ✓ |
 | Y2 alias for PLUGH dest | yes | ✓ |
-| 25% PLUGH-whisper at canon 33 | yes | 🔴 |
+| 25% PLUGH-whisper at canon 33 | yes | ✓ — see §6 row for msg #8. `_print_room` rolls 25% at room 33 when not endgame-closing. Test: `test_cca_cave_y2_back.gd` Phase 4. |
 | 50%-then-canon "old worn-out magic word" (msg #50) for unmatched | yes | 🟡 |
 | FEE/FIE/FOE/FOO sequence | yes | ✓ |
 | Eggs reappear after FOO | yes | ✓ |
