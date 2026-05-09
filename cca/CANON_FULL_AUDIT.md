@@ -269,13 +269,13 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 | 20 | INVENTORY | (driver-handled) | ✓ |
 | 21 | FEED | `_verb_feed` | ✓ |
 | 22 | FILL | `_verb_fill` | ✓ |
-| 23 | BLAST | 🔴 — endgame BLAST verb not implemented |
+| 23 | BLAST | ✓ — driver `_process_input` "blast" handler dispatches to `Adventure.blast_mastery/wrong_way/klutz` based on canon conditions (closed-state, LOC=115, mark_rod_here). Pre-CLOSED → msg #67. Three CLOSED outcomes award canon bonus +45/+30/+25 and transition Endgame to $Won. Test: `test_cca_endgame_blast.gd` Phases 1-4. |
 | 24 | SCORE | (driver-handled) | ✓ |
 | 25 | FEE/FIE/FOE/FOO | `_verb_chant` | ✓ |
 | 26 | BRIEF | 🔴 — no port BRIEF (would gate description verbosity) |
 | 27 | READ | `_verb_read` | 🟡 — handles MAGAZINE, missing TABLET/MESSAGE/OYSTER-clue |
-| 28 | BREAK | `_verb_break` | 🟡 — handles VASE+CLAM, missing endgame MIRROR break |
-| 29 | WAKE | 🔴 — endgame "wake the dwarves" not implemented |
+| 28 | BREAK | `_verb_break` (FSM) + driver "break mirror" | ✓ — VASE/CLAM via FSM; MIRROR intercepted in driver: pre-CLOSED returns canon msg #146, in-repository emits canon msg #197 + #136 dwarf-wake death. Test: `test_cca_endgame_blast.gd` Phases 7-8. |
+| 29 | WAKE | ✓ — driver "wake" handler. Pre-CLOSED: "I don't understand". In-repository: emits canon msg #199 + #136, fires `player.die()`. Test: `test_cca_endgame_blast.gd` Phases 5-6. |
 | 30 | SUSPEND | `driver._process_input` "suspend" handler | ✓ — prints canon LATNCY warning ("I can suspend your adventure for you so that you can resume later, but you will have to wait at least 45 minutes before continuing.") followed by "... or not." wink, then saves instantly. PAUSE alias routes here too; plain SAVE stays silent for modern UX. **User signed off 2026-05-08.** Test: `test_cca_pdp10_easter_eggs.gd` |
 | 31 | HOURS | `driver._process_input` "hours" handler | ✓ — emits canon-faithful "open all day, every day" banner with PDP-10 provenance footnote. **User signed off 2026-05-08.** Sister verbs WIZARD + MAINT/MAGIC/"MAGIC MODE" landed alongside, narrating canon section-12 msg #1/#16/#17/#18/#20 dialogues. Test: `test_cca_pdp10_easter_eggs.gd` |
 
@@ -764,10 +764,10 @@ may differ.
 | Mechanic | Canon | Port |
 |---|---|---|
 | ROD2 has dynamite prop only after closing | yes | 🔴 |
-| BLAST nothing → msg #54 | yes | 🔴 |
-| BLAST at LOC=115 → BONUS=134, +30 | yes | 🔴 |
-| BLAST with rod2 here → BONUS=135, +25 | yes | 🔴 |
-| BLAST elsewhere with rod2 → BONUS=133, +45 | yes | 🔴 |
+| BLAST nothing → msg #67 ("BLASTING REQUIRES DYNAMITE.") | yes | ✓ — driver "blast" handler, pre-CLOSED branch |
+| BLAST at LOC=115 → BONUS=134, +30 | yes | ✓ — `Adventure.blast_wrong_way()` |
+| BLAST with rod2 here → BONUS=135, +25 | yes | ✓ — `Adventure.blast_klutz()` |
+| BLAST elsewhere with rod2 → BONUS=133, +45 | yes | ✓ — `Adventure.blast_mastery()` |
 
 ### 14.5 Mirror break (penalty)
 
@@ -792,9 +792,9 @@ Per advent.for STMT 20000.
 | Got into cave (DFLAG≠0): +25 | yes | 🟡 |
 | Reached endgame (CLOSNG): +25 | yes | ✓ |
 | At repository (CLOSED): +10 mundane | yes | 🟡 |
-| BLAST 135: +25 | 🔴 |
-| BLAST 134: +30 | 🔴 |
-| BLAST 133: +45 | 🔴 |
+| BLAST 135: +25 | ✓ — `blast_klutz()` |
+| BLAST 134: +30 | ✓ — `blast_wrong_way()` |
+| BLAST 133: +45 | ✓ — `blast_mastery()` |
 | Magazine at Witt's End: +1 | yes | ✓ |
 | Round-off: +2 | yes | ✓ |
 | Hint penalty: -cost per accepted hint | yes | ✓ |

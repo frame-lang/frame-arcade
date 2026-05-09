@@ -1058,6 +1058,8 @@ var verb_synonyms: Dictionary = {
     # _process_input handlers for the full canon prose.
     "wizard": "wizard",
     "maint": "maint", "maintenance": "maint", "magic": "maint",
+    "blast": "blast", "detonate": "blast",
+    "wake": "wake",
 }
 
 # Direction keywords that map to room navigation. These get
@@ -1380,6 +1382,48 @@ func _process_input(text: String) -> void:
             _println("")
             _println("\"Foo, you are nothing but a charlatan!\"")
             return
+        "blast":
+            # Canon BLAST (advent.for STMT 9230). Three outcomes
+            # gated on (CLOSED, LOC, HERE(ROD2)). See cca/godot
+            # mirror for the full inline canon-spec docs.
+            if fsm.endgame_state() != "in_repository":
+                _println("Blasting requires dynamite.")
+                return
+            if fsm.mark_rod_here():
+                _println("There is a loud explosion, and you are suddenly splashed across the")
+                _println("walls of the room.")
+                fsm.blast_klutz()
+                _check_endgame_phase_change()
+                return
+            if fsm.player_room() == 115:
+                _println("There is a loud explosion, and a twenty-foot hole appears in the far")
+                _println("wall, burying the snakes in the rubble. A river of molten lava pours")
+                _println("in through the hole, destroying everything in its path, including you!")
+                fsm.blast_wrong_way()
+                _check_endgame_phase_change()
+                return
+            _println("There is a loud explosion, and a twenty-foot hole appears in the far")
+            _println("wall, burying the dwarves in the rubble. You march through the hole")
+            _println("and find yourself in the main office, where a cheering band of")
+            _println("friendly elves carry the conquering adventurer off into the sunset.")
+            fsm.blast_mastery()
+            _check_endgame_phase_change()
+            return
+        "wake":
+            # Canon WAKE (advent.for STMT 9290). Endgame-only
+            # death (msg #199 + msg #136).
+            if fsm.endgame_state() != "in_repository":
+                _println("I don't understand that.")
+                return
+            _println("You prod the nearest dwarf, who wakes up grumpily, takes one look at")
+            _println("you, curses, and grabs for his axe.")
+            _println("")
+            _println("The resulting ruckus has awakened the dwarves. There are now several")
+            _println("threatening little dwarves in the room with you! Most of them throw")
+            _println("knives at you! All of them get you!")
+            fsm.player.die()
+            _check_player_death()
+            return
 
     # Canon "always-blocked" bumper gates and conditional rows.
     # The (room, verb) key may map to either a single rule
@@ -1406,6 +1450,23 @@ func _process_input(text: String) -> void:
     # Direction verbs become MOVE with a resolved room ID.
     if verb in DIRECTIONS:
         _handle_movement(verb)
+        return
+
+    # Canon BREAK MIRROR (advent.for STMT 9280) — closed-only
+    # death (msg #197 + msg #136). Pre-CLOSED returns the action
+    # default msg #146.
+    if verb == "break" and noun == "mirror":
+        if fsm.endgame_state() == "in_repository":
+            _println("You strike the mirror a resounding blow, whereupon it shatters into a")
+            _println("myriad tiny fragments.")
+            _println("")
+            _println("The resulting ruckus has awakened the dwarves. There are now several")
+            _println("threatening little dwarves in the room with you! Most of them throw")
+            _println("knives at you! All of them get you!")
+            fsm.player.die()
+            _check_player_death()
+            return
+        _println("It is beyond your power to do that.")
         return
 
     # All other verbs: pass to the FSM. Adventure's bus

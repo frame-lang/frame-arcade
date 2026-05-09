@@ -2614,6 +2614,20 @@
         # Endgame
         deposit_treasure()
         detonate_marker()
+        # Canon BLAST verb (advent.for STMT 9230) has three
+        # outcomes when fired in the repository ($InRepository
+        # state in the port), each awarding a different bonus:
+        #   blast_mastery    — rod2 NOT here AND not at canon 115
+        #                       canon msg #133, score +45.
+        #   blast_wrong_way  — rod2 NOT here, but player at 115
+        #                       canon msg #134, score +30.
+        #   blast_klutz      — rod2 here (player blew themselves up)
+        #                       canon msg #135, score +25.
+        # All three transition Endgame to $Won. Pre-CLOSED BLAST
+        # is a no-op handled at the driver layer (msg #54).
+        blast_mastery()
+        blast_wrong_way()
+        blast_klutz()
         endgame_state(): String
         endgame_closing(): bool
         endgame_won(): bool
@@ -2644,6 +2658,13 @@
         # CrystalBridge / rod (the fissure puzzle)
         bridge_built(): bool
         rod_in_inventory(): bool
+        # Canon `HERE(ROD2)` query — the marked decoy rod is at
+        # the player's location either because they carry it or
+        # because it's been placed in their current room. Used
+        # by the BLAST verb's outcome selection (klutz vs.
+        # mastery vs. wrong-way), where rod2-here means "the
+        # dynamite is in the room with you."
+        mark_rod_here(): bool
         grate_locked(): bool
         rusty_door_oiled(): bool
         keys_in_inventory(): bool
@@ -2921,6 +2942,29 @@
                     self.real_score = self.real_score + 50
                 self.endgame.detonate()
             }
+            # Canon BLAST outcomes (see interface comment above).
+            # Each adds the canon score bonus and detonates the
+            # endgame. Guarded on $InRepository so only post-
+            # closing fires bonus + transition; pre-closing the
+            # methods are harmless no-ops.
+            blast_mastery() {
+                if self.endgame.in_repository() and not self.endgame.is_won():
+                    self.score_endgame = self.score_endgame + 45
+                    self.real_score = self.real_score + 45
+                    self.endgame.detonate()
+            }
+            blast_wrong_way() {
+                if self.endgame.in_repository() and not self.endgame.is_won():
+                    self.score_endgame = self.score_endgame + 30
+                    self.real_score = self.real_score + 30
+                    self.endgame.detonate()
+            }
+            blast_klutz() {
+                if self.endgame.in_repository() and not self.endgame.is_won():
+                    self.score_endgame = self.score_endgame + 25
+                    self.real_score = self.real_score + 25
+                    self.endgame.detonate()
+            }
             endgame_state(): String   { @@:(self.endgame.get_state()) }
             endgame_closing(): bool   { @@:(self.endgame.is_closing()) }
             endgame_won(): bool       { @@:(self.endgame.is_won()) }
@@ -3077,6 +3121,7 @@
 
             bridge_built(): bool       { @@:(self.crystal_bridge.is_built()) }
             rod_in_inventory(): bool   { @@:(self.rod_item.is_carried()) }
+            mark_rod_here(): bool      { @@:(self.mark_rod_item.is_carried() or self.mark_rod_item.is_in_room(self.player.get_room())) }
             grate_locked(): bool       { @@:(self.grate.is_locked()) }
             rusty_door_oiled(): bool   { @@:(not self.rusty_door.is_rusty()) }
             keys_in_inventory(): bool  { @@:(self.keys_item.is_carried()) }
