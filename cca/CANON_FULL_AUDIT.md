@@ -429,7 +429,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 158 | Troll catches axe | ✓ — driver THROW AXE intercept at room 117 with `troll.is_blocking_bridge()` emits canon msg #158 verbatim ("The troll deftly catches the axe, examines it carefully, and tosses it back, declaring, 'Good workmanship, but it's not valuable enough.'"). Test: `test_cca_npc_throws.gd` Phase 4. |
 | 159 | Treasure to troll | ✓ |
 | 160 | Troll refuses crossing | ✓ |
-| 161 | "No longer any way across" | 🟡 |
+| 161 | "No longer any way across" | ✓ — `117:over` and `122:jump` chasm_collapsed gate chains in GATES emit msg #161 verbatim once the troll-bridge sequence completes (chasm prop != 0). Test: `test_cca_bridge.gd`. |
 | 162 | Bear-falls-bridge death | ✓ |
 | 163 | "Troll runs from bear" | ✓ |
 | 164 | "Throw axe at bear" | ✓ — driver "throw axe" intercept emits canon prose at room 130 with bear hungry. Test: `test_cca_npc_throws.gd` Phase 5. |
@@ -443,7 +443,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 183/187/188/189 | Lamp dim warnings | ✓ |
 | 184 | Lamp out | ✓ |
 | 185 | Wandered out, lamp dead → forced quit | ✓ — `_check_lamp_warnings` detects lamp `$Out` + LOC <= 8 (above-ground rooms 1–8) and emits msg #185 "I'm afraid we'll have to call it a day", followed by `get_tree().quit()` guarded by `is_inside_tree()` for headless-test compatibility. Test: `test_cca_lamp_quit_etc.gd` Phases 3–4 (verifies msg fires above-ground; verifies it does NOT fire below-ground). |
-| 186 | "Faint rustling" (pirate hint) | 🟡 |
+| 186 | "Shiver me timbers!" (chest-only-outstanding pirate cutscene) | ✓ — see §17 row "TALLY==TALLY2+1 chest hint". Driver `_check_chest_hint` fires once when 14 of 15 treasures are deposited and chest is still missing. (Audit had this mis-labelled as "faint rustling" — that's msg #127.) Test: `test_cca_chest_hint.gd`. |
 | 190 | Read magazine | ✓ |
 | 191 | "This is not the maze where the pirate leaves his treasure chest" | ✓ — see §5 MESSAGE row. Driver READ/EXAMINE MESSAGE intercept @ canon 140. |
 | 192/193/194 | Oyster hint chain | ✓ — driver READ/EXAMINE OYSTER on the in-place oyster (post-clam-break) drives a Y/N prompt: msg #192 ("Hmmm, this looks like a clue, ... cost you 10 points...") then YES → msg #193 reveal + 10-pt deduction (both `score_hints` and `real_score`); NO cancels with no penalty; re-read after reveal → msg #194 ("same thing it did before"). Test: `test_cca_oyster_hint.gd` (18 assertions). |
