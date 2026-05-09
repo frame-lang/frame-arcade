@@ -358,7 +358,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 12 | "I don't know that word" | ✓ |
 | 13 | "I don't understand that" | ✓ |
 | 14 | "Would you care to explain how" | 🟡 |
-| 15 | "Sorry but I am not allowed" | 🔴 — LOOK detail counter not modeled |
+| 15 | "Sorry but I am not allowed" | ✓ — `_look_detail_count` fires msg #15 on the first 3 LOOKs (canon: turns 1–3); 4th LOOK onward emits the normal description. Test: `test_cca_lamp_quit_etc.gd` Phase 2. |
 | 16 | "It is now pitch dark" | ✓ — `_check_dark_pit_hazard` |
 | 17 | "If you prefer simply type W" | ✓ — `_iwest_count` tracks raw "WEST" tokens (not "w") and fires msg #17 once on the 10th. Test: `test_cca_minor_verbs.gd` Phase 5. |
 | 18 | "Are you trying to catch the bird?" | ✓ — Hint 5 |
@@ -442,7 +442,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 182 | Troll feed | 🔴 |
 | 183/187/188/189 | Lamp dim warnings | ✓ |
 | 184 | Lamp out | ✓ |
-| 185 | Wandered out, lamp dead → forced quit | 🔴 |
+| 185 | Wandered out, lamp dead → forced quit | ✓ — `_check_lamp_warnings` detects lamp `$Out` + LOC <= 8 (above-ground rooms 1–8) and emits msg #185 "I'm afraid we'll have to call it a day", followed by `get_tree().quit()` guarded by `is_inside_tree()` for headless-test compatibility. Test: `test_cca_lamp_quit_etc.gd` Phases 3–4 (verifies msg fires above-ground; verifies it does NOT fire below-ground). |
 | 186 | "Faint rustling" (pirate hint) | 🟡 |
 | 190 | Read magazine | ✓ |
 | 191 | Read message | 🔴 |
@@ -720,7 +720,7 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | Decrement per turn while ON | yes | ✓ |
 | LIMIT<=30: dim warning (msg #187/183/189) | yes | ✓ (some variants) |
 | LIMIT==0: lamp out (msg #184) | yes | ✓ |
-| LIMIT<0 AND outside cave: forced quit | yes | 🔴 |
+| LIMIT<0 AND outside cave: forced quit | yes | ✓ — see §10 row for msg #185. `_check_lamp_warnings` fires the canon-185 prose plus `get_tree().quit()` when lamp is `$Out` and player room ≤ 8. Test: `test_cca_lamp_quit_etc.gd`. |
 | BATTER auto-replace if lamp+battery+limit<=30 | yes | ✓ |
 | HOLDNG cap = 7 | yes | ✓ — `BackpackLimit` aspect |
 
@@ -835,10 +835,10 @@ Per advent.for STMT 20000.
 |---|---|---|
 | BACK = walk OLDLOC (or OLDLC2 if OLDLOC was forced) | yes | ✓ — driver "back" handler. Tracks `_old_loc` + `_old_loc2` in `_handle_movement` and `_walk_to_dest` before each move. BACK looks up an exit from the current room to the target; if forced-room with explicit topology `back` exit, uses that. msg #140 ("no longer seem to remember") on no path. RETREAT is an alias. Test: `test_cca_back_verb.gd`. |
 | LOOK = re-display long form | yes | ✓ |
-| LOOK count = 3 then suppress (msg #15) | yes | 🔴 |
+| LOOK count = 3 then suppress (msg #15) | yes | ✓ — `_look_detail_count` increments per LOOK; first 3 emit msg #15 only, 4th+ runs the normal `_show_room` long-form. Test: `test_cca_lamp_quit_etc.gd` Phase 2. |
 | CAVE outdoors → msg #57 | yes | 🔴 |
 | CAVE indoors → msg #58 | yes | 🔴 |
-| ENTER STREAM/WATER → msg #70 | yes | 🔴 |
+| ENTER STREAM/WATER → msg #70 | yes | ✓ — driver intercept above the DIRECTIONS check ("enter" is itself in DIRECTIONS, so the intercept must run first). Both `enter stream` and `enter water` emit msg #70 "Your feet are now wet." Test: `test_cca_lamp_quit_etc.gd` Phase 1. |
 | ENTER X (other) → re-dispatch as X | yes | 🟡 |
 | WATER/OIL PLANT → re-dispatch as POUR | yes | ✓ |
 | WEST counter (msg #17 every 10) | yes | ✓ — see §6 row for msg #17 |

@@ -1065,6 +1065,7 @@ var verb_synonyms: Dictionary = {
     "rub": "rub",
     "say": "say",
     "back": "back", "retreat": "back",
+    "look": "look",
 }
 
 # Direction keywords that map to room navigation. These get
@@ -1128,6 +1129,9 @@ var _visited_rooms: Dictionary = {}
 # Canon IWEST counter (advent.for line 901) — 10th typed
 # "WEST" fires msg #17 once.
 var _iwest_count: int = 0
+
+# Canon LOOK detail counter (advent.for STMT 30).
+var _look_detail_count: int = 0
 
 # Canon BACK history (advent.for STMT 20-25). See cca/godot
 # mirror for full inline doc on the OLDLOC/OLDLC2 mechanic.
@@ -1481,6 +1485,16 @@ func _process_input(text: String) -> void:
                 return
             _println("Okay, \"%s\"." % noun)
             return
+        "look":
+            # Canon LOOK (advent.for STMT 30) — msg #15 first 3
+            # times, then silent re-display.
+            if _look_detail_count < 3:
+                _println("Sorry, but I am not allowed to give more detail. I will repeat the long description of your location.")
+                _look_detail_count = _look_detail_count + 1
+            _last_room = -1
+            _visited_rooms.erase(fsm.player_room())
+            _print_room()
+            return
         "back":
             # Canon BACK (advent.for STMT 20-25). See cca/godot
             # mirror for full inline doc.
@@ -1525,6 +1539,14 @@ func _process_input(text: String) -> void:
     # the room emits the canon warning; subsequent attempts roll
     # the 35% pit-fall. Lighting the lamp clears the hazard.
     if verb in MOTION_VERBS and _check_dark_pit_hazard():
+        return
+
+    # Canon ENTER STREAM / ENTER WATER (canon msg #70). Must run
+    # before the DIRECTIONS check below — "enter" is in DIRECTIONS,
+    # so it would otherwise route to _handle_movement and never
+    # reach the canon intercept.
+    if verb == "enter" and (noun == "stream" or noun == "water"):
+        _println("Your feet are now wet.")
         return
 
     # Direction verbs become MOVE with a resolved room ID.
@@ -1913,6 +1935,12 @@ func _check_lamp_warnings() -> void:
     var msg: String = fsm.get_lamp_message()
     if msg != "":
         _println("[color=#ddaa66]%s[/color]" % msg)
+    # Canon msg #185 forced quit — lamp out + above-ground.
+    if fsm.lamp.get_state() == "out" and fsm.player_room() <= 8:
+        _println("[color=#cc7777][b]There's not much point in wandering around out here, and you can't explore the cave without a lamp. So let's just call it a day.[/b][/color]")
+        if is_inside_tree():
+            await get_tree().create_timer(2.0).timeout
+            get_tree().quit()
 
 func _check_dwarf_axe() -> void:
     if fsm.dwarf_threw_axe():

@@ -129,6 +129,7 @@ var verb_synonyms: Dictionary = {
     "say": "say",
     # Canon BACK / RETREAT — driver-handled retreat to OLDLOC.
     "back": "back", "retreat": "back",
+    "look": "look",
 }
 
 # Direction keywords that map to room navigation. These get
@@ -198,6 +199,12 @@ var _visited_rooms: Dictionary = {}
 # types "WEST" instead of "W" ten times, msg #17 fires once
 # ("If you prefer, simply type W rather than WEST.").
 var _iwest_count: int = 0
+
+# Canon LOOK detail counter (advent.for STMT 30, var DETAIL).
+# Canon prints msg #15 ("Sorry, but I am not allowed to give
+# more detail.") on each of the first 3 LOOKs; subsequent
+# LOOKs silently re-display the long-form room description.
+var _look_detail_count: int = 0
 
 # Canon BACK history (advent.for STMT 20-25, vars OLDLOC and
 # OLDLC2). On a successful move, _old_loc2 ← _old_loc, then
@@ -613,6 +620,18 @@ func _process_input(text: String) -> void:
                 return
             _println("Okay, \"%s\"." % noun)
             return
+        "look":
+            # Canon LOOK (advent.for STMT 30). Print msg #15 up to
+            # 3 times to discourage spam; subsequent LOOKs silently
+            # re-display the room. Reset _visited_rooms tracking
+            # for BRIEF so the next room print is long-form.
+            if _look_detail_count < 3:
+                _println("Sorry, but I am not allowed to give more detail. I will repeat the long description of your location.")
+                _look_detail_count = _look_detail_count + 1
+            _last_room = -1                    # force re-print
+            _visited_rooms.erase(fsm.player_room())
+            _print_room()
+            return
         "back":
             # Canon BACK (advent.for STMT 20-25). Find an exit
             # from the current room to OLDLOC; if OLDLOC is
@@ -666,6 +685,14 @@ func _process_input(text: String) -> void:
     # the 35% pit-fall. Lighting the lamp clears the hazard. Lit
     # rooms (1..8, 100) and lit-lamp turns short-circuit harmlessly.
     if verb in MOTION_VERBS and _check_dark_pit_hazard():
+        return
+
+    # Canon ENTER STREAM / ENTER WATER (advent.for line 894-895).
+    # Special-case BEFORE the DIRECTIONS check so canon msg #70
+    # ("feet are now wet") fires instead of treating ENTER as a
+    # generic direction verb.
+    if verb == "enter" and (noun == "stream" or noun == "water"):
+        _println("Your feet are now wet.")
         return
 
     # Direction verbs become MOVE with a resolved room ID.
@@ -1153,6 +1180,19 @@ func _check_lamp_warnings() -> void:
     var msg: String = fsm.get_lamp_message()
     if msg != "":
         _println("[color=#ddaa66]%s[/color]" % msg)
+    # Canon msg #185 (advent.for STMT 12600): if the lamp is
+    # out and the player has wandered above-ground (canon
+    # `LIMIT<0 AND LOC<=8`), force the game to end. Above-ground
+    # in canon = rooms 1..8; with no lamp, the player has no
+    # way back into the cave to find batteries, so canon
+    # mercy-quits with msg #185 + final score.
+    if fsm.lamp.get_state() == "out" and fsm.player_room() <= 8:
+        _println("[color=#cc7777][b]There's not much point in wandering around out here, and you can't explore the cave without a lamp. So let's just call it a day.[/b][/color]")
+        # Guard the scene-tree call for headless tests where
+        # the Driver node isn't actually in a tree.
+        if is_inside_tree():
+            await get_tree().create_timer(2.0).timeout
+            get_tree().quit()
 
 func _check_dwarf_axe() -> void:
     if fsm.dwarf_threw_axe():
