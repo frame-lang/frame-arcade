@@ -1680,6 +1680,14 @@ func _process_input(text: String) -> void:
             return
         # Fall through to FSM.
 
+    # Canon TAKE on fixed scenery (msg #25) — "You can't be serious!"
+    if verb == "take" and noun in [
+            "tablet", "mirror", "figure", "shadow", "stalactite",
+            "drawings", "drawing", "volcano", "geyser",
+            "carpet", "moss", "message"]:
+        _println("You can't be serious!")
+        return
+
     # Canon THROW AXE (advent.for STMT 9170). Pre-check the
     # dragon/troll/bear room cases so canon prose lands; then
     # fall through to fsm.do_command for the dwarf-attack

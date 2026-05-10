@@ -366,7 +366,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 20/21 | Snake question/hint | ✓ |
 | 22 | "Do you really want to quit?" | ✓ |
 | 23 | "Fell into pit, broke every bone" | ✓ |
-| 24/25 | "Already carrying"/"Can't be serious" | ✓/🟡 |
+| 24/25 | "Already carrying"/"You can't be serious!" | ✓/✓ — msg #24 fires from `_verb_take` in the "already carrying" branches. msg #25 fires from the FSM's TAKE OYSTER ("oyster weighs a ton") plus a driver-side TAKE intercept covering canonical fixed scenery: TABLET/MIRROR/FIGURE/SHADOW/STALACTITE/DRAWINGS/VOLCANO/GEYSER/CARPET/MOSS/MESSAGE all emit canon msg #25 verbatim. |
 | 26 | Bird scared by rod | ✓ |
 | 27 | Bird without cage | ✓ |
 | 30 | Bird drives snake away | ✓ |

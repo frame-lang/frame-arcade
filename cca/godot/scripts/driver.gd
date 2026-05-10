@@ -890,6 +890,20 @@ func _process_input(text: String) -> void:
             return
         # Fall through — FSM _verb_unlock handles the rest.
 
+    # Canon TAKE on fixed scenery (advent.dat msg #25) — these
+    # canon objects are scenery only and never carryable. Fires
+    # "You can't be serious!" verbatim. Gated on the same noun
+    # set as the EXAMINE/READ scenery handlers (TABLET, MIRROR,
+    # FIGURE/SHADOW, STALACTITE, DRAWINGS, VOLCANO/GEYSER,
+    # CARPET/MOSS, PHONY PLANT). The MESSAGE in the second maze
+    # is also scenery.
+    if verb == "take" and noun in [
+            "tablet", "mirror", "figure", "shadow", "stalactite",
+            "drawings", "drawing", "volcano", "geyser",
+            "carpet", "moss", "message"]:
+        _println("You can't be serious!")
+        return
+
     # Canon THROW AXE (advent.for STMT 9170). The port's
     # _verb_throw handles axe-at-dwarves and treasure-at-troll
     # but not the canon "axe glances off dragon / troll catches
