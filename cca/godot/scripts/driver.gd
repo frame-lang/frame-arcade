@@ -469,286 +469,8 @@ func _process_input(text: String) -> void:
         _println("Please answer yes or no.")
         return
 
-    # UI-only verbs (driver-handled, never reach the FSM).
-    match verb:
-        "help":
-            _print_help()
-            return
-        "info":
-            _print_info()
-            return
-        "quit":
-            # Canon msg #22 verbatim — confirm before exit.
-            _quit_pending = true
-            _println("Do you really want to quit now?")
-            return
-        "score":
-            _println("[b]Score: %d[/b] — treasures %d (%d/15 deposited), visits %d, hints %d, endgame %d" % [
-                fsm.score(),
-                fsm.treasure_score(), fsm.treasures_deposited(),
-                fsm.visit_score(),
-                fsm.hint_penalty(),
-                fsm.endgame_score()])
-            return
-        "inventory":
-            _println(_format_inventory())
-            return
-        "save":
-            _save_game()
-            return
-        "load":
-            _load_game()
-            return
-        "suspend":
-            # Canon SUSPEND (advent.for STMT 8300, around line 1791).
-            # In 1977 this printed the "wait at least N minutes" warning
-            # (formatted from `LATNCY`, default 45), asked YES/NO via
-            # canon msg #200, and on yes called CIAO to write the
-            # core image and exit. The latency was an anti-save-scum
-            # measure on the multi-user PDP-10 — without it, players
-            # would SAVE before every dragon fight and reload on
-            # death.
-            #
-            # On a desktop port that whole assumption is gone: saves
-            # are owned by the player. We honor the verb with the
-            # canon prose and a wink, then save instantly. SAVE
-            # stays silent for modern UX.
-            _println("I can suspend your adventure for you so that you can resume later, but")
-            _println("you will have to wait at least 45 minutes before continuing.")
-            _println("")
-            _println("... or not.")
-            _save_game()
-            return
-        "hint":
-            var hint_name: String = noun if noun != "" else "bird"
-            _println(fsm.request_hint(hint_name))
-            return
-        "hours":
-            # Canon HOURS (advent.for line 8310 → SUBROUTINE HOURS at
-            # 2639). On the 1977 PDP-10 this printed the timesharing
-            # window during which the cave was open to non-wizards
-            # (`WKDAY`/`WKEND`/`HOLID` bitmasks of prime-time hours).
-            # In a single-user desktop port that whole machinery is
-            # vestigial — the cave is always available — so we honor
-            # the verb with the canonical translation: a brief banner
-            # that says exactly that and points at the canon
-            # provenance for anyone curious about the history.
-            _println("Colossal Cave is open all day, every day.")
-            _println("(In the original 1977 PDP-10 release this verb")
-            _println("printed the timesharing schedule during which")
-            _println("non-wizards could play. On a desktop port the")
-            _println("cave has no off-hours.)")
-            return
-        "wizard":
-            # Canon WIZARD (advent.for SUBROUTINE WIZARD at line 2578).
-            # In 1977 this was a real authentication dialogue: msg #16
-            # "ARE YOU A WIZARD?" → msg #17 "PROVE IT! SAY THE MAGIC
-            # WORD!" → a hashed challenge from DATIME → either msg #19
-            # "OH DEAR, YOU REALLY *ARE* A WIZARD!" or msg #20 "FOO,
-            # YOU ARE NOTHING BUT A CHARLATAN!". Wizards could then
-            # bypass prime-time gating, edit cave hours, and resume
-            # saved games early.
-            #
-            # The challenge response is computed from the system clock
-            # plus a hashed magic-number known only to whoever set up
-            # the timesharing instance — there is no fixed answer to
-            # type. We narrate the canon dialogue verbatim in a single
-            # turn (no Y/N prompt), end on canon msg #20. Players who
-            # remember Don Woods's original dare will recognise it.
-            _println("\"Are you a wizard?\"")
-            _println("\"Prove it!  Say the magic word!\"")
-            _println("\"That is not what I thought it was.  Do you know what I thought it was?\"")
-            _println("\"Foo, you are nothing but a charlatan!\"")
-            return
-        "maint", "magic":
-            # Canon MAINT (advent.for SUBROUTINE MAINT at line 2521).
-            # Triggered in 1977 by typing "MAGIC MODE" as the very
-            # first command of a session: ran WIZARD authentication,
-            # then let the wizard edit cave hours, the magic word, the
-            # message of the day, the demo length, and the suspend
-            # latency. Wrote a new core image on exit so the next
-            # session would pick up the changes.
-            #
-            # On a desktop port the cave needs no maintenance — there
-            # are no hours to edit, no demo cap to set, no MOTD to
-            # post. We honor the verb with a wink: canon msg #1 (the
-            # tall wizard in grey), gently rewritten to fit the
-            # situation, followed by canon msg #20 for completeness.
-            _println("A large cloud of green smoke appears in front of you. It clears")
-            _println("away to reveal a tall wizard, clothed in grey. He fixes you with")
-            _println("a steely glare and declares, \"Maintenance mode requires a real")
-            _println("PDP-10 and a sysadmin who knew Don Woods. This is neither.\"")
-            _println("With that he makes a single pass over you with his hands, and")
-            _println("you find yourself right back where you started.")
-            _println("")
-            _println("\"Foo, you are nothing but a charlatan!\"")
-            return
-        "blast":
-            # Canon BLAST (advent.for STMT 9230). Three outcomes
-            # gated on (CLOSED, LOC, HERE(ROD2)):
-            #   pre-CLOSED              → msg #67 ("BLASTING REQUIRES DYNAMITE.")
-            #   CLOSED, rod2 here       → blast_klutz, msg #135 (+25)
-            #   CLOSED, LOC=115, no rod → blast_wrong_way, msg #134 (+30)
-            #   CLOSED, otherwise       → blast_mastery, msg #133 (+45)
-            #
-            # Each in-repository case awards the canon score bonus
-            # via the matching Adventure FSM method, then transitions
-            # the Endgame FSM to $Won. The "klutz" and "wrong-way"
-            # narrations describe the player dying to the explosion;
-            # the "mastery" narration is the canonical victory text.
-            # All three end the game.
-            if fsm.endgame_state() != "in_repository":
-                _println("Blasting requires dynamite.")
-                return
-            if fsm.mark_rod_here():
-                _println("There is a loud explosion, and you are suddenly splashed across the")
-                _println("walls of the room.")
-                fsm.blast_klutz()
-                _check_endgame_phase_change()
-                return
-            if fsm.player_room() == 115:
-                _println("There is a loud explosion, and a twenty-foot hole appears in the far")
-                _println("wall, burying the snakes in the rubble. A river of molten lava pours")
-                _println("in through the hole, destroying everything in its path, including you!")
-                fsm.blast_wrong_way()
-                _check_endgame_phase_change()
-                return
-            _println("There is a loud explosion, and a twenty-foot hole appears in the far")
-            _println("wall, burying the dwarves in the rubble. You march through the hole")
-            _println("and find yourself in the main office, where a cheering band of")
-            _println("friendly elves carry the conquering adventurer off into the sunset.")
-            fsm.blast_mastery()
-            _check_endgame_phase_change()
-            return
-        "wake":
-            # Canon WAKE (advent.for STMT 9290). Pre-CLOSED: msg
-            # #13 default. CLOSED + DWARF as object: msg #199 +
-            # msg #136 (the disturbed-dwarves death). The port
-            # collapses the WAKE-DWARF pair into the bare verb
-            # since the only meaningful target at endgame is a
-            # dwarf and noun-parsing is loose.
-            if fsm.endgame_state() != "in_repository":
-                _println("I don't understand that.")
-                return
-            _println("You prod the nearest dwarf, who wakes up grumpily, takes one look at")
-            _println("you, curses, and grabs for his axe.")
-            _println("")
-            _println("The resulting ruckus has awakened the dwarves. There are now several")
-            _println("threatening little dwarves in the room with you! Most of them throw")
-            _println("knives at you! All of them get you!")
-            fsm.player.die()
-            _check_player_death()
-            return
-        "find":
-            # Canon FIND (advent.for STMT 9190). Possible
-            # responses, in canon priority order:
-            #   TOTING(OBJ)            → msg #24 ("You are already
-            #                              carrying it!")
-            #   AT(OBJ) (here visible) → msg #94 ("I believe what
-            #                              you want is right here
-            #                              with you.")
-            #   CLOSED                 → msg #138 ("I daresay
-            #                              whatever you want is
-            #                              around here somewhere.")
-            #   otherwise              → msg #59 (cave-finding hint)
-            # The port checks player.carrying() for the toting
-            # branch; "AT(OBJ) here visible" requires per-object
-            # is_in_room accessors that we don't all expose, so
-            # we conservatively fall through to the canon default
-            # for non-carried objects. This matches canon's "the
-            # game won't help you find things" design.
-            var find_obj_id: int = _resolve_object_id(noun)
-            if find_obj_id > 0 and fsm.player.carrying(find_obj_id):
-                _println("You are already carrying it!")
-                return
-            # Canon AT(OBJ) — visible in current room → msg #94.
-            if find_obj_id > 0 and _object_in_room(find_obj_id, fsm.player_room()):
-                _println("I believe what you want is right here with you.")
-                return
-            if fsm.endgame_state() == "in_repository":
-                _println("I daresay whatever you want is around here somewhere.")
-                return
-            _println("I can only tell you what you see as you move about and manipulate things. I cannot tell you where remote things are.")
-            return
-        "brief":
-            # Canon BRIEF (advent.for STMT 8260). Sets ABBNUM=10000
-            # so room descriptions after the first visit are short.
-            # Port toggles _brief_mode; `_print_room` consults it
-            # before deciding long vs short form.
-            _brief_mode = true
-            _println("Okay, from now on I'll only describe a place in full the first time")
-            _println("you come to it. To get the full description, say LOOK.")
-            return
-        "rub":
-            # Canon RUB (advent.for STMT 9160). LAMP → msg #75
-            # ("rubbing the electric lamp is not particularly
-            # rewarding"). Anything else → msg #76 ("Peculiar.
-            # Nothing unexpected happens.")
-            if noun == "lamp":
-                _println("Rubbing the electric lamp is not particularly rewarding. Anyway, nothing exciting happens.")
-            else:
-                _println("Peculiar. Nothing unexpected happens.")
-            return
-        "say":
-            # Canon SAY (advent.for STMT 9030). If noun is a
-            # canon magic word, re-dispatch as that verb (so
-            # SAY XYZZY teleports). Otherwise echo: "Okay, X".
-            if noun == "":
-                _println("Say what?")
-                return
-            if noun in ["xyzzy", "plugh", "plover", "fee", "fie", "foe", "foo"]:
-                _process_input(noun)
-                return
-            _println("Okay, \"%s\"." % noun)
-            return
-        "cave":
-            # Canon CAVE (advent.for STMT 40). Outdoors (canon rooms
-            # 1–8) → msg #57; indoors → msg #58. Pure flavor — no
-            # state change.
-            if fsm.player_room() <= 8:
-                _println("I don't know where the cave is, but hereabouts no stream can run on the surface for long. I would try the stream.")
-            else:
-                _println("I need more detailed instructions to do that.")
-            return
-        "look":
-            # Canon LOOK (advent.for STMT 30). Print msg #15 up to
-            # 3 times to discourage spam; subsequent LOOKs silently
-            # re-display the room. Reset _visited_rooms tracking
-            # for BRIEF so the next room print is long-form.
-            if _look_detail_count < 3:
-                _println("Sorry, but I am not allowed to give more detail. I will repeat the long description of your location.")
-                _look_detail_count = _look_detail_count + 1
-            _last_room = -1                    # force re-print
-            _visited_rooms.erase(fsm.player_room())
-            _print_room()
-            return
-        "back":
-            # Canon BACK (advent.for STMT 20-25). Find an exit
-            # from the current room to OLDLOC; if OLDLOC is
-            # forced-motion, use OLDLC2 instead. If no path
-            # exists, msg #140. If "back" is an explicit topology
-            # exit (forced-room escape verbs added per the
-            # canon-march), use that directly.
-            var bk_current: int = fsm.player_room()
-            var bk_exits: Dictionary = room_exits.get(bk_current, {})
-            if "back" in bk_exits:
-                _handle_movement("back")
-                return
-            var k: int = _old_loc
-            if k in FORCED_ROOMS:
-                k = _old_loc2
-            if k < 0:
-                _println("Sorry, but I no longer seem to remember how it was you got here.")
-                return
-            if k == bk_current:
-                _println("Where?")
-                return
-            for bk_dir in bk_exits:
-                if bk_exits[bk_dir] == k:
-                    _handle_movement(bk_dir)
-                    return
-            _println("Sorry, but I no longer seem to remember how it was you got here.")
-            return
+    # ----- UI-only verbs (driver-handled, never reach the FSM) -----
+    if _handle_ui_verb(verb, noun): return
 
     # ----- Bumper rules + dark-pit hazard -----
     if _dispatch_bumper(verb): return
@@ -840,6 +562,236 @@ func _run_per_turn_checks() -> void:
     _check_chest_hint()
     _check_player_death()
     _maybe_print_room_after_move()
+
+# ============================================================
+# UI-only verbs (driver-handled, never reach the FSM)
+# ============================================================
+# Returns true if `verb` was a UI verb the driver fully handled
+# (caller should `return`); false otherwise. Most branches emit
+# canon msg + return; the BACK branch may delegate to
+# `_handle_movement`. The matched verbs include canon UI primitives
+# (help, info, score, inventory, save, load, quit, suspend, hint),
+# canon flavor verbs that don't touch the FSM (hours, wizard,
+# maint/magic, find, brief, rub, say, cave, look, back), and the
+# endgame BLAST/WAKE pair.
+func _handle_ui_verb(verb: String, noun: String) -> bool:
+    match verb:
+        "help":
+            _print_help()
+            return true
+        "info":
+            _print_info()
+            return true
+        "quit":
+            # Canon msg #22 verbatim — confirm before exit.
+            _quit_pending = true
+            _println("Do you really want to quit now?")
+            return true
+        "score":
+            _println("[b]Score: %d[/b] — treasures %d (%d/15 deposited), visits %d, hints %d, endgame %d" % [
+                fsm.score(),
+                fsm.treasure_score(), fsm.treasures_deposited(),
+                fsm.visit_score(),
+                fsm.hint_penalty(),
+                fsm.endgame_score()])
+            return true
+        "inventory":
+            _println(_format_inventory())
+            return true
+        "save":
+            _save_game()
+            return true
+        "load":
+            _load_game()
+            return true
+        "suspend":
+            # Canon SUSPEND (advent.for STMT 8300). Original 1977
+            # printed the "wait at least N minutes" warning and
+            # called CIAO to write a core image; latency was an
+            # anti-save-scum measure on the multi-user PDP-10.
+            # Modern desktop port: honor the verb with the canon
+            # prose plus a wink, then save instantly.
+            _println("I can suspend your adventure for you so that you can resume later, but")
+            _println("you will have to wait at least 45 minutes before continuing.")
+            _println("")
+            _println("... or not.")
+            _save_game()
+            return true
+        "hint":
+            var hint_name: String = noun if noun != "" else "bird"
+            _println(fsm.request_hint(hint_name))
+            return true
+        "hours":
+            # Canon HOURS (advent.for line 8310). 1977 printed the
+            # PDP-10 timesharing schedule; on a desktop port the
+            # cave is always available.
+            _println("Colossal Cave is open all day, every day.")
+            _println("(In the original 1977 PDP-10 release this verb")
+            _println("printed the timesharing schedule during which")
+            _println("non-wizards could play. On a desktop port the")
+            _println("cave has no off-hours.)")
+            return true
+        "wizard":
+            # Canon WIZARD (advent.for SUBROUTINE WIZARD). Original
+            # 1977 ran a hashed-challenge auth dialogue (msgs
+            # #16/#17/#19/#20). Port narrates the dialogue verbatim
+            # and ends on canon msg #20 (the "charlatan" rebuff).
+            _println("\"Are you a wizard?\"")
+            _println("\"Prove it!  Say the magic word!\"")
+            _println("\"That is not what I thought it was.  Do you know what I thought it was?\"")
+            _println("\"Foo, you are nothing but a charlatan!\"")
+            return true
+        "maint", "magic":
+            # Canon MAINT (advent.for SUBROUTINE MAINT). Original
+            # 1977 let a wizard edit cave hours, magic word, MOTD,
+            # demo length, suspend latency. On a desktop port none
+            # of those exist — honor the verb with canon msg #1
+            # (tall wizard in grey) gently rewritten + msg #20.
+            _println("A large cloud of green smoke appears in front of you. It clears")
+            _println("away to reveal a tall wizard, clothed in grey. He fixes you with")
+            _println("a steely glare and declares, \"Maintenance mode requires a real")
+            _println("PDP-10 and a sysadmin who knew Don Woods. This is neither.\"")
+            _println("With that he makes a single pass over you with his hands, and")
+            _println("you find yourself right back where you started.")
+            _println("")
+            _println("\"Foo, you are nothing but a charlatan!\"")
+            return true
+        "blast":
+            # Canon BLAST (advent.for STMT 9230). Three outcomes
+            # gated on (CLOSED, LOC, HERE(ROD2)):
+            #   pre-CLOSED              → msg #67
+            #   CLOSED, rod2 here       → blast_klutz, msg #135 (+25)
+            #   CLOSED, LOC=115, no rod → blast_wrong_way, msg #134 (+30)
+            #   CLOSED, otherwise       → blast_mastery, msg #133 (+45)
+            # Each in-repository case awards the canon score bonus
+            # via the matching FSM method, then transitions Endgame
+            # to $Won.
+            if fsm.endgame_state() != "in_repository":
+                _println("Blasting requires dynamite.")
+                return true
+            if fsm.mark_rod_here():
+                _println("There is a loud explosion, and you are suddenly splashed across the")
+                _println("walls of the room.")
+                fsm.blast_klutz()
+                _check_endgame_phase_change()
+                return true
+            if fsm.player_room() == 115:
+                _println("There is a loud explosion, and a twenty-foot hole appears in the far")
+                _println("wall, burying the snakes in the rubble. A river of molten lava pours")
+                _println("in through the hole, destroying everything in its path, including you!")
+                fsm.blast_wrong_way()
+                _check_endgame_phase_change()
+                return true
+            _println("There is a loud explosion, and a twenty-foot hole appears in the far")
+            _println("wall, burying the dwarves in the rubble. You march through the hole")
+            _println("and find yourself in the main office, where a cheering band of")
+            _println("friendly elves carry the conquering adventurer off into the sunset.")
+            fsm.blast_mastery()
+            _check_endgame_phase_change()
+            return true
+        "wake":
+            # Canon WAKE (advent.for STMT 9290). Pre-CLOSED: msg
+            # #13 default. CLOSED: msg #199 + msg #136 (disturbed-
+            # dwarves death).
+            if fsm.endgame_state() != "in_repository":
+                _println("I don't understand that.")
+                return true
+            _println("You prod the nearest dwarf, who wakes up grumpily, takes one look at")
+            _println("you, curses, and grabs for his axe.")
+            _println("")
+            _println("The resulting ruckus has awakened the dwarves. There are now several")
+            _println("threatening little dwarves in the room with you! Most of them throw")
+            _println("knives at you! All of them get you!")
+            fsm.player.die()
+            _check_player_death()
+            return true
+        "find":
+            # Canon FIND (advent.for STMT 9190) priority ladder:
+            #   TOTING(OBJ) → msg #24
+            #   AT(OBJ)     → msg #94
+            #   CLOSED      → msg #138
+            #   else        → msg #59
+            var find_obj_id: int = _resolve_object_id(noun)
+            if find_obj_id > 0 and fsm.player.carrying(find_obj_id):
+                _println("You are already carrying it!")
+                return true
+            if find_obj_id > 0 and _object_in_room(find_obj_id, fsm.player_room()):
+                _println("I believe what you want is right here with you.")
+                return true
+            if fsm.endgame_state() == "in_repository":
+                _println("I daresay whatever you want is around here somewhere.")
+                return true
+            _println("I can only tell you what you see as you move about and manipulate things. I cannot tell you where remote things are.")
+            return true
+        "brief":
+            # Canon BRIEF (advent.for STMT 8260). Sets ABBNUM=10000
+            # so room descriptions after the first visit are short.
+            _brief_mode = true
+            _println("Okay, from now on I'll only describe a place in full the first time")
+            _println("you come to it. To get the full description, say LOOK.")
+            return true
+        "rub":
+            # Canon RUB (advent.for STMT 9160). LAMP → msg #75;
+            # anything else → msg #76.
+            if noun == "lamp":
+                _println("Rubbing the electric lamp is not particularly rewarding. Anyway, nothing exciting happens.")
+            else:
+                _println("Peculiar. Nothing unexpected happens.")
+            return true
+        "say":
+            # Canon SAY (advent.for STMT 9030). Magic-word noun →
+            # re-dispatch as that verb. Otherwise echo "Okay, X".
+            if noun == "":
+                _println("Say what?")
+                return true
+            if noun in ["xyzzy", "plugh", "plover", "fee", "fie", "foe", "foo"]:
+                _process_input(noun)
+                return true
+            _println("Okay, \"%s\"." % noun)
+            return true
+        "cave":
+            # Canon CAVE (advent.for STMT 40). Outdoors (canon ≤8)
+            # → msg #57; indoors → msg #58.
+            if fsm.player_room() <= 8:
+                _println("I don't know where the cave is, but hereabouts no stream can run on the surface for long. I would try the stream.")
+            else:
+                _println("I need more detailed instructions to do that.")
+            return true
+        "look":
+            # Canon LOOK (advent.for STMT 30). msg #15 first 3
+            # times, then re-display normally.
+            if _look_detail_count < 3:
+                _println("Sorry, but I am not allowed to give more detail. I will repeat the long description of your location.")
+                _look_detail_count = _look_detail_count + 1
+            _last_room = -1                    # force re-print
+            _visited_rooms.erase(fsm.player_room())
+            _print_room()
+            return true
+        "back":
+            # Canon BACK (advent.for STMT 20-25). Walk to OLDLOC
+            # via an exit from current; OLDLC2 if OLDLOC is
+            # forced-motion. msg #140 on no path.
+            var bk_current: int = fsm.player_room()
+            var bk_exits: Dictionary = room_exits.get(bk_current, {})
+            if "back" in bk_exits:
+                _handle_movement("back")
+                return true
+            var k: int = _old_loc
+            if k in FORCED_ROOMS:
+                k = _old_loc2
+            if k < 0:
+                _println("Sorry, but I no longer seem to remember how it was you got here.")
+                return true
+            if k == bk_current:
+                _println("Where?")
+                return true
+            for bk_dir in bk_exits:
+                if bk_exits[bk_dir] == k:
+                    _handle_movement(bk_dir)
+                    return true
+            _println("Sorry, but I no longer seem to remember how it was you got here.")
+            return true
+    return false
 
 # ============================================================
 # Verb intercepts
