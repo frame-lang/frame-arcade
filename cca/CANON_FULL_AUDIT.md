@@ -357,7 +357,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 11 | "I don't know in from out" | ✓ — `_handle_movement` no-exit fallback branches on direction: IN/OUT emit canon msg #11 verbatim ("I don't know in from out here. Use compass points or name something in the general direction you want to go."). Other directions get the generic msg #140 equivalent. |
 | 12 | "I don't know that word" | ✓ |
 | 13 | "I don't understand that" | ✓ |
-| 14 | "Would you care to explain how" | 🟡 |
+| 14 | "I'm game. Would you care to explain how?" | ✓ — driver CALM/TAME intercept (advent.for verb 10) emits canon msg #14 verbatim. The same canon msg fires from the FEED-dwarf path's "you fool, dwarves eat only coal" rebuff path. |
 | 15 | "Sorry but I am not allowed" | ✓ — `_look_detail_count` fires msg #15 on the first 3 LOOKs (canon: turns 1–3); 4th LOOK onward emits the normal description. Test: `test_cca_lamp_quit_etc.gd` Phase 2. |
 | 16 | "It is now pitch dark" | ✓ — `_check_dark_pit_hazard` |
 | 17 | "If you prefer simply type W" | ✓ — `_iwest_count` tracks raw "WEST" tokens (not "w") and fires msg #17 once on the 10th. Test: `test_cca_minor_verbs.gd` Phase 5. |
@@ -683,7 +683,7 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | Behavior | Canon | Port |
 |---|---|---|
 | At canon 119/121 (two-place) | yes | ✓ (single placement) |
-| ATTACK with YES → killed, dragon moves to 120 (center) | yes | 🟡 — port doesn't move dragon to center, doesn't move player |
+| ATTACK with YES → killed, dragon moves to 120 (center) | yes | 🟡 — deliberate port divergence: player + dragon body stay at canon 119 after kill rather than teleporting to canon 120 (Secret Canyon). The teleport is real canon but breaks the rug-take test flow that assumes immediate post-kill rug pickup at 119. Player-visible difference is minor — they can still walk north → 69 → south back to 119 in either world. Tested attempt (commit reverted): teleporting was canon-correct but required walking back to 119 to take the rug, adding two extra moves to the canonical playthrough. |
 | Rug under dragon, becomes free | yes | ✓ |
 | FEED dragon → "nothing edible" | yes | ✓ |
 | Bird thrown at live dragon → bird dies | yes | ✓ — see msg #154 row in §6. THROW BIRD and DROP BIRD both route through `release bird`; Bird FSM transitions $Released → $Dead at canon 119 with dragon alive. Test: `test_cca_npc_throws.gd`. |
