@@ -126,6 +126,12 @@ def parse_advent_for():
 # ---------- Port side ----------
 PRINTLN_RE = re.compile(r'_println\(\s*"((?:\\.|[^"\\])*)"')
 RETURN_STR_RE = re.compile(r'return\s+"((?:\\.|[^"\\])*)"')
+# Frame-generated FSM emissions in cca.gd compile to assignment
+# (`self._context_stack[-1]._return = "..."`) rather than `return`.
+# Without this third pattern, every Frame `@@:return("…")` and
+# every `@@:("…")` was invisible to the audit, producing false
+# LEFT-ONLY entries for canon msgs the port actually emits.
+RETURN_ASSIGN_RE = re.compile(r'_return\s*=\s*"((?:\\.|[^"\\])*)"')
 
 def extract_emissions(path):
     """Return list of (line_no, kind, text) for emitted strings."""
@@ -140,6 +146,10 @@ def extract_emissions(path):
                 text = m.group(1).encode().decode('unicode_escape')
                 if len(normalize(text)) >= MIN_NORM_LEN:
                     items.append((i, 'return', text))
+            for m in RETURN_ASSIGN_RE.finditer(line):
+                text = m.group(1).encode().decode('unicode_escape')
+                if len(normalize(text)) >= MIN_NORM_LEN:
+                    items.append((i, 'fsm_emit', text))
     return items
 
 # ---------- Join ----------
