@@ -354,7 +354,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 5/6/7 | Knife-throw outcomes | ✓ |
 | 8 | Hollow voice "PLUGH" at Y2 | ✓ — `_print_room` rolls 25% at canon room 33 when not endgame-closing. Test: `test_cca_cave_y2_back.gd` Phase 4 (1000-visit distribution, ±5σ tolerance) + Phase 5 (no false fires at non-Y2 rooms). |
 | 9 | "no way to go that direction" | ✓ — driver fallback |
-| 11 | "I don't know in from out" | 🟡 — port handles IN/OUT but doesn't fire this for ambiguous |
+| 11 | "I don't know in from out" | ✓ — `_handle_movement` no-exit fallback branches on direction: IN/OUT emit canon msg #11 verbatim ("I don't know in from out here. Use compass points or name something in the general direction you want to go."). Other directions get the generic msg #140 equivalent. |
 | 12 | "I don't know that word" | ✓ |
 | 13 | "I don't understand that" | ✓ |
 | 14 | "Would you care to explain how" | 🟡 |
@@ -414,7 +414,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 138 | "I daresay whatever you want is around here somewhere" | ✓ — emitted by FIND handler when `endgame_state() == "in_repository"`. See msg #59 row for the full FIND priority ladder. |
 | 140 | "You can't get there from here" | ✓ — driver no-exit fallback in `_handle_movement` emits "You can't go %s from here." which is canon-equivalent to msg #140. BACK with no remembered path emits the more specific msg #91. |
 | 141 | "Followed by tame bear" | ✓ |
-| 142 | INFO text | 🟡 — port has INFO but text differs |
+| 142 | INFO text | ✓ — `_print_info` emits canon msg #142 verbatim ("If you want to end your adventure early, say 'QUIT'. To suspend your adventure such that you can continue later..."). The full canon paragraph is collapsed onto one printed line for readability but text is canon-literal. |
 | 143 | Score continue prompt | ✓ |
 | 144/145 | Vase fill | ✓ |
 | 148 | "It is too far up for you to reach" | ✓ — see §2 row for `23:hole`. Always-bumper at GATES. |
@@ -655,7 +655,7 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | Steals when player carries treasure (not chest) | yes | ✓ |
 | Doesn't take pyramid from Plover/Dark | yes | 🟡 — port may take it |
 | Stash is at CHLOC; MESSAG goes to CHLOC2=140 | yes | ✓ — driver READ/EXAMINE MESSAGE intercept fires at canon 140 (CHLOC2 mirror room) emitting canon msg #191. Pirate stash mechanic itself is wired through Pirate.try_steal + Adventure relocation. Test: `test_cca_scenery_flavor.gd`. |
-| 20% rustling msg #127 between visits | yes | 🟡 |
+| 20% rustling msg #127 between visits | yes | ✓ — see msg #127 row in §6. `_check_pirate_rustle()` rolls 20% per turn while pirate is stalking and player is in deep cave. Test: `test_cca_pirate_rustling.gd`. |
 | `TALLY==TALLY2+1` and chest-only-outstanding hint (msg #186) | yes | ✓ — driver `_check_chest_hint()` runs once per turn (in the move-completion check chain): when `treasures_deposited() == 14` AND `chest.is_deposited() == false` AND chest not in player inventory, fires canon msg #186 verbatim ("Shiver me timbers!... I'd best hie meself off to the maze to hide me chest!") and sets a one-shot latch. Test: `test_cca_chest_hint.gd` (9 assertions). |
 
 ### 12.3 Snake

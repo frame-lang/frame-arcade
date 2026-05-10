@@ -1894,6 +1894,12 @@ func _handle_movement(direction: String) -> void:
     var current: int = fsm.player_room()
     var exits: Dictionary = room_exits.get(current, {})
     if not direction in exits:
+        # Canon msg #11 — IN/OUT without an exit gets the
+        # "I don't know in from out" rebuff.
+        if direction == "in" or direction == "out":
+            _println("I don't know in from out here. Use compass points or name something")
+            _println("in the general direction you want to go.")
+            return
         _println("You can't go %s from here." % direction)
         return
 
