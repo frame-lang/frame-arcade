@@ -2249,7 +2249,8 @@ func _check_lamp_warnings() -> void:
 
 func _check_dwarf_axe() -> void:
     if fsm.dwarf_threw_axe():
-        _println("[color=#cc7777][i]A dwarf throws an axe at you — and connects! The axe finds your back.[/i][/color]")
+        # Canon msg #53 — dwarf knife-throw connects.
+        _println("[color=#cc7777][i]It gets you![/i][/color]")
 
 # Canon chest-only-outstanding hint (advent.for STMT 6020, msg
 # #186). Fires once when 14 of 15 treasures are deposited and
