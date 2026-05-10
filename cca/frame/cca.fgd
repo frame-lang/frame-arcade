@@ -3379,6 +3379,8 @@
                 return self._verb_water(noun)
             elif verb == "drink":
                 return self._verb_drink(noun)
+            elif verb == "eat":
+                return self._verb_eat(noun)
             elif verb == "fee" or verb == "fie" or verb == "foe" or verb == "foo":
                 return self._verb_chant(verb)
             elif verb == "xyzzy" or verb == "plugh" or verb == "plover":
@@ -4727,6 +4729,21 @@
                     return "You have nothing in which to carry it."
                 return "You have nothing to drink."
             return self.bottle.drink()
+        }
+
+        _verb_eat(noun: String): String {
+            # Canon msg #174 — EAT FOOD with no food carried.
+            # The driver's _intercept_eat already rejects animal nouns
+            # ("Don't be ridiculous!") and other non-food nouns; here
+            # we handle the bare EAT and EAT FOOD cases.
+            if noun != "" and noun != "food":
+                return "I think I just lost my appetite."
+            if not self.food_item.is_carried():
+                return "There is nothing here to eat."
+            # Canon msg #72 — food consumed.
+            self.player.drop(self.FOOD_ID)
+            self.food_item.consume()
+            return "Thank you, it was delicious!"
         }
 
         _attack_dwarf_in_current(): String {
