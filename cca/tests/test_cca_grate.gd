@@ -49,7 +49,8 @@ func _init():
     print("UNLOCK at the wrong room deflects:")
     adv.player.move_to(11)                   # debris
     var r2 = adv.do_command("unlock", "grate")
-    _expect_contains("response",   r2, "nothing here to unlock")
+    # Canon msg #28 — "There is nothing here with a lock!"
+    _expect_contains("response",   r2, "nothing here with a lock")
 
     # --- Take keys ---
     print("Take keys from the well house:")

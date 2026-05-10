@@ -71,7 +71,8 @@ func _init():
     print("FILL away from water deflects:")
     adv.player.move_to(11)             # debris room — no water
     var r5 = adv.do_command("fill", "bottle")
-    _expect_contains("no water msg",  r5, "no water")
+    # Canon msg #106 — "There is nothing here with which to fill the bottle."
+    _expect_contains("canon msg #106", r5, "nothing here with which to fill")
 
     # --- Refill at the valley stream (room 4) ---
     print("Refill at the valley stream (4):")

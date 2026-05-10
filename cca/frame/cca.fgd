@@ -2298,16 +2298,18 @@
 
         $Empty {
             fill(at_water_source: bool): String  {
+                # Canon msg #107 / #106.
                 if at_water_source:
                     -> $Water
                     @@:return("Your bottle is now full of water.")
-                @@:("There's no water here to fill it from.")
+                @@:("There is nothing here with which to fill the bottle.")
             }
             fill_oil(at_oil_source: bool): String  {
+                # Canon msg #108 / #106.
                 if at_oil_source:
                     -> $Oil
                     @@:return("Your bottle is now full of oil.")
-                @@:("There's no oil here to fill it from.")
+                @@:("There is nothing here with which to fill the bottle.")
             }
             pour(): String           { @@:("The bottle is empty.") }
             drink(): String          { @@:("The bottle is empty.") }
@@ -2318,7 +2320,8 @@
 
         $Water {
             fill(at_water_source: bool): String  {
-                @@:("The bottle is already full of water.")
+                # Canon msg #105.
+                @@:("Your bottle is already full.")
             }
             fill_oil(at_oil_source: bool): String  {
                 @@:("The bottle is full of water — empty it first.")
@@ -4508,18 +4511,20 @@
             # port. UNLOCK and OPEN both route here. We require the
             # player to be at the depression (room 8) AND carrying
             # the keys; the Grate FSM does the actual transition.
+            # Canon msg #33 / #28.
             if noun != "grate" and noun != "":
-                return "I don't see how to unlock that."
+                return "I don't know how to lock or unlock such a thing."
             if self.player.get_room() != self.GRATE_ROOM:
-                return "There is nothing here to unlock."
+                return "There is nothing here with a lock!"
             return self.grate.unlock(self.keys_item.is_carried())
         }
 
         _verb_lock(noun: String): String {
+            # Canon msg #33 / #28.
             if noun != "grate" and noun != "":
-                return "I don't see how to lock that."
+                return "I don't know how to lock or unlock such a thing."
             if self.player.get_room() != self.GRATE_ROOM:
-                return "There is nothing here to lock."
+                return "There is nothing here with a lock!"
             return self.grate.lock()
         }
 
@@ -4681,8 +4686,9 @@
             if noun != "" and noun != "water" and noun != "bottle":
                 return "You can't drink that."
             if not self.bottle_item.is_carried():
+                # Canon msg #104.
                 if self._at_water_source():
-                    return "The water is wonderfully fresh and clear, but you have no way to carry any."
+                    return "You have nothing in which to carry it."
                 return "You have nothing to drink."
             return self.bottle.drink()
         }
