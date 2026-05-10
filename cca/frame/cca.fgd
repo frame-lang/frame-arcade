@@ -3855,14 +3855,25 @@
                     return "There is no bird here."
                 if self.player.get_room() != self.bird.get_location():
                     return "There is no bird here."
-                # Canon: bird won't approach without a cage. The
-                # rod separately scares it (existing port rule);
-                # the cage is the carry container.
+                # Canon msg #26 — the rod-with-star frightens the bird.
+                if self.rod_item.is_carried():
+                    return "The bird was unafraid when you entered, but as you approach it becomes disturbed and you cannot catch it."
+                # Canon msg #27 — bird won't approach without a cage.
                 if not self.cage_item.is_carried():
                     return "You can catch the bird, but you cannot carry it."
                 self.bird.capture()
                 self.player.take(self.BIRD_ID)
                 return "You catch the bird in your hand."
+            # Canon msg #115 — TAKE PLANT regardless of growth state.
+            if noun == "plant" or noun == "beanstalk":
+                return "The plant has exceptionally deep roots and cannot be pulled free."
+            # Canon msg #169 — bear is still chained to the wall (the
+            # port's chain-take path already handles bear-following,
+            # this is the direct TAKE BEAR rebuff).
+            if noun == "bear":
+                if self.player.get_room() == self.BEAR_HOME_ROOM and self.bear.get_state() != "released":
+                    return "The bear is still chained to the wall."
+                return "There is no bear here."
             if noun == "rod":
                 if self.rod_item.is_carried():
                     return "You are already carrying it!"
