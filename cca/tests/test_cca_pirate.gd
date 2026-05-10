@@ -59,7 +59,10 @@ func _init():
     # --- Force a steal ---
     print("Drive the pirate to steal (seeded PRNG → deterministic):")
     var msg: String = _drive_to_steal(adv)
-    _expect_contains("steal message",msg,                   "snatches your gold")
+    # Canon msg #128 — generic "He snatches your treasure". Specific
+    # treasure verified below via state.
+    _expect_contains("steal message",msg,                   "snatches your treasure")
+    _expect("gold was stolen",       adv.gold.get_location(), 18)
     _expect("pirate vanished",       adv.pirate_state(),    "vanished")
 
     # --- Verify the gold is now in the chest room ---
@@ -86,7 +89,8 @@ func _init():
     adv2.player.take(adv2.DIAMONDS_ID)
     adv2.tick()
     var msg2: String = _drive_to_steal(adv2)
-    _expect_contains("repeat steal", msg2, "snatches your gold")
+    _expect_contains("repeat steal", msg2, "snatches your treasure")
+    _expect("gold still picked first", adv2.gold.get_location(), 18)
 
     # --- Pick-order: pirate picks gold first (lowest ID first) ---
     print("Pick order — without gold, silver should be stolen:")
@@ -97,7 +101,7 @@ func _init():
     adv3.player.take(adv3.JEWELRY_ID)
     adv3.tick()
     var msg3: String = _drive_to_steal(adv3)
-    _expect_contains("silver stolen",msg3,                  "snatches your silver")
+    _expect_contains("silver stolen",msg3,                  "snatches your treasure")
     _expect("silver in chest room",  adv3.silver.get_location(), 18)
 
     # --- Pirate sees empty hands ---

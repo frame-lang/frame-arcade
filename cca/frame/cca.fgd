@@ -3126,55 +3126,55 @@
                 if self.player.carrying(self.GOLD_ID):
                     self.player.drop(self.GOLD_ID)
                     self.gold.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your gold, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 if self.player.carrying(self.SILVER_ID):
                     self.player.drop(self.SILVER_ID)
                     self.silver.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your silver, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 if self.player.carrying(self.DIAMONDS_ID):
                     self.player.drop(self.DIAMONDS_ID)
                     self.diamonds.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your diamonds, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 if self.player.carrying(self.JEWELRY_ID):
                     self.player.drop(self.JEWELRY_ID)
                     self.jewelry.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your jewelry, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 if self.player.carrying(self.PEARL_ID):
                     self.player.drop(self.PEARL_ID)
                     self.pearl.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your pearl, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 if self.player.carrying(self.VASE_ID):
                     self.player.drop(self.VASE_ID)
                     self.vase.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your vase, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 if self.player.carrying(self.EGGS_ID):
                     self.player.drop(self.EGGS_ID)
                     self.eggs.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your eggs, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 if self.player.carrying(self.TRIDENT_ID):
                     self.player.drop(self.TRIDENT_ID)
                     self.trident.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your trident, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 if self.player.carrying(self.EMERALD_ID):
                     self.player.drop(self.EMERALD_ID)
                     self.emerald.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your emerald, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 if self.player.carrying(self.SPICES_ID):
                     self.player.drop(self.SPICES_ID)
                     self.spices.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your spices, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 if self.player.carrying(self.PYRAMID_ID):
                     self.player.drop(self.PYRAMID_ID)
                     self.pyramid.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your pyramid, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 if self.player.carrying(self.RUG_ID):
                     self.player.drop(self.RUG_ID)
                     self.rug.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your rug, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 if self.player.carrying(self.COINS_ID):
                     self.player.drop(self.COINS_ID)
                     self.coins.reappear(self.CHEST_ROOM)
-                    @@:return("A bearded pirate appears, snatches your coins, and vanishes!")
+                    @@:return("Out from the shadows behind you pounces a bearded pirate! \"Har, har,\" he chortles, \"I'll just take all this booty and hide it away with me chest deep in the maze!\" He snatches your treasure and vanishes into the gloom.")
                 # Pirate rolled a steal but the player wasn't
                 # carrying anything stash-able. The roll is
                 # consumed (Pirate is now $Vanished); we just
