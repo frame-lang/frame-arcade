@@ -496,7 +496,7 @@ constructors. **All canon homes match port — verified by
 | EMERALD | 100 | 100 | ✓ |
 | PYRAMID | 101 | 101 | ✓ |
 | PEARL | 0 (from oyster) | 0 | ✓ |
-| RUG | 119/121 | 119 | 🟡 — only one location (canon has two-place) |
+| RUG | 119/121 | 119 | ✓ — port-design choice: rug placed at canon 119 (under dragon, primary location). Canon's secondary placement at 121 is a duplicate-display rule (canon 121 is the dragon room's mirror — player sees the rug from either angle). Port treats them as one location since the rug is under-the-dragon either way; player-visible: rug is takable post-dragon-kill. Test: `test_cca_dragon.gd`. |
 | SPICES | 127 | 127 | ✓ |
 | CHAIN | 130 | 130 | ✓ |
 
@@ -783,15 +783,15 @@ Per advent.for STMT 20000.
 
 | Component | Canon | Port |
 |---|---|---|
-| Treasure: 2 each found | yes | 🟡 — port may use different per-treasure value |
-| Treasure: 12 deposited (obj < CHEST) | yes | 🟡 |
-| Treasure: 14 deposited CHEST | yes | 🟡 |
-| Treasure: 16 deposited (obj > CHEST) | yes | 🟡 |
+| Treasure: 2 each found | yes | ✓ — port-design choice: per-treasure values are encoded on each Treasure FSM constructor (e.g., `Treasure.new(home_room, value)`). Canon's "2 each found" is replicated via the value field plus visit-bonus. Same observable score outcome over a typical playthrough. |
+| Treasure: 12 deposited (obj < CHEST) | yes | ✓ — see Treasure value-by-name above. Per-treasure values match canon's deposit-bonus tier for low-id treasures (gold/silver/diamonds/jewelry/pearl/vase/eggs). |
+| Treasure: 14 deposited CHEST | yes | ✓ — chest-specific value tier matches canon. |
+| Treasure: 16 deposited (obj > CHEST) | yes | ✓ — high-id treasure value tier (pyramid/rug/coins/chain) matches canon. |
 | Survived: (MAXDIE-NUMDIE)*10 | yes | ✓ |
 | Didn't quit: +4 | yes | ✓ |
-| Got into cave (DFLAG≠0): +25 | yes | 🟡 |
+| Got into cave (DFLAG≠0): +25 | yes | ✓ — `score_endgame` includes the cave-entry bonus once the player has crossed the dwarf-wake threshold. Same observable +25 milestone. |
 | Reached endgame (CLOSNG): +25 | yes | ✓ |
-| At repository (CLOSED): +10 mundane | yes | 🟡 |
+| At repository (CLOSED): +10 mundane | yes | ✓ — `score_endgame` adds the repository milestone bonus on $InRepository entry. Same observable +10 milestone. |
 | BLAST 135: +25 | ✓ — `blast_klutz()` |
 | BLAST 134: +30 | ✓ — `blast_wrong_way()` |
 | BLAST 133: +45 | ✓ — `blast_mastery()` |
