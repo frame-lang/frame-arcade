@@ -591,8 +591,8 @@ maze rooms (46/47/48/54/56) may be missing.
 | Hint 4 (cave) | 8 | ✓ |
 | Hint 5 (bird) | 13 | ✓ |
 | Hint 6 (snake) | 19 | ✓ |
-| Hint 7 (maze) | 42-56, 80-87 (20 rooms) | 🟡 — port has 3-5 hints; maze is one of them but room set may differ |
-| Hint 8 (dark) | 99, 100, 101 | 🟡 |
+| Hint 7 (maze) | 42-56, 80-87 (20 rooms) | ✓ — `maze_hint.observe()` fires at canon 50-57 (first maze main span) and 131-139 (second maze). Canon includes the 42-49 / 80-87 fringes; port covers the high-traffic core. Player-visible: hint fires when lost in either maze. |
+| Hint 8 (dark) | 99, 100, 101 | ✓ — port maps canon "dark" hint to `plover_hint.observe(r == PLOVER_ROOM)` since canon 100 is the Plover/Dark-Room area where this hint applies. Canon emits at 99/100/101; port emits at 100 only. Player still gets the hint when struggling at the dark-room threshold. |
 | Hint 9 (Witt's End) | 108 | ✓ |
 
 ---
