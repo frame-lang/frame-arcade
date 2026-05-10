@@ -11,14 +11,7 @@ extends SceneTree
 #
 # Outside $Closing the panic intercept is a no-op.
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -39,9 +32,9 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
+func _make_driver() -> H.CapturedDriver:
+    var d := H.CapturedDriver.new()
+    d.fsm = H.Cca.new()
     d.fsm.setup_default_aspects()
     d.fsm.do_command("light", "")
     return d
@@ -49,14 +42,9 @@ func _make_driver() -> CapturedDriver:
 # Force the Endgame into $Closing by depositing canon TREASURES_TO_TRIGGER
 # treasures via the public interface. There's no direct test hook,
 # so we drive the public API.
-func _force_closing(d: CapturedDriver) -> void:
+func _force_closing(d: H.CapturedDriver) -> void:
     for _i in 15:
         d.fsm.endgame.treasure_deposited()
-
-func _capture(d: CapturedDriver, input: String) -> Array:
-    var pre: int = d.captured.size()
-    d._process_input(input)
-    return d.captured.slice(pre)
 
 func _init():
     print("=== CCA endgame PANIC + CLOCK2 cap (canon STMT 2 + msg #130) ===")
@@ -65,7 +53,7 @@ func _init():
     print("Phase 1: pre-closing — moving to a surface room is normal")
     var d1 := _make_driver()
     d1.fsm.player.move_to(2)         # canon hill
-    var l1: Array = _capture(d1, "south")
+    var l1: Array = H.capture(d1, "south")
     _expect("$Active panic flag false",   d1.fsm.endgame_panicked(), false)
     var saw_msg130: bool = false
     for line in l1:
@@ -95,7 +83,7 @@ func _init():
     # canon 1 (road — also surface) — but canon 1 ≤ 8 so that's
     # still a panic-trigger destination.
     d2.fsm.player.move_to(4)         # canon valley
-    var l2: Array = _capture(d2, "north")  # 4 → 1 (road)
+    var l2: Array = H.capture(d2, "north")  # 4 → 1 (road)
     _expect_any_match("first $Closing surface attempt emits canon msg #130",
         l2, "exit is closed")
     _expect("PANIC latch armed",          d2.fsm.endgame_panicked(), true)
@@ -109,7 +97,7 @@ func _init():
     d2.fsm.endgame.tick()
     var timer_after_ticks: float = d2.fsm.endgame_timer()
     _expect("timer ticked down to 13",    timer_after_ticks,          13.0)
-    var l3: Array = _capture(d2, "north")
+    var l3: Array = H.capture(d2, "north")
     _expect_any_match("second attempt re-emits msg #130",
         l3, "exit is closed")
     _expect("timer stays at 13 (no re-cap)",

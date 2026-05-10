@@ -10,14 +10,7 @@ extends SceneTree
 #   3rd death  → msg #85 ("I'm out of orange smoke!")
 #   3rd NO/4th → msg #86 ("Okay, if you're so smart...")
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -30,14 +23,7 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
-    d.fsm.setup_default_aspects()
-    d.fsm.do_command("light", "")
-    return d
-
-func _capture(d: CapturedDriver, input: String) -> Array:
+func _capture(d: H.CapturedDriver, input: String) -> Array:
     var pre: int = d.captured.size()
     d._process_input(input)
     return d.captured.slice(pre)
@@ -45,7 +31,7 @@ func _capture(d: CapturedDriver, input: String) -> Array:
 # Force a death + check the prompt text. Resets driver between
 # deaths to a clean revive prompt by calling player.die() then
 # letting _check_player_death emit the prompt.
-func _die_and_capture(d: CapturedDriver) -> Array:
+func _die_and_capture(d: H.CapturedDriver) -> Array:
     d.fsm.player.die()
     var pre: int = d.captured.size()
     d._check_player_death()
@@ -56,7 +42,7 @@ func _init():
 
     # ----- Phase 1: 1st death → msg #81 -----
     print("Phase 1: 1st death → msg #81 ('Oh dear...')")
-    var d := _make_driver()
+    var d := H.make_driver()
     var l1: Array = _die_and_capture(d)
     _expect_any_match("1st death emits canon msg #81",
         l1, "Oh dear, you seem to have gotten yourself killed")
@@ -89,7 +75,7 @@ func _init():
 
     # ----- Phase 6: NO at 1st death → msg #86 -----
     print("Phase 6: NO at 1st death → msg #86 ('do it yourself')")
-    var d2 := _make_driver()
+    var d2 := H.make_driver()
     _die_and_capture(d2)
     var l6: Array = _capture(d2, "no")
     _expect_any_match("NO emits canon msg #86",

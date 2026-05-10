@@ -17,14 +17,7 @@ extends SceneTree
 #   CLOSED                        → canon prose + msg #136 (dwarves
 #                                     wake → death)
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -45,25 +38,20 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
+func _make_driver() -> H.CapturedDriver:
+    var d := H.CapturedDriver.new()
+    d.fsm = H.Cca.new()
     d.fsm.setup_default_aspects()
     d.fsm.do_command("light", "")
     return d
 
 # Drive the FSM into $InRepository: deposit 10 treasures, tick
 # 30 turns until the closing timer fires.
-func _force_in_repository(d: CapturedDriver) -> void:
+func _force_in_repository(d: H.CapturedDriver) -> void:
     for i in 10:
         d.fsm.deposit_treasure()
     for i in 30:
         d.fsm.tick()
-
-func _capture(d: CapturedDriver, input: String) -> Array:
-    var pre: int = d.captured.size()
-    d._process_input(input)
-    return d.captured.slice(pre)
 
 func _init():
     print("=== CCA endgame BLAST + WAKE + BREAK MIRROR ===")
@@ -71,7 +59,7 @@ func _init():
     # ----- Phase 1: pre-closed BLAST → 'requires dynamite' -----
     print("Phase 1: pre-closed BLAST → canon msg #67")
     var d := _make_driver()
-    var lines: Array = _capture(d, "blast")
+    var lines: Array = H.capture(d, "blast")
     _expect("pre-closed BLAST stays alive",         d.fsm.player_state(),    "alive")
     _expect("pre-closed BLAST: endgame still active", d.fsm.endgame_state(), "active")
     _expect_any_match("pre-closed BLAST emits 'requires dynamite'",
@@ -91,7 +79,7 @@ func _init():
     _expect("setup: at 116 (NOT 115, the wrong-way room)", d2.fsm.player_room(), 116)
     _expect("setup: rod2 not here",                 d2.fsm.mark_rod_here(),  false)
     var pre_score: int = d2.fsm.endgame_score()
-    var l2: Array = _capture(d2, "blast")
+    var l2: Array = H.capture(d2, "blast")
     _expect_any_match("BLAST mastery emits canon-#133 elves narration",
         l2, "cheering band of")
     _expect("BLAST mastery: endgame transitions to $Won",
@@ -107,7 +95,7 @@ func _init():
     _expect("setup: at canon 115",                  d3.fsm.player_room(),    115)
     _expect("setup: rod2 not here",                 d3.fsm.mark_rod_here(),  false)
     var pre3: int = d3.fsm.endgame_score()
-    var l3: Array = _capture(d3, "blast")
+    var l3: Array = H.capture(d3, "blast")
     _expect_any_match("BLAST wrong-way emits canon-#134 lava narration",
         l3, "molten lava")
     _expect_any_match("BLAST wrong-way ends with 'including you'",
@@ -125,7 +113,7 @@ func _init():
     d4.fsm.mark_rod_item.place(d4.fsm.player_room())
     _expect("setup: rod2 here",                     d4.fsm.mark_rod_here(),  true)
     var pre4: int = d4.fsm.endgame_score()
-    var l4: Array = _capture(d4, "blast")
+    var l4: Array = H.capture(d4, "blast")
     _expect_any_match("BLAST klutz emits canon-#135 splash narration",
         l4, "splashed across")
     _expect("BLAST klutz: endgame transitions to $Won",
@@ -136,7 +124,7 @@ func _init():
     # ----- Phase 5: WAKE pre-closed → 'I don't understand' -----
     print("Phase 5: pre-closed WAKE → 'I don't understand'")
     var d5 := _make_driver()
-    var l5: Array = _capture(d5, "wake")
+    var l5: Array = H.capture(d5, "wake")
     _expect("pre-closed WAKE: player alive",        d5.fsm.player_state(),   "alive")
     _expect_any_match("pre-closed WAKE emits 'don't understand'",
         l5, "don't understand")
@@ -145,7 +133,7 @@ func _init():
     print("Phase 6: WAKE in repository → canon msg #199 + #136 death")
     var d6 := _make_driver()
     _force_in_repository(d6)
-    var l6: Array = _capture(d6, "wake")
+    var l6: Array = H.capture(d6, "wake")
     _expect_any_match("WAKE emits canon-#199 'prod the nearest dwarf'",
         l6, "prod the nearest dwarf")
     _expect_any_match("WAKE emits canon-#136 'awakened the dwarves'",
@@ -155,7 +143,7 @@ func _init():
     # ----- Phase 7: BREAK MIRROR pre-closed -----
     print("Phase 7: pre-closed BREAK MIRROR → canon msg #146")
     var d7 := _make_driver()
-    var l7: Array = _capture(d7, "break mirror")
+    var l7: Array = H.capture(d7, "break mirror")
     _expect("pre-closed BREAK MIRROR: player alive", d7.fsm.player_state(),   "alive")
     _expect_any_match("pre-closed BREAK MIRROR: canon msg #146",
         l7, "beyond your power")
@@ -164,7 +152,7 @@ func _init():
     print("Phase 8: BREAK MIRROR in repository → canon msg #197 + #136 death")
     var d8 := _make_driver()
     _force_in_repository(d8)
-    var l8: Array = _capture(d8, "break mirror")
+    var l8: Array = H.capture(d8, "break mirror")
     _expect_any_match("BREAK MIRROR emits canon-#197 'shatters into a myriad'",
         l8, "shatters into a")
     _expect_any_match("BREAK MIRROR emits canon-#136 'awakened the dwarves'",
@@ -176,7 +164,7 @@ func _init():
     var d9 := _make_driver()
     _force_in_repository(d9)
     d9.fsm.player.move_to(116)            # mastery setup
-    var l9: Array = _capture(d9, "detonate")
+    var l9: Array = H.capture(d9, "detonate")
     _expect_any_match("DETONATE alias hits BLAST mastery prose",
         l9, "cheering band of")
     _expect("DETONATE alias: $Won",                 d9.fsm.endgame_state(),  "won")

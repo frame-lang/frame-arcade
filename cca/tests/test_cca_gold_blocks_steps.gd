@@ -26,14 +26,7 @@ extends SceneTree
 #      driver's `_process_input` path), not just inside the
 #      topology lookup — same as the other gates.
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -54,16 +47,16 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
+func _make_driver() -> H.CapturedDriver:
+    var d := H.CapturedDriver.new()
+    d.fsm = H.Cca.new()
     d.fsm.setup_default_aspects()
     return d
 
 # Try a movement verb starting at 15 with gold in hand. Returns
 # the destination room afterwards and the captured lines from
 # that single command. Resets to 15 with gold each time.
-func _try_blocked(d: CapturedDriver, verb: String) -> Dictionary:
+func _try_blocked(d: H.CapturedDriver, verb: String) -> Dictionary:
     d.fsm.player.move_to(15)
     if not d.fsm.player.carrying(d.fsm.GOLD_ID):
         d.fsm.player.take(d.fsm.GOLD_ID)

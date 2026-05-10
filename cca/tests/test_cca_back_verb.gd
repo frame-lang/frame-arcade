@@ -14,14 +14,7 @@ extends SceneTree
 # `_walk_to_dest` before each move, so BACK has a current
 # history.
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -42,18 +35,6 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
-    d.fsm.setup_default_aspects()
-    d.fsm.do_command("light", "")
-    return d
-
-func _capture(d: CapturedDriver, input: String) -> Array:
-    var pre: int = d.captured.size()
-    d._process_input(input)
-    return d.captured.slice(pre)
-
 func _init():
     print("=== CCA BACK verb (canon advent.for STMT 20-25) ===")
 
@@ -61,7 +42,7 @@ func _init():
     # Walk 3 → west → 1 (well house → end of road), then BACK
     # → should walk back to 3 via the EAST exit at 1.
     print("Phase 1: BACK after a normal move (3 → west → 1, BACK → 3)")
-    var d := _make_driver()
+    var d := H.make_driver()
     d.fsm.player.move_to(3)
     d._process_input("west")               # walks 3 → 1
     _expect("setup: walked 3 → 1",         d.fsm.player_room(), 1)
@@ -70,9 +51,9 @@ func _init():
 
     # ----- Phase 2: BACK with no history → "remember how" -----
     print("Phase 2: BACK with no movement history → canon msg #140")
-    var d2 := _make_driver()
+    var d2 := H.make_driver()
     d2.fsm.player.move_to(3)
-    var l: Array = _capture(d2, "back")
+    var l: Array = H.capture(d2, "back")
     _expect_any_match("BACK with no history emits canon 'remember how'",
         l, "no longer seem to remember")
 
@@ -81,14 +62,14 @@ func _init():
     # have explicit `back` topology exits. Verify the topology
     # path takes precedence over the OLDLOC compute.
     print("Phase 3: BACK from forced room (canon 22 → 15 via topology)")
-    var d3 := _make_driver()
+    var d3 := H.make_driver()
     d3.fsm.player.move_to(22)
     d3._process_input("back")
     _expect("BACK from 22 walks to 15",    d3.fsm.player_room(), 15)
 
     # ----- Phase 4: RETREAT alias routes to BACK -----
     print("Phase 4: RETREAT alias")
-    var d4 := _make_driver()
+    var d4 := H.make_driver()
     d4.fsm.player.move_to(3)
     d4._process_input("north")             # 3 → 1
     d4._process_input("retreat")           # alias for BACK
@@ -98,7 +79,7 @@ func _init():
     # 3 → north → 1 → south → 3 → north → 1, then BACK should
     # walk to 3 (the most recent _old_loc).
     print("Phase 5: BACK uses most recent _old_loc")
-    var d5 := _make_driver()
+    var d5 := H.make_driver()
     d5.fsm.player.move_to(3)
     d5._process_input("west")              # 3 → 1
     d5._process_input("east")              # 1 → 3

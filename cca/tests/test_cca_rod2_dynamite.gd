@@ -5,14 +5,7 @@ extends SceneTree
 # rusty mark" pre-CLOSED, and reveals as "stick of dynamite" once
 # the player is in the endgame repository.
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -34,9 +27,9 @@ func _expect_no_match(label: String, lines: Array, needle: String) -> void:
             return
     print("  ok   %-58s no line contained '%s'" % [label, needle])
 
-func _make_driver_with_mark_rod() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
+func _make_driver_with_mark_rod() -> H.CapturedDriver:
+    var d := H.CapturedDriver.new()
+    d.fsm = H.Cca.new()
     d.fsm.setup_default_aspects()
     d.fsm.do_command("light", "")
     # Place mark_rod (ROD2) at player's room and pick it up so
@@ -47,12 +40,7 @@ func _make_driver_with_mark_rod() -> CapturedDriver:
     d.fsm.mark_rod_item.try_take(here)
     return d
 
-func _capture(d: CapturedDriver, input: String) -> Array:
-    var pre: int = d.captured.size()
-    d._process_input(input)
-    return d.captured.slice(pre)
-
-func _force_repository(d: CapturedDriver) -> void:
+func _force_repository(d: H.CapturedDriver) -> void:
     # Drive Endgame to $InRepository: deposit triggers + tick.
     for _i in 15:
         d.fsm.endgame.treasure_deposited()
@@ -65,7 +53,7 @@ func _init():
     # ----- Phase 1: pre-CLOSED — rod is just a rod -----
     print("Phase 1: pre-CLOSED — EXAMINE ROD → 'rusty mark' flavor")
     var d1 := _make_driver_with_mark_rod()
-    var l1: Array = _capture(d1, "examine rod")
+    var l1: Array = H.capture(d1, "examine rod")
     _expect_any_match("pre-CLOSED rod is 'rusty mark'",
         l1, "rusty mark")
     _expect_no_match("pre-CLOSED rod is NOT yet dynamite",
@@ -75,7 +63,7 @@ func _init():
     print("Phase 2: $InRepository — EXAMINE ROD → dynamite flavor")
     var d2 := _make_driver_with_mark_rod()
     _force_repository(d2)
-    var l2: Array = _capture(d2, "examine rod")
+    var l2: Array = H.capture(d2, "examine rod")
     _expect_any_match("post-CLOSED rod reveals dynamite",
         l2, "dynamite")
     _expect_any_match("dynamite warning includes flame caveat",
@@ -85,7 +73,7 @@ func _init():
     print("Phase 3: READ ROD synonym also reveals dynamite at endgame")
     var d3 := _make_driver_with_mark_rod()
     _force_repository(d3)
-    var l3: Array = _capture(d3, "read rod")
+    var l3: Array = H.capture(d3, "read rod")
     _expect_any_match("READ ROD post-CLOSED → dynamite",
         l3, "dynamite")
 

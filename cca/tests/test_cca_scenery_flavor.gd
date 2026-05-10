@@ -12,14 +12,7 @@ extends SceneTree
 #   EXAMINE CARPET / MOSS @ canon 96 → soft-room flavor
 #   EXAMINE PLANT @ canon 23 → phony-plant flavor
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -32,14 +25,7 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
-    d.fsm.setup_default_aspects()
-    d.fsm.do_command("light", "")
-    return d
-
-func _capture_at(d: CapturedDriver, room: int, input: String) -> Array:
+func _capture_at(d: H.CapturedDriver, room: int, input: String) -> Array:
     d.fsm.player.move_to(room)
     var pre: int = d.captured.size()
     d._process_input(input)
@@ -48,7 +34,7 @@ func _capture_at(d: CapturedDriver, room: int, input: String) -> Array:
 func _init():
     print("=== CCA scenery EXAMINE/READ — section-5 flavor objects ===")
 
-    var d := _make_driver()
+    var d := H.make_driver()
 
     # ----- TABLET @ 101 -----
     _expect_any_match("READ TABLET @ 101 → canon msg #196",

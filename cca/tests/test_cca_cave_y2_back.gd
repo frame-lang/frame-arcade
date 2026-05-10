@@ -13,14 +13,7 @@ extends SceneTree
 # σ = sqrt(1000*0.25*0.75) ≈ 13.7 → ±5σ = ±69 → tolerance window
 # [181, 319] around the 250 expected mean.
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -49,41 +42,29 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
-    d.fsm.setup_default_aspects()
-    d.fsm.do_command("light", "")
-    return d
-
-func _capture(d: CapturedDriver, input: String) -> Array:
-    var pre: int = d.captured.size()
-    d._process_input(input)
-    return d.captured.slice(pre)
-
 func _init():
     print("=== CCA CAVE / Y2 whisper / BACK fallback ===")
 
     # ----- Phase 1: CAVE outdoors → msg #57 -----
     print("Phase 1: CAVE @ canon room 3 (outdoors) → msg #57")
-    var d1 := _make_driver()
+    var d1 := H.make_driver()
     d1.fsm.player.move_to(3)
-    var l1: Array = _capture(d1, "cave")
+    var l1: Array = H.capture(d1, "cave")
     _expect_any_match("CAVE outdoors emits 'I don't know where the cave is'",
         l1, "I don't know where the cave is")
 
     # ----- Phase 2: CAVE indoors → msg #58 -----
     print("Phase 2: CAVE @ canon room 9 (indoors) → msg #58")
-    var d2 := _make_driver()
+    var d2 := H.make_driver()
     d2.fsm.player.move_to(9)
-    var l2: Array = _capture(d2, "cave")
+    var l2: Array = H.capture(d2, "cave")
     _expect_any_match("CAVE indoors emits 'I need more detailed instructions'",
         l2, "I need more detailed instructions")
 
     # ----- Phase 3: BACK with no prior location → msg #91 -----
     print("Phase 3: BACK with no prior loc → msg #91")
-    var d3 := _make_driver()
-    var l3: Array = _capture(d3, "back")
+    var d3 := H.make_driver()
+    var l3: Array = H.capture(d3, "back")
     _expect_any_match("BACK with no prior loc emits 'no longer seem to remember'",
         l3, "no longer seem to remember")
 
@@ -91,7 +72,7 @@ func _init():
     # Direct hits via _print_room. RNG re-seeded.
     print("Phase 4: Y2 whisper rate (1000 visits, pinned seed)")
     seed(0xC4FE33)
-    var d4 := _make_driver()
+    var d4 := H.make_driver()
     d4.fsm.player.move_to(33)
     var whispers: int = 0
     for _i in range(1000):
@@ -108,7 +89,7 @@ func _init():
     # ----- Phase 5: Y2 whisper does NOT fire elsewhere -----
     print("Phase 5: hollow whisper does NOT fire at non-Y2 rooms")
     seed(0xC4FE33)
-    var d5 := _make_driver()
+    var d5 := H.make_driver()
     d5.fsm.player.move_to(3)
     var noise: int = 0
     for _i in range(200):

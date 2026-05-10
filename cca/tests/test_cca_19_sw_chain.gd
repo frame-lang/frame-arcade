@@ -25,14 +25,7 @@ extends SceneTree
 # 15, so ±5σ = ±75. Wide enough to absorb seed jitter without
 # masking real regressions.
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -61,9 +54,9 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
+func _make_driver() -> H.CapturedDriver:
+    var d := H.CapturedDriver.new()
+    d.fsm = H.Cca.new()
     d.fsm.setup_default_aspects()
     d.fsm.do_command("light", "")          # avoid dark-pit hazard
     return d

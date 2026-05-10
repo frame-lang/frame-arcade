@@ -13,20 +13,18 @@ extends SceneTree
 # any of the eight checks below fail, the splash isn't paying
 # the proper credit.
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
+const H = preload("res://scripts/_test_helpers.gd")
 
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+# Extends the shared CapturedDriver with a `joined()` helper for
+# scanning the welcome banner as a single string.
+class JoinedDriver:
+    extends H.CapturedDriver
     func joined() -> String:
         return "\n".join(self.captured)
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
+func _make_driver() -> JoinedDriver:
+    var d := JoinedDriver.new()
+    d.fsm = H.Cca.new()
     d.fsm.setup_default_aspects()
     return d
 

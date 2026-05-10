@@ -9,14 +9,7 @@ extends SceneTree
 #                                 the actual get_tree().quit()
 #                                 isn't tested headlessly)
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -46,34 +39,22 @@ func _expect_no_match(label: String, lines: Array, needle: String) -> void:
             return
     print("  ok   %-58s no line contained '%s'" % [label, needle])
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
-    d.fsm.setup_default_aspects()
-    d.fsm.do_command("light", "")
-    return d
-
-func _capture(d: CapturedDriver, input: String) -> Array:
-    var pre: int = d.captured.size()
-    d._process_input(input)
-    return d.captured.slice(pre)
-
 func _init():
     print("=== CCA lamp-quit + LOOK + ENTER STREAM ===")
 
     # ----- Phase 1: ENTER STREAM / ENTER WATER -----
     print("Phase 1: ENTER STREAM / ENTER WATER → canon msg #70")
-    var d := _make_driver()
-    var l: Array = _capture(d, "enter stream")
+    var d := H.make_driver()
+    var l: Array = H.capture(d, "enter stream")
     _expect_any_match("ENTER STREAM emits 'feet are now wet'",
         l, "feet are now wet")
-    var l2: Array = _capture(d, "enter water")
+    var l2: Array = H.capture(d, "enter water")
     _expect_any_match("ENTER WATER emits 'feet are now wet'",
         l2, "feet are now wet")
 
     # ----- Phase 2: LOOK detail counter -----
     print("Phase 2: LOOK detail counter — msg #15 first 3 times only")
-    var d2 := _make_driver()
+    var d2 := H.make_driver()
     d2.fsm.player.move_to(3)
     var msg15_seen: int = 0
     for i in 5:
@@ -92,7 +73,7 @@ func _init():
     # canon msg #185 fires. We don't test get_tree().quit()
     # itself — headless tests can't observe that side effect.
     print("Phase 3: lamp-out + above-ground → canon msg #185")
-    var d3 := _make_driver()
+    var d3 := H.make_driver()
     # Drain the lamp via direct FSM tick. Lamp battery is 330
     # (or 1000 with HINTED(3)); brute-force tick until $Out.
     for i in 1100:
@@ -109,7 +90,7 @@ func _init():
 
     # ----- Phase 4: lamp-out below-ground does NOT trigger quit -----
     print("Phase 4: lamp-out + below-ground (room > 8) does NOT force quit")
-    var d4 := _make_driver()
+    var d4 := H.make_driver()
     for i in 1100:
         if d4.fsm.lamp.get_state() == "out":
             break

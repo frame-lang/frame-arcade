@@ -12,14 +12,7 @@ extends SceneTree
 # This is the last canon special routine to land. With it the
 # port honors all three routines (301, 302, 303).
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -40,24 +33,12 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
-    d.fsm.setup_default_aspects()
-    d.fsm.do_command("light", "")
-    return d
-
-func _capture(d: CapturedDriver, input: String) -> Array:
-    var pre: int = d.captured.size()
-    d._process_input(input)
-    return d.captured.slice(pre)
-
 func _init():
     print("=== CCA canon routine 302 — Plover-emerald drop ===")
 
     # ----- Phase 1: PLOVER from Y2 carrying emerald -----
     print("Phase 1: PLOVER from Y2 (33) carrying emerald")
-    var d := _make_driver()
+    var d := H.make_driver()
     d.fsm.player.move_to(33)
     # Acquire emerald via Treasure FSM + player inventory.
     d.fsm.emerald.reappear(33)
@@ -66,7 +47,7 @@ func _init():
     _expect("setup: at Y2 (33) carrying emerald",
         [d.fsm.player_room(), d.fsm.player.carrying(d.fsm.EMERALD_ID)],
         [33, true])
-    var l: Array = _capture(d, "plover")
+    var l: Array = H.capture(d, "plover")
     _expect_any_match("PLOVER emits canon emerald-drop prose",
         l, "slips from your grasp")
     _expect("PLOVER teleports player to Plover Room (100)",
@@ -80,7 +61,7 @@ func _init():
     # Symmetric mirror — emerald drops at 100, player teleports
     # to 33.
     print("Phase 2: PLOVER from Plover Room (100) carrying emerald")
-    var d2 := _make_driver()
+    var d2 := H.make_driver()
     d2.fsm.player.move_to(100)
     d2.fsm.emerald.reappear(100)
     d2.fsm.emerald.try_take(100)
@@ -88,7 +69,7 @@ func _init():
     _expect("setup: at Plover (100) carrying emerald",
         [d2.fsm.player_room(), d2.fsm.player.carrying(d2.fsm.EMERALD_ID)],
         [100, true])
-    var l2: Array = _capture(d2, "plover")
+    var l2: Array = H.capture(d2, "plover")
     _expect_any_match("PLOVER emits canon emerald-drop prose (mirror)",
         l2, "slips from your grasp")
     _expect("PLOVER teleports player to Y2 (33)",
@@ -98,9 +79,9 @@ func _init():
 
     # ----- Phase 3: PLOVER without emerald — no special handling -----
     print("Phase 3: PLOVER without emerald — regular teleport (no msg)")
-    var d3 := _make_driver()
+    var d3 := H.make_driver()
     d3.fsm.player.move_to(33)
-    var l3: Array = _capture(d3, "plover")
+    var l3: Array = H.capture(d3, "plover")
     _expect("PLOVER without emerald: walks to 100",
         d3.fsm.player_room(), 100)
     for line in l3:

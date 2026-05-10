@@ -19,14 +19,7 @@ extends SceneTree
 #   advent.for SUBROUTINE MAINT at line 2521
 #   ADVENT_DAT_INVENTORY.md section 12: magic msgs #1, #16-#20
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -56,16 +49,11 @@ func _expect_no_match(label: String, lines: Array, needle: String) -> void:
             return
     print("  ok   %-52s no line contained '%s'" % [label, needle])
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
+func _make_driver() -> H.CapturedDriver:
+    var d := H.CapturedDriver.new()
+    d.fsm = H.Cca.new()
     d.fsm.setup_default_aspects()
     return d
-
-func _capture(d: CapturedDriver, input: String) -> Array:
-    var pre: int = d.captured.size()
-    d._process_input(input)
-    return d.captured.slice(pre)
 
 func _init():
     print("=== CCA PDP-10 timesharing easter-egg verbs ===")
@@ -73,7 +61,7 @@ func _init():
     # ----- HOURS -----
     print("Phase 1: HOURS — canon timesharing schedule, replaced with always-open banner")
     var d := _make_driver()
-    var lines: Array = _capture(d, "hours")
+    var lines: Array = H.capture(d, "hours")
     _expect("HOURS produced output",                     lines.size() > 0,        true)
     _expect_any_match("HOURS names the cave as always open",
         lines, "open all day, every day")
@@ -87,7 +75,7 @@ func _init():
     # ----- WIZARD -----
     print("Phase 2: WIZARD — canon msg #16/#17/#18/#20 dialogue narrated single-shot")
     var d2 := _make_driver()
-    var w_lines: Array = _capture(d2, "wizard")
+    var w_lines: Array = H.capture(d2, "wizard")
     _expect("WIZARD produced output",                    w_lines.size() > 0,      true)
     _expect_any_match("WIZARD opens with canon msg #16",
         w_lines, "Are you a wizard?")
@@ -101,7 +89,7 @@ func _init():
     # ----- MAINT (single-word) -----
     print("Phase 3: MAINT — canon msg #1 wizard-in-grey + msg #20 charlatan")
     var d3 := _make_driver()
-    var m_lines: Array = _capture(d3, "maint")
+    var m_lines: Array = H.capture(d3, "maint")
     _expect("MAINT produced output",                     m_lines.size() > 0,      true)
     _expect_any_match("MAINT opens with canon green-smoke wizard",
         m_lines, "green smoke")
@@ -115,7 +103,7 @@ func _init():
     # ----- MAGIC alias (single word) -----
     print("Phase 4: MAGIC — same dispatch as MAINT (canon synonym for MAGIC MODE)")
     var d4 := _make_driver()
-    var mg_lines: Array = _capture(d4, "magic")
+    var mg_lines: Array = H.capture(d4, "magic")
     _expect("MAGIC produced output",                     mg_lines.size() > 0,     true)
     _expect_any_match("MAGIC routes to MAINT handler",
         mg_lines, "wizard, clothed in grey")
@@ -123,7 +111,7 @@ func _init():
     # ----- MAGIC MODE (two-word phrase, canon trigger) -----
     print("Phase 5: 'MAGIC MODE' — canon two-word trigger, parser drops MODE noun")
     var d5 := _make_driver()
-    var mm_lines: Array = _capture(d5, "magic mode")
+    var mm_lines: Array = H.capture(d5, "magic mode")
     _expect("MAGIC MODE produced output",                mm_lines.size() > 0,     true)
     _expect_any_match("MAGIC MODE routes to MAINT handler",
         mm_lines, "wizard, clothed in grey")
@@ -131,7 +119,7 @@ func _init():
     # ----- MAINTENANCE alias -----
     print("Phase 6: MAINTENANCE — long-form alias for MAINT")
     var d6 := _make_driver()
-    var mt_lines: Array = _capture(d6, "maintenance")
+    var mt_lines: Array = H.capture(d6, "maintenance")
     _expect("MAINTENANCE produced output",               mt_lines.size() > 0,     true)
     _expect_any_match("MAINTENANCE routes to MAINT handler",
         mt_lines, "wizard, clothed in grey")
@@ -142,7 +130,7 @@ func _init():
     # warning + "... or not." wink and saves instantly.
     print("Phase 7: SUSPEND — canon latency warning, '... or not' wink, instant save")
     var d7 := _make_driver()
-    var s_lines: Array = _capture(d7, "suspend")
+    var s_lines: Array = H.capture(d7, "suspend")
     _expect("SUSPEND produced output",                   s_lines.size() > 0,      true)
     _expect_any_match("SUSPEND opens with canon LATNCY warning",
         s_lines, "I can suspend your adventure")
@@ -156,7 +144,7 @@ func _init():
     # ----- PAUSE alias -----
     print("Phase 8: PAUSE — alias for SUSPEND")
     var d8 := _make_driver()
-    var p_lines: Array = _capture(d8, "pause")
+    var p_lines: Array = H.capture(d8, "pause")
     _expect("PAUSE produced output",                     p_lines.size() > 0,      true)
     _expect_any_match("PAUSE routes to SUSPEND handler",
         p_lines, "I can suspend your adventure")
@@ -166,7 +154,7 @@ func _init():
     # ----- SAVE stays silent (no canon flavor) -----
     print("Phase 9: SAVE — silent modern UX, no canon flavor")
     var d9 := _make_driver()
-    var sv_lines: Array = _capture(d9, "save")
+    var sv_lines: Array = H.capture(d9, "save")
     _expect("SAVE produced output",                      sv_lines.size() > 0,     true)
     _expect_no_match("SAVE doesn't print the canon SUSPEND warning",
         sv_lines, "I can suspend your adventure")

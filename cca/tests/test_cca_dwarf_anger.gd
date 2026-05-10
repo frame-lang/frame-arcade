@@ -12,14 +12,7 @@ extends SceneTree
 # Also verifies FEED dwarf intercept emits canon msg #103
 # ("dwarves eat only coal!") and routes through bump_dwarf_anger.
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -48,24 +41,12 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
-    d.fsm.setup_default_aspects()
-    d.fsm.do_command("light", "")
-    return d
-
-func _capture(d: CapturedDriver, input: String) -> Array:
-    var pre: int = d.captured.size()
-    d._process_input(input)
-    return d.captured.slice(pre)
-
 func _init():
     print("=== CCA dwarf-anger ramp + FEED dwarf bump ===")
 
     # ----- Phase 1: default anger floor + 0% hit rate -----
     print("Phase 1: default anger=2 → 0% hit pct (canon first-combat miss)")
-    var fsm := Cca.new()
+    var fsm := H.Cca.new()
     fsm.setup_default_aspects()
     fsm.wake_dwarves()
     _expect("default dwarf_anger == 2", fsm.get_dwarf_anger(), 2)
@@ -79,7 +60,7 @@ func _init():
     # 95*(10-2)/10 = 76. σ for 1000 rolls at 76% ≈ 13.5 → ±5σ ≈ ±68
     # → tolerance window [692, 828].
     print("Phase 2: anger=10 → ~76% hit pct (1000 rolls, ±5σ)")
-    var fsm2 := Cca.new()
+    var fsm2 := H.Cca.new()
     fsm2.setup_default_aspects()
     fsm2.wake_dwarves()
     var hits2: int = 0
@@ -92,7 +73,7 @@ func _init():
     # ----- Phase 3: anger=5 → ~28.5% hit pct -----
     # 95*(5-2)/10 = 28. σ ≈ 14.3 → ±5σ ≈ ±72 → window [213, 357].
     print("Phase 3: anger=5 → ~28.5% hit pct")
-    var fsm3 := Cca.new()
+    var fsm3 := H.Cca.new()
     fsm3.setup_default_aspects()
     fsm3.wake_dwarves()
     var hits3: int = 0
@@ -103,7 +84,7 @@ func _init():
 
     # ----- Phase 4: bump_dwarf_anger() advances counter -----
     print("Phase 4: bump_dwarf_anger() increments DFLAG-equivalent")
-    var fsm4 := Cca.new()
+    var fsm4 := H.Cca.new()
     fsm4.setup_default_aspects()
     _expect("baseline anger",                    fsm4.get_dwarf_anger(), 2)
     fsm4.bump_dwarf_anger()
@@ -114,17 +95,17 @@ func _init():
 
     # ----- Phase 5: FEED dwarf intercept emits canon msg + bumps anger -----
     print("Phase 5: FEED dwarf → canon msg #103 + anger bump")
-    var d := _make_driver()
+    var d := H.make_driver()
     var anger_before: int = d.fsm.get_dwarf_anger()
-    var l5: Array = _capture(d, "feed dwarf")
+    var l5: Array = H.capture(d, "feed dwarf")
     _expect_any_match("FEED dwarf emits 'dwarves eat only coal'",
         l5, "dwarves eat only coal")
     _expect("anger bumped by FEED",              d.fsm.get_dwarf_anger(),
                                                  anger_before + 1)
 
     # Repeat: each FEED bumps another point.
-    _capture(d, "feed dwarf")
-    _capture(d, "feed dwarf")
+    H.capture(d, "feed dwarf")
+    H.capture(d, "feed dwarf")
     _expect("3 FEEDs total → anger += 3",        d.fsm.get_dwarf_anger(),
                                                  anger_before + 3)
 

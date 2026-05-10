@@ -26,15 +26,8 @@ extends SceneTree
 #   111 40050 30 39 56  down/jump/climb 40% to 50
 #   111 50053 30        down 50% to 53 (after 40% miss)
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
+const H = preload("res://scripts/_test_helpers.gd")
 const Topology = preload("res://scripts/topology.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
 
 var failures: int = 0
 
@@ -54,9 +47,9 @@ func _expect_in_range(label: String, actual: int, lo: int, hi: int) -> void:
             label, actual, lo, hi])
         failures += 1
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
+func _make_driver() -> H.CapturedDriver:
+    var d := H.CapturedDriver.new()
+    d.fsm = H.Cca.new()
     d.fsm.setup_default_aspects()
     d.fsm.do_command("light", "")
     return d
@@ -68,7 +61,7 @@ func _make_driver() -> CapturedDriver:
 # Resets the player to `room` before each roll so the chain
 # always evaluates from the same starting point. Direct
 # _try_bumper_rule calls bypass tick/lamp consumption.
-func _roll_chain(d: CapturedDriver, room: int, verb: String, n: int) -> Dictionary:
+func _roll_chain(d: H.CapturedDriver, room: int, verb: String, n: int) -> Dictionary:
     var key: String = "%d:%s" % [room, verb]
     var entry = Topology.GATES.get(key, null)
     if entry == null:

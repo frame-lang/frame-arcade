@@ -9,14 +9,7 @@ extends SceneTree
 # Treasure FSM deposit() handler, leaving the chest. Tick a
 # turn — the hint should fire on the next per-turn check.
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -46,9 +39,9 @@ func _expect_no_match(label: String, lines: Array, needle: String) -> void:
             return
     print("  ok   %-58s no line contained '%s'" % [label, needle])
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
+func _make_driver() -> H.CapturedDriver:
+    var d := H.CapturedDriver.new()
+    d.fsm = H.Cca.new()
     d.fsm.setup_default_aspects()
     d.fsm.do_command("light", "")
     return d
@@ -62,7 +55,7 @@ func _force_deposit(t) -> void:
     t.try_take(deposit_room)
     t.try_drop(deposit_room)
 
-func _deposit_all_but_chest(d: CapturedDriver) -> void:
+func _deposit_all_but_chest(d: H.CapturedDriver) -> void:
     _force_deposit(d.fsm.gold)
     _force_deposit(d.fsm.silver)
     _force_deposit(d.fsm.diamonds)
@@ -78,18 +71,13 @@ func _deposit_all_but_chest(d: CapturedDriver) -> void:
     _force_deposit(d.fsm.coins)
     _force_deposit(d.fsm.chain)
 
-func _capture(d: CapturedDriver, input: String) -> Array:
-    var pre: int = d.captured.size()
-    d._process_input(input)
-    return d.captured.slice(pre)
-
 func _init():
     print("=== CCA chest-only-outstanding hint (canon msg #186) ===")
 
     # ----- Phase 1: pre-condition — hint NOT fired with <14 deposited -----
     print("Phase 1: <14 treasures deposited — no hint")
     var d1 := _make_driver()
-    var l1: Array = _capture(d1, "north")
+    var l1: Array = H.capture(d1, "north")
     _expect_no_match("no msg #186 with 0 treasures deposited",
         l1, "Shiver me timbers")
     _expect("hint latch still false",     d1._chest_hint_done,    false)
@@ -100,7 +88,7 @@ func _init():
     _deposit_all_but_chest(d2)
     _expect("setup: 14 treasures deposited", d2.fsm.treasures_deposited(), 14)
     _expect("setup: chest not deposited",    d2.fsm.chest.is_deposited(),  false)
-    var l2: Array = _capture(d2, "north")
+    var l2: Array = H.capture(d2, "north")
     _expect_any_match("first turn after threshold fires canon msg #186",
         l2, "Shiver me timbers")
     _expect_any_match("msg #186 mentions the maze",
@@ -109,7 +97,7 @@ func _init():
 
     # ----- Phase 3: re-fire suppressed by latch -----
     print("Phase 3: subsequent turns don't re-fire")
-    var l3: Array = _capture(d2, "north")
+    var l3: Array = H.capture(d2, "north")
     _expect_no_match("second turn does NOT re-fire msg #186",
         l3, "Shiver me timbers")
 
@@ -125,7 +113,7 @@ func _init():
     d4.fsm.chest.reappear(here)
     d4.fsm.chest.try_take(here)
     d4.fsm.player.take(d4.fsm.CHEST_ID)
-    var l4: Array = _capture(d4, "north")
+    var l4: Array = H.capture(d4, "north")
     _expect_no_match("hint suppressed when chest is carried",
         l4, "Shiver me timbers")
 

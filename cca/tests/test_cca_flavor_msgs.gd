@@ -13,14 +13,7 @@ extends SceneTree
 # Sources: advent.for verb dispatch (STMT 9140 EAT, STMT 9210
 # FEED) plus the unknown-verb randomization at STMT 3000.
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -33,47 +26,35 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
-    d.fsm.setup_default_aspects()
-    d.fsm.do_command("light", "")
-    return d
-
-func _capture(d: CapturedDriver, input: String) -> Array:
-    var pre: int = d.captured.size()
-    d._process_input(input)
-    return d.captured.slice(pre)
-
 func _init():
     print("=== CCA flavor msgs (CALM/EAT/FEED variants + unknown-verb mix) ===")
 
     # ----- Phase 1: CALM/TAME -----
     print("Phase 1: CALM / TAME → canon flavor")
-    var d := _make_driver()
+    var d := H.make_driver()
     _expect_any_match("CALM emits canon prose",
-        _capture(d, "calm"), "Would you care to explain")
+        H.capture(d, "calm"), "Would you care to explain")
     _expect_any_match("TAME emits canon prose",
-        _capture(d, "tame"), "Would you care to explain")
+        H.capture(d, "tame"), "Would you care to explain")
 
     # ----- Phase 2: EAT ridiculous targets -----
     print("Phase 2: EAT <enemy> → canon msg #71")
-    var d2 := _make_driver()
+    var d2 := H.make_driver()
     for noun in ["bird", "snake", "clam", "dragon", "troll", "bear"]:
         _expect_any_match("EAT %s → 'don't be ridiculous'" % noun,
-            _capture(d2, "eat " + noun), "ridiculous")
+            H.capture(d2, "eat " + noun), "ridiculous")
 
     # ----- Phase 3: FEED variants -----
     print("Phase 3: FEED variants")
-    var d3 := _make_driver()
+    var d3 := H.make_driver()
     _expect_any_match("FEED BIRD → canon 'pinin' for the fjords'",
-        _capture(d3, "feed bird"), "fjords")
+        H.capture(d3, "feed bird"), "fjords")
     _expect_any_match("FEED DWARF → canon 'eat only coal'",
-        _capture(d3, "feed dwarf"), "eat only coal")
+        H.capture(d3, "feed dwarf"), "eat only coal")
     _expect_any_match("FEED TROLL → canon 'gluttony is not one'",
-        _capture(d3, "feed troll"), "Gluttony")
+        H.capture(d3, "feed troll"), "Gluttony")
     _expect_any_match("FEED SNAKE → canon 'nothing it wants to eat'",
-        _capture(d3, "feed snake"), "wants to eat")
+        H.capture(d3, "feed snake"), "wants to eat")
 
     # ----- Phase 4: unknown-verb random distribution -----
     # Canon advent.for STMT 3000:
@@ -84,7 +65,7 @@ func _init():
     # 80%×20% = 16% msg #61, 20% msg #13.
     print("Phase 4: unknown-verb randomization (canon STMT 3000, 64/16/20)")
     seed(0xCABBA9E)
-    var d4 := _make_driver()
+    var d4 := H.make_driver()
     var c_60: int = 0       # canon msg #60
     var c_61: int = 0       # canon msg #61
     var c_13: int = 0       # canon msg #13

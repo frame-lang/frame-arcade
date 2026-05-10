@@ -17,18 +17,7 @@ extends SceneTree
 # iteration triggers the kill — only that the kill *eventually*
 # fires and the canon message is emitted at least once.
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-# Driver subclass that re-implements `_println` to push lines
-# into a captured buffer. The hazard helper's only output side
-# effect is `_println(...)`, so the buffer is sufficient ground
-# truth for "what did the player see".
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -49,12 +38,12 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver() -> CapturedDriver:
+func _make_driver() -> H.CapturedDriver:
     # Skip _ready entirely — we only need `fsm`, `_dark_warned_room`,
     # and the `_check_dark_pit_hazard` method. Don't add to the
     # SceneTree so no UI bootstrap fires.
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
+    var d := H.CapturedDriver.new()
+    d.fsm = H.Cca.new()
     d.fsm.setup_default_aspects()
     return d
 

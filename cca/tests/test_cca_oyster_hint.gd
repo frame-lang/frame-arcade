@@ -12,14 +12,7 @@ extends SceneTree
 # post-clam-break state by giving the player the rod, placing
 # the clam in the room, and breaking it.
 
-const Cca = preload("res://scripts/cca.gd")
-const Driver = preload("res://scripts/driver.gd")
-
-class CapturedDriver:
-    extends Driver
-    var captured: Array = []
-    func _println(text: String) -> void:
-        self.captured.append(text)
+const H = preload("res://scripts/_test_helpers.gd")
 
 var failures: int = 0
 
@@ -40,9 +33,9 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
         label, needle, lines.size()])
     failures += 1
 
-func _make_driver_with_oyster() -> CapturedDriver:
-    var d := CapturedDriver.new()
-    d.fsm = Cca.new()
+func _make_driver_with_oyster() -> H.CapturedDriver:
+    var d := H.CapturedDriver.new()
+    d.fsm = H.Cca.new()
     d.fsm.setup_default_aspects()
     d.fsm.do_command("light", "")
     # Break the clam to spawn the oyster at the current room.
@@ -60,18 +53,13 @@ func _make_driver_with_oyster() -> CapturedDriver:
     d.fsm.do_command("break", "clam")
     return d
 
-func _capture(d: CapturedDriver, input: String) -> Array:
-    var pre: int = d.captured.size()
-    d._process_input(input)
-    return d.captured.slice(pre)
-
 func _init():
     print("=== CCA oyster hint chain — msgs #192/193/194 ===")
 
     # ----- Phase 1: first READ OYSTER → prompt -----
     print("Phase 1: READ OYSTER first time → msg #192 prompt")
     var d := _make_driver_with_oyster()
-    var l1: Array = _capture(d, "read oyster")
+    var l1: Array = H.capture(d, "read oyster")
     _expect_any_match("READ OYSTER emits canon prompt msg #192",
         l1, "10 points")
     _expect("prompt active",                d._oyster_prompt_active, true)
@@ -81,7 +69,7 @@ func _init():
     print("Phase 2: YES → msg #193 reveal + 10-pt deduction")
     var score_before: int = d.fsm.score()
     var hints_before: int = d.fsm.hint_penalty()
-    var l2: Array = _capture(d, "yes")
+    var l2: Array = H.capture(d, "yes")
     _expect_any_match("YES emits canon msg #193 reveal",
         l2, "something strange about this place")
     _expect_any_match("YES emits 'words I've always known' hint",
@@ -93,31 +81,31 @@ func _init():
 
     # ----- Phase 3: re-read after reveal → msg #194 -----
     print("Phase 3: re-read after reveal → msg #194 ('same thing')")
-    var l3: Array = _capture(d, "read oyster")
+    var l3: Array = H.capture(d, "read oyster")
     _expect_any_match("re-read emits canon msg #194",
         l3, "same thing it did before")
 
     # ----- Phase 4: NO branch — cancel without penalty -----
     print("Phase 4: NO at prompt → cancels with no penalty")
     var d2 := _make_driver_with_oyster()
-    _capture(d2, "read oyster")             # arm prompt
+    H.capture(d2, "read oyster")             # arm prompt
     _expect("prompt armed",                 d2._oyster_prompt_active, true)
     var score_b4: int = d2.fsm.score()
-    var l4: Array = _capture(d2, "no")
+    var l4: Array = H.capture(d2, "no")
     _expect_any_match("NO emits 'OK.'",     l4, "OK.")
     _expect("prompt cleared",               d2._oyster_prompt_active, false)
     _expect("not revealed",                 d2._oyster_revealed,      false)
     _expect("score unchanged",              d2.fsm.score(),           score_b4)
 
     # Re-reading after a NO should re-prompt (canon: not revealed).
-    var l4b: Array = _capture(d2, "read oyster")
+    var l4b: Array = H.capture(d2, "read oyster")
     _expect_any_match("post-NO re-read re-prompts canon msg #192",
         l4b, "10 points")
 
     # ----- Phase 5: EXAMINE OYSTER also triggers the chain -----
     print("Phase 5: EXAMINE OYSTER (synonym) also enters the chain")
     var d3 := _make_driver_with_oyster()
-    var l5: Array = _capture(d3, "examine oyster")
+    var l5: Array = H.capture(d3, "examine oyster")
     _expect_any_match("EXAMINE OYSTER prompts canon msg #192",
         l5, "10 points")
 
