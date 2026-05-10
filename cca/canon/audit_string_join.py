@@ -132,6 +132,12 @@ RETURN_STR_RE = re.compile(r'return\s+"((?:\\.|[^"\\])*)"')
 # every `@@:("…")` was invisible to the audit, producing false
 # LEFT-ONLY entries for canon msgs the port actually emits.
 RETURN_ASSIGN_RE = re.compile(r'_return\s*=\s*"((?:\\.|[^"\\])*)"')
+# Some prose is stored to a field for deferred surfacing — e.g.,
+# `self.last_warning = "Your lamp is getting dim…"` is the lamp
+# tick warning, which the driver reads back via a getter. Catch
+# any `self.<field> = "<literal>"` assignment whose RHS is a
+# string long enough to be prose (rather than a state code).
+FIELD_ASSIGN_RE = re.compile(r'self\.\w+\s*=\s*"((?:\\.|[^"\\])*)"')
 
 def extract_emissions(path):
     """Return list of (line_no, kind, text) for emitted strings."""
@@ -150,6 +156,10 @@ def extract_emissions(path):
                 text = m.group(1).encode().decode('unicode_escape')
                 if len(normalize(text)) >= MIN_NORM_LEN:
                     items.append((i, 'fsm_emit', text))
+            for m in FIELD_ASSIGN_RE.finditer(line):
+                text = m.group(1).encode().decode('unicode_escape')
+                if len(normalize(text)) >= MIN_NORM_LEN:
+                    items.append((i, 'field_assign', text))
     return items
 
 # ---------- Join ----------

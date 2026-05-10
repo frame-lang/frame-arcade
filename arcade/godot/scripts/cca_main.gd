@@ -2309,28 +2309,32 @@ func _check_endgame_phase_change() -> void:
     if s != _last_endgame_state:
         _last_endgame_state = s
         if s == "closing":
-            _println("[color=#cc7777][b]A sepulchral voice intones: 'The cave is closing now. Your final chance to deposit treasures has begun.'[/b][/color]")
+            # Canon msg #129 verbatim. Closing-phase opens with the
+            # canonical sepulchral voice announcement.
+            _println("[color=#cc7777][b]A sepulchral voice reverberating through the cave, says, \"Cave closing soon. All adventurers exit immediately through main office.\"[/b][/color]")
         elif s == "in_repository":
-            _println("[color=#cc7777][b]The cave closes shut. You are teleported to the repository — all your treasures lie at your feet, plus a single stick of dynamite. Try DETONATE.[/b][/color]")
+            # Canon msg #132 verbatim — the cave-closes-shut prose.
+            _println("[color=#cc7777][b]The sepulchral voice entones, \"The cave is now closed.\" As the echoes fade, there is a blinding flash of light (and a small puff of orange smoke). . . . As your eyes refocus, you look around and find...[/b][/color]")
+            _println("[color=#aaaaaa][i](Try DETONATE.)[/i][/color]")
         elif s == "won":
             _println("[color=#88dd88][b]You have escaped! Final score: %d. Thank you for playing.[/b][/color]" % fsm.total_score())
 
-    # Closing-phase crescendo. While in $Closing, the timer
-    # decrements each turn from CLOSING_DURATION (30) down to 0.
-    # We surface escalating prose at three thresholds — once each
-    # — so the player feels the cave winding shut around them
-    # rather than getting one alert and silence.
+    # Closing-phase crescendo. Canon msg #129 is the single
+    # cave-closing warning; the t=15 and t=5 escalations below are
+    # port-only flavor to keep tension building (canon has just one
+    # alert and then $Closed). They use distinct prose so they
+    # don't duplicate the canon opening text.
     if s == "closing":
         var t: float = fsm.endgame_timer()
         if t <= 25.0 and not _closing_warned_25:
             _closing_warned_25 = true
-            _println("[color=#cc7777][i]A second sepulchral voice booms: 'Cave closing soon. All adventurers exit immediately through main office.'[/i][/color]")
+            _println("[color=#cc7777][i]The voice booms once more from the depths: 'Cave closing soon.'[/i][/color]")
         if t <= 15.0 and not _closing_warned_15:
             _closing_warned_15 = true
             _println("[color=#cc7777][i]The walls of the cave seem to be trembling. A brilliant white light suddenly fills the cave.[/i][/color]")
         if t <= 5.0 and not _closing_warned_5:
             _closing_warned_5 = true
-            _println("[color=#cc7777][b]The voice intones once more: 'The cave is closing — exit through the main office NOW.' The ground shudders beneath your feet.[/b][/color]")
+            _println("[color=#cc7777][b]The voice intones again: 'The cave is closing — exit NOW.' The ground shudders beneath your feet.[/b][/color]")
 
 func _maybe_print_room_after_move() -> void:
     var current: int = fsm.player_room()
