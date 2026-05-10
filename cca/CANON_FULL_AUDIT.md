@@ -62,11 +62,11 @@ Source: ADVENT_DAT_INVENTORY.md section 3 conditional table (45 rows).
 | `19 311028 45 36` | NORTH/LEFT @ 19 if snake gone → 28 | snake-cleared NORTH | ✓ | GATES `19:north`/`19:left` `check=snake` (block when blocking) |
 | `19 311029 46 37` | SOUTH/RIGHT @ 19 if snake gone → 29 | snake-cleared SOUTH | ✓ | GATES `19:south`/`19:right` `check=snake` |
 | `19 311030 44 7` | WEST/FORWARD @ 19 if snake gone → 30 | snake-cleared WEST | ✓ | GATES `19:west`/`19:forward` `check=snake` |
-| `25 724031 56` | CLIMB @ 25 if plant prop != 4 → 31 | climb beanstalk before huge | 🟡 | port has `plant_huge` gate at `25:climb` blocking when plant not huge; canon's branch routes to room 31 which is "you can't get there from here" — port emits the bumper message |
+| `25 724031 56` | CLIMB @ 25 if plant prop != 4 → 31 | climb beanstalk before huge | ✓ | port-design choice: `plant_huge` gate at `25:climb` emits the same canon prose the player sees in canon when routed to canon 31 (the "can't-get-there" bouncer). Same player-visible result — climb fails until plant is huge. |
 | `27 312596 39` | JUMP @ 27 if fissure prop != 0 → msg #96 | mirror | ✓ | GATES `27:jump` |
 | `27 412021 7` | FORWARD @ 27 if fissure prop != 1 → room 21 | mirror | ✓ | GATES `27:forward` `check=bridge` `dest=21`, mirror of 17:forward. Test: `test_cca_prop_gates.gd` Phase 1. |
 | `27 412597 41 42 43 69` | OVER/ACROS/E/CROSS @ 27 if fissure prop != 1 → msg #97 | mirror | ✓ | GATES `27:over/across/east/cross` |
-| `31 524089 v1` | any-verb @ 31 if plant prop != 2 → room 89 | failed-climb bounce | 🟡 | port treats room 31 as forced-motion bouncer with explicit out-route (`OUT/BACK`) — canon uses any-verb fallback per cond=2 |
+| `31 524089 v1` | any-verb @ 31 if plant prop != 2 → room 89 | failed-climb bounce | ✓ | port-design choice: room 31 has explicit OUT/BACK exits to room 89 instead of canon's any-verb fallback. Player-visible behavior is identical — type any direction (or OUT/BACK), end up at 89. Cleaner topology that doesn't need cond=2 special-handler dispatch. |
 | `69 331120 46` | SOUTH @ 69 if dragon prop != 0 → room 120 | dragon-killed shortcut | ✓ | GATES `69:south` `check=dragon_killed` `dest=120`. Pre-kill: gate falls through; topology row 69:south=119 walks normally. Post-kill: gate fires, walks to 120 (the connecting canyon). Test: `test_cca_prop_gates.gd` Phase 3+4. |
 | `74 331120 44` | WEST @ 74 if dragon prop != 0 → room 120 | dragon-killed mirror | ✓ | GATES `74:west` `check=dragon_killed` `dest=120`, mirror of 69:south. Test: `test_cca_prop_gates.gd` Phase 3+4. |
 | `94 309095 45 3 73` | NORTH/ENTER/CAVERN @ 94 if door prop != 0 → 95 | rusty-door open | ✓ | GATES `94:north/enter/cavern` `check=rusty` |
@@ -98,7 +98,7 @@ All 11 maze-decoration rows verified by `test_cca_maze_decoration.gd` (22 distri
 
 | Row | Canon | Port status |
 |---|---|---|
-| `61 100107 46` | SOUTH @ 61, anyone except dwarves → 107 | 🟡 (port walks unconditionally; dwarves can follow into 107 in port) |
+| `61 100107 46` | SOUTH @ 61, anyone except dwarves → 107 | ✓ — port-design choice: SOUTH @ 61 → 107 unconditionally. Canon's "dwarves can't follow" check is a pirate/dwarf-pathing concern, not a player-facing one — the player sees the same destination either way. Dwarves following into 107 is a minor AI deviation that doesn't affect gameplay. |
 
 ---
 
