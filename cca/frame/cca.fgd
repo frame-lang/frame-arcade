@@ -4669,6 +4669,9 @@
                 if self._at_oil_source():
                     return self.bottle.fill_oil(true)
                 return self.bottle.fill(self._at_water_source())
+            # Canon msg #144 — FILL VASE always fails.
+            if noun == "vase":
+                return "There is nothing here with which to fill the vase."
             return "You can't fill that."
         }
 
