@@ -1360,24 +1360,66 @@ func _process_input(text: String) -> void:
             return
         _oyster_prompt_active = false
 
-    # UI-only verbs (driver-handled, never reach the FSM).
+    # ----- UI-only verbs (driver-handled, never reach the FSM) -----
+    if _handle_ui_verb(verb, noun): return
+
+    # ----- Bumper rules + dark-pit hazard -----
+    if _dispatch_bumper(verb): return
+    if verb in MOTION_VERBS and _check_dark_pit_hazard(): return
+
+    # ENTER STREAM/WATER must precede DIRECTIONS — "enter" is in
+    # DIRECTIONS, so the intercept has to win first.
+    if _intercept_enter_stream(verb, noun): return
+    if verb in DIRECTIONS:
+        _handle_movement(verb)
+        return
+
+    # ----- Canon verb intercepts (order is canon-significant) -----
+    if _intercept_break_mirror(verb, noun): return
+    if _intercept_drop_bird(verb, noun): return
+    if _intercept_attack_bird(verb, noun): return
+    if _intercept_attack_bear(verb, noun): return
+    if _intercept_take_knife(verb, noun): return
+    if _intercept_take_bear(verb, noun): return
+    if _intercept_unlock_chain(verb, noun): return
+    if _intercept_take_scenery(verb, noun): return
+    if _intercept_throw_axe(verb, noun): return
+    _intercept_plover_emerald(verb, noun)              # side-effect; falls through to FSM
+    if _intercept_calm(verb, noun): return
+    if _intercept_eat(verb, noun): return
+    if _intercept_feed(verb, noun): return
+    if _intercept_scenery_read(verb, noun): return
+
+    # ----- FSM dispatch + unknown-verb prose mix -----
+    _dispatch_to_fsm(verb, noun)
+
+    # ----- Per-turn check chain -----
+    _run_per_turn_checks()
+
+# ============================================================
+# UI-only verbs (driver-handled, never reach the FSM)
+# ============================================================
+# Returns true if `verb` was a UI verb the driver fully handled.
+# Arcade differs from cca/driver in two places:
+#   - QUIT routes through the exit_dialog (cabinet shell handles
+#     save+quit / quit / cancel) instead of canon msg #22.
+#   - Otherwise identical to the cca/driver mirror.
+func _handle_ui_verb(verb: String, noun: String) -> bool:
     match verb:
         "help":
             _print_help()
-            return
+            return true
         "info":
             _print_info()
-            return
+            return true
         "quit":
-            # Typed QUIT / EXIT mirrors the Esc keypress: open
-            # the same Save+quit / Quit / Cancel dialog so the
-            # player gets the chance to save their progress, and
-            # leaving the chapter goes through Arcade.return_to_menu()
-            # rather than killing the whole cabinet.
+            # Typed QUIT mirrors the Esc keypress: open the
+            # save+quit / quit / cancel dialog rather than firing
+            # canon msg #22 + killing the cabinet.
             if not exit_dialog.is_open():
                 exit_dialog.open()
                 _show_exit_dialog()
-            return
+            return true
         "score":
             _println("[b]Score: %d[/b] — treasures %d (%d/15 deposited), visits %d, hints %d, endgame %d" % [
                 fsm.score(),
@@ -1385,69 +1427,46 @@ func _process_input(text: String) -> void:
                 fsm.visit_score(),
                 fsm.hint_penalty(),
                 fsm.endgame_score()])
-            return
+            return true
         "inventory":
             _println(_format_inventory())
-            return
+            return true
         "save":
             _save_game()
-            return
+            return true
         "load":
             _load_game()
-            return
+            return true
         "suspend":
-            # Canon SUSPEND (advent.for STMT 8300, around line 1791).
-            # In 1977 this printed the "wait at least N minutes" warning
-            # (formatted from `LATNCY`, default 45), asked YES/NO, and
-            # on yes called CIAO to write the core image and exit. The
-            # latency was an anti-save-scum measure on the multi-user
-            # PDP-10. On a desktop port saves are owned by the player,
-            # so we honor the verb with the canon prose and a wink,
-            # then save instantly. SAVE stays silent.
+            # Canon SUSPEND (advent.for STMT 8300). Honor the
+            # canon prose + a wink, then save instantly.
             _println("I can suspend your adventure for you so that you can resume later, but")
             _println("you will have to wait at least 45 minutes before continuing.")
             _println("")
             _println("... or not.")
             _save_game()
-            return
+            return true
         "hint":
             var hint_name: String = noun if noun != "" else "bird"
             _println(fsm.request_hint(hint_name))
-            return
+            return true
         "hours":
-            # Canon HOURS (advent.for line 8310 → SUBROUTINE HOURS at
-            # 2639). On the 1977 PDP-10 this printed the timesharing
-            # window during which the cave was open to non-wizards
-            # (`WKDAY`/`WKEND`/`HOLID` bitmasks of prime-time hours).
-            # In a single-user desktop port that whole machinery is
-            # vestigial — the cave is always available — so we honor
-            # the verb with the canonical translation: a brief banner
-            # that says exactly that and points at the canon
-            # provenance for anyone curious about the history.
+            # Canon HOURS — desktop port has no off-hours.
             _println("Colossal Cave is open all day, every day.")
             _println("(In the original 1977 PDP-10 release this verb")
             _println("printed the timesharing schedule during which")
             _println("non-wizards could play. On a desktop port the")
             _println("cave has no off-hours.)")
-            return
+            return true
         "wizard":
-            # Canon WIZARD (advent.for SUBROUTINE WIZARD at line 2578).
-            # Real authentication dialogue in 1977: msg #16 → #17 → a
-            # hashed challenge from DATIME → either #19 (wizard!) or
-            # #20 (charlatan!). We narrate the dialogue verbatim in
-            # one turn and end on canon msg #20.
+            # Canon WIZARD — canon-msg-#16/#17/#19/#20 dialogue.
             _println("\"Are you a wizard?\"")
             _println("\"Prove it!  Say the magic word!\"")
             _println("\"That is not what I thought it was.  Do you know what I thought it was?\"")
             _println("\"Foo, you are nothing but a charlatan!\"")
-            return
+            return true
         "maint", "magic":
-            # Canon MAINT (advent.for SUBROUTINE MAINT at line 2521).
-            # Triggered in 1977 by typing "MAGIC MODE" as the very
-            # first command. Let a wizard edit cave hours, magic
-            # word, MOTD, demo length, suspend latency. On a desktop
-            # port the cave needs no maintenance — flavored as a
-            # canon-msg-#1 wizard appearance gently rewritten.
+            # Canon MAINT — wizard-in-grey flavor.
             _println("A large cloud of green smoke appears in front of you. It clears")
             _println("away to reveal a tall wizard, clothed in grey. He fixes you with")
             _println("a steely glare and declares, \"Maintenance mode requires a real")
@@ -1456,40 +1475,37 @@ func _process_input(text: String) -> void:
             _println("you find yourself right back where you started.")
             _println("")
             _println("\"Foo, you are nothing but a charlatan!\"")
-            return
+            return true
         "blast":
-            # Canon BLAST (advent.for STMT 9230). Three outcomes
-            # gated on (CLOSED, LOC, HERE(ROD2)). See cca/godot
-            # mirror for the full inline canon-spec docs.
+            # Canon BLAST (advent.for STMT 9230). See cca/driver
+            # for full inline canon-spec docs.
             if fsm.endgame_state() != "in_repository":
                 _println("Blasting requires dynamite.")
-                return
+                return true
             if fsm.mark_rod_here():
                 _println("There is a loud explosion, and you are suddenly splashed across the")
                 _println("walls of the room.")
                 fsm.blast_klutz()
                 _check_endgame_phase_change()
-                return
+                return true
             if fsm.player_room() == 115:
                 _println("There is a loud explosion, and a twenty-foot hole appears in the far")
                 _println("wall, burying the snakes in the rubble. A river of molten lava pours")
                 _println("in through the hole, destroying everything in its path, including you!")
                 fsm.blast_wrong_way()
                 _check_endgame_phase_change()
-                return
+                return true
             _println("There is a loud explosion, and a twenty-foot hole appears in the far")
             _println("wall, burying the dwarves in the rubble. You march through the hole")
             _println("and find yourself in the main office, where a cheering band of")
             _println("friendly elves carry the conquering adventurer off into the sunset.")
             fsm.blast_mastery()
             _check_endgame_phase_change()
-            return
+            return true
         "wake":
-            # Canon WAKE (advent.for STMT 9290). Endgame-only
-            # death (msg #199 + msg #136).
             if fsm.endgame_state() != "in_repository":
                 _println("I don't understand that.")
-                return
+                return true
             _println("You prod the nearest dwarf, who wakes up grumpily, takes one look at")
             _println("you, curses, and grabs for his axe.")
             _println("")
@@ -1498,323 +1514,101 @@ func _process_input(text: String) -> void:
             _println("knives at you! All of them get you!")
             fsm.player.die()
             _check_player_death()
-            return
+            return true
         "find":
-            # Canon FIND (advent.for STMT 9190). See cca/godot
-            # mirror for full inline canon-spec docs.
             var find_obj_id: int = _resolve_object_id(noun)
             if find_obj_id > 0 and fsm.player.carrying(find_obj_id):
                 _println("You are already carrying it!")
-                return
-            # Canon AT(OBJ) — visible in current room → msg #94.
+                return true
             if find_obj_id > 0 and _object_in_room(find_obj_id, fsm.player_room()):
                 _println("I believe what you want is right here with you.")
-                return
+                return true
             if fsm.endgame_state() == "in_repository":
                 _println("I daresay whatever you want is around here somewhere.")
-                return
+                return true
             _println("I can only tell you what you see as you move about and manipulate things. I cannot tell you where remote things are.")
-            return
+            return true
         "brief":
             _brief_mode = true
             _println("Okay, from now on I'll only describe a place in full the first time")
             _println("you come to it. To get the full description, say LOOK.")
-            return
+            return true
         "rub":
-            # Canon RUB (advent.for STMT 9160). LAMP → msg #75;
-            # anything else → msg #76.
             if noun == "lamp":
                 _println("Rubbing the electric lamp is not particularly rewarding. Anyway, nothing exciting happens.")
             else:
                 _println("Peculiar. Nothing unexpected happens.")
-            return
+            return true
         "say":
             if noun == "":
                 _println("Say what?")
-                return
+                return true
             if noun in ["xyzzy", "plugh", "plover", "fee", "fie", "foe", "foo"]:
                 _process_input(noun)
-                return
+                return true
             _println("Okay, \"%s\"." % noun)
-            return
+            return true
         "cave":
-            # Canon CAVE (advent.for STMT 40). Outdoors (rooms 1–8)
-            # → msg #57; indoors → msg #58. Pure flavor.
             if fsm.player_room() <= 8:
                 _println("I don't know where the cave is, but hereabouts no stream can run on the surface for long. I would try the stream.")
             else:
                 _println("I need more detailed instructions to do that.")
-            return
+            return true
         "look":
-            # Canon LOOK (advent.for STMT 30) — msg #15 first 3
-            # times, then silent re-display.
             if _look_detail_count < 3:
                 _println("Sorry, but I am not allowed to give more detail. I will repeat the long description of your location.")
                 _look_detail_count = _look_detail_count + 1
             _last_room = -1
             _visited_rooms.erase(fsm.player_room())
             _print_room()
-            return
+            return true
         "back":
-            # Canon BACK (advent.for STMT 20-25). See cca/godot
-            # mirror for full inline doc.
             var bk_current: int = fsm.player_room()
             var bk_exits: Dictionary = room_exits.get(bk_current, {})
             if "back" in bk_exits:
                 _handle_movement("back")
-                return
+                return true
             var k: int = _old_loc
             if k in FORCED_ROOMS:
                 k = _old_loc2
             if k < 0:
                 _println("Sorry, but I no longer seem to remember how it was you got here.")
-                return
+                return true
             if k == bk_current:
                 _println("Where?")
-                return
+                return true
             for bk_dir in bk_exits:
                 if bk_exits[bk_dir] == k:
                     _handle_movement(bk_dir)
-                    return
+                    return true
             _println("Sorry, but I no longer seem to remember how it was you got here.")
-            return
+            return true
+    return false
 
-    # Canon "always-blocked" bumper gates and conditional rows.
-    # The (room, verb) key may map to either a single rule
-    # (Dictionary) or an ordered chain of rules (Array). Canon
-    # section 3 has *multiple rows* per (from, verb) for
-    # conditional dispatch — e.g. `19 35074 49` (35% → 74)
-    # followed by `19 211032 49` (snake-here → 32). The chain
-    # walks rules in order; the first that fires wins.
+# ============================================================
+# Dispatch helpers
+# ============================================================
+
+# Canon "always-blocked" bumper gates and conditional rows. The
+# (room, verb) key may map to either a single rule (Dictionary)
+# or an ordered chain of rules (Array). The chain walks rules in
+# order; the first that fires wins. Returns true if any rule
+# fired (caller should `return`).
+func _dispatch_bumper(verb: String) -> bool:
     var bumper_key: String = "%d:%s" % [fsm.player_room(), verb]
-    if bumper_key in gated_exits:
-        var entry = gated_exits[bumper_key]
-        var rules: Array = entry if entry is Array else [entry]
-        for rule in rules:
-            if _try_bumper_rule(rule):
-                return
+    if not bumper_key in gated_exits:
+        return false
+    var entry = gated_exits[bumper_key]
+    var rules: Array = entry if entry is Array else [entry]
+    for rule in rules:
+        if _try_bumper_rule(rule):
+            return true
+    return false
 
-    # Canon dark-room pit-fall hazard. Any motion attempt from a
-    # dark cave room (lamp out) risks death. The first attempt in
-    # the room emits the canon warning; subsequent attempts roll
-    # the 35% pit-fall. Lighting the lamp clears the hazard.
-    if verb in MOTION_VERBS and _check_dark_pit_hazard():
-        return
-
-    # Canon ENTER STREAM / ENTER WATER (canon msg #70). Must run
-    # before the DIRECTIONS check below — "enter" is in DIRECTIONS,
-    # so it would otherwise route to _handle_movement and never
-    # reach the canon intercept.
-    if verb == "enter" and (noun == "stream" or noun == "water"):
-        _println("Your feet are now wet.")
-        return
-
-    # Direction verbs become MOVE with a resolved room ID.
-    if verb in DIRECTIONS:
-        _handle_movement(verb)
-        return
-
-    # Canon BREAK MIRROR (advent.for STMT 9280) — closed-only
-    # death (msg #197 + msg #136). Pre-CLOSED returns the action
-    # default msg #146.
-    if verb == "break" and noun == "mirror":
-        if fsm.endgame_state() == "in_repository":
-            _println("You strike the mirror a resounding blow, whereupon it shatters into a")
-            _println("myriad tiny fragments.")
-            _println("")
-            _println("The resulting ruckus has awakened the dwarves. There are now several")
-            _println("threatening little dwarves in the room with you! Most of them throw")
-            _println("knives at you! All of them get you!")
-            fsm.player.die()
-            _check_player_death()
-            return
-        _println("It is beyond your power to do that.")
-        return
-
-    # Canon DROP BIRD (advent.for STMT 9020). Re-route to
-    # _verb_release which has the dragon/snake special cases.
-    if verb == "drop" and noun == "bird":
-        _process_input("release bird")
-        return
-
-    # Canon ATTACK/KILL BIRD (advent.for STMT 9120) — msg #137.
-    if verb == "attack" and noun == "bird":
-        _println("Oh, leave the poor unhappy bird alone.")
-        return
-
-    # Canon ATTACK BEAR (msgs #165/#166/#167) — varies by state.
-    if verb == "attack" and noun == "bear":
-        var bs_attack: String = fsm.bear.get_state()
-        if bs_attack == "hungry":
-            _println("With what? Your bare hands? Against *his* bear hands??")
-        elif bs_attack == "tame" or bs_attack == "following":
-            _println("The bear is confused; he only wants to be your friend.")
-        elif bs_attack == "released":
-            _println("For crying out loud, the poor thing is already dead!")
-        else:
-            _println("There is no bear here to attack.")
-        return
-
-    # Canon TAKE KNIFE (advent.for STMT 9010 + msg #116) —
-    # dwarf-thrown knives vanish on impact, never carryable.
-    if verb == "take" and noun == "knife":
-        _println("The dwarves' knives vanish as they strike the walls of the cave.")
-        return
-
-    # Canon TAKE BEAR (msg #169) — bear is still chained.
-    if verb == "take" and noun == "bear":
-        var bs_take: String = fsm.bear.get_state()
-        if bs_take == "hungry" or bs_take == "tame":
-            _println("The bear is still chained to the wall.")
-            return
-        if bs_take == "following":
-            _println("You are already leading the bear by the chain.")
-            return
-        _println("There is no bear here to take.")
-        return
-
-    # Canon UNLOCK CHAIN (msg #170) — without keys, chain stays locked.
-    if verb == "unlock" and noun == "chain":
-        if not fsm.player.carrying(KEYS_ID):
-            _println("The chain is still locked.")
-            return
-        # Fall through to FSM.
-
-    # Canon TAKE on fixed scenery (msg #25) — "You can't be serious!"
-    if verb == "take" and noun in [
-            "tablet", "mirror", "figure", "shadow", "stalactite",
-            "drawings", "drawing", "volcano", "geyser",
-            "carpet", "moss", "message"]:
-        _println("You can't be serious!")
-        return
-
-    # Canon THROW AXE (advent.for STMT 9170). Pre-check the
-    # dragon/troll/bear room cases so canon prose lands; then
-    # fall through to fsm.do_command for the dwarf-attack
-    # path.
-    if verb == "throw" and noun == "axe":
-        var here_room: int = fsm.player_room()
-        if here_room == 119 and fsm.dragon_alive():
-            _println("The axe bounces harmlessly off the dragon's thick scales.")
-            return
-        if here_room == 117 and fsm.troll.is_blocking_bridge():
-            _println("The troll deftly catches the axe, examines it carefully, and tosses")
-            _println("it back, declaring, \"Good workmanship, but it's not valuable enough.\"")
-            return
-        if here_room == 130 and fsm.bear_state() == "hungry":
-            _println("The axe misses and lands near the bear where you can't get at it.")
-            return
-
-    # Canon routine 302 — Plover-emerald drop. At canon Y2 (33)
-    # or Plover Room (100), invoking PLOVER while carrying the
-    # emerald drops it at the current room before teleporting.
-    if verb == "plover":
-        var here_pl: int = fsm.player_room()
-        if (here_pl == 33 or here_pl == 100) and fsm.player.carrying(EMERALD_ID):
-            fsm.emerald.try_drop(here_pl)
-            fsm.player.drop(EMERALD_ID)
-            _println("As you start to chant, the emerald slips from your grasp and falls to the floor.")
-
-    # Canon CALM/TAME — verb 10, no-op flavor stub.
-    if verb == "calm" or verb == "tame":
-        _println("I'm game. Would you care to explain how?")
-        return
-
-    # Canon EAT variants — NPC nouns get the canon "Don't be
-    # ridiculous!" rebuff; any other non-food noun gets canon
-    # msg #71 verbatim.
-    if verb == "eat":
-        if noun in ["bird", "snake", "clam", "oyster", "dwarf", "dragon", "troll", "bear"]:
-            _println("Don't be ridiculous!")
-            return
-        if noun != "" and noun != "food":
-            _println("I think I just lost my appetite.")
-            return
-
-    # Canon FEED variants — non-bear targets.
-    if verb == "feed":
-        if noun == "bird":
-            _println("It's not hungry (it's merely pinin' for the fjords). Besides, you have no bird seed.")
-            return
-        if noun == "dwarf":
-            # canon msg #103 + DFLAG bump (advent.for STMT 9213).
-            fsm.bump_dwarf_anger()
-            _println("You fool, dwarves eat only coal! Now you've made him *really* mad!!")
-            return
-        if noun == "troll":
-            _println("Gluttony is not one of the troll's vices. Avarice, however, is.")
-            return
-        if noun == "snake" or noun == "dragon":
-            if noun == "dragon" and not fsm.dragon_alive():
-                _println("Don't be ridiculous!")
-            else:
-                _println("There's nothing here it wants to eat (except perhaps you).")
-            return
-
-    # Canon scenery EXAMINE/READ flavor (advent.dat section 5).
-    if verb == "read" or verb == "examine":
-        var er: int = fsm.player_room()
-        # Canon ROD2 prop change (advent.dat object 6) — dynamite
-        # only reveals after the cave has CLOSED ($InRepository).
-        if noun == "rod" and fsm.mark_rod_here():
-            if fsm.endgame_state() == "in_repository":
-                _println("It looks suspiciously like a stick of dynamite. Better not let it get near a flame.")
-            else:
-                _println("A small black rod with a rusty mark on the end.")
-            return
-        if noun == "tablet" and er == 101:
-            _println("A massive stone tablet imbedded in the wall reads:")
-            _println("\"Congratulations on bringing light into the dark-room!\"")
-            return
-        # Object 36 — MESSAGE in second maze @ canon CHLOC2=140.
-        if noun == "message" and er == 140:
-            _println("There is a message scrawled in the dust in a flowery script, reading:")
-            _println("\"This is not the maze where the pirate leaves his treasure chest.\"")
-            return
-        # Object 15 — OYSTER hint chain (advent.dat msgs
-        # #192/193/194). Reading the underside reveals the magic-
-        # words hint at a 10-point cost.
-        if noun == "oyster" and fsm.oyster_item.is_in_room(er):
-            if _oyster_revealed:
-                _println("It says the same thing it did before.")
-                return
-            _oyster_prompt_active = true
-            _println("Hmmm, this looks like a clue, which means it'll cost you 10 points to")
-            _println("read it. Should I go ahead and read it anyway?")
-            return
-        if noun == "mirror" and er == 109:
-            _println("It's a two-sided mirror suspended high above the canyon floor.")
-            _println("Provided for the dwarves, who as you know are extremely vain.")
-            return
-        if (noun == "figure" or noun == "shadow") and (er == 35 or er == 110):
-            _println("The shadowy figure seems to be trying to attract your attention.")
-            return
-        if noun == "stalactite" and er == 111:
-            _println("It's a large stalactite extending from the roof and almost reaching the floor below.")
-            return
-        if (noun == "drawings" or noun == "drawing") and er == 97:
-            _println("The cave drawings are ancient and Oriental in style.")
-            return
-        if (noun == "volcano" or noun == "geyser") and er == 126:
-            _println("Great gouts of molten lava come surging out of an active volcano,")
-            _println("cascading back down into the depths.")
-            return
-        if (noun == "carpet" or noun == "moss") and er == 96:
-            _println("The carpet is soft and the moss-covered ceiling muffles every sound.")
-            return
-        if (noun == "plant" or noun == "plant2") and (er == 23 or er == 35):
-            _println("It's the top of a tall beanstalk poking out of the west pit.")
-            return
-
-    # All other verbs: pass to the FSM. Adventure's bus
-    # dispatches through the aspects (DarknessGate may
-    # consume look/examine in dark rooms, MagicWordTeleport
-    # transforms xyzzy/plugh/plover into MOVE, etc.) and
-    # returns the response string.
+# FSM dispatch + unknown-verb canon randomization (msg #60/#61/
+# #13 in 64/16/20 distribution per advent.for STMT 3000).
+func _dispatch_to_fsm(verb: String, noun: String) -> void:
     var response: String = fsm.do_command(verb, noun)
-    # Canon "unknown verb" randomization (advent.for STMT 3000):
-    # SPK=60; IF(PCT(20))SPK=61; IF(PCT(20))SPK=13. Two chained
-    # PCT(20) calls produce a 64% / 16% / 20% distribution.
     if response.begins_with("I don't know how to '"):
         var roll1: int = randi() % 100
         var roll2: int = randi() % 100
@@ -1826,14 +1620,9 @@ func _process_input(text: String) -> void:
             response = "I don't know that word."     # canon msg #60
     _println(response)
 
-    # Per-turn upkeep: lamp battery, endgame timer, hint
-    # observation, pirate activation. Frame side handles all
-    # of these in tick().
+# Per-turn check chain.
+func _run_per_turn_checks() -> void:
     fsm.tick()
-
-    # Driver-side per-turn checks: pirate-steals, lamp
-    # warnings, endgame phase changes, dwarf axe hits, chest
-    # hint, player death.
     _check_pirate_steal()
     _check_lamp_warnings()
     _check_endgame_phase_change()
@@ -1841,6 +1630,225 @@ func _process_input(text: String) -> void:
     _check_chest_hint()
     _check_player_death()
     _maybe_print_room_after_move()
+
+# ============================================================
+# Verb intercepts
+# ============================================================
+# Each `_intercept_*` returns true if the verb was handled
+# (caller should `return`) and false to fall through. Dispatch
+# order in `_process_input` is canon-significant.
+
+func _intercept_break_mirror(verb: String, noun: String) -> bool:
+    if verb != "break" or noun != "mirror":
+        return false
+    if fsm.endgame_state() == "in_repository":
+        _println("You strike the mirror a resounding blow, whereupon it shatters into a")
+        _println("myriad tiny fragments.")
+        _println("")
+        _println("The resulting ruckus has awakened the dwarves. There are now several")
+        _println("threatening little dwarves in the room with you! Most of them throw")
+        _println("knives at you! All of them get you!")
+        fsm.player.die()
+        _check_player_death()
+        return true
+    _println("It is beyond your power to do that.")
+    return true
+
+func _intercept_drop_bird(verb: String, noun: String) -> bool:
+    if verb != "drop" or noun != "bird":
+        return false
+    _process_input("release bird")
+    return true
+
+func _intercept_attack_bird(verb: String, noun: String) -> bool:
+    if verb != "attack" or noun != "bird":
+        return false
+    _println("Oh, leave the poor unhappy bird alone.")
+    return true
+
+func _intercept_attack_bear(verb: String, noun: String) -> bool:
+    if verb != "attack" or noun != "bear":
+        return false
+    var bs: String = fsm.bear.get_state()
+    if bs == "hungry":
+        _println("With what? Your bare hands? Against *his* bear hands??")
+    elif bs == "tame" or bs == "following":
+        _println("The bear is confused; he only wants to be your friend.")
+    elif bs == "released":
+        _println("For crying out loud, the poor thing is already dead!")
+    else:
+        _println("There is no bear here to attack.")
+    return true
+
+func _intercept_take_knife(verb: String, noun: String) -> bool:
+    if verb != "take" or noun != "knife":
+        return false
+    _println("The dwarves' knives vanish as they strike the walls of the cave.")
+    return true
+
+func _intercept_take_bear(verb: String, noun: String) -> bool:
+    if verb != "take" or noun != "bear":
+        return false
+    var bs: String = fsm.bear.get_state()
+    if bs == "hungry" or bs == "tame":
+        _println("The bear is still chained to the wall.")
+        return true
+    if bs == "following":
+        _println("You are already leading the bear by the chain.")
+        return true
+    _println("There is no bear here to take.")
+    return true
+
+func _intercept_unlock_chain(verb: String, noun: String) -> bool:
+    if verb != "unlock" or noun != "chain":
+        return false
+    if not fsm.player.carrying(KEYS_ID):
+        _println("The chain is still locked.")
+        return true
+    return false
+
+func _intercept_take_scenery(verb: String, noun: String) -> bool:
+    if verb != "take":
+        return false
+    if noun in [
+            "tablet", "mirror", "figure", "shadow", "stalactite",
+            "drawings", "drawing", "volcano", "geyser",
+            "carpet", "moss", "message"]:
+        _println("You can't be serious!")
+        return true
+    return false
+
+# Canon ENTER STREAM / ENTER WATER (msg #70). Must precede the
+# DIRECTIONS check.
+func _intercept_enter_stream(verb: String, noun: String) -> bool:
+    if verb != "enter":
+        return false
+    if noun != "stream" and noun != "water":
+        return false
+    _println("Your feet are now wet.")
+    return true
+
+# Canon THROW AXE (advent.for STMT 9170). Returns false (falls
+# through to FSM _verb_throw) for the dwarf-attack path.
+func _intercept_throw_axe(verb: String, noun: String) -> bool:
+    if verb != "throw" or noun != "axe":
+        return false
+    var here_room: int = fsm.player_room()
+    if here_room == 119 and fsm.dragon_alive():
+        _println("The axe bounces harmlessly off the dragon's thick scales.")
+        return true
+    if here_room == 117 and fsm.troll.is_blocking_bridge():
+        _println("The troll deftly catches the axe, examines it carefully, and tosses")
+        _println("it back, declaring, \"Good workmanship, but it's not valuable enough.\"")
+        return true
+    if here_room == 130 and fsm.bear_state() == "hungry":
+        _println("The axe misses and lands near the bear where you can't get at it.")
+        return true
+    return false
+
+# Canon routine 302 — Plover-emerald drop. Side-effect only;
+# falls through so the regular PLOVER teleport runs after via
+# fsm.do_command.
+func _intercept_plover_emerald(verb: String, noun: String) -> void:
+    if verb != "plover":
+        return
+    var here_pl: int = fsm.player_room()
+    if (here_pl == 33 or here_pl == 100) and fsm.player.carrying(EMERALD_ID):
+        fsm.emerald.try_drop(here_pl)
+        fsm.player.drop(EMERALD_ID)
+        _println("As you start to chant, the emerald slips from your grasp and falls to the floor.")
+
+func _intercept_calm(verb: String, noun: String) -> bool:
+    if verb != "calm" and verb != "tame":
+        return false
+    _println("I'm game. Would you care to explain how?")
+    return true
+
+func _intercept_eat(verb: String, noun: String) -> bool:
+    if verb != "eat":
+        return false
+    if noun in ["bird", "snake", "clam", "oyster", "dwarf", "dragon", "troll", "bear"]:
+        _println("Don't be ridiculous!")
+        return true
+    if noun != "" and noun != "food":
+        _println("I think I just lost my appetite.")
+        return true
+    return false
+
+func _intercept_feed(verb: String, noun: String) -> bool:
+    if verb != "feed":
+        return false
+    if noun == "bird":
+        _println("It's not hungry (it's merely pinin' for the fjords). Besides, you have no bird seed.")
+        return true
+    if noun == "dwarf":
+        # canon msg #103 + DFLAG bump.
+        fsm.bump_dwarf_anger()
+        _println("You fool, dwarves eat only coal! Now you've made him *really* mad!!")
+        return true
+    if noun == "troll":
+        _println("Gluttony is not one of the troll's vices. Avarice, however, is.")
+        return true
+    if noun == "snake" or noun == "dragon":
+        if noun == "dragon" and not fsm.dragon_alive():
+            _println("Don't be ridiculous!")
+        else:
+            _println("There's nothing here it wants to eat (except perhaps you).")
+        return true
+    return false
+
+# Canon scenery EXAMINE/READ flavor (advent.dat section 5).
+func _intercept_scenery_read(verb: String, noun: String) -> bool:
+    if verb != "read" and verb != "examine":
+        return false
+    var er: int = fsm.player_room()
+    # ROD2 prop change — pre-CLOSED rod / post-CLOSED dynamite.
+    if noun == "rod" and fsm.mark_rod_here():
+        if fsm.endgame_state() == "in_repository":
+            _println("It looks suspiciously like a stick of dynamite. Better not let it get near a flame.")
+        else:
+            _println("A small black rod with a rusty mark on the end.")
+        return true
+    if noun == "tablet" and er == 101:
+        _println("A massive stone tablet imbedded in the wall reads:")
+        _println("\"Congratulations on bringing light into the dark-room!\"")
+        return true
+    if noun == "message" and er == 140:
+        _println("There is a message scrawled in the dust in a flowery script, reading:")
+        _println("\"This is not the maze where the pirate leaves his treasure chest.\"")
+        return true
+    if noun == "oyster" and fsm.oyster_item.is_in_room(er):
+        if _oyster_revealed:
+            _println("It says the same thing it did before.")
+            return true
+        _oyster_prompt_active = true
+        _println("Hmmm, this looks like a clue, which means it'll cost you 10 points to")
+        _println("read it. Should I go ahead and read it anyway?")
+        return true
+    if noun == "mirror" and er == 109:
+        _println("It's a two-sided mirror suspended high above the canyon floor.")
+        _println("Provided for the dwarves, who as you know are extremely vain.")
+        return true
+    if (noun == "figure" or noun == "shadow") and (er == 35 or er == 110):
+        _println("The shadowy figure seems to be trying to attract your attention.")
+        return true
+    if noun == "stalactite" and er == 111:
+        _println("It's a large stalactite extending from the roof and almost reaching the floor below.")
+        return true
+    if (noun == "drawings" or noun == "drawing") and er == 97:
+        _println("The cave drawings are ancient and Oriental in style.")
+        return true
+    if (noun == "volcano" or noun == "geyser") and er == 126:
+        _println("Great gouts of molten lava come surging out of an active volcano,")
+        _println("cascading back down into the depths.")
+        return true
+    if (noun == "carpet" or noun == "moss") and er == 96:
+        _println("The carpet is soft and the moss-covered ceiling muffles every sound.")
+        return true
+    if (noun == "plant" or noun == "plant2") and (er == 23 or er == 35):
+        _println("It's the top of a tall beanstalk poking out of the west pit.")
+        return true
+    return false
 
 # ============================================================
 # Parsing
