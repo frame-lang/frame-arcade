@@ -56,13 +56,15 @@ cca/
 │   ├── project.godot
 │   ├── scenes/             ← .tscn UI scenes (one per dialog)
 │   └── scripts/
-│       ├── aspects.gd      ← copied from generated/ (gitignored)
-│       ├── cca.gd          ← copied from generated/ (gitignored)
-│       ├── topology.gd     ← maze data: ROOMS dict + GATES dict
-│       ├── monkey.gd       ← random-walk fuzzer for the FSM
-│       └── driver.gd       ← UI + parser + cross-FSM choreography
+│       ├── aspects.gd          ← copied from generated/ (gitignored)
+│       ├── cca.gd              ← copied from generated/ (gitignored)
+│       ├── topology.gd         ← maze data: ROOMS dict + GATES dict
+│       ├── monkey.gd           ← random-walk fuzzer for the FSM
+│       ├── state_explorer.gd   ← Frame state-reachability probe
+│       ├── _test_helpers.gd    ← shared CapturedDriver + factories
+│       └── driver.gd           ← UI + parser + cross-FSM choreography
 │
-└── tests/                  ← 30 SceneTree-based smoke tests
+└── tests/                  ← 62 SceneTree-based smoke tests
 ```
 
 ---
@@ -211,27 +213,42 @@ through itself.
 
 The driver is the only file with a UI dependency. It hosts the
 RichTextLabel scrolling log + LineEdit input, and bridges typed
-commands to Frame events:
+commands to Frame events. The `_process_input` entry point itself
+is small — it orchestrates a fixed dispatch order, delegating each
+phase to an extracted helper:
 
 ```
 Player types into LineEdit
     ↓
 _process_input(text)
-    ↓ parse to (verb, noun)
-    ↓ resolve direction → room id (via Topology.ROOMS / GATES)
-    ↓ handle UI verbs (inventory, score, save, load, hint, quit)
-    ↓ otherwise:
-fsm.do_command(verb, noun)        ← FSM side
-    returns String response (driver prints)
-    ↓
-fsm.tick()                        ← FSM side
-    advances lamp battery, endgame timer, hint observation,
-    pirate threshold, ...
-    ↓ render:
-_print_room()
-    ↓ check post-turn consequences:
-_check_pirate_steal(); _check_lamp_warnings(); _check_player_death();
-_check_endgame_phase_change();
+    │
+    ├── parse the verb + noun, expand synonyms, resolve articles
+    ├── _intercept_*(verb, noun)        ← driver-side verb intercepts
+    │       _intercept_enter_stream     (canon msg #70 before any move)
+    │       _intercept_drop_bird        (cage-into-room flavor)
+    │       _intercept_attack_bird      (canon msg #137)
+    │       _intercept_attack_bear      (... and ~12 more, one per
+    │                                    canon special-handler row)
+    │   Each returns `true` if it consumed the verb; the dispatcher
+    │   short-circuits on the first match. Order is canon-significant.
+    │
+    ├── _handle_ui_verb(verb, noun)     ← cabinet-side verbs (no FSM)
+    │       inventory / score / save / load / hint / quit /
+    │       help / info / brief / verbose
+    │
+    ├── _dispatch_bumper(verb)          ← non-direction motion verbs
+    │   JUMP / SLIT / STREAM / FORWARD / PIT / DOME / ...
+    │   Consults Topology.GATES for canon bumper prose without
+    │   touching the FSM.
+    │
+    ├── _dispatch_to_fsm(verb, noun)    ← everything else
+    │   fsm.do_command(verb, noun)
+    │   prints the returned response
+    │
+    └── _run_per_turn_checks()
+            advances lamp battery, endgame timer, hint observation,
+            pirate threshold; renders the new room; checks for player
+            death, lamp warnings, endgame phase change.
 ```
 
 The driver also implements a few interactive-only mechanics that
@@ -246,6 +263,9 @@ don't belong in the pure FSM:
 - **Resurrection prompt** — the only place that converts `yes`/`no`
   into `player.revive()` after death.
 - **Save / load** — UI verbs that round-trip Adventure's state.
+- **Typed-input recall + scrollback paging** — Up/Down walk through
+  previously typed commands; PgUp/PgDn page the scroll log. Session-
+  only, not persisted.
 
 ### 4.1 Arcade build mirror
 
@@ -271,9 +291,9 @@ print metrics that surface deviations:
 
 | Dashboard                       | What it tracks                                                                          |
 |---------------------------------|-----------------------------------------------------------------------------------------|
-| `test_cca_canon.gd`             | 50 architectural probes — treasure homes, NPC rooms, magic-word pairs, mechanism probes (every NPC FSM, every cross-FSM choreography point). Currently 49/50; the open delta is the port-only Witt's End walking corridor. |
+| `test_cca_canon.gd`             | 50 architectural probes — treasure homes, NPC rooms, magic-word pairs, mechanism probes (every NPC FSM, every cross-FSM choreography point). 0 open deltas. |
 | `test_cca_topology.gd`          | Per-room conformance against `advent.dat` section 3 plain rows. 140/140 rooms aligned with 0 deltas. |
-| `test_cca_conditional.gd`       | Coverage of canon section 3 *special-handler* rows (those with `M ≥ 1`). 33/62 total covered (4/4 bumper, 10/13 msg500, 19/45 cond). |
+| `test_cca_conditional.gd`       | Coverage of canon section 3 *special-handler* rows (those with `M ≥ 1`). 61/62 total covered. |
 | `test_cca_monkey.gd`            | Random-walk fuzzer. 10000 commands, fixed seed (42). Reports rooms visited, fingerprints, moves, soft-locks. Thresholds: ≥18 rooms, ≥50 fps, ≥1000 moves, 0 soft-locks. |
 
 ### 5.2 The canonical playthrough — `test_cca_canonical.gd`
@@ -341,18 +361,36 @@ Each NPC and puzzle system has its own focused test:
 
 ### 5.4 Captured-driver pattern
 
-The driver-only mechanics (dark-pit-fall, bumper-key dispatch) need
-a Driver instance to test. Since `Driver extends Control`, it can't
-be instantiated headless without UI. The pattern in
-`test_cca_dark_pit_fall.gd`:
+The driver-only mechanics (dark-pit-fall, bumper-key dispatch, the
+`_intercept_*` family) need a `Driver` instance to test. Since
+`Driver extends Control`, it can't be instantiated headless without
+UI. The shared helpers in
+[`godot/scripts/_test_helpers.gd`](godot/scripts/_test_helpers.gd)
+encapsulate the pattern so every test stays a few lines:
 
-1. Subclass `Driver` with a captured-output `_println`.
-2. Inject a fresh `Cca.new()` as the FSM.
-3. Call the driver's helper directly (`d._check_dark_pit_hazard()`)
-   and assert against the captured buffer.
+```gdscript
+const H = preload("res://scripts/_test_helpers.gd")
 
-This keeps the driver's logic testable without bringing the
-SceneTree up.
+func _init():
+    var d: H.CapturedDriver = H.make_driver()      # FSM + default
+                                                    # aspects + lit lamp
+    var lines: Array = H.capture(d, "look")        # one input → emitted
+                                                    # lines only
+    _expect_any_match("description prints", lines, "BUILDING")
+```
+
+`H.CapturedDriver` is a `Driver` subclass that redirects `_println`
+to an in-memory buffer instead of the RichTextLabel. `H.make_driver()`
+returns one with a fresh `Cca.new()` FSM, default aspects installed,
+and the lamp lit; `H.capture(d, input)` slices the buffer to just
+the lines emitted by that one input.
+
+Tests with custom setup (Witt's End needing the lamp off, the chest
+hint requiring pre-deposited treasures, etc.) build their own driver
+via `H.CapturedDriver.new()` and seed it directly. The shared
+helpers are not mandatory — they remove ~15 lines of duplication
+per test in the common case, and stay out of the way when a test
+needs something specific.
 
 ---
 
