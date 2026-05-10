@@ -41,14 +41,48 @@ name.
 
 ## Controls
 
-**Menu:**
-- ↑ / ↓ — select a game
-- Enter or Space — launch
-- Esc — quit
+The cabinet shares a small unified keymap on top of each chapter's
+own controls. Two principles: `Esc` is always reversible (opens an
+overlay, never destroys work directly), and `Enter` in any overlay
+is the safe default (preserve, not discard).
 
-**In-game:**
-- Each game's own controls (see the per-chapter READMEs)
-- Esc — return to menu
+**Home screen:**
+
+- ↑ / ↓ — select a game
+- Enter / Space — launch the highlighted game
+- 1–9 — jump straight to that game
+- Esc — open *Quit cabinet?* confirmation (Enter quits, Esc cancels)
+
+If a chapter has a save and you launch it again, the home screen
+shows a *Continue / New game* prompt. Up/Down to choose, Enter to
+confirm, Esc to back out to the game list.
+
+**In-game (most chapters):**
+
+- Esc — return to the home screen
+
+**Colossal Cave Adventure** (save-aware):
+
+- Esc — open *Leaving the cave?* dialog
+  - Enter / Space — Save and quit (default — preserves your run)
+  - Q — Quit without saving
+  - Esc — Cancel back to the game
+- F5 — quick save (no overlay)
+- F9 — quick load (resume from last save)
+- Up / Down — recall previously typed commands at the prompt
+- PgUp / PgDn — page the scrollback log
+- The classic typed verbs `SAVE`, `LOAD`, and `QUIT` still work too.
+
+**Asteroids** (save-aware):
+
+- Esc / P — pause menu (Resume / Save & exit to menu / Exit without saving)
+- The pause menu is the leave-game overlay — there's no separate
+  "Esc means leave" path, since the menu already covers it.
+
+Any chapter that doesn't save (Pong, Breakout, Invaders, Pacman,
+Platformer, Shooter, Stealth) returns straight to the home screen
+on Esc — no confirmation prompt, since there's no run state to
+lose.
 
 ## Architecture
 
