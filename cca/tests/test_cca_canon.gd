@@ -415,6 +415,8 @@ func _probe_clam_oyster_pearl() -> bool:
     adv.do_command("take", "clam")
     var carries_clam: bool = adv.player.carrying(adv.CLAM_ID)
     adv.player.move_to(16)
+    # Canon msg #120 — drop the clam before opening it.
+    adv.do_command("drop", "clam")
     adv.do_command("break", "clam")
     var pearl_here: bool = adv.pearl.get_location() == 16
     var oyster_here: bool = adv.oyster_item.get_location() == 16

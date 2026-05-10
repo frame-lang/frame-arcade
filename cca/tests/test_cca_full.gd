@@ -72,6 +72,8 @@ func _init():
     adv.player.move_to(103)
     adv.do_command("take", "clam")
     adv.player.move_to(16)
+    # Canon msg #120 requires the clam be dropped before opening.
+    adv.do_command("drop", "clam")
     adv.do_command("break", "clam")
     adv.do_command("take", "pearl")
     _deposit(adv, "pearl", 33)

@@ -499,6 +499,7 @@ func _stages() -> Array:
                 ["go", "east"],            # 65 → 64 (complex junction)
                 ["go", "north"],           # 64 → 103 (Shell Room)
                 ["take", "clam"],
+                ["drop", "clam"],          # canon msg #120 — drop first
                 ["break", "clam"],         # pearl appears at 103
                 ["take", "pearl"],
                 # 103 → 33 via cliff (39).

@@ -50,6 +50,8 @@ func _make_driver_with_oyster() -> H.CapturedDriver:
     d.fsm.rod_item.place(here)
     d.fsm.rod_item.try_take(here)
     d.fsm.player.take(d.fsm.ROD_ID)
+    # Canon msg #120 — drop the clam before opening it.
+    d.fsm.do_command("drop", "clam")
     d.fsm.do_command("break", "clam")
     return d
 

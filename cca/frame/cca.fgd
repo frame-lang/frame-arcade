@@ -4555,25 +4555,35 @@
         }
 
         _verb_break(noun: String): String {
-            # Canon: BREAK CLAM (or OPEN CLAM / OPEN OYSTER) is
-            # the puzzle action. Requires the rod to crack the
-            # shell. Clam → Oyster (immobile) at the same room,
-            # and the pearl falls out at the same room. Pearl
-            # is dynamic — its location was 0 until this moment.
-            if noun == "oyster":
-                return "The oyster is already open."
-            if noun != "clam":
-                return "It is beyond your power to do that."
+            # Canon: BREAK CLAM (or OPEN CLAM / OPEN OYSTER) is the
+            # puzzle action. Canon expects the player to PUT DOWN the
+            # clam/oyster first, then crack it with the rod. Clam →
+            # Oyster (immobile) at the same room, and the pearl falls
+            # out at the same room. Pearl is dynamic — its location
+            # was 0 until this moment.
             var here: int = self.player.get_room()
-            if not self.clam_item.is_carried() and not self.clam_item.is_in_room(here):
-                return "There is no clam here."
-            if not self.rod_item.is_carried():
-                # Canon msg #122.
-                return "You don't have anything strong enough to open the clam."
-            # Drop the clam from inventory (if carried) — the player
-            # is no longer holding it once it shatters.
+            if noun == "oyster":
+                # Canon msg #121.
+                if self.oyster_item.is_carried():
+                    return "I advise you to put down the oyster before opening it. >WRENCH!<"
+                if not self.oyster_item.is_in_room(here):
+                    return "There is no oyster here."
+                # Canon msg #123 — no rod, no luck.
+                if not self.rod_item.is_carried():
+                    return "You don't have anything strong enough to open the oyster."
+                # Canon msg #125 — oyster opens, but nothing inside.
+                return "The oyster creaks open, revealing nothing but oyster inside. It promptly snaps shut again."
+            if noun != "clam":
+                # Canon msg #146.
+                return "It is beyond your power to do that."
+            # Canon msg #120 — must put down the clam first.
             if self.clam_item.is_carried():
-                self.player.drop(self.CLAM_ID)
+                return "I advise you to put down the clam before opening it. >STRAIN!<"
+            if not self.clam_item.is_in_room(here):
+                return "There is no clam here."
+            # Canon msg #122 — no rod, no luck.
+            if not self.rod_item.is_carried():
+                return "You don't have anything strong enough to open the clam."
             # Clam → $Consumed (terminal; never recoverable). Oyster
             # spawns immobile at the break room. Pearl spawns there
             # too via the Treasure FSM's reappear.
