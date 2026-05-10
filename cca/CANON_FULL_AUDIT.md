@@ -433,7 +433,7 @@ Comprehensive map is impractical to inline here — strategic table:
 | 162 | Bear-falls-bridge death | ✓ |
 | 163 | "Troll runs from bear" | ✓ |
 | 164 | "Throw axe at bear" | ✓ — driver "throw axe" intercept emits canon prose at room 130 with bear hungry. Test: `test_cca_npc_throws.gd` Phase 5. |
-| 165/166/167/168/169/170 | Bear states | 🟡 — partial coverage |
+| 165/166/167/168/169/170 | Bear states | ✓ — driver intercepts cover ATTACK BEAR (msgs #165 hungry / #166 tame-following / #167 released) and TAKE BEAR (msg #169 still-chained) and UNLOCK CHAIN no-keys (msg #170). FSM `_verb_feed` emits canon msg #168 verbatim ("eagerly wolfs down your food, after which he seems to calm down considerably and even becomes rather friendly"). Test: `test_cca_bear_msgs.gd` (6 assertions). |
 | 171/172/173 | Chain unlock/lock | ✓ |
 | 175 | "Sorry no more hints" | ✓ |
 | 176/177 | Maze hint | ✓ |

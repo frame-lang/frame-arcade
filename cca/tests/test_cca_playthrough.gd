@@ -121,7 +121,7 @@ func _init():
     adv.do_command("move", "130")
     _expect("at bear room",     adv.player_room(),  130)
     var r12 = adv.do_command("feed", "bear")
-    _expect_contains("fed bear",   r12, "eats")
+    _expect_contains("fed bear",   r12, "wolfs down")
     var r13 = adv.do_command("take", "chain")
     _expect_contains("got chain",  r13, "lumbers")
 

@@ -827,6 +827,26 @@ func _process_input(text: String) -> void:
         _println("Oh, leave the poor unhappy bird alone.")
         return
 
+    # Canon ATTACK BEAR (advent.for STMT 9120 + msgs #165/#166).
+    # Outcome varies by bear state:
+    #   hungry           → msg #165 ("bare hands... bear hands??")
+    #   tame/following   → msg #166 ("only wants to be your friend")
+    #   released         → msg #167 ("poor thing is already dead")
+    #     (released = post-bridge, bear off the chain; canon's
+    #      "dead" prop variant doesn't exist in the port since
+    #      the bear FSM has no $Dead state, but msg #167 fits.)
+    if verb == "attack" and noun == "bear":
+        var bs: String = fsm.bear.get_state()
+        if bs == "hungry":
+            _println("With what? Your bare hands? Against *his* bear hands??")
+        elif bs == "tame" or bs == "following":
+            _println("The bear is confused; he only wants to be your friend.")
+        elif bs == "released":
+            _println("For crying out loud, the poor thing is already dead!")
+        else:
+            _println("There is no bear here to attack.")
+        return
+
     # Canon TAKE KNIFE (advent.for STMT 9010 + msg #116). The
     # player can never pick up a dwarf-thrown knife — they
     # canonically vanish on impact. KNFLOC tracking is moot when
@@ -835,6 +855,40 @@ func _process_input(text: String) -> void:
     if verb == "take" and noun == "knife":
         _println("The dwarves' knives vanish as they strike the walls of the cave.")
         return
+
+    # Canon TAKE BEAR (advent.for STMT 9010 + msg #169). The bear
+    # can be "taken" only after taming AND unlocking the chain —
+    # the FSM's _verb_take("chain") handles the canonical chain-
+    # transfer path. Direct TAKE BEAR while the bear is still
+    # chained gets the canon rebuff.
+    if verb == "take" and noun == "bear":
+        var bs_take: String = fsm.bear.get_state()
+        if bs_take == "hungry":
+            _println("The bear is still chained to the wall.")
+            return
+        if bs_take == "tame":
+            # Canon: must take chain first (which triggers the
+            # bear-follows-you transition). TAKE BEAR alone
+            # doesn't transfer the bear.
+            _println("The bear is still chained to the wall.")
+            return
+        if bs_take == "following":
+            _println("You are already leading the bear by the chain.")
+            return
+        _println("There is no bear here to take.")
+        return
+
+    # Canon UNLOCK CHAIN (advent.for + msg #170). UNLOCK CHAIN
+    # without keys → msg #170 ("The chain is still locked.").
+    # UNLOCK CHAIN with keys + bear-not-tame → msg #41 (FSM
+    # default). With keys + tame bear → bear's chain unlocks.
+    # Routes through the FSM's bear/chain handling for the
+    # mechanical path; we just intercept the no-keys case.
+    if verb == "unlock" and noun == "chain":
+        if not fsm.player.carrying(KEYS_ID):
+            _println("The chain is still locked.")
+            return
+        # Fall through — FSM _verb_unlock handles the rest.
 
     # Canon THROW AXE (advent.for STMT 9170). The port's
     # _verb_throw handles axe-at-dwarves and treasure-at-troll

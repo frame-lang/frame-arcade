@@ -1642,11 +1642,43 @@ func _process_input(text: String) -> void:
         _println("Oh, leave the poor unhappy bird alone.")
         return
 
+    # Canon ATTACK BEAR (msgs #165/#166/#167) — varies by state.
+    if verb == "attack" and noun == "bear":
+        var bs_attack: String = fsm.bear.get_state()
+        if bs_attack == "hungry":
+            _println("With what? Your bare hands? Against *his* bear hands??")
+        elif bs_attack == "tame" or bs_attack == "following":
+            _println("The bear is confused; he only wants to be your friend.")
+        elif bs_attack == "released":
+            _println("For crying out loud, the poor thing is already dead!")
+        else:
+            _println("There is no bear here to attack.")
+        return
+
     # Canon TAKE KNIFE (advent.for STMT 9010 + msg #116) —
     # dwarf-thrown knives vanish on impact, never carryable.
     if verb == "take" and noun == "knife":
         _println("The dwarves' knives vanish as they strike the walls of the cave.")
         return
+
+    # Canon TAKE BEAR (msg #169) — bear is still chained.
+    if verb == "take" and noun == "bear":
+        var bs_take: String = fsm.bear.get_state()
+        if bs_take == "hungry" or bs_take == "tame":
+            _println("The bear is still chained to the wall.")
+            return
+        if bs_take == "following":
+            _println("You are already leading the bear by the chain.")
+            return
+        _println("There is no bear here to take.")
+        return
+
+    # Canon UNLOCK CHAIN (msg #170) — without keys, chain stays locked.
+    if verb == "unlock" and noun == "chain":
+        if not fsm.player.carrying(KEYS_ID):
+            _println("The chain is still locked.")
+            return
+        # Fall through to FSM.
 
     # Canon THROW AXE (advent.for STMT 9170). Pre-check the
     # dragon/troll/bear room cases so canon prose lands; then

@@ -46,7 +46,7 @@ func _init():
 
     print("Feed bear → tame:")
     var r2 = adv.do_command("feed", "bear")
-    _expect("feed response",       r2.contains("eats"), true)
+    _expect("feed response",       r2.contains("wolfs down"), true)
     _expect("bear state",          adv.bear_state(),    "tame")
 
     print("Take chain → following:")

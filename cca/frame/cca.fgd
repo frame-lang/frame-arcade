@@ -4279,7 +4279,8 @@
             self.food_item.consume()                      # → $Consumed (terminal)
             self.player.drop(self.FOOD_ID)
             self.bear.feed()
-            return "The bear eats the food eagerly and looks much friendlier."
+            # Canon msg #168 verbatim.
+            return "The bear eagerly wolfs down your food, after which he seems to calm down considerably and even becomes rather friendly."
         }
 
         _verb_attack(noun: String): String {
