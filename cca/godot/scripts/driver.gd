@@ -981,11 +981,16 @@ func _intercept_enter_stream(verb: String, noun: String) -> bool:
     return true
 
 # Canon TAKE on fixed scenery (msg #25) — "You can't be serious!"
+# Stalactite gets msg #148 specifically (too far up to reach).
 func _intercept_take_scenery(verb: String, noun: String) -> bool:
     if verb != "take":
         return false
+    if noun == "stalactite":
+        # Canon msg #148.
+        _println("It is too far up for you to reach.")
+        return true
     if noun in [
-            "tablet", "mirror", "figure", "shadow", "stalactite",
+            "tablet", "mirror", "figure", "shadow",
             "drawings", "drawing", "volcano", "geyser",
             "carpet", "moss", "message"]:
         _println("You can't be serious!")
