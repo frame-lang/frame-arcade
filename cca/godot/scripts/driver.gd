@@ -218,6 +218,17 @@ var _look_detail_count: int = 0
 var _old_loc: int = -1
 var _old_loc2: int = -1
 
+# Typed-input recall (Up/Down arrow keys at the prompt) and
+# scrollback paging (PgUp/PgDn). Session-only ergonomic state —
+# not part of save/restore, since it's about the player's typing
+# rhythm, not the game world.
+#
+# `_input_history_idx == -1` means "sitting at a fresh edit
+# buffer below the end of history"; Up moves back into history,
+# Down from -1 is a no-op.
+var _input_history: Array = []
+var _input_history_idx: int = -1
+
 # Canon msg #3 first-dwarf-encounter latch (advent.for STMT
 # 6000). Canon narrates msg #3 on the DFLAG 1→2 transition: "A
 # little dwarf just walked around a corner, saw you, threw a
@@ -349,6 +360,10 @@ func _build_ui() -> void:
     # each new command.
     # https://github.com/godotengine/godot/issues/101434
     input.keep_editing_on_text_submit = true
+    # Up/Down recall typed history; PgUp/PgDn page the scroll
+    # log. LineEdit ignores these keys for single-line editing,
+    # so we intercept via gui_input before they bubble out.
+    input.gui_input.connect(_on_input_gui_input)
     prompt_row.add_child(input)
 
     input.grab_focus()
@@ -364,8 +379,68 @@ func _on_text_submitted(text: String) -> void:
         input.call_deferred("grab_focus")
         return
     _print_player_input(text)
+    # Push the player's exact text into recall history (preserving
+    # case), deduping immediate repeats.
+    var cooked: String = text.strip_edges()
+    if _input_history.is_empty() or _input_history.back() != cooked:
+        _input_history.append(cooked)
+    _input_history_idx = -1
     _process_input(trimmed)
     input.call_deferred("grab_focus")
+
+# Up/Down/PgUp/PgDn at the LineEdit. Single-line LineEdit treats
+# the arrow keys as no-ops — we repurpose them for shell-style
+# command-history recall. PgUp/PgDn page the scroll log behind
+# the prompt; the player's caret stays in the input.
+func _on_input_gui_input(event: InputEvent) -> void:
+    if not (event is InputEventKey) or not event.pressed:
+        return
+    match event.keycode:
+        KEY_UP:
+            _history_recall(-1)
+            input.accept_event()
+        KEY_DOWN:
+            _history_recall(1)
+            input.accept_event()
+        KEY_PAGEUP:
+            _scroll_output(-1)
+            input.accept_event()
+        KEY_PAGEDOWN:
+            _scroll_output(1)
+            input.accept_event()
+
+# Walk the recall pointer by `direction` (-1 = older, +1 = newer)
+# and replace the LineEdit text with the recalled command. Going
+# past the newest entry restores a blank edit buffer.
+func _history_recall(direction: int) -> void:
+    if _input_history.is_empty():
+        return
+    if _input_history_idx == -1:
+        if direction > 0:
+            return
+        _input_history_idx = _input_history.size() - 1
+    else:
+        var new_idx: int = _input_history_idx + direction
+        if new_idx < 0:
+            new_idx = 0
+        elif new_idx >= _input_history.size():
+            _input_history_idx = -1
+            input.text = ""
+            input.caret_column = 0
+            return
+        _input_history_idx = new_idx
+    input.text = _input_history[_input_history_idx]
+    input.caret_column = input.text.length()
+
+# Page the scroll log up/down by one viewport. RichTextLabel
+# would do this natively if it had focus, but the LineEdit owns
+# focus permanently, so we drive the v-scrollbar directly.
+func _scroll_output(direction: int) -> void:
+    var sb: ScrollBar = output.get_v_scroll_bar()
+    if sb == null:
+        return
+    var page: float = max(sb.page, 100.0)
+    sb.value = sb.value + direction * page
 
 func _process_input(text: String) -> void:
     # Canon WEST counter (advent.for line 901). Counts raw
