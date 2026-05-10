@@ -4165,7 +4165,8 @@
                     self.player.take(self.COINS_ID)
                     return "OK"
                 return "There are no coins here."
-            return "I don't see that here."
+            # Canon msg #12 — unknown noun for TAKE.
+            return "I don't know how to apply that word here."
         }
 
         _drop_treasure_by_name(name: String): String {
@@ -4238,10 +4239,12 @@
                 item_id = self.COINS_ID
                 value = self.coins.get_value()
             else:
-                return "You aren't carrying that."
+                # Canon msg #29.
+                return "You aren't carrying it!"
 
             if outcome == "not carried":
-                return "You aren't carrying " + name + "."
+                # Canon msg #29.
+                return "You aren't carrying it!"
             if outcome == "already deposited":
                 return "That treasure is already deposited."
             self.player.drop(item_id)
@@ -4453,7 +4456,8 @@
                 self.player.drop(self.CHAIN_ID)
                 self.chain.consume()
             else:
-                return "You aren't carrying that."
+                # Canon msg #29.
+                return "You aren't carrying it!"
             self.troll.scared_off()
             return "The troll catches your " + noun + " and scurries away out of sight."
         }

@@ -79,11 +79,16 @@ def parse_advent_dat():
         sections.append(cur)
 
     msgs = {}
-    # advent.dat has the SECTIONS_OF_INTEREST: index 4 (5th section,
-    # 0-indexed) is the RSPEAK message catalog; index 5 is object names
-    # and section-6 descriptions. Sections are 1-indexed in canon
-    # parlance, 0-indexed in our `sections` list.
-    targets = {4: 'msg', 5: 'obj'}    # section 5 = msgs; section 6 = obj
+    # Section indexing — this canon advent.dat omits the short-form
+    # room description section, so the canon section labels we see
+    # are 1, 3, 4, 5, 6, 7, … (no 2). In our 0-indexed sections list:
+    #   sections[0] = canon §1 (long room descriptions) — skip
+    #   sections[1] = canon §3 (travel table) — numerical, skip
+    #   sections[2] = canon §4 (vocabulary)    — skip
+    #   sections[3] = canon §5 (object prop descriptions) ← OBJ
+    #   sections[4] = canon §6 (msg catalog)              ← MSG
+    #   sections[5] = canon §7 (object classes / scoring) — skip
+    targets = {3: 'obj', 4: 'msg'}
     for s_idx, section in enumerate(sections):
         if s_idx not in targets:
             continue
@@ -92,8 +97,13 @@ def parse_advent_dat():
             m = re.match(r'^(\d+)\t(.*)$', line)
             if not m:
                 continue
-            mid, text = int(m.group(1)), m.group(2)
-            key = f"{kind}#{mid}"
+            mid_str = m.group(1)
+            text = m.group(2)
+            # Skip vocabulary-style entries (object headers like
+            # "31\t*DRAGON") — these aren't prose.
+            if text.startswith('*'):
+                continue
+            key = f"{kind}#{mid_str}"   # keep leading zeros for prop ids
             if key in msgs:
                 msgs[key] = msgs[key] + ' ' + text
             else:
