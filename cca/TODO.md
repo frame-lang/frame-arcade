@@ -89,13 +89,20 @@ PIT/STEPS, without-gold normal walk to 15, and drop+walk.
 
 ---
 
-### Probabilistic maze decoration (canon rooms 5, 65, 66, 111)
+### Probabilistic maze decoration (canon rooms 5, 65, 66, 111) — **DONE 2026-05-08**
 
-Canon's "twisty maze" rooms scramble compass directions to defeat
-mapping. Each maze room has 9-10 exits with carefully randomised
-destinations. Port currently uses simplified linear topology.
-Real canon-fidelity here is a week's project for cosmetic effect.
-Defer indefinitely.
+The canon section-3 probability rows (`5 50005 …` 50% self-loop at
+forest, `65 80556 …` 80% bumper at Bedquilt, `66 …` at Swiss Cheese,
+`111 …` at top of stalactite) are wired as GATES chains in
+`topology.gd` and exercised by `tests/test_cca_maze_decoration.gd`.
+22 distribution checks at 1000 rolls each, all within tolerance of
+canon percentages.
+
+The first maze proper ("twisty little passages, all alike", canon
+50-57) and the second maze ("twisty passages, all different", canon
+131-139) are encoded room-by-room with explicit `advent.dat`
+citations in `topology.gd`. The classic mark-rooms-with-dropped-items
+puzzle works.
 
 ---
 
