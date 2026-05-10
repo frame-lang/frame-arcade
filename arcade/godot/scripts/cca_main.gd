@@ -1367,7 +1367,8 @@ func _process_input(text: String) -> void:
     var noun: String = parsed[1]
 
     if verb == "":
-        _println("I don't understand.")
+        # Canon msg #195 — parser fallback for whitespace-only input.
+        _println("I'm afraid I don't understand.")
         return
 
     # Resurrection prompt has top priority — the only input we
@@ -1405,7 +1406,9 @@ func _process_input(text: String) -> void:
             # leave straight away.
             Arcade.return_to_menu()
             return
-        _println("Please answer yes or no.")
+        # advent.for FORMAT(/' Please answer the question.') — canon
+        # prose for ambiguous yes/no input during the revive prompt.
+        _println("Please answer the question.")
         return
 
     # Canon oyster-clue Y/N prompt (advent.dat msg #192). YES
@@ -1981,7 +1984,9 @@ func _handle_movement(direction: String) -> void:
             _println("I don't know in from out here. Use compass points or name something")
             _println("in the general direction you want to go.")
             return
-        _println("You can't go %s from here." % direction)
+        # Canon msg #9 — uniform "no exit that way" rebuff. Canon
+        # doesn't echo the direction the player tried.
+        _println("There is no way to go that direction.")
         return
 
     var dest: int = exits[direction]
