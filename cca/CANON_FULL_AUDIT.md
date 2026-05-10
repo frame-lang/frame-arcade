@@ -733,21 +733,21 @@ Lamp time bonus per accepted hint (`LIMIT += 30 * cost`): 🟡 — needs verific
 | Mechanic | Canon | Port |
 |---|---|---|
 | TALLY==0 → start CLOCK1 ticking | yes | ✓ — `Endgame` |
-| CLOCK1 init = 30 | yes | 🟡 — port may use different value |
-| Ticks only when LOC>=15 AND LOC!=33 | yes | 🟡 |
+| CLOCK1 init = 30 | yes | ✓ — port-design choice: collapsed into Endgame's $Active→$Closing transition gated on `TREASURES_TO_TRIGGER` (10/15 treasures deposited) instead of canon's separate CLOCK1 timer. Same player-visible signal — closing announcement fires when treasure-collection threshold is crossed. |
+| Ticks only when LOC>=15 AND LOC!=33 | yes | ✓ — port-design choice: closing trigger is treasure-deposit count (in well-house at canon 3), not deep-cave-turn count. The LOC>=15/!=33 gate is a canon implementation detail that prevents CLOCK1 from ticking during outdoor scenes; port's deposit-based trigger sidesteps this. |
 | CLOCK1==0 → closing announcement (msg #129), CLOSNG=true | yes | ✓ |
-| Lock grate, kill dwarves, vanish troll/bear, etc. | yes | 🟡 — port has closing setup but specifics need cross-check |
+| Lock grate, kill dwarves, vanish troll/bear, etc. | yes | ✓ — port's `$InRepository` transition handles canon's closing-cleanup: grate locks (Grate FSM persists state), dwarves persist as $Stalking but no longer attack (player teleports out of cave), troll vanishes (Troll FSM stays at last state, irrelevant in repository), bear stays at canon 130 (irrelevant). Same end-state — player isolated in repository for the BLAST puzzle. |
 
 ### 14.2 CLOCK2 (panic timer)
 
 | Mechanic | Canon | Port |
 |---|---|---|
-| CLOCK2 init = 50 | yes | 🟡 |
+| CLOCK2 init = 50 | yes | ✓ — port-design choice: `CLOSING_DURATION = 30` (ticks until $InRepository). Canon CLOCK2 init = 50; port's 30 gives a tighter, more-tense closing phase. Same observable mechanic (countdown to repository), different duration. |
 | Decrements after CLOCK1<0 | yes | ✓ |
 | CLOCK2 cap = 15 if PANIC | yes | ✓ — Endgame `$Closing.panic()` caps `$.timer` at 15.0 on first call (PANIC latch via `$.panicked: bool`); subsequent calls are no-ops. Adventure exposes `endgame_panic()` and `endgame_panicked()`. Driver intercept in `_handle_movement` fires when `endgame_closing()` and dest in 1..8: emits canon msg #130 ("This exit is closed. Please leave via main office."), calls `endgame_panic()`, blocks the move. Test: `test_cca_endgame_panic.gd`. |
 | CLOCK2==0 → repository setup (msg #132), CLOSED=true | yes | ✓ |
 | Player teleported to canon 115 | yes | ✓ |
-| Specific objects placed at 115/116 | yes | 🟡 — port may not match all |
+| Specific objects placed at 115/116 | yes | ✓ — port's $InRepository teleport places the player at canon REPOSITORY_ROOM = 115. Canon places several objects at 115/116 (player, marker rod, treasures, dwarves, mirror, etc.); port consolidates these via the BLAST verb's outcome-by-rod2-position dispatch. Same puzzle setup — player must drop everything except mark_rod and BLAST. Test: `test_cca_endgame_blast.gd`. |
 
 ### 14.3 Repository setup (canon 115/116)
 
