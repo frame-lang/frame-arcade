@@ -1848,13 +1848,17 @@ func _print_welcome() -> void:
     var rule: String = "[color=#a89878]─────────────────────────────[/color]"
     # Small brick-building silhouette, period line-printer style.
     # Echoes the canon opening room ("a small brick building").
+    # Bracket pairs like `[]` would be parsed as empty BBCode
+    # tags and corrupt the parser state for everything that
+    # comes after, so the window squares are drawn with `( )`
+    # instead — same visual rhythm, no parser hazard.
     var art: String = (
         "[color=#a89878]"
         + "             ____\n"
         + "            /    \\\n"
         + "           /______\\\n"
-        + "           |[]  []|\n"
-        + "           |______|\n"
+        + "           |() ()|\n"
+        + "           |_____|\n"
         + "[/color]"
     )
     var msg: String = ""
