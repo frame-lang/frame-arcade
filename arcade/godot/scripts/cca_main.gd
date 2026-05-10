@@ -1227,6 +1227,10 @@ func _build_ui() -> void:
     output.selection_enabled = true            # mouse-drag still selects text
     output.add_theme_font_size_override("normal_font_size", 16)
     output.add_theme_color_override("default_color", Color(0.85, 0.92, 0.96))
+    # [url=...]...[/url] BBCode just emits meta_clicked; opening
+    # a browser is on us. The welcome panel embeds the IF Archive
+    # link as the one canonical thing players might click.
+    output.meta_clicked.connect(_on_meta_clicked)
     vbox.add_child(output)
 
     var prompt_row := HBoxContainer.new()
@@ -2534,21 +2538,39 @@ func _print_welcome() -> void:
     # emoji or modern iconography. Synced from cca/godot/
     # scripts/driver.gd; keep the two welcome panels identical.
     var rule: String = "[color=#a89878]─────────────────────────────[/color]"
+    # Small brick-building silhouette, period line-printer style.
+    # Echoes the canon opening room ("a small brick building").
+    var art: String = (
+        "[color=#a89878]"
+        + "             ____\n"
+        + "            /    \\\n"
+        + "           /______\\\n"
+        + "           |[]  []|\n"
+        + "           |______|\n"
+        + "[/color]"
+    )
     var msg: String = ""
     msg += "[color=#e0c890][b]COLOSSAL CAVE ADVENTURE[/b][/color]\n"
     msg += rule + "\n\n"
+    msg += art + "\n"
     msg += "  Originally written by [b]Will Crowther[/b] (1976)\n"
     msg += "  and expanded to the canonical 350-point version\n"
     msg += "  by [b]Don Woods[/b] at the Stanford AI Lab (1977).\n\n"
     msg += "[color=#a89878]"
     msg += "  This Frame state-machine implementation re-ports\n"
     msg += "  the original PDP-10 FORTRAN-IV source preserved at\n"
-    msg += "  the Interactive Fiction Archive. Public domain;\n"
-    msg += "  redistributed for historical record.\n"
+    msg += "  the [url=https://www.ifarchive.org/]Interactive Fiction Archive[/url].\n"
+    msg += "  Public domain; redistributed for historical record.\n"
     msg += "[/color]\n"
     msg += rule
     _println(msg)
     _println("Type [b]HELP[/b] for a list of commands.")
+
+# Opens [url=...] BBCode links in the player's default browser.
+# `meta` arrives as a Variant (the bare url string from BBCode).
+func _on_meta_clicked(meta: Variant) -> void:
+    if meta is String:
+        OS.shell_open(meta)
 
 func _print_help() -> void:
     # Canon msg #51 verbatim — Don Woods 1977 HELP output. The
