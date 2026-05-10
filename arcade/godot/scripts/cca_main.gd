@@ -846,14 +846,14 @@ var gated_exits: Dictionary = {
     # Troll bridge crossings (canon 117 ↔ 122). Every cross-the-
     # chasm verb is gated on troll absence; the bear-and-chain
     # combination at 117 vanishes the troll permanently.
-    "117:over":   {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
-    "117:across": {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
-    "117:cross":  {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
-    "117:ne":     {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
-    "122:over":   {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
-    "122:across": {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
-    "122:cross":  {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
-    "122:sw":     {"check": "troll", "msg": "The troll bars your way until you pay tribute."},
+    "117:over":   {"check": "troll", "msg": "The troll refuses to let you cross."},
+    "117:across": {"check": "troll", "msg": "The troll refuses to let you cross."},
+    "117:cross":  {"check": "troll", "msg": "The troll refuses to let you cross."},
+    "117:ne":     {"check": "troll", "msg": "The troll refuses to let you cross."},
+    "122:over":   {"check": "troll", "msg": "The troll refuses to let you cross."},
+    "122:across": {"check": "troll", "msg": "The troll refuses to let you cross."},
+    "122:cross":  {"check": "troll", "msg": "The troll refuses to let you cross."},
+    "122:sw":     {"check": "troll", "msg": "The troll refuses to let you cross."},
     # Crystal bridge across the fissure — gate lives on the
     # crossing verbs (OVER/ACROSS/W/CROSS at 17, OVER/ACROSS/E/
     # CROSS at 27). Going east from 17 (back to Hall of Mists)

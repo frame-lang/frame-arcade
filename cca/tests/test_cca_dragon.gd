@@ -81,7 +81,8 @@ func _init():
 
     print("Re-attack a dead dragon — already dead:")
     var r9 = adv2.do_command("attack", "dragon")
-    _expect("attack dead",         r9, "The dragon is already dead.")
+    # Canon msg #167.
+    _expect("attack dead",         r9, "For crying out loud, the poor thing is already dead!")
 
     # ---------------------------------------------------------
     # Cancellation: any other verb during $Asked exits the dialog

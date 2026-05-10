@@ -4306,13 +4306,23 @@
         }
 
         _verb_attack(noun: String): String {
+            # Canon msg #150 — ATTACK CLAM/OYSTER.
+            if noun == "clam" or noun == "oyster":
+                return "The shell is very strong and is impervious to attack."
+            # Canon msg #157 — ATTACK TROLL.
+            if noun == "troll":
+                return "Trolls are close relatives with the rocks and have skin as tough as that of a rhinoceros. The troll fends off your blows effortlessly."
             if noun != "dragon":
+                # Canon msg #110.
                 return "Don't be ridiculous."
             if self.player.get_room() != self.DRAGON_ROOM:
+                # Canon msg #44.
                 return "There is nothing here to attack."
             if not self.dragon.is_alive():
-                return "The dragon is already dead."
+                # Canon msg #167.
+                return "For crying out loud, the poor thing is already dead!"
             self.dragon.attack()
+            # Canon msg #49.
             return "With what? Your bare hands?"
         }
 
@@ -4391,6 +4401,11 @@
                 if self.player.get_room() == 33:    # Y2 (canonical)
                     return "The sign reads: 'Y2'."
                 return "There is no sign here."
+            # Canon msg #190 — READ MAGAZINE.
+            if noun == "magazine":
+                if self.magazine_item.is_carried() or self.magazine_item.is_in_room(self.player.get_room()):
+                    return "I'm afraid the magazine is written in dwarvish."
+                return "There is no magazine here."
             elif noun == "keys" or noun == "bottle":
                 return "Nothing is written on it."
             return "There is nothing to read here."
