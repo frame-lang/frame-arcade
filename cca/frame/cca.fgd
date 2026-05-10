@@ -3735,93 +3735,108 @@
                     base = base + " A glittering crystal bridge spans the fissure."
             elif r == 69:
                 base = "YOU ARE IN A SECRET N/S CANYON ABOVE A LARGE ROOM."
-            # NPC presence overlays.
+            # NPC presence overlays — canon §5 obj prop descriptions.
             if r == self.bird.get_location() and self.bird.get_state() == "free":
-                base = base + " A small bird flutters nearby."
+                base = base + " A cheerful little bird is sitting here singing."
             if r == self.SNAKE_ROOM and self.snake.is_blocking():
-                base = base + " A huge green snake bars further passage."
+                base = base + " A huge green fierce snake bars the way!"
             if r == self.BEAR_HOME_ROOM:
                 var bs: String = self.bear.get_state()
                 if bs == "hungry":
-                    base = base + " A large bear is chained to the wall, glaring hungrily."
+                    base = base + " There is a ferocious cave bear eying you from the far end of the room!"
                 elif bs == "tame":
-                    base = base + " A friendly-looking bear sits chained, its tongue lolling."
+                    base = base + " There is a gentle cave bear sitting placidly in one corner."
             if r == self.TROLL_ROOM and self.troll.is_blocking_bridge():
-                base = base + " A burly troll stands guard at the bridge, demanding tribute."
+                base = base + " A burly troll stands by the bridge and insists you throw him a treasure before you may cross."
             elif r == self.TROLL_ROOM and self.bear.get_state() == "released":
-                # Canon: after the bear scares the troll, the bear
-                # "wanders back" and stays in the troll's old room
-                # alongside the player.
-                base = base + " A contented-looking bear is wandering about nearby."
+                # Canon §5 obj #35 BEAR prop=200 — after bear scares
+                # troll, the bear "wanders back" and stays alongside
+                # the player.
+                base = base + " There is a contented-looking bear wandering about nearby."
             if r == self.DRAGON_ROOM and self.dragon.is_alive():
-                base = base + " A huge green dragon dozes on a Persian rug."
-            # Treasure overlays — for each treasure, if it's
-            # in this room (not carried) mention it. The rug
-            # is special: covered by dragon while alive.
+                base = base + " A huge green fierce dragon bars the way!"
+            # Treasure overlays — canon §5 obj prop=0 verbatim. Rug
+            # is special-cased (covered by dragon while alive).
             if self.gold.get_location() == r and self.gold.get_state() == "in_room":
-                base = base + " There's a gleam of gold here."
+                base = base + " There is a large sparkling nugget of gold here!"
             if self.silver.get_location() == r and self.silver.get_state() == "in_room":
-                base = base + " A pile of silver bars catches your eye."
+                base = base + " There are bars of silver here!"
             if self.diamonds.get_location() == r and self.diamonds.get_state() == "in_room":
-                base = base + " Diamonds glitter in the dark."
+                base = base + " There are diamonds here!"
             if self.jewelry.get_location() == r and self.jewelry.get_state() == "in_room":
-                base = base + " Fine jewelry lies scattered."
+                base = base + " There is precious jewelry here!"
             if self.pearl.get_location() == r and self.pearl.get_state() == "in_room":
-                base = base + " A pearl as big as your fist rests here."
+                base = base + " Off to one side lies a glistening pearl!"
             if self.vase.get_location() == r and self.vase.get_state() == "in_room":
-                base = base + " A delicate Ming vase rests on a pedestal."
+                base = base + " There is a delicate, precious, Ming vase here!"
             if self.eggs.get_location() == r and self.eggs.get_state() == "in_room":
-                base = base + " A nest of golden eggs sits in the corner."
+                base = base + " There is a large nest here, full of golden eggs!"
             if self.trident.get_location() == r and self.trident.get_state() == "in_room":
-                base = base + " A jewel-encrusted trident leans against the wall."
+                base = base + " There is a jewel-encrusted trident here!"
             if self.emerald.get_location() == r and self.emerald.get_state() == "in_room":
-                base = base + " An enormous emerald sparkles brilliantly."
+                base = base + " There is an emerald here the size of a plover's egg!"
             if self.spices.get_location() == r and self.spices.get_state() == "in_room":
-                base = base + " Rare spices fill the air with their scent."
+                base = base + " There are rare spices here!"
             if self.chest.get_location() == r and self.chest.get_state() == "in_room":
-                base = base + " A treasure chest, half-hidden, catches your eye."
+                base = base + " The pirate's treasure chest is here!"
             if self.pyramid.get_location() == r and self.pyramid.get_state() == "in_room":
-                base = base + " A miniature pyramid of solid gold rests here."
+                base = base + " There is a platinum pyramid here, 8 inches on a side!"
             if self.rug.get_location() == r and self.rug.get_state() == "in_room" and not self.dragon.is_alive():
-                base = base + " A magnificent Persian rug lies on the floor."
+                base = base + " There is a Persian rug spread out on the floor!"
             if self.coins.get_location() == r and self.coins.get_state() == "in_room":
-                base = base + " A pile of rare coins glints here."
+                base = base + " There are many coins here!"
             # Rod overlay — not a treasure (no point value), but
             # visible in its room when not carried, same as the
             # treasures above.
+            # Item overlays — canon §5 obj prop=0 verbatim.
             if self.rod_item.is_in_room(r):
-                base = base + " A small black rod with a rusty star at one end lies on the ground."
+                # Canon obj #5 ROD (with star) prop=0.
+                base = base + " A three foot black rod with a rusty star on an end lies nearby."
             if self.keys_item.is_in_room(r):
-                base = base + " A set of brass keys lies on the floor."
+                # Canon obj #1 KEYS prop=0.
+                base = base + " There are some keys on the ground here."
             if self.bottle_item.is_in_room(r):
+                # Canon obj #20 BOTTLE prop=0 (water) / prop=100 (empty).
                 if self.bottle.has_water():
-                    base = base + " A small glass bottle, full of water, sits on a wooden shelf."
+                    base = base + " There is a bottle of water here."
                 else:
-                    base = base + " A small empty glass bottle sits on a wooden shelf."
+                    base = base + " There is an empty bottle here."
             if self.cage_item.is_in_room(r):
+                # Canon obj #4 CAGE prop=0.
                 base = base + " There is a small wicker cage discarded nearby."
             if self.food_item.is_in_room(r):
-                base = base + " There is tasty food here."
+                # Canon obj #19 FOOD prop=0.
+                base = base + " There is food here."
             if self.pillow_item.is_in_room(r):
+                # Canon obj #10 PILLOW prop=0.
                 base = base + " A small velvet pillow lies on the floor."
             if self.axe_item.is_in_room(r):
-                base = base + " There is a little axe lying here."
+                # Canon obj #28 AXE prop=0.
+                base = base + " There is a little axe here."
             if self.clam_item.is_in_room(r):
+                # Canon obj #14 CLAM prop=0.
                 base = base + " There is an enormous clam here with its shell tightly closed."
             if self.oyster_item.is_in_room(r):
-                base = base + " A massive oyster sits open on the floor — far too heavy to carry."
+                # Canon obj #15 OYSTER prop=0.
+                base = base + " There is an enormous oyster here with its shell tightly closed."
             if self.batteries_item.is_in_room(r):
+                # Port-only item — canon has no "batteries" as a
+                # standalone object; vending-machine dispensing is a
+                # port-design choice.
                 base = base + " A fresh set of lamp batteries lies in the dispenser tray."
             if self.magazine_item.is_in_room(r):
-                base = base + " A few recent issues of \"Spelunker Today\" magazine are scattered about."
+                # Canon obj #16 MAGAZINE prop=0.
+                base = base + " There are a few recent issues of \"Spelunker Today\" magazine here."
             if self.mark_rod_item.is_in_room(r):
-                base = base + " A small black rod with a rusty mark on the end lies nearby."
+                # Canon obj #6 ROD2 (with rusty mark) prop=0.
+                base = base + " A three foot black rod with a rusty mark on an end lies nearby."
             # Grate state overlay — only at the depression itself.
+            # Canon obj #3 GRATE prop=0 (locked) / prop=100 (open).
             if r == self.GRATE_ROOM:
                 if self.grate.is_locked():
                     base = base + " The grate is locked."
                 else:
-                    base = base + " The grate is unlocked and swung open."
+                    base = base + " The grate is open."
             return base
         }
 
@@ -4323,31 +4338,39 @@
                     return "Your brass lantern is currently lit. Battery: " + str(self.lamp.battery_left()) + " turns."
                 return "Your brass lantern is dark. Battery: " + str(self.lamp.battery_left()) + " turns."
             elif noun == "bird":
+                # Canon §5 obj #8 BIRD prop descriptions.
                 if self.player.carrying(self.BIRD_ID):
-                    return "A small bird flutters in your hand."
-                return "A small bird flutters about, chirping."
+                    return "There is a little bird in the cage."
+                return "A cheerful little bird is sitting here singing."
             elif noun == "snake":
+                # Canon §5 obj #11 SNAKE prop=0.
                 if self.snake.is_blocking():
-                    return "A huge green snake, fierce and terrible-looking. It bars the way east."
+                    return "A huge green fierce snake bars the way!"
                 return "There is no snake here anymore."
             elif noun == "dragon":
+                # Canon §5 obj #31 DRAGON prop=0 / prop=200.
                 if self.dragon.is_alive():
-                    return "A huge green dragon dozes on a Persian rug, its scales catching what little light there is."
-                return "The dragon is dead. Its corpse lies sprawled on the rug."
+                    return "A huge green fierce dragon bars the way!"
+                return "The body of a huge green dead dragon is lying off to one side."
             elif noun == "bear":
+                # Canon §5 obj #35 BEAR prop descriptions. Canon "tame"
+                # is prop=100, "released" maps to prop=200, "following"
+                # uses RTEXT msg #141 ("YOU ARE BEING FOLLOWED BY A
+                # VERY LARGE, TAME BEAR").
                 var bs: String = self.bear.get_state()
                 if bs == "hungry":
-                    return "A large brown bear, looking very hungry. It is chained to the wall."
+                    return "There is a ferocious cave bear eying you from the far end of the room!"
                 elif bs == "tame":
-                    return "A friendly-looking bear, contentedly chewing."
+                    return "There is a gentle cave bear sitting placidly in one corner."
                 elif bs == "following":
-                    return "The bear pads along behind you, held by its chain."
+                    return "You are being followed by a very large, tame bear."
                 elif bs == "released":
-                    return "The bear is settled here, glaring around."
+                    return "There is a contented-looking bear wandering about nearby."
                 return "There is no bear here."
             elif noun == "troll":
+                # Canon §5 obj #33 TROLL prop=0 verbatim.
                 if self.troll.is_blocking_bridge():
-                    return "A burly troll, demanding tribute to cross his bridge."
+                    return "A burly troll stands by the bridge and insists you throw him a treasure before you may cross."
                 return "The troll is gone."
             elif noun == "sign":
                 if self.player.get_room() == 33:    # Y2 (canonical)
