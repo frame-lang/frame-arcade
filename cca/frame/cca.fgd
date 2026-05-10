@@ -4290,7 +4290,8 @@
             if self.player.get_room() != self.BEAR_HOME_ROOM:
                 return "There is no bear here."
             if self.bear.get_state() != "hungry":
-                return "The bear isn't interested."
+                # Canon msg #102.
+                return "There's nothing here it wants to eat (except perhaps you)."
             # Canon: feeding requires the food item. Consume on use.
             if not self.food_item.is_carried():
                 return "You have nothing to feed the bear."
@@ -4318,7 +4319,8 @@
             # other interactive prompts are added, route here.
             if self.dragon.is_awaiting_confirmation():
                 self.dragon.yes()
-                return "Congratulations! You have just vanquished a dragon with your bare hands."
+                # Canon §5 obj #31 DRAGON prop=100 verbatim.
+                return "Congratulations! You have just vanquished a dragon with your bare hands! (Unbelievable, isn't it?)"
             return "I don't understand."
         }
 
@@ -4535,7 +4537,8 @@
             if not self.clam_item.is_carried() and not self.clam_item.is_in_room(here):
                 return "There is no clam here."
             if not self.rod_item.is_carried():
-                return "You'll need a rod or a tool to crack the clam open."
+                # Canon msg #122.
+                return "You don't have anything strong enough to open the clam."
             # Drop the clam from inventory (if carried) — the player
             # is no longer holding it once it shatters.
             if self.clam_item.is_carried():
@@ -4694,28 +4697,38 @@
             if self.dwarf1.get_state() == "stalking" and self.dwarf1.get_room() == r:
                 self.dwarf1.attack()
                 if self.dwarf1.get_state() == "dead":
-                    return "Your axe finds its mark. The dwarf collapses."
-                return "Your axe misses the dwarf, who cackles."
+                    # Canon msg #47.
+                    return "You killed a little dwarf."
+                # Canon msg #48.
+                return "You attack a little dwarf, but he dodges out of the way."
             elif self.dwarf2.get_state() == "stalking" and self.dwarf2.get_room() == r:
                 self.dwarf2.attack()
                 if self.dwarf2.get_state() == "dead":
-                    return "Your axe finds its mark. The dwarf collapses."
-                return "Your axe misses the dwarf, who cackles."
+                    # Canon msg #47.
+                    return "You killed a little dwarf."
+                # Canon msg #48.
+                return "You attack a little dwarf, but he dodges out of the way."
             elif self.dwarf3.get_state() == "stalking" and self.dwarf3.get_room() == r:
                 self.dwarf3.attack()
                 if self.dwarf3.get_state() == "dead":
-                    return "Your axe finds its mark. The dwarf collapses."
-                return "Your axe misses the dwarf, who cackles."
+                    # Canon msg #47.
+                    return "You killed a little dwarf."
+                # Canon msg #48.
+                return "You attack a little dwarf, but he dodges out of the way."
             elif self.dwarf4.get_state() == "stalking" and self.dwarf4.get_room() == r:
                 self.dwarf4.attack()
                 if self.dwarf4.get_state() == "dead":
-                    return "Your axe finds its mark. The dwarf collapses."
-                return "Your axe misses the dwarf, who cackles."
+                    # Canon msg #47.
+                    return "You killed a little dwarf."
+                # Canon msg #48.
+                return "You attack a little dwarf, but he dodges out of the way."
             elif self.dwarf5.get_state() == "stalking" and self.dwarf5.get_room() == r:
                 self.dwarf5.attack()
                 if self.dwarf5.get_state() == "dead":
-                    return "Your axe finds its mark. The dwarf collapses."
-                return "Your axe misses the dwarf, who cackles."
+                    # Canon msg #47.
+                    return "You killed a little dwarf."
+                # Canon msg #48.
+                return "You attack a little dwarf, but he dodges out of the way."
             return "There's no dwarf to throw an axe at here."
         }
 
@@ -4737,9 +4750,11 @@
             var bs: String = self.bird.get_state()
             if bs == "released" and self.snake.is_blocking():
                 self.snake.bird_released_here()
-                return "The little bird attacks the green snake furiously, and the snake slithers off in fear."
+                # Canon msg #30.
+                return "The little bird attacks the green snake, and in an astounding flurry drives the snake away."
             elif bs == "dead":
-                return "The dragon catches the little bird in midair and swallows it whole."
+                # Canon msg #154.
+                return "The little bird attacks the green dragon, and in an astounding flurry gets burnt to a cinder. The ashes blow away."
             return "The bird flies off into the gloom."
         }
 

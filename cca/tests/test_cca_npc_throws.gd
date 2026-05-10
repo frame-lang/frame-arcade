@@ -45,8 +45,9 @@ func _init():
     d.fsm.player.take(d.fsm.BIRD_ID)
     _expect("setup: snake blocking",       d.fsm.snake.is_blocking(), true)
     var l: Array = H.capture(d, "drop bird")
+    # Canon msg #30 — "drives the snake away".
     _expect_any_match("DROP BIRD emits canon snake-drive prose",
-        l, "slithers off")
+        l, "drives the snake away")
     _expect("snake driven away",           d.fsm.snake.is_blocking(), false)
 
     # ----- Phase 2: DROP BIRD at dragon -----
@@ -58,8 +59,9 @@ func _init():
     _expect("setup: at dragon room, dragon alive",
         [d2.fsm.player_room(), d2.fsm.dragon_alive()], [119, true])
     var l2: Array = H.capture(d2, "drop bird")
+    # Canon msg #154 — "burnt to a cinder".
     _expect_any_match("DROP BIRD at dragon emits canon vaporize msg",
-        l2, "swallows it whole")
+        l2, "burnt to a cinder")
 
     # ----- Phase 3: THROW AXE at dragon -----
     print("Phase 3: THROW AXE at canon 119 (dragon alive) → canon msg #152")
