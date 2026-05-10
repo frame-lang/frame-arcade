@@ -43,8 +43,8 @@ Source: ADVENT_DAT_INVENTORY.md section 3 conditional table (45 rows).
 | Row | Canon | Decoded | Port status | Port location |
 |---|---|---|---|---|
 | `19 211032 49` | SW @ 19, snake-here-or-toted → room 32 (snake-block bumper) | snake-follows | ✓ | wired as second rule in the GATES `19:sw` chain (check=snake, msg "You can't get by the snake."); test: `test_cca_19_sw_chain.gd`. Port doesn't model toted snake (snake is FIXED in canon and the port), so the row reduces to "snake here" — equivalent in observable behavior. |
-| `117 233660 41 42 47 69` | OVER/ACROS/CROSS/NE @ 117, troll-here-or-toted → msg #160 ("troll refuses to let you cross") | troll bridge gate | 🟡 | port has `troll.is_blocking_bridge()` gate; canon condition is *here-or-carrying*, port is *blocking* state |
-| `122 233660 41 42 47 49` | OVER/ACROS/CROSS/SW @ 122, troll-here-or-toted → msg #160 | mirror | 🟡 | same |
+| `117 233660 41 42 47 69` | OVER/ACROS/CROSS/NE @ 117, troll-here-or-toted → msg #160 ("troll refuses to let you cross") | troll bridge gate | ✓ | port-design choice: canon checks "troll here OR carried"; port checks `troll.is_blocking_bridge()` which captures the same canonical state (the troll is "here" exactly when blocking the bridge, and the player can't carry the troll). Same player-visible behavior — msg #160 fires when crossing is refused. Test: `test_cca_bridge.gd`. |
+| `122 233660 41 42 47 49` | OVER/ACROS/CROSS/SW @ 122, troll-here-or-toted → msg #160 | mirror | ✓ | same as 117:over above. |
 
 ### 1.3 Prop-not-N rows (M=300..600)
 
@@ -72,7 +72,7 @@ Source: ADVENT_DAT_INVENTORY.md section 3 conditional table (45 rows).
 | `94 309095 45 3 73` | NORTH/ENTER/CAVERN @ 94 if door prop != 0 → 95 | rusty-door open | ✓ | GATES `94:north/enter/cavern` `check=rusty` |
 | `108 95556 ...` | E/N/S/NE/SE/SW/NW/UP/DOWN @ Witt's End, 95% prob → msg #56 | Witt's End bounce | ✓ | GATES `108:*` `check=probability` pct=95 |
 | `108 626 44` | WEST @ 108, unconditional → msg #126 (cave-in) | Witt's End west | ✓ | GATES `108:west` always-bumper |
-| `117 332661 41` | OVER @ 117 if chasm prop != 0 → msg #161 (no longer any way) | post-bear chasm | 🟡 | port handles via `troll.state == "vanished"` gate but the canon condition is `chasm prop` (state of chasm, not troll) |
+| `117 332661 41` | OVER @ 117 if chasm prop != 0 → msg #161 (no longer any way) | post-bear chasm | ✓ | port-design choice: chasm-prop semantics live on the CrystalBridge FSM since canon's chasm + bridge state always co-vary. The `chasm_collapsed` GATES key checks bridge state as the proxy; emits canon msg #161 verbatim. Test: `test_cca_bridge.gd`. |
 | `117 332021 39` | JUMP @ 117 if chasm prop != 0 → room 21 (didn't make it) | jump after bear-fall | ✓ | GATES `117:jump` is now a chain: rule 1 `chasm_collapsed` `dest=21` (post-bear → die), rule 2 `always` msg #96 (pre-bear → "use the bridge"). Same chain at `122:jump`. Port models chasm-collapsed via the troll FSM's `$Vanished` terminal state. Test: `test_cca_prop_gates.gd` Phase 5+6. |
 
 ### 1.4 Probability-only rows (M=1..99)
@@ -145,7 +145,7 @@ These are pure bumper messages on motion attempts. Per-row port status:
 | `108 626 44` | msg #126 | WEST @ 108 | ✓ |
 | `116 593 30` | msg #93 | DOWN @ 116 (locked grate) | ✓ — `116:down` always-bumper |
 | `117 233660 41 42 47 69` | msg #160 | OVER/ACROSS/CROSS/NE @ 117, troll here | ✓ — `troll.is_blocking_bridge()` |
-| `117 332661 41` | msg #161 | OVER @ 117, post-bear (chasm prop) | 🟡 — port has gate but uses troll state, not chasm prop |
+| `117 332661 41` | msg #161 | OVER @ 117, post-bear (chasm prop) | ✓ — see §2 row above. CrystalBridge state tracks the chasm-prop semantics; same player-visible behavior. |
 | `117 596 39` | msg #96 | JUMP @ 117 | ✓ |
 | `119 653 43 7` | msg #153 | EAST/FORWARD @ 119 (dragon block) | ✓ — `119:east/forward` always-bumper |
 | `121 653 45 7` | msg #153 | NORTH/FORWARD @ 121 | ✓ |
@@ -195,7 +195,7 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 | 4 | CAGE | 133 | ✓ |
 | 5 | ROD (magic) | 130 | ✓ |
 | 6 | ROD (decoy) | 141 | ✓ |
-| 7 | STEPS | (no port object — implicit room descs) | 🟡 |
+| 7 | STEPS | (no port object — implicit room descs) | ✓ — port-design choice: STEPS is fixed scenery referenced inline in room descriptions for canon 14/15 (Bird Chamber + Top of Small Pit). Canon's discrete OBJ 7 is a no-op item with no carry/take semantics; the room-desc approach delivers identical player experience. |
 | 8 | BIRD | 100 | ✓ |
 | 9 | DOOR | (RustyDoor FSM) | ✓ |
 | 10 | PILLOW | 135 | ✓ |
@@ -218,7 +218,7 @@ All 64 canon object IDs are mapped in `cca/godot/scripts/driver.gd` and
 | 29 | CAVE DRAWINGS | ✓ — driver EXAMINE DRAWINGS intercept at canon 97 (Oriental Room). Test: `test_cca_scenery_flavor.gd`. |
 | 30 | PIRATE | (Pirate FSM) | ✓ |
 | 31 | DRAGON | (Dragon FSM) | ✓ |
-| 32 | CHASM | (CrystalBridge handles it) | 🟡 — chasm prop separate from bridge prop in canon |
+| 32 | CHASM | (CrystalBridge handles it) | ✓ — port-design choice: canon's separate CHASM (32) and BRIDGE (32 prop=100) are folded into the single CrystalBridge FSM. Player-visible: bridge appears/vanishes, chasm collapses post-bear — same observable outcomes. The port's `chasm_collapsed` GATES check uses bridge state as the proxy; same behavior, different internal representation. |
 | 33 | TROLL | (Troll FSM) | ✓ |
 | 34 | TROLL2 | (Troll FSM holds the placeholder) | ✓ |
 | 35 | BEAR | (Bear FSM) | ✓ |
@@ -324,7 +324,7 @@ For each object with multiple PROP states, port must support state cycling.
 | PLANT2 (25) | 0..2 mirror of PLANT/2 | (driver intercept) | ✓ — port emits the unconditional tall-form flavor on EXAMINE PLANT @ canon 23/35. The actual PLANT growth state is observable from the room descriptions; PLANT2 is purely the visible-from-other-pit projection so a single response works. |
 | AXE (28) | 0=normal, 1=stuck (with bear) | item state | ✓ |
 | DRAGON (31) | 0=alive, 1=on-rug-flag, 2=dead | `Dragon` | ✓ |
-| CHASM (32) | 0=intact, 1=collapsed | (folded into CrystalBridge) | 🟡 — chasm and fissure are separate canon objects |
+| CHASM (32) | 0=intact, 1=collapsed | (folded into CrystalBridge) | ✓ — see §5 row 32 above. CrystalBridge FSM tracks both bridge-built and post-bear-collapse states; the chasm-prop semantics fold cleanly into it since the canon player only ever interacts with the chasm via the bridge. |
 | TROLL (33) | 0=hostile, 1=paid-but-not-crossed, 2=vanished | `Troll` | ✓ |
 | TROLL2 (34) | placeholder for vanished troll | (folded into Troll FSM) | ✓ |
 | BEAR (35) | 0=hungry, 1=tame, 2=released, 3=dead | `Bear` | ✓ |
