@@ -88,7 +88,7 @@ def parse_advent_dat():
     #   sections[3] = canon §5 (object prop descriptions) ← OBJ
     #   sections[4] = canon §6 (msg catalog)              ← MSG
     #   sections[5] = canon §7 (object classes / scoring) — skip
-    targets = {3: 'obj', 4: 'msg'}
+    targets = {0: 'room', 3: 'obj', 4: 'msg'}
     for s_idx, section in enumerate(sections):
         if s_idx not in targets:
             continue
@@ -138,6 +138,15 @@ RETURN_ASSIGN_RE = re.compile(r'_return\s*=\s*"((?:\\.|[^"\\])*)"')
 # any `self.<field> = "<literal>"` assignment whose RHS is a
 # string long enough to be prose (rather than a state code).
 FIELD_ASSIGN_RE = re.compile(r'self\.\w+\s*=\s*"((?:\\.|[^"\\])*)"')
+# Gate bumper prose lives as `"msg": "..."` values in dict
+# literals (Topology.GATES, gated_exits, etc.). Without this,
+# every canon-msg-aligned gate bumper looks invisible.
+MSG_DICT_RE = re.compile(r'"msg"\s*:\s*"((?:\\.|[^"\\])*)"')
+# Local-variable assignments like `response = "I don't know..."`
+# in the driver's verb-fallback substitution. Conservative —
+# requires the LHS to be a bare identifier (no `.`), and the
+# string must be long enough to be prose.
+LOCAL_ASSIGN_RE = re.compile(r'^\s*(?:var\s+)?[a-z_]\w*\s*=\s*"((?:\\.|[^"\\])*)"', re.MULTILINE)
 
 def extract_emissions(path):
     """Return list of (line_no, kind, text) for emitted strings."""
@@ -160,6 +169,14 @@ def extract_emissions(path):
                 text = m.group(1).encode().decode('unicode_escape')
                 if len(normalize(text)) >= MIN_NORM_LEN:
                     items.append((i, 'field_assign', text))
+            for m in MSG_DICT_RE.finditer(line):
+                text = m.group(1).encode().decode('unicode_escape')
+                if len(normalize(text)) >= MIN_NORM_LEN:
+                    items.append((i, 'gate_msg', text))
+            for m in LOCAL_ASSIGN_RE.finditer(line):
+                text = m.group(1).encode().decode('unicode_escape')
+                if len(normalize(text)) >= MIN_NORM_LEN:
+                    items.append((i, 'local_assign', text))
     return items
 
 # ---------- Join ----------
