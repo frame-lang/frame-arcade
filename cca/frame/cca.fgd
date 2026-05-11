@@ -2126,15 +2126,18 @@
                 if have_keys:
                     -> $Unlocked
                     @@:return("The grate is now unlocked.")
-                @@:("You don't have the keys.")
+                # Canon msg #31.
+                @@:("You have no keys!")
             }
-            lock(): String           { @@:("It's already locked.") }
+            # Canon msg #34.
+            lock(): String           { @@:("It was already locked.") }
             get_state(): String      { @@:("locked") }
             is_locked(): bool        { @@:(true) }
         }
 
         $Unlocked {
-            unlock(have_keys: bool): String  { @@:("It's already unlocked.") }
+            # Canon msg #37.
+            unlock(have_keys: bool): String  { @@:("It was already unlocked.") }
             lock(): String           {
                 -> $Locked
                 @@:return("The grate is now locked.")

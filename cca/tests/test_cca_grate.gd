@@ -42,7 +42,8 @@ func _init():
     print("UNLOCK without keys deflects:")
     adv.player.move_to(8)                    # depression
     var r1 = adv.do_command("unlock", "grate")
-    _expect_contains("response",   r1, "don't have the keys")
+    # Canon msg #31 — "You have no keys!"
+    _expect_contains("response",   r1, "no keys")
     _expect("still locked",        adv.grate_locked(),       true)
 
     # --- UNLOCK from wrong room ---
