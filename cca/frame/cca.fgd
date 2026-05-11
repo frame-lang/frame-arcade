@@ -539,8 +539,17 @@
                 # world directly; that keeps it testable.
                 var dark: bool = event.get("is_dark", false)
                 var verb: String = event.get("verb", "")
-                var gated: bool = (verb == "look" or verb == "examine" or verb == "read")
-                if dark and gated:
+                if dark and verb == "read":
+                    # Canon msg #151 — READ in dark gets a snarkier
+                    # rebuff than the generic look-into-darkness.
+                    self.consumed_count = self.consumed_count + 1
+                    @@:return({
+                        "verdict": "consume",
+                        "event": event,
+                        "message": "What's the matter, can't you read? Now you'd best start over.",
+                    })
+                if dark and (verb == "look" or verb == "examine"):
+                    # Canon msg #16.
                     self.consumed_count = self.consumed_count + 1
                     @@:return({
                         "verdict": "consume",
