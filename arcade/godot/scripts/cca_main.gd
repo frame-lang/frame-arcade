@@ -2366,6 +2366,15 @@ func _check_pirate_rustle() -> void:
 func _check_lamp_warnings() -> void:
     var msg: String = fsm.get_lamp_message()
     if msg != "":
+        # Canon msg #183/#188/#189 — see cca/godot/scripts/driver.gd
+        # for full inline doc.
+        if fsm.player.carrying(BATTERIES_ID):
+            fsm.refresh_lamp()
+            fsm.batteries_item.consume()
+            fsm.player.drop(BATTERIES_ID)
+            msg = "Your lamp is getting dim. I'm taking the liberty of replacing the batteries."
+        elif not fsm.vending_loaded():
+            msg = "Your lamp is getting dim, and you're out of spare batteries. You'd best start wrapping this up."
         _println("[color=#ddaa66]%s[/color]" % msg)
     # Canon msg #185 forced quit — lamp out + above-ground.
     if fsm.lamp.get_state() == "out" and fsm.player_room() <= 8:

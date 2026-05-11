@@ -1678,6 +1678,28 @@ func _check_pirate_rustle() -> void:
 func _check_lamp_warnings() -> void:
     var msg: String = fsm.get_lamp_message()
     if msg != "":
+        # Canon msg #183/#188/#189 — the lamp-dim warning varies by
+        # player state (advent.for LMWARN):
+        #   carrying batteries   → msg #188 (auto-replace + refresh)
+        #   vending depleted, no
+        #     spares carried     → msg #189 (out of spare batteries)
+        #   vending still loaded → msg #183 (initial dim, find vending)
+        # The Lamp FSM emits msg #183 by default; we substitute the
+        # variant based on cross-FSM state. Canon msg #187 ("go
+        # back for those batteries") is a subtle in-between state
+        # canon tracks via PROP(BATTERIES); the port model conflates
+        # it with msg #189 — same actionable advice.
+        if fsm.player.carrying(BATTERIES_ID):
+            # Auto-replace: refresh lamp + consume the batteries.
+            # Canon msg #188 verbatim.
+            fsm.refresh_lamp()
+            fsm.batteries_item.consume()
+            fsm.player.drop(BATTERIES_ID)
+            msg = "Your lamp is getting dim. I'm taking the liberty of replacing the batteries."
+        elif not fsm.vending_loaded():
+            # Canon msg #189 verbatim.
+            msg = "Your lamp is getting dim, and you're out of spare batteries. You'd best start wrapping this up."
+        # Else: msg stays as canon msg #183 (vending loaded).
         _println("[color=#ddaa66]%s[/color]" % msg)
     # Canon msg #185 (advent.for STMT 12600): if the lamp is
     # out and the player has wandered above-ground (canon
