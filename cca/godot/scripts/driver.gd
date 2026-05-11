@@ -974,11 +974,31 @@ func _intercept_break_mirror(verb: String, noun: String) -> bool:
     _println("It is beyond your power to do that.")
     return true
 
-# Canon DROP BIRD (advent.for STMT 9020). Re-route to RELEASE
-# BIRD which the Bird FSM handles (snake/dragon special cases).
+# Canon DROP BIRD (advent.for STMT 9020). Canon distinguishes
+# DROP (cage stays closed) from RELEASE (bird is freed first):
+#   DROP BIRD at snake (bird still caged) → snake catches the
+#     defenseless caged bird → msg #101, bird dies.
+#   RELEASE BIRD at snake (bird out of cage) → bird attacks snake
+#     successfully → msg #30, snake driven away.
+# Both DROP and RELEASE at dragon → bird vaporized (msg #154).
+# Anywhere else, drop-vs-release is functionally identical in
+# the port's bird model, so we route through RELEASE.
 func _intercept_drop_bird(verb: String, noun: String) -> bool:
     if verb != "drop" or noun != "bird":
         return false
+    if not fsm.player.carrying(BIRD_ID):
+        # Defer to release-bird's "aren't carrying" canon msg #29.
+        _process_input("release bird")
+        return true
+    if fsm.player_room() == fsm.SNAKE_ROOM and fsm.snake.is_blocking():
+        # Canon msg #101 verbatim. Bird dies in the cage; cage
+        # remains (still in player inventory, but bird removed
+        # via vanish()).
+        fsm.bird.vanish()
+        fsm.player.drop(BIRD_ID)
+        _println("The snake has now devoured your bird.")
+        return true
+    # All other rooms: drop = release in the port's bird model.
     _process_input("release bird")
     return true
 

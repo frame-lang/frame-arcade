@@ -4413,8 +4413,17 @@
                 return "Your brass lantern is dark. Battery: " + str(self.lamp.battery_left()) + " turns."
             elif noun == "bird":
                 # Canon §5 obj #8 BIRD prop descriptions.
+                if self.bird.get_state() == "dead":
+                    # Canon msg #45 — after the bird is killed by
+                    # the dragon or vaporized by the Plover Room,
+                    # interactions surface the canonical disappearance.
+                    return "The little bird is now dead. Its body disappears."
                 if self.player.carrying(self.BIRD_ID):
                     return "There is a little bird in the cage."
+                if self.bird.get_state() == "released":
+                    return "There is no bird here anymore."
+                if self.player.get_room() != self.bird.get_location():
+                    return "There is no bird here anymore."
                 return "A cheerful little bird is sitting here singing."
             elif noun == "snake":
                 # Canon §5 obj #11 SNAKE prop=0.

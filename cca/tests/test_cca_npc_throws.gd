@@ -37,18 +37,30 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
 func _init():
     print("=== CCA NPC throw/drop interactions ===")
 
-    # ----- Phase 1: DROP BIRD at snake -----
-    print("Phase 1: DROP BIRD at canon 19 → snake driven away")
+    # ----- Phase 1a: RELEASE BIRD at snake → bird drives snake away -----
+    # Canon distinguishes RELEASE (bird out of cage, attacks snake)
+    # from DROP (caged bird, snake eats it).
+    print("Phase 1a: RELEASE BIRD at canon 19 → snake driven away (msg #30)")
     var d := H.make_driver()
     d.fsm.player.move_to(19)
     d.fsm.bird.capture()                  # → $Caged so release() can fire
     d.fsm.player.take(d.fsm.BIRD_ID)
     _expect("setup: snake blocking",       d.fsm.snake.is_blocking(), true)
-    var l: Array = H.capture(d, "drop bird")
-    # Canon msg #30 — "drives the snake away".
-    _expect_any_match("DROP BIRD emits canon snake-drive prose",
+    var l: Array = H.capture(d, "release bird")
+    _expect_any_match("RELEASE BIRD emits canon snake-drive prose",
         l, "drives the snake away")
     _expect("snake driven away",           d.fsm.snake.is_blocking(), false)
+
+    # ----- Phase 1b: DROP BIRD at snake → snake devours the caged bird -----
+    print("Phase 1b: DROP BIRD at canon 19 → snake devours bird (msg #101)")
+    var d1b := H.make_driver()
+    d1b.fsm.player.move_to(19)
+    d1b.fsm.bird.capture()
+    d1b.fsm.player.take(d1b.fsm.BIRD_ID)
+    var l1b: Array = H.capture(d1b, "drop bird")
+    _expect_any_match("DROP BIRD emits canon snake-devour prose",
+        l1b, "snake has now devoured your bird")
+    _expect("bird dead",                   d1b.fsm.bird.get_state(), "dead")
 
     # ----- Phase 2: DROP BIRD at dragon -----
     print("Phase 2: DROP BIRD at canon 119 → bird vaporized")

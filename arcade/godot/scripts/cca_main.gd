@@ -1793,9 +1793,20 @@ func _intercept_break_mirror(verb: String, noun: String) -> bool:
     _println("It is beyond your power to do that.")
     return true
 
+# Canon DROP BIRD (advent.for STMT 9020). DROP at snake →
+# snake eats caged bird (msg #101); elsewhere routes to release.
+# See cca/godot/scripts/driver.gd for full inline doc.
 func _intercept_drop_bird(verb: String, noun: String) -> bool:
     if verb != "drop" or noun != "bird":
         return false
+    if not fsm.player.carrying(BIRD_ID):
+        _process_input("release bird")
+        return true
+    if fsm.player_room() == fsm.SNAKE_ROOM and fsm.snake.is_blocking():
+        fsm.bird.vanish()
+        fsm.player.drop(BIRD_ID)
+        _println("The snake has now devoured your bird.")
+        return true
     _process_input("release bird")
     return true
 
