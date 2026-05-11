@@ -4575,6 +4575,9 @@
             # UNLOCK KEYS — canon msg #55.
             if noun == "keys" or noun == "key":
                 return "You can't unlock the keys."
+            # Canon msg #32 — known object that has no lock.
+            if noun == "bottle" or noun == "bird" or noun == "cage" or noun == "food" or noun == "pillow" or noun == "rod":
+                return "It has no lock."
             # UNLOCK GRATE — Grate FSM owns the actual transition.
             # Canon msg #33 / #28.
             if noun != "grate" and noun != "":
@@ -4704,7 +4707,13 @@
 
         _verb_fill(noun: String): String {
             if noun == "bottle" or noun == "":
+                # Canon msg #104 — FILL at a water/oil source without a
+                # bottle. Different from #106 (bottle present but no
+                # liquid here) — this fires when the player has no
+                # container at all.
                 if not self.bottle_item.is_carried():
+                    if self._at_water_source() or self._at_oil_source():
+                        return "You have nothing in which to carry it."
                     return "You don't have the bottle."
                 # Canon: same FILL verb takes either source. If
                 # an oil pool is here, that beats water — the
