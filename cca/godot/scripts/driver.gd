@@ -1918,7 +1918,11 @@ func _print_welcome() -> void:
     msg += "[/color]\n"
     msg += rule
     _println(msg)
-    _println("Type [b]HELP[/b] for a list of commands.")
+    # Canon msg #65 — original opening prompt. Followed by the
+    # port's HELP hint since the canon Y/N flow for instructions
+    # is out of scope (port has a dedicated HELP verb instead).
+    _println("Welcome to Adventure!! Would you like instructions?")
+    _println("Type [b]HELP[/b] for a list of commands, or press Enter to begin.")
 
 # Opens [url=...] BBCode links in the player's default browser.
 # `meta` arrives as a Variant (the bare url string from BBCode).
