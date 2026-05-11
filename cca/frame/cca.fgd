@@ -592,7 +592,7 @@
                     @@:return({
                         "verdict": "consume",
                         "event": event,
-                        "message": "You can't carry that many things at once.",
+                        "message": "You can't carry anything more. You'll have to drop something first.",
                     })
                 @@:({"verdict": "pass", "event": event})
             }

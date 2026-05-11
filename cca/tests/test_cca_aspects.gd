@@ -52,7 +52,8 @@ func _init():
     print("Take 8th item via bus — BackpackLimit consumes:")
     adv.player.move_to(28)                             # silver canon room (28)
     var r2 = adv.do_command("take", "silver")
-    _expect("take consumed",       r2, "You can't carry that many things at once.")
+    # Canon msg #92.
+    _expect("take consumed",       r2, "You can't carry anything more. You'll have to drop something first.")
     _expect("inventory unchanged", adv.player.inventory_size(), 7)
     _expect("backpack consumed",   adv.backpack_blocked_count(), 1)
 
