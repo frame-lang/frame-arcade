@@ -3059,15 +3059,17 @@
                     was_eligible = self.witts_hint.is_eligible()
                 var response: String = "No hint by that name."
                 if name == "bird":
+                    # Canon msg #19 verbatim.
                     response = self.bird_hint.request_hint(
-                        "Try catching the bird before doing anything else with it.")
+                        "The bird is frightened right now and you cannot catch it no matter what you try. Perhaps you might try later.")
                 elif name == "cave":
                     # Canon msg #63 verbatim — cave-entry hint.
                     response = self.cave_hint.request_hint(
                         "The grate is very solid and has a hardened steel lock. You cannot enter without a key, and there are no keys nearby. I would recommend looking elsewhere for the keys.")
                 elif name == "snake":
+                    # Canon msg #21 verbatim.
                     response = self.snake_hint.request_hint(
-                        "The bird drives the snake away. Bring it here in its cage.")
+                        "You can't kill the snake, or drive it away, or avoid it, or anything like that. There is a way to get by, but you don't have the necessary resources right now.")
                 elif name == "maze":
                     # Canon hint #177 verbatim.
                     response = self.maze_hint.request_hint(
@@ -4763,15 +4765,17 @@
         }
 
         _verb_drink(noun: String): String {
-            # Bare DRINK or DRINK WATER drinks the bottle
-            # contents. Drinking from a stream / reservoir works
-            # too as a flavor response.
+            # Bare DRINK or DRINK WATER drinks the bottle if
+            # carried, or drinks directly from the stream at any
+            # water source.
             if noun != "" and noun != "water" and noun != "bottle":
                 return "You can't drink that."
+            # At a water source, DRINK works without a bottle —
+            # the player drinks from the stream. Canon msg #73.
+            if self._at_water_source() and not (
+                self.bottle_item.is_carried() and self.bottle.has_water()):
+                return "You have taken a drink from the stream. The water tastes strongly of minerals, but is not unpleasant. It is extremely cold."
             if not self.bottle_item.is_carried():
-                # Canon msg #104.
-                if self._at_water_source():
-                    return "You have nothing in which to carry it."
                 return "You have nothing to drink."
             return self.bottle.drink()
         }
