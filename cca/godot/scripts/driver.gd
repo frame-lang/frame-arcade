@@ -665,9 +665,11 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
             _print_info()
             return true
         "quit":
-            # Canon msg #143 verbatim — confirm before exit.
+            # Canon msg #22 verbatim — standard QUIT confirmation.
+            # (Canon also has msg #143 "Do you indeed wish to quit now?"
+            # for the closing-cave variant; #22 fires for normal QUIT.)
             _quit_pending = true
-            _println("Do you indeed wish to quit now?")
+            _println("Do you really want to quit now?")
             return true
         "score":
             _println("[b]Score: %d[/b] — treasures %d (%d/15 deposited), visits %d, hints %d, endgame %d" % [
@@ -1141,6 +1143,27 @@ func _intercept_scenery_read(verb: String, noun: String) -> bool:
     # PHONY PLANT (object 25) at canon 23/35.
     if (noun == "plant" or noun == "plant2") and (er == 23 or er == 35):
         _println("It's the top of a tall beanstalk poking out of the west pit.")
+        return true
+    # Canon msg #63 — EXAMINE GRATE at the depression (canon 8).
+    if noun == "grate" and (er == 8 or er == 9):
+        _println("The grate is very solid and has a hardened steel lock. You cannot")
+        _println("enter without a key, and there are no keys nearby. I would recommend")
+        _println("looking elsewhere for the keys.")
+        return true
+    # Canon msg #64 — EXAMINE TREES/FOREST in the forest rooms.
+    if (noun == "trees" or noun == "forest" or noun == "tree") and er in [4, 5, 6]:
+        _println("The trees of the forest are large hardwood oak and maple, with an")
+        _println("occasional grove of pine or spruce. There is quite a bit of under-")
+        _println("growth, largely birch and ash saplings plus nondescript bushes of")
+        _println("various sorts. This time of year visibility is quite restricted by")
+        _println("all the leaves, but travel is quite easy if you detour around the")
+        _println("spruce and berry bushes.")
+        return true
+    # Canon msg #69 — EXAMINE MIST.
+    if noun == "mist":
+        _println("Mist is a white vapor, usually water, seen from time to time in")
+        _println("caverns. It can be found anywhere but is frequently a sign of a deep")
+        _println("pit leading down to water.")
         return true
     return false
 

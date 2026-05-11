@@ -885,14 +885,14 @@ const GATES: Dictionary = {
     # 27) rather than 17:east — going east from the east bank is
     # the way *back* to hall of mists, not across. Wave the rod
     # at the fissure to materialise the bridge.
-    "17:over":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "17:across": {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "17:west":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "17:cross":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "27:over":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "27:across": {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "27:east":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "27:cross":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "17:over":   {"check": "bridge", "msg": "There is no way across the fissure."},
+    "17:across": {"check": "bridge", "msg": "There is no way across the fissure."},
+    "17:west":   {"check": "bridge", "msg": "There is no way across the fissure."},
+    "17:cross":  {"check": "bridge", "msg": "There is no way across the fissure."},
+    "27:over":   {"check": "bridge", "msg": "There is no way across the fissure."},
+    "27:across": {"check": "bridge", "msg": "There is no way across the fissure."},
+    "27:east":   {"check": "bridge", "msg": "There is no way across the fissure."},
+    "27:cross":  {"check": "bridge", "msg": "There is no way across the fissure."},
     # Canon `17 412021 7` and `27 412021 7` — FORWARD across
     # the fissure when the bridge isn't built routes to canon
     # 21 ("YOU DIDN'T MAKE IT.") which fires player.die() on
@@ -906,8 +906,8 @@ const GATES: Dictionary = {
     # Canon JUMP-into-fissure: msg #38 "the fissure is too wide
     # to jump". Adding so a player typing JUMP gets the canon
     # text rather than a generic "no exit".
-    "17:jump":  {"check": "always",  "msg": "The fissure is too wide."},
-    "27:jump":  {"check": "always",  "msg": "The fissure is too wide."},
+    "17:jump":  {"check": "always",  "msg": "I respectfully suggest you go across the bridge instead of jumping."},
+    "27:jump":  {"check": "always",  "msg": "I respectfully suggest you go across the bridge instead of jumping."},
     # Canon JUMP at the troll bridge has TWO rows:
     #   `117 596 39`    → unconditional msg #96 "I respectfully
     #                     suggest you go across the bridge".
@@ -1074,15 +1074,15 @@ const GATES: Dictionary = {
     # 8:in/8:down gated but 8:enter ungated, letting players bypass
     # the gate by typing ENTER. All three verbs now route through
     # the same grate check.
-    "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
-    "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
-    "8:enter":   {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
+    "8:down":    {"check": "grate",  "msg": "You can't go through a locked steel grate!"},
+    "8:in":      {"check": "grate",  "msg": "You can't go through a locked steel grate!"},
+    "8:enter":   {"check": "grate",  "msg": "You can't go through a locked steel grate!"},
     # Symmetric mirror at canon 9 (below grate). Canon section 3
     # rows `9 303008 11 29` (OUT/UP → 8 when grate unlocked) and
     # `9 593 11` (OUT → msg #93 "the grate is locked"); both
     # rows collapse to a single grate-gated exit on the port side.
-    "9:up":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
-    "9:out":     {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
+    "9:up":      {"check": "grate",  "msg": "You can't go through a locked steel grate!"},
+    "9:out":     {"check": "grate",  "msg": "You can't go through a locked steel grate!"},
     # DEPRESSION verb at debris/awkward/bird/pit-top — canon
     # rows `11 303008 63` / `12 303008 63` / `13 303008 63` /
     # `14 303008 63` are convenience teleports back to canon 8
@@ -1090,10 +1090,10 @@ const GATES: Dictionary = {
     # prop(3) ≠ 0 = grate unlocked. The grate gate emits the
     # canon "grate is locked" prose when the condition fails;
     # otherwise the topology entry walks to 8 unblocked.
-    "11:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
-    "12:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
-    "13:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
-    "14:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
+    "11:depression": {"check": "grate", "msg": "You can't go through a locked steel grate!"},
+    "12:depression": {"check": "grate", "msg": "You can't go through a locked steel grate!"},
+    "13:depression": {"check": "grate", "msg": "You can't go through a locked steel grate!"},
+    "14:depression": {"check": "grate", "msg": "You can't go through a locked steel grate!"},
     # "You can't get the gold up the steps." Canon row
     # `15 150022 29 31 34 35 23 43` blocks UP/PIT/STEPS/DOME/
     # PASSAGE/EAST at the Hall of Mists when the player is

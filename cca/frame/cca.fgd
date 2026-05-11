@@ -3385,10 +3385,22 @@
                 return self._verb_chant(verb)
             elif verb == "xyzzy" or verb == "plugh" or verb == "plover":
                 # MagicWordTeleport didn't transform — wrong room.
-                # Canon CCA response.
-                return "Nothing happens."
+                # Canon msg #50.
+                return "Good try, but that is an old worn-out magic word."
+            elif verb == "stop":
+                # Canon msg #139.
+                return "I don't know the word \"stop\". Use \"quit\" if you want to give up."
+            elif verb == "dig":
+                # Canon msg #66.
+                return "Digging without a shovel is quite impractical. Even with a shovel progress is unlikely."
+            elif verb == "kill" and noun == "snake":
+                # Canon msg #21.
+                return "You can't kill the snake, or drive it away, or avoid it, or anything like that. There is a way to get by, but you don't know it yet."
             elif verb == "noop":
                 return ""
+            # Sentinel string the driver intercepts and substitutes
+            # with canon msg #13/#60/#61 in the canonical 20/64/16
+            # distribution (advent.for STMT 3000).
             return "I don't know how to '" + verb + "'."
         }
 

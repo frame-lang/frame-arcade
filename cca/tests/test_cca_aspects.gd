@@ -86,7 +86,8 @@ func _init():
 
     print("XYZZY from unrecognized room (Plover) — passes through:")
     var r5 = adv.do_command("xyzzy", "")
-    _expect("xyzzy nothing",       r5, "Nothing happens.")
+    # Canon msg #50 — XYZZY in wrong room.
+    _expect("xyzzy worn out",      r5, "Good try, but that is an old worn-out magic word.")
     _expect("room unchanged",      adv.player_room(),           100)
     _expect("magic transforms",    adv.magic_transforms_count(), 4)
 

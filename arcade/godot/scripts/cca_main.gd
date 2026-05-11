@@ -858,21 +858,21 @@ var gated_exits: Dictionary = {
     # crossing verbs (OVER/ACROSS/W/CROSS at 17, OVER/ACROSS/E/
     # CROSS at 27). Going east from 17 (back to Hall of Mists)
     # is ungated; that was a long-standing port bug.
-    "17:over":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "17:across": {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "17:west":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "17:cross":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "27:over":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "27:across": {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "27:east":   {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
-    "27:cross":  {"check": "bridge", "msg": "The fissure is too wide to leap. You'll have to find another way across."},
+    "17:over":   {"check": "bridge", "msg": "There is no way across the fissure."},
+    "17:across": {"check": "bridge", "msg": "There is no way across the fissure."},
+    "17:west":   {"check": "bridge", "msg": "There is no way across the fissure."},
+    "17:cross":  {"check": "bridge", "msg": "There is no way across the fissure."},
+    "27:over":   {"check": "bridge", "msg": "There is no way across the fissure."},
+    "27:across": {"check": "bridge", "msg": "There is no way across the fissure."},
+    "27:east":   {"check": "bridge", "msg": "There is no way across the fissure."},
+    "27:cross":  {"check": "bridge", "msg": "There is no way across the fissure."},
     # Canon "always-blocked" bumper gates — JUMP at fissure / troll
     # bridge / volcano, SLIT/STREAM at the streambed slits, the
     # dragon's east passage at canon 119/121, locked grates and
     # plover squeezes. Driver dispatches before DIRECTIONS so the
     # canon prose lands rather than the FSM fallback.
-    "17:jump":  {"check": "always", "msg": "The fissure is too wide."},
-    "27:jump":  {"check": "always", "msg": "The fissure is too wide."},
+    "17:jump":  {"check": "always", "msg": "I respectfully suggest you go across the bridge instead of jumping."},
+    "27:jump":  {"check": "always", "msg": "I respectfully suggest you go across the bridge instead of jumping."},
     # Canon `17/27 412021 7` — FORWARD across fissure with no
     # bridge walks to canon 21 (death). Bridge-built case falls
     # through; topology has no `forward` so no-exit fires.
@@ -962,21 +962,21 @@ var gated_exits: Dictionary = {
     "108:west":  {"check": "always", "msg": "You have crawled around in some little holes and found your way blocked by a recent cave-in. You are now back in the main passage."},
     # Grate at depression (canon 8 → 9). Canon `8 303009 3 19 30`
     # gates ENTER, IN, and DOWN — all three on the same condition.
-    "8:down":    {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
-    "8:in":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
-    "8:enter":   {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
+    "8:down":    {"check": "grate",  "msg": "You can't go through a locked steel grate!"},
+    "8:in":      {"check": "grate",  "msg": "You can't go through a locked steel grate!"},
+    "8:enter":   {"check": "grate",  "msg": "You can't go through a locked steel grate!"},
     # Symmetric mirror at canon 9 (below grate) per canon section
     # 3 row `9 303008 11 29` — UP/OUT route back to 8 when grate
     # is unlocked, otherwise the canon "grate is locked" bumper.
-    "9:up":      {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
-    "9:out":     {"check": "grate",  "msg": "The grate is locked. You'd need keys to open it."},
+    "9:up":      {"check": "grate",  "msg": "You can't go through a locked steel grate!"},
+    "9:out":     {"check": "grate",  "msg": "You can't go through a locked steel grate!"},
     # DEPRESSION verb at debris/awkward/bird/pit-top — canon
     # `11/12/13/14 303008 63` teleports back to canon 8 when
     # the grate is unlocked.
-    "11:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
-    "12:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
-    "13:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
-    "14:depression": {"check": "grate", "msg": "The grate is locked. You'd need keys to open it."},
+    "11:depression": {"check": "grate", "msg": "You can't go through a locked steel grate!"},
+    "12:depression": {"check": "grate", "msg": "You can't go through a locked steel grate!"},
+    "13:depression": {"check": "grate", "msg": "You can't go through a locked steel grate!"},
+    "14:depression": {"check": "grate", "msg": "You can't go through a locked steel grate!"},
     # "You can't get the gold up the steps." Canon row
     # `15 150022 29 31 34 35 23 43` blocks UP/PIT/STEPS/DOME/
     # PASSAGE/EAST at the Hall of Mists when the player is
@@ -1919,6 +1919,27 @@ func _intercept_scenery_read(verb: String, noun: String) -> bool:
         return true
     if (noun == "plant" or noun == "plant2") and (er == 23 or er == 35):
         _println("It's the top of a tall beanstalk poking out of the west pit.")
+        return true
+    # Canon msg #63 — EXAMINE GRATE at the depression.
+    if noun == "grate" and (er == 8 or er == 9):
+        _println("The grate is very solid and has a hardened steel lock. You cannot")
+        _println("enter without a key, and there are no keys nearby. I would recommend")
+        _println("looking elsewhere for the keys.")
+        return true
+    # Canon msg #64 — EXAMINE TREES/FOREST in the forest rooms.
+    if (noun == "trees" or noun == "forest" or noun == "tree") and er in [4, 5, 6]:
+        _println("The trees of the forest are large hardwood oak and maple, with an")
+        _println("occasional grove of pine or spruce. There is quite a bit of under-")
+        _println("growth, largely birch and ash saplings plus nondescript bushes of")
+        _println("various sorts. This time of year visibility is quite restricted by")
+        _println("all the leaves, but travel is quite easy if you detour around the")
+        _println("spruce and berry bushes.")
+        return true
+    # Canon msg #69 — EXAMINE MIST.
+    if noun == "mist":
+        _println("Mist is a white vapor, usually water, seen from time to time in")
+        _println("caverns. It can be found anywhere but is frequently a sign of a deep")
+        _println("pit leading down to water.")
         return true
     return false
 
