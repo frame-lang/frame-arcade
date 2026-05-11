@@ -4301,7 +4301,13 @@
                 self.real_score = self.real_score + value
                 return "OK"
             if outcome == "dropped_soft":
-                return "The vase comes to rest, delicately, on the velvet pillow."
+                # Canon §5 obj #58 VASE prop=100 verbatim.
+                return "The vase is now resting, delicately, on a velvet pillow."
+            if outcome == "broken":
+                # Canon msg #198 — DROP fragile (vase) outside the
+                # DEPOSIT room without a pillow. Canon treats DROP-as-
+                # THROW for fragile objects when there's no cushion.
+                return "You have taken the vase and hurled it delicately to the ground."
             return "OK"
         }
 
@@ -4547,10 +4553,24 @@
         }
 
         _verb_unlock(noun: String): String {
-            # The grate is the only canonical lockable in this
-            # port. UNLOCK and OPEN both route here. We require the
-            # player to be at the depression (room 8) AND carrying
-            # the keys; the Grate FSM does the actual transition.
+            # UNLOCK CHAIN — canon msg #41 / #170 / #171.
+            if noun == "chain":
+                if self.player.get_room() != self.BEAR_HOME_ROOM:
+                    # Canon msg #173.
+                    return "There is nothing here to which the chain can be locked."
+                if not self.keys_item.is_carried():
+                    # Canon msg #170.
+                    return "The chain is still locked."
+                var bs: String = self.bear.get_state()
+                if bs == "hungry":
+                    # Canon msg #41 — bear in the way.
+                    return "There is no way to get past the bear to unlock the chain, which is probably just as well."
+                # Canon msg #171.
+                return "The chain is now unlocked."
+            # UNLOCK KEYS — canon msg #55.
+            if noun == "keys" or noun == "key":
+                return "You can't unlock the keys."
+            # UNLOCK GRATE — Grate FSM owns the actual transition.
             # Canon msg #33 / #28.
             if noun != "grate" and noun != "":
                 return "I don't know how to lock or unlock such a thing."
@@ -4560,6 +4580,13 @@
         }
 
         _verb_lock(noun: String): String {
+            # LOCK CHAIN — canon msg #172 / #173.
+            if noun == "chain":
+                if self.player.get_room() != self.BEAR_HOME_ROOM:
+                    # Canon msg #173.
+                    return "There is nothing here to which the chain can be locked."
+                # Canon msg #172.
+                return "The chain is now locked."
             # Canon msg #33 / #28.
             if noun != "grate" and noun != "":
                 return "I don't know how to lock or unlock such a thing."
