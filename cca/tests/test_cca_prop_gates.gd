@@ -103,22 +103,27 @@ func _init():
         _expect_any_match("pre-bear JUMP @ %d emits msg #96" % room,
             lines5, "I respectfully suggest")
 
-    # ----- Phase 6: 117:jump + 122:jump post-bear — death in canon 21 -----
-    print("Phase 6: 117/122:jump after bear-bridge collapsed → die in canon 21")
+    # ----- Phase 6: 117:jump + 122:jump after bridge collapsed → die in canon 21 -----
+    # Canon: msg #162 fires when player crosses 117↔122 with the
+    # bear in $Following; the bridge buckles, both die, and the
+    # chasm is collapsed (a one-shot terminal flag). After that,
+    # JUMP into the chasm at either side walks to canon 21
+    # (broken-neck death) per canon row `117/122 332021 39`.
+    # Set the collapsed flag directly here — the canon msg-#162
+    # path is exercised separately by test_cca_troll.
+    print("Phase 6: 117/122:jump after bridge collapsed → die in canon 21")
     for room in [117, 122]:
         var d6 := H.make_driver()
-        # Direct state mutation: drive Troll to $Vanished
-        # (the port's "chasm collapsed" state).
-        d6.fsm.troll.scared_off()
-        _expect("setup: troll vanished",
-            d6.fsm.troll_state(), "vanished")
+        d6.fsm.collapse_troll_bridge()
+        _expect("setup: bridge collapsed",
+            d6.fsm.troll_bridge_collapsed(), true)
         d6.fsm.player.move_to(room)
         var lines6: Array = H.capture(d6, "jump")
-        _expect("post-bear JUMP @ %d walks to canon 21 (death)" % room,
+        _expect("post-collapse JUMP @ %d walks to canon 21 (death)" % room,
             d6.fsm.player_room(), 21)
-        _expect("post-bear JUMP @ %d kills the player" % room,
+        _expect("post-collapse JUMP @ %d kills the player" % room,
             d6.fsm.player_state(), "dead")
-        _expect_any_match("post-bear JUMP @ %d emits broken-bones msg" % room,
+        _expect_any_match("post-collapse JUMP @ %d emits broken-bones msg" % room,
             lines6, "didn't make it")
 
     if failures == 0:

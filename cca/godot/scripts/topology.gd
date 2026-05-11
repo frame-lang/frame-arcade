@@ -872,14 +872,42 @@ const GATES: Dictionary = {
     # Troll bridge crossings (canon 117 ↔ 122). The troll
     # blocks every cross-the-chasm verb until it pays toll
     # (treasure thrown) or vanishes (chain dropped + bear).
-    "117:over":   {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "117:across": {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "117:cross":  {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "117:ne":     {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "122:over":   {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "122:across": {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "122:cross":  {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "122:sw":     {"check": "troll", "msg": "The troll refuses to let you cross."},
+    # After the bridge buckles under the bear (canon msg #162,
+    # driver intercept in _handle_movement), every cross verb
+    # emits canon msg #161 "There is no longer any way across
+    # the chasm." — that rule fires before the troll check.
+    "117:over": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "117:across": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "117:cross": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "117:ne": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "122:over": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "122:across": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "122:cross": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "122:sw": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
     # Crystal bridge across the fissure. The gate lives on the
     # crossing verbs (OVER/WEST/CROSS at 17, OVER/EAST/CROSS at
     # 27) rather than 17:east — going east from the east bank is

@@ -845,15 +845,41 @@ var gated_exits: Dictionary = {
     ],
     # Troll bridge crossings (canon 117 ↔ 122). Every cross-the-
     # chasm verb is gated on troll absence; the bear-and-chain
-    # combination at 117 vanishes the troll permanently.
-    "117:over":   {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "117:across": {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "117:cross":  {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "117:ne":     {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "122:over":   {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "122:across": {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "122:cross":  {"check": "troll", "msg": "The troll refuses to let you cross."},
-    "122:sw":     {"check": "troll", "msg": "The troll refuses to let you cross."},
+    # combination at 117 vanishes the troll permanently. Once
+    # the bridge collapses (canon msg #162, bear-following cross),
+    # every future cross attempt emits canon msg #161.
+    "117:over": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "117:across": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "117:cross": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "117:ne": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "122:over": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "122:across": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "122:cross": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
+    "122:sw": [
+        {"check": "chasm_collapsed", "msg": "There is no longer any way across the chasm."},
+        {"check": "troll",           "msg": "The troll refuses to let you cross."},
+    ],
     # Crystal bridge across the fissure — gate lives on the
     # crossing verbs (OVER/ACROSS/W/CROSS at 17, OVER/ACROSS/E/
     # CROSS at 27). Going east from 17 (back to Hall of Mists)
@@ -1458,6 +1484,9 @@ func _process_input(text: String) -> void:
     # ----- UI-only verbs (driver-handled, never reach the FSM) -----
     if _handle_ui_verb(verb, noun): return
 
+    # ----- Canon bear-on-bridge cross (msg #162) -----
+    if _intercept_bridge_cross(verb): return
+
     # ----- Bumper rules + dark-pit hazard -----
     if _dispatch_bumper(verb): return
     if verb in MOTION_VERBS and _check_dark_pit_hazard(): return
@@ -1831,6 +1860,26 @@ func _intercept_take_scenery(verb: String, noun: String) -> bool:
         _println("You can't be serious!")
         return true
     return false
+
+# Canon msg #162 — bear-bridge collapse on cross with bear
+# following. See cca/godot/scripts/driver.gd for full inline doc.
+const _BRIDGE_CROSS_VERBS: Array = ["over", "across", "cross", "ne", "sw"]
+func _intercept_bridge_cross(verb: String) -> bool:
+    if not verb in _BRIDGE_CROSS_VERBS:
+        return false
+    var here: int = fsm.player_room()
+    if here != 117 and here != 122:
+        return false
+    if fsm.troll_bridge_collapsed():
+        return false   # let topology gate emit msg #161
+    if fsm.bear_state() != "following":
+        return false
+    # Canon msg #162 verbatim.
+    _println("Just as you reach the other side, the bridge buckles beneath the weight of the bear, which was still following you around. You scarcely have time to ponder this fact before you crash to the bottom of the chasm.")
+    fsm.collapse_troll_bridge()
+    fsm.player.die()
+    _check_player_death()
+    return true
 
 # Canon ENTER STREAM / ENTER WATER (msg #70). Must precede the
 # DIRECTIONS check.
@@ -2206,11 +2255,11 @@ func _try_bumper_rule(bg: Dictionary) -> bool:
             return true
         return false
     # "chasm_collapsed" — fires after the bear-falls-bridge
-    # sequence (troll FSM in $Vanished). Used for canon
-    # `117 332661 41` (OVER → msg #161) and `117 332021 39`
-    # (JUMP → walk to canon 21 death).
+    # sequence sets the Adventure FSM's troll_bridge_collapsed flag
+    # (driver intercept in _handle_movement when player crosses
+    # 117↔122 with bear in $Following).
     if bg.check == "chasm_collapsed":
-        if fsm.troll_state() == "vanished":
+        if fsm.troll_bridge_collapsed():
             if "dest" in bg:
                 _walk_to_dest(int(bg.dest))
             else:

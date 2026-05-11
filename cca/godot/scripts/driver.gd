@@ -598,6 +598,11 @@ func _process_input(text: String) -> void:
     # ----- UI-only verbs (driver-handled, never reach the FSM) -----
     if _handle_ui_verb(verb, noun): return
 
+    # ----- Canon bear-on-bridge cross (msg #162) -----
+    # Must precede _dispatch_bumper so the bear-following case
+    # fires BEFORE the troll/chasm gate check for the same verb.
+    if _intercept_bridge_cross(verb): return
+
     # ----- Bumper rules + dark-pit hazard -----
     if _dispatch_bumper(verb): return
     if verb in MOTION_VERBS and _check_dark_pit_hazard(): return
@@ -1033,6 +1038,34 @@ func _intercept_unlock_chain(verb: String, noun: String) -> bool:
         _println("The chain is still locked.")
         return true
     return false
+
+# Canon msg #162 — bear-bridge collapse. If the player is at the
+# troll bridge (117 or 122) and the bear is still in $Following
+# (chain in inventory, never dropped at the troll), trying to
+# cross sends both player and bear into the chasm. Bridge is
+# permanently collapsed (one-shot terminal flag); subsequent
+# JUMP attempts at 117/122 walk to canon 21 via the existing
+# chasm_collapsed bumper rule. msg #161 ("There is no longer any
+# way across the chasm.") fires for OVER/ACROSS/CROSS/NE/SW
+# attempts at 117/122 after the bridge is gone — handled in the
+# topology gate chain, not here.
+const _BRIDGE_CROSS_VERBS: Array = ["over", "across", "cross", "ne", "sw"]
+func _intercept_bridge_cross(verb: String) -> bool:
+    if not verb in _BRIDGE_CROSS_VERBS:
+        return false
+    var here: int = fsm.player_room()
+    if here != 117 and here != 122:
+        return false
+    if fsm.troll_bridge_collapsed():
+        return false   # let topology gate emit msg #161
+    if fsm.bear_state() != "following":
+        return false
+    # Canon msg #162 verbatim.
+    _println("Just as you reach the other side, the bridge buckles beneath the weight of the bear, which was still following you around. You scarcely have time to ponder this fact before you crash to the bottom of the chasm.")
+    fsm.collapse_troll_bridge()
+    fsm.player.die()
+    _check_player_death()
+    return true
 
 # Canon ENTER STREAM / ENTER WATER (advent.for line 894-895) —
 # msg #70. Must precede the DIRECTIONS check since "enter" is in
@@ -1494,12 +1527,12 @@ func _try_bumper_rule(bg: Dictionary) -> bool:
     # *after* the bear-falls-bridge sequence has destroyed the
     # crossing. Used for canon `117 332661 41` (OVER → msg #161
     # "no longer any way across") and `117 332021 39` (JUMP →
-    # walk to canon 21 death). Port models chasm state via the
-    # troll FSM's "vanished" terminal state (set by Adventure._
-    # verb_drop when the bear is dropped at troll). The check
-    # passes through the troll FSM accessor.
+    # walk to canon 21 death). Port models chasm state as the
+    # Adventure FSM's `troll_bridge_collapsed()` flag, set when
+    # the player crosses 117↔122 with the bear in $Following
+    # (canon msg #162 / driver intercept in _handle_movement).
     if bg.check == "chasm_collapsed":
-        if fsm.troll_state() == "vanished":
+        if fsm.troll_bridge_collapsed():
             if "dest" in bg:
                 _walk_to_dest(int(bg.dest))
             else:

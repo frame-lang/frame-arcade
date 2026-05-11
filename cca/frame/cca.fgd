@@ -2642,6 +2642,15 @@
         bear_dangerous(): bool
         troll_state(): String
         troll_blocking(): bool
+        # Canon msgs #161/#162 — the troll bridge collapses if the
+        # player crosses it with the bear following. Tracked here
+        # (rather than on a Bridge FSM) because canon's behavior
+        # only needs a single one-shot terminal flag — once the
+        # bridge falls, every future cross attempt at canon 117 or
+        # 122 emits msg #161 ("There is no longer any way across
+        # the chasm.").
+        troll_bridge_collapsed(): bool
+        collapse_troll_bridge()
 
         # Scoring breakdown — driver renders these in the
         # SCORE command. CCA-canonical components:
@@ -2901,6 +2910,11 @@
             bear_dangerous(): bool            { @@:(self.bear.is_dangerous()) }
             troll_state(): String             { @@:(self.troll.get_state()) }
             troll_blocking(): bool            { @@:(self.troll.is_blocking_bridge()) }
+
+            troll_bridge_collapsed(): bool    { @@:(self.troll_bridge_down) }
+            collapse_troll_bridge() {
+                self.troll_bridge_down = true
+            }
 
             wake_dwarves() {
                 # Spread the five dwarves across the cave's
@@ -5269,4 +5283,12 @@
         # fighting") — knife-throw hit pct = 95*(anger-2)/1000.
         # FEED dwarf bumps this; without FEEDs the rate stays at 0%.
         dwarf_anger: int = 2
+
+        # Canon msgs #161/#162 — once a player crosses the troll
+        # bridge with the bear following, the bridge buckles
+        # under the bear's weight, the player dies (msg #162),
+        # and every subsequent cross attempt at 117 or 122 emits
+        # msg #161 ("There is no longer any way across the
+        # chasm."). One-shot, terminal.
+        troll_bridge_down: bool = false
 }
