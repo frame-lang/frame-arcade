@@ -1156,6 +1156,20 @@ var _chest_hint_done: bool = false
 # Canon OYSTER hint chain (advent.dat msgs #192/193/194).
 var _oyster_prompt_active: bool = false
 var _oyster_revealed: bool = false
+
+# Canon hint Y/N flow. See cca/godot/scripts/driver.gd for full
+# inline doc.
+const HINT_PROMPT_MSGS: Dictionary = {
+    "cave":   "Are you trying to get into the cave?",
+    "bird":   "Are you trying to catch the bird?",
+    "snake":  "Are you trying to somehow deal with the snake?",
+    "maze":   "Do you need help getting out of the maze?",
+    "plover": "Are you trying to explore beyond the Plover Room?",
+    "witts":  "Do you need help getting out of here?",
+}
+const HINT_NAMES: Array = ["cave", "bird", "snake", "maze", "plover", "witts"]
+var _hint_prompted: Dictionary = {}
+var _hint_pending: String = ""
 const FORCED_ROOMS := [16, 22, 26, 32, 40, 59, 79, 89, 90, 113]
 
 # --- Exit dialog (Save / Quit) ---
@@ -1410,6 +1424,19 @@ func _process_input(text: String) -> void:
         # prose for ambiguous yes/no input during the revive prompt.
         _println("Please answer the question.")
         return
+
+    # Canon hint Y/N flow. YES emits payload + deducts cost; NO
+    # emits canon msg #54. See cca/godot/scripts/driver.gd.
+    if _hint_pending != "":
+        var hint_name: String = _hint_pending
+        _hint_pending = ""
+        if verb == "yes":
+            _println(fsm.request_hint(hint_name))
+            return
+        if verb == "no":
+            _println("OK")
+            return
+        # Fall through to normal verb processing.
 
     # Canon oyster-clue Y/N prompt (advent.dat msg #192). YES
     # costs 10 points and reveals msg #193, NO cancels.
@@ -1696,8 +1723,23 @@ func _run_per_turn_checks() -> void:
     _check_endgame_phase_change()
     _check_dwarf_axe()
     _check_chest_hint()
+    _check_hint_prompts()
     _check_player_death()
     _maybe_print_room_after_move()
+
+# Canon hint Y/N auto-prompt. See cca/godot/scripts/driver.gd.
+func _check_hint_prompts() -> void:
+    if _hint_pending != "":
+        return
+    for n in HINT_NAMES:
+        if _hint_prompted.get(n, false):
+            continue
+        if fsm.hint_state(n) != "eligible":
+            continue
+        _hint_prompted[n] = true
+        _hint_pending = n
+        _println(HINT_PROMPT_MSGS[n])
+        return
 
 # ============================================================
 # Verb intercepts

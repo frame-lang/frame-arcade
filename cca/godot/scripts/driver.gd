@@ -248,6 +248,34 @@ var _dwarf_first_encounter_done: bool = false
 var _oyster_prompt_active: bool = false
 var _oyster_revealed: bool = false
 
+# Canon hint Y/N flow (advent.for STMT 6020 + msgs #18/#20/#62/
+# #176/#178/#180). When a hint becomes eligible (player has been
+# in the trigger condition for the threshold turns), the game
+# canonically asks Y/N before revealing the payload. On YES the
+# payload fires + points deduct; on NO no penalty. Each hint is
+# only auto-prompted once per session (the `_hint_prompted` set
+# latches the first prompt regardless of the answer).
+#
+# Names match the Hint FSM's keys: cave / bird / snake / maze /
+# plover / witts. The prompt msg # / payload msg # mapping:
+#   cave   → prompt #62  / payload #63
+#   bird   → prompt #18  / payload #19
+#   snake  → prompt #20  / payload #21
+#   maze   → prompt #176 / payload #177
+#   plover → prompt #178 / payload #179
+#   witts  → prompt #180 / payload #181
+const HINT_PROMPT_MSGS: Dictionary = {
+    "cave":   "Are you trying to get into the cave?",
+    "bird":   "Are you trying to catch the bird?",
+    "snake":  "Are you trying to somehow deal with the snake?",
+    "maze":   "Do you need help getting out of the maze?",
+    "plover": "Are you trying to explore beyond the Plover Room?",
+    "witts":  "Do you need help getting out of here?",
+}
+const HINT_NAMES: Array = ["cave", "bird", "snake", "maze", "plover", "witts"]
+var _hint_prompted: Dictionary = {}    # name -> true once auto-offered
+var _hint_pending: String = ""         # name of hint awaiting YES/NO, "" if none
+
 # Canon chest-only-outstanding hint latch (advent.for STMT 6020,
 # canon msg #186). When the player has 14 of 15 treasures
 # deposited and the chest is the only one missing — and the
@@ -485,6 +513,22 @@ func _process_input(text: String) -> void:
         # Fall through to normal processing — canon: any non-yes
         # answer cancels the quit prompt.
 
+    # Canon hint Y/N flow. YES emits the payload + deducts the
+    # per-hint cost (handled inside fsm.request_hint); NO emits
+    # canon msg #54 ("OK"). Any other verb cancels the prompt and
+    # falls through to normal processing.
+    if _hint_pending != "":
+        var hint_name: String = _hint_pending
+        _hint_pending = ""
+        if verb == "yes":
+            _println(fsm.request_hint(hint_name))
+            return
+        if verb == "no":
+            # Canon msg #54.
+            _println("OK")
+            return
+        # Fall through to normal verb processing.
+
     # Canon oyster-clue Y/N prompt (advent.dat msg #192). Player
     # has READ OYSTER on the in-place oyster; answering YES costs
     # 10 points and reveals msg #193, NO cancels with no penalty.
@@ -642,8 +686,27 @@ func _run_per_turn_checks() -> void:
     _check_endgame_phase_change()
     _check_dwarf_axe()
     _check_chest_hint()
+    _check_hint_prompts()
     _check_player_death()
     _maybe_print_room_after_move()
+
+# Canon hint Y/N auto-prompt. When a Hint FSM transitions to
+# $Eligible (player has been in the trigger condition for N
+# turns), fire the canon Y/N prompt one time. Subsequent
+# eligibility on the same hint stays silent — the player still
+# has the explicit HINT verb if they want to ask later.
+func _check_hint_prompts() -> void:
+    if _hint_pending != "":
+        return
+    for n in HINT_NAMES:
+        if _hint_prompted.get(n, false):
+            continue
+        if fsm.hint_state(n) != "eligible":
+            continue
+        _hint_prompted[n] = true
+        _hint_pending = n
+        _println(HINT_PROMPT_MSGS[n])
+        return  # only one prompt per turn
 
 # ============================================================
 # UI-only verbs (driver-handled, never reach the FSM)
