@@ -1081,7 +1081,7 @@ func _intercept_bridge_cross(verb: String) -> bool:
     if fsm.bear_state() != "following":
         return false
     # Canon msg #162 verbatim.
-    _println("Just as you reach the other side, the bridge buckles beneath the weight of the bear, which was still following you around. You scarcely have time to ponder this fact before you crash to the bottom of the chasm.")
+    _println("Just as you reach the other side, the bridge buckles beneath the weight of the bear, which was still following you around. You scrabble desperately for support, but as the bridge collapses you stumble back and fall into the chasm.")
     fsm.collapse_troll_bridge()
     fsm.player.die()
     _check_player_death()
