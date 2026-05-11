@@ -3393,9 +3393,6 @@
             elif verb == "dig":
                 # Canon msg #66.
                 return "Digging without a shovel is quite impractical. Even with a shovel progress is unlikely."
-            elif verb == "kill" and noun == "snake":
-                # Canon msg #21.
-                return "You can't kill the snake, or drive it away, or avoid it, or anything like that. There is a way to get by, but you don't know it yet."
             elif verb == "noop":
                 return ""
             # Sentinel string the driver intercepts and substitutes
@@ -4337,6 +4334,9 @@
         }
 
         _verb_attack(noun: String): String {
+            # Canon msg #46 — ATTACK SNAKE (or KILL via synonym).
+            if noun == "snake":
+                return "Attacking the snake both doesn't work and is very dangerous."
             # Canon msg #150 — ATTACK CLAM/OYSTER.
             if noun == "clam" or noun == "oyster":
                 return "The shell is very strong and is impervious to attack."
