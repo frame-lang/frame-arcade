@@ -2273,8 +2273,12 @@ func _check_lamp_warnings() -> void:
             get_tree().quit()
 
 func _check_dwarf_axe() -> void:
+    # Canon msg #4 — per-turn "threatening dwarf in room" announce.
+    if _dwarf_at_room(fsm.player_room()) and _dwarf_first_encounter_done:
+        _println("[color=#cc7777][i]There is a threatening little dwarf in the room with you![/i][/color]")
     if fsm.dwarf_threw_axe():
-        # Canon msg #53 — dwarf knife-throw connects.
+        # Canon msg #5 + msg #53.
+        _println("[color=#cc7777][i]One sharp nasty knife is thrown at you![/i][/color]")
         _println("[color=#cc7777][i]It gets you![/i][/color]")
 
 # Canon chest-only-outstanding hint (advent.for STMT 6020, msg

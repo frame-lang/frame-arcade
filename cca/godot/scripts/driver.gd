@@ -1578,9 +1578,19 @@ func _check_lamp_warnings() -> void:
             get_tree().quit()
 
 func _check_dwarf_axe() -> void:
+    # Canon msg #4 — per-turn "threatening dwarf in room" announce
+    # whenever a stalking dwarf is at the player's location. Fires
+    # before the throw outcome.
+    if _dwarf_at_room(fsm.player_room()) and _dwarf_first_encounter_done:
+        _println("[color=#cc7777][i]There is a threatening little dwarf in the room with you![/i][/color]")
     if fsm.dwarf_threw_axe():
-        # Canon msg #53 — dwarf knife-throw connects. BBCode wrapper
-        # preserved for emphasis; prose verbatim.
+        # Canon msg #5 — knife thrown. msg #6/#7/#53 are the
+        # outcome variants; the port currently fires #53 (gets
+        # you) for any successful hit. The miss case is silent
+        # since canon msg #6 ("None of them hit you!") only
+        # fires on a multi-dwarf scene which the port models
+        # as a single stalking dwarf at a time.
+        _println("[color=#cc7777][i]One sharp nasty knife is thrown at you![/i][/color]")
         _println("[color=#cc7777][i]It gets you![/i][/color]")
 
 # Canon chest-only-outstanding hint (advent.for STMT 6020, msg
