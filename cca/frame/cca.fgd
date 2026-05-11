@@ -3352,6 +3352,14 @@
             if verb == "look":
                 return self._verb_look()
             elif verb == "light":
+                # Canon msg #38 — LIGHT with any non-lamp noun
+                # (LIGHT TORCH / LIGHT FIRE / LIGHT MATCH etc.).
+                # Port doesn't model the lamp as a takeable Item
+                # so the canon "lamp not carried" branch can't
+                # fire; the noun-mismatch case still emits the
+                # correct canon prose.
+                if noun != "" and noun != "lamp" and noun != "lantern":
+                    return "You have no source of light."
                 self.lamp.light()
                 if self.lamp.get_state() == "out":
                     # Canon msg #184 derivative — lamp won't relight if dead.
