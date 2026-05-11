@@ -147,6 +147,13 @@ MSG_DICT_RE = re.compile(r'"msg"\s*:\s*"((?:\\.|[^"\\])*)"')
 # requires the LHS to be a bare identifier (no `.`), and the
 # string must be long enough to be prose.
 LOCAL_ASSIGN_RE = re.compile(r'^\s*(?:var\s+)?[a-z_]\w*\s*=\s*"((?:\\.|[^"\\])*)"', re.MULTILINE)
+# Fallback: any other string literal of substantial length.
+# Catches method-call arguments like
+# `self.witts_hint.request_hint("Don't go west.")` and
+# array entries `items.append("Large gold nugget")` where the
+# canon prose is in the code but not in an assignment-shaped
+# emission. We rely on MIN_NORM_LEN to filter out short codes.
+GENERIC_STR_RE = re.compile(r'"((?:\\.|[^"\\])*)"')
 
 def extract_emissions(path):
     """Return list of (line_no, kind, text) for emitted strings."""
@@ -177,6 +184,16 @@ def extract_emissions(path):
                 text = m.group(1).encode().decode('unicode_escape')
                 if len(normalize(text)) >= MIN_NORM_LEN:
                     items.append((i, 'local_assign', text))
+            # GENERIC pass — only emit if not already caught above
+            # on this line, and require length >= 25 to avoid
+            # catching short type labels / state codes / paths.
+            existing_texts = {t for (l, k, t) in items if l == i}
+            for m in GENERIC_STR_RE.finditer(line):
+                text = m.group(1).encode().decode('unicode_escape')
+                if text in existing_texts:
+                    continue
+                if len(normalize(text)) >= 25:
+                    items.append((i, 'generic', text))
     return items
 
 # ---------- Join ----------
