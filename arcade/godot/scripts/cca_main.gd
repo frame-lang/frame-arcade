@@ -2305,6 +2305,14 @@ func _check_player_death() -> void:
         return
     var s: String = fsm.player_state()
     if s == "dead":
+        # Canon msg #131 — death during the closing-cave phase is
+        # final. End the game instead of offering revive.
+        if fsm.endgame_state() == "closing":
+            _println("[color=#cc4444][b]It looks as though you're dead. Well, seeing as how it's so close to closing time anyway, I think we'll just call it a day.[/b][/color]")
+            if is_inside_tree():
+                await get_tree().create_timer(2.0).timeout
+                Arcade.return_to_menu()
+            return
         _awaiting_revive = true
         # Canon advent.for STMT 16000: prompt text varies by
         # death count via msg #81/#83/#85.
