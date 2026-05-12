@@ -48,12 +48,12 @@ func _init():
 
     print("look in dark with lamp off (consumed by DarknessGate):")
     var r2 = adv.do_command("look", "")
-    _expect("look response",       r2, "It is pitch dark. You can't see a thing.")
+    _expect("look response",       r2, "It is now pitch dark. If you proceed you will likely fall into a pit.")
     _expect("darkness consumed",   adv.darkness_consumed_count(), 1)
 
     print("examine also gated:")
     var r3 = adv.do_command("examine", "wall")
-    _expect("examine response",    r3, "It is pitch dark. You can't see a thing.")
+    _expect("examine response",    r3, "It is now pitch dark. If you proceed you will likely fall into a pit.")
     _expect("darkness consumed",   adv.darkness_consumed_count(), 2)
 
     print("light lamp, then look — passes through:")

@@ -64,7 +64,9 @@ func _init():
 
     print("From restored $Asked, say NO — dragon goes back to sleep:")
     var r6 = adv2.do_command("no", "")
-    _expect("no response",         r6.contains("hesitation"), true)
+    # Canon: NO branch emits msg #54 "OK" (canon advent.for has no
+    # specific "you back away" prose).
+    _expect("no response",         r6.contains("OK"),  true)
     _expect("back to sleeping",    adv2.dragon_state(), "sleeping")
 
     print("Re-attack, say YES — dragon dies:")

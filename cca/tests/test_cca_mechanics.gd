@@ -90,8 +90,10 @@ func _init():
     # "look". Let's verify the chant FSM directly by sending
     # a non-canon word through it:
     var rc = adv_d.eggs_chant.say("xyzzy")
-    _expect_contains("non-canon resets chant", rc, "broke the chant")
-    _expect("chant idle",    adv_d.eggs_chant.get_state(), "idle")
+    # Canon advent.for STMT 2608 silently resets FOOBAR; port
+    # emits msg #54 "OK." as a minimal acknowledgement.
+    _expect("non-canon resets chant", rc,                            "OK")
+    _expect("chant idle",    adv_d.eggs_chant.get_state(),   "idle")
 
     # --- Bear-attacks-player ---
     print("Take chain from hungry bear → player dies:")
@@ -133,7 +135,7 @@ func _init():
     adv_g.wake_dwarves()
     for _i in 8:
         adv_g.bump_dwarf_anger()      # 2 → 10
-    adv_g.player.move_to(12)
+    adv_g.player.move_to(19)
     var hit_after: int = -1
     for i in 30:
         adv_g.tick()

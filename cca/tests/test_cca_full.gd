@@ -47,7 +47,8 @@ func _init():
     # Canon: throw verb requires the axe item (dwarf-thrown).
     # Without an axe in hand the verb refuses up front.
     var rx4 = adv.do_command("throw", "axe")
-    _expect_contains("throw axe response", rx4, "no axe")
+    # Canon msg #29 — "You aren't carrying it!"
+    _expect_contains("throw axe response", rx4, "aren't carrying")
 
     print("Loot the surface treasures:")
     adv.player.move_to(18)              # gold-nugget room (canon 18)

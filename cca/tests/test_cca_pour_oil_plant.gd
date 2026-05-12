@@ -82,8 +82,12 @@ func _init():
     _expect("setup: bottle has water",        adv3.bottle.has_water(),    true)
     adv3.player.move_to(25)
     var msg3: String = adv3.do_command("pour", "")
-    _expect_contains("POUR water @ 25 emits 'soaks into the soil'",
-        msg3, "soaks into the soil")
+    # Canon: POUR water at West Pit emits the plant grow message
+    # directly (canon obj#PLANT prop=1 "THE PLANT SPURTS INTO
+    # FURIOUS GROWTH..."). The earlier port "The water soaks into
+    # the soil." prefix was port flavor.
+    _expect_contains("POUR water @ 25 emits plant-grow msg",
+        msg3, "spurts into furious growth")
     _expect("plant state advanced",           adv3.plant.get_state(),     "tall")
 
     if failures == 0:

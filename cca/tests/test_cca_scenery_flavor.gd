@@ -44,50 +44,37 @@ func _init():
         _capture_at(d, 101, "examine tablet"),
         "Congratulations on bringing light into the dark-room")
 
-    # ----- MIRROR @ 109 (cave) -----
-    _expect_any_match("EXAMINE MIRROR @ 109 → cave-mirror flavor",
-        _capture_at(d, 109, "examine mirror"),
-        "two-sided mirror")
+    # ----- Scenery EXAMINE — canon obj prop=0 = ">$<" (no flavor) -----
+    # Canon falls through to msg #76 "Peculiar. Nothing unexpected
+    # happens." for mirror / stalactite / drawings / volcano / carpet.
+    _expect_any_match("EXAMINE MIRROR @ 109 → canon msg #76",
+        _capture_at(d, 109, "examine mirror"), "Peculiar")
 
-    # ----- SHADOWY FIGURE @ 35 -----
+    # ----- SHADOWY FIGURE @ 35 — has canon prop=0 prose -----
     _expect_any_match("EXAMINE FIGURE @ 35 → shadowy-figure flavor",
         _capture_at(d, 35, "examine figure"),
         "trying to attract your attention")
-    # ----- SHADOWY FIGURE @ 110 (synonym 'shadow') -----
     _expect_any_match("EXAMINE SHADOW @ 110 → shadowy-figure flavor",
         _capture_at(d, 110, "examine shadow"),
         "trying to attract your attention")
 
-    # ----- STALACTITE @ 111 -----
-    _expect_any_match("EXAMINE STALACTITE @ 111 → flavor",
-        _capture_at(d, 111, "examine stalactite"),
-        "stalactite extending from the roof")
+    _expect_any_match("EXAMINE STALACTITE @ 111 → canon msg #76",
+        _capture_at(d, 111, "examine stalactite"), "Peculiar")
+    _expect_any_match("EXAMINE DRAWINGS @ 97 → canon msg #76",
+        _capture_at(d, 97, "examine drawings"), "Peculiar")
+    _expect_any_match("EXAMINE VOLCANO @ 126 → canon msg #76",
+        _capture_at(d, 126, "examine volcano"), "Peculiar")
+    _expect_any_match("EXAMINE GEYSER @ 126 → canon msg #76",
+        _capture_at(d, 126, "examine geyser"), "Peculiar")
+    _expect_any_match("EXAMINE CARPET @ 96 → canon msg #76",
+        _capture_at(d, 96, "examine carpet"), "Peculiar")
+    _expect_any_match("EXAMINE MOSS @ 96 → canon msg #76",
+        _capture_at(d, 96, "examine moss"), "Peculiar")
 
-    # ----- DRAWINGS @ 97 -----
-    _expect_any_match("EXAMINE DRAWINGS @ 97 → flavor",
-        _capture_at(d, 97, "examine drawings"),
-        "ancient and Oriental")
-
-    # ----- VOLCANO @ 126 -----
-    _expect_any_match("EXAMINE VOLCANO @ 126 → flavor",
-        _capture_at(d, 126, "examine volcano"),
-        "molten lava")
-    _expect_any_match("EXAMINE GEYSER @ 126 (synonym) → flavor",
-        _capture_at(d, 126, "examine geyser"),
-        "molten lava")
-
-    # ----- CARPET / MOSS @ 96 -----
-    _expect_any_match("EXAMINE CARPET @ 96 → flavor",
-        _capture_at(d, 96, "examine carpet"),
-        "soft")
-    _expect_any_match("EXAMINE MOSS @ 96 → flavor",
-        _capture_at(d, 96, "examine moss"),
-        "moss-covered ceiling")
-
-    # ----- PHONY PLANT @ 23 -----
-    _expect_any_match("EXAMINE PLANT @ 23 → phony-plant flavor",
+    # ----- PHONY PLANT @ 23 — canon obj#PLANT prop=200 verbatim -----
+    _expect_any_match("EXAMINE PLANT @ 23 → canon obj#PLANT prop=200",
         _capture_at(d, 23, "examine plant"),
-        "tall beanstalk poking out of the west pit")
+        "huge beanstalk growing out of the west pit")
 
     # ----- MESSAGE @ 140 (second-maze stash mirror) -----
     _expect_any_match("READ MESSAGE @ 140 → canon msg #191",

@@ -112,7 +112,9 @@ func _init():
     adv4.pirate.treasures_carried(5)
     _expect("forced stalking",       adv4.pirate_state(),    "stalking")
     var msg4: String = _drive_to_steal(adv4)
-    _expect_contains("empty-hands flavor", msg4, "empty hands")
+    # Canon: pirate-empty-hands emits msg #127 (faint rustling
+    # lead-in). Canon has no "slinks off in disgust" follow-up.
+    _expect_contains("empty-hands flavor", msg4, "faint rustling")
 
     # --- Save / restore mid-stash ---
     print("Save with one treasure stashed, mutate, restore:")

@@ -32,13 +32,38 @@ PORT_FILES = [
 
 BBCODE_RE = re.compile(r'\[/?[^\]]{1,40}\]')
 PCT_RE = re.compile(r'%[sd]')
+# Canon's advent.dat uses <NN> / <N> / <X> tokens as runtime
+# placeholders the way Python uses {}. Normalize those to a single
+# wildcard so a port-side concrete substitution (e.g. "45") still
+# substring-matches the canon source ("<NN>").
+ANGLE_PLACEHOLDER_RE = re.compile(r'<[A-Z]{1,4}>')
+# Unicode dash + smart-quote folds — common when paste-quoting
+# canon prose from various sources or when the codegen mangles
+# UTF-8 encoding. Treat each as the plain ASCII form for matching.
+DASH_FOLDS = {
+    '—': '-',   # em-dash
+    '–': '-',   # en-dash
+    '−': '-',   # mathematical minus
+    '‘': "'",   # left single quote
+    '’': "'",   # right single quote
+    '“': '"',   # left double quote
+    '”': '"',   # right double quote
+    '…': '...', # ellipsis
+}
+# Digit runs collapse to a single 'X' placeholder so concrete
+# substitutions match against angle-bracketed canon tokens.
+DIGIT_RE = re.compile(r'\d+')
 WS_RE = re.compile(r'\s+')
 # Reject very short strings — they match everything trivially
 MIN_NORM_LEN = 12
 
 def normalize(s):
+    for src, dst in DASH_FOLDS.items():
+        s = s.replace(src, dst)
     s = BBCODE_RE.sub('', s)
-    s = PCT_RE.sub('X', s)         # wildcard placeholder
+    s = PCT_RE.sub('X', s)             # wildcard placeholder
+    s = ANGLE_PLACEHOLDER_RE.sub('X', s)
+    s = DIGIT_RE.sub('X', s)
     s = s.lower()
     s = WS_RE.sub(' ', s).strip()
     # Strip trailing/leading punctuation noise that varies between sources
@@ -147,6 +172,24 @@ MSG_DICT_RE = re.compile(r'"msg"\s*:\s*"((?:\\.|[^"\\])*)"')
 # requires the LHS to be a bare identifier (no `.`), and the
 # string must be long enough to be prose.
 LOCAL_ASSIGN_RE = re.compile(r'^\s*(?:var\s+)?[a-z_]\w*\s*=\s*"((?:\\.|[^"\\])*)"', re.MULTILINE)
+# Hint payload args — the FSM passes canon hint prose as the
+# first argument to `request_hint(...)`. Some payloads are very
+# short (canon msg #181 = "Don't go west." → 14 chars), below
+# the generic 25-char threshold. This pattern catches them
+# specifically so the audit doesn't miss canon hint prose just
+# because of payload length.
+#
+# Whitespace match crosses newlines because Frame's codegen
+# splits long `request_hint(...)` calls — the opening `(` lands
+# on one line and the canon-prose string literal on the next.
+HINT_ARG_RE = re.compile(r'request_hint\(\s*"((?:\\.|[^"\\])*)"', re.DOTALL)
+# Inventory labels in `_format_inventory()`: each carried object
+# emits `items.append("  Label")`. The labels are canon obj
+# short-form names (advent.dat §5 prop=0). They run 8–25 chars,
+# below the generic threshold, so this pattern catches them
+# specifically. Strip the two leading spaces the format uses for
+# bullet indent — canon doesn't have them.
+INVENTORY_ITEM_RE = re.compile(r'items\.append\(\s*"\s*((?:\\.|[^"\\])*)"\s*\)')
 # Fallback: any other string literal of substantial length.
 # Catches method-call arguments like
 # `self.witts_hint.request_hint("Don't go west.")` and
@@ -154,22 +197,84 @@ LOCAL_ASSIGN_RE = re.compile(r'^\s*(?:var\s+)?[a-z_]\w*\s*=\s*"((?:\\.|[^"\\])*)
 # canon prose is in the code but not in an assignment-shaped
 # emission. We rely on MIN_NORM_LEN to filter out short codes.
 GENERIC_STR_RE = re.compile(r'"((?:\\.|[^"\\])*)"')
+# Lines whose only quoted strings are framework debug output —
+# excluded from the port emission table because they're never
+# rendered to the player. The audit's `extract_emissions` skips
+# every match on a line that starts with one of these prefixes.
+DEBUG_CALL_PREFIXES = (
+    'push_error(', 'push_warning(', 'print(', 'printerr(',
+    'assert(',
+)
+# String literals that are FSM-internal verdicts (returned from
+# Treasure/Bird/etc. action methods and consumed by Adventure
+# dispatch logic, never rendered to the player). They're returned
+# by `try_drop` / `try_take` / aspect bus handlers — the user
+# sees the Adventure layer's wrapping prose instead. Excluded
+# from the port emission set so they don't show up as RIGHT-ONLY.
+FSM_VERDICT_CODES = {
+    'dropped', 'dropped_soft', 'deposited', 'broken', 'vanished',
+    'already broken', 'already deposited', 'already vanished',
+    'not carried', 'carried', 'in_room', 'in_repository',
+    'consume', 'allow', 'continue', 'block',
+    'tiny', 'tall', 'huge', 'caged', 'released',
+    'dead', 'alive', 'sleeping', 'fed', 'following',
+    'awake', 'stalking', 'wandering', 'hungry', 'angry',
+    'opened', 'closed', 'locked', 'unlocked', 'rusty', 'oiled',
+    'built', 'broken_bridge', 'collapsed',
+    'empty', 'full', 'water', 'oil',
+    # Aspect-bus internal verdicts
+    'pirate_steal', 'lamp_dim', 'lamp_dim_warn', 'lamp_warn',
+    'lamp_extinguished', 'pirate_active',
+}
 
 def extract_emissions(path):
     """Return list of (line_no, kind, text) for emitted strings."""
     items = []
+    # Multi-line scan for request_hint(...) — codegen splits long
+    # calls across two lines. Track each match's starting line so
+    # the audit report still points at the right source line.
+    full_text = open(path).read()
+    for m in HINT_ARG_RE.finditer(full_text):
+        text = m.group(1).encode().decode('unicode_escape')
+        if len(normalize(text)) >= MIN_NORM_LEN:
+            line_no = full_text.count('\n', 0, m.start()) + 1
+            items.append((line_no, 'hint_arg', text))
+    for m in INVENTORY_ITEM_RE.finditer(full_text):
+        text = m.group(1).encode().decode('unicode_escape')
+        # Inventory labels use the MIN_NORM_LEN floor, not the
+        # generic 25-char threshold. Canon obj names "Set of keys"
+        # (11 chars) and "Tasty food" (10 chars) are intentionally
+        # short. We dial slightly lower so they're visible to the
+        # left-join.
+        if len(normalize(text)) >= 8:
+            line_no = full_text.count('\n', 0, m.start()) + 1
+            items.append((line_no, 'inventory', text))
     with open(path) as f:
         for i, line in enumerate(f, start=1):
+            stripped = line.lstrip()
+            # Skip pure-comment lines — GDScript comments start
+            # with `#` and any string literal on them is just
+            # documentation, not player-facing output.
+            if stripped.startswith('#'):
+                continue
+            # Skip lines whose only quoted strings live inside a
+            # debug call — these never render to the player.
+            if any(stripped.startswith(p) for p in DEBUG_CALL_PREFIXES):
+                continue
             for m in PRINTLN_RE.finditer(line):
                 text = m.group(1).encode().decode('unicode_escape')
                 if len(normalize(text)) >= MIN_NORM_LEN:
                     items.append((i, 'println', text))
             for m in RETURN_STR_RE.finditer(line):
                 text = m.group(1).encode().decode('unicode_escape')
+                if normalize(text) in FSM_VERDICT_CODES:
+                    continue
                 if len(normalize(text)) >= MIN_NORM_LEN:
                     items.append((i, 'return', text))
             for m in RETURN_ASSIGN_RE.finditer(line):
                 text = m.group(1).encode().decode('unicode_escape')
+                if normalize(text) in FSM_VERDICT_CODES:
+                    continue
                 if len(normalize(text)) >= MIN_NORM_LEN:
                     items.append((i, 'fsm_emit', text))
             for m in FIELD_ASSIGN_RE.finditer(line):
@@ -187,10 +292,16 @@ def extract_emissions(path):
             # GENERIC pass — only emit if not already caught above
             # on this line, and require length >= 25 to avoid
             # catching short type labels / state codes / paths.
+            # Dedup also by normalized form so a line with both
+            # `items.append("  Foo")` and a generic-pattern match
+            # for the same literal doesn't double-count.
             existing_texts = {t for (l, k, t) in items if l == i}
+            existing_norms = {normalize(t) for t in existing_texts}
             for m in GENERIC_STR_RE.finditer(line):
                 text = m.group(1).encode().decode('unicode_escape')
                 if text in existing_texts:
+                    continue
+                if normalize(text) in existing_norms:
                     continue
                 if len(normalize(text)) >= 25:
                     items.append((i, 'generic', text))
@@ -210,10 +321,16 @@ def main():
     canon_extras = parse_advent_for()
 
     # Build canon lookup: (key, normalized_text, raw_text)
+    # Obj entries (canon §5 prop labels) use a lower threshold —
+    # canon ships short inventory labels like "TASTY FOOD" (10
+    # chars) and "SET OF KEYS" (11 chars). Generic msg entries
+    # stick at the higher floor since shorter strings there
+    # produce noisy false-positive matches against any prose.
     canon_table = []
     for key, text in canon.items():
         n = normalize(text)
-        if len(n) >= MIN_NORM_LEN:
+        floor = 8 if key.startswith('obj#') else MIN_NORM_LEN
+        if len(n) >= floor:
             canon_table.append((f"dat:{key}", n, text))
     for key, text in canon_extras.items():
         n = normalize(text)

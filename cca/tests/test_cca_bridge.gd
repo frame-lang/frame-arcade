@@ -43,7 +43,8 @@ func _init():
     # --- Wave without rod ---
     print("Wave without rod gets a deflection:")
     var r1 = adv.do_command("wave", "rod")
-    _expect_contains("response",     r1, "don't have")
+    # Canon msg #29 — "You aren't carrying it!"
+    _expect_contains("response",     r1, "aren't carrying")
     _expect("still no bridge",       adv.bridge_built(),           false)
 
     # --- Take the rod ---
@@ -71,13 +72,16 @@ func _init():
     # --- Wave again toggles it back ---
     print("Wave again — bridge fades:")
     var r5 = adv.do_command("wave", "rod")
-    _expect_contains("response",     r5, "shimmers and vanishes")
+    # Canon: bridge fade emits msg #54 "OK". The state change is
+    # observable via the bridge_built() assertion below.
+    _expect_contains("response",     r5, "OK")
     _expect("bridge gone",           adv.bridge_built(),           false)
 
     # --- Wave non-rod ---
     print("Wave something else — flat deflection:")
     var r6 = adv.do_command("wave", "hand")
-    _expect_contains("response",     r6, "Waving that")
+    # Canon msg #76 fallback — "Peculiar. Nothing unexpected happens."
+    _expect_contains("response",     r6, "Peculiar")
 
     # --- Save / restore ---
     print("Save with bridge built, mutate, restore:")

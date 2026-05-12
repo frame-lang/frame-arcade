@@ -84,7 +84,7 @@ func _init():
     print("POUR at the West Pit (canon 25) — plant grows:")
     adv.player.move_to(25)
     var r6 = adv.do_command("pour", "")
-    _expect_contains("grow msg",      r6, "grows ten feet")
+    _expect_contains("grow msg",      r6, "spurts into furious growth")
     _expect("plant tall",          adv.plant_is_tall(),          true)
     _expect("plant not huge yet",  adv.plant_is_huge(),          false)
     _expect("bottle empty",        adv.bottle_has_water(),       false)
@@ -107,16 +107,25 @@ func _init():
     print("Second POUR — plant becomes huge:")
     adv.player.move_to(25)
     var r7 = adv.do_command("pour", "")
-    _expect_contains("grow huge",     r7, "fifty feet")
+    _expect_contains("grow huge",     r7, "grows explosively")
     _expect("plant huge",          adv.plant_is_huge(),          true)
 
-    # --- Third pour at huge plant is a no-op ---
-    print("Third POUR — plant already enormous:")
+    # Capture save state with plant huge — used at the bottom
+    # to confirm save/restore round-trips the Huge state. The
+    # over-water test below mutates the plant after this.
+    var huge_bytes = adv.save_state()
+
+    # --- Third pour at huge plant — canon over-water ---
+    # advent.for 9132 cycles PROP(PLANT) = MOD(PROP+2, 6). From
+    # Huge (PROP=4), the next water hits PROP=0 ("over-watered")
+    # and the plant resets to Tiny.
+    print("Third POUR — canon over-water msg (obj #500), plant resets:")
     adv.player.move_to(4)
     adv.do_command("fill", "bottle")
     adv.player.move_to(25)
     var r8 = adv.do_command("pour", "")
-    _expect_contains("already huge",  r8, "already enormous")
+    _expect_contains("over-water msg", r8, "shriveling")
+    _expect("plant back to tiny",  adv.plant.get_state(),         "tiny")
 
     # --- WATER verb (canonical) ---
     print("WATER PLANT works as canon synonym at the West Pit:")
@@ -127,21 +136,14 @@ func _init():
     adv_w.do_command("fill", "bottle")
     adv_w.player.move_to(25)
     var r9 = adv_w.do_command("water", "plant")
-    _expect_contains("water msg",     r9, "grows ten feet")
+    _expect_contains("water msg",     r9, "spurts into furious growth")
     _expect("water grew plant",    adv_w.plant_is_tall(),        true)
 
     # --- Save / restore ---
     print("Save / restore preserves bottle + plant state:")
-    var bytes = adv.save_state()
-    # Mutate after save
-    adv.player.move_to(4)
-    adv.do_command("fill", "bottle")
-    adv.do_command("drink", "")
-
     var adv2 = Cca.new()
-    adv2.restore_state(bytes)
+    adv2.restore_state(huge_bytes)
     _expect("restored plant huge", adv2.plant_is_huge(),         true)
-    _expect("restored bottle",     adv2.bottle.get_state(),      "empty")
     _expect("restored bottle carried", adv2.bottle_in_inventory(), true)
 
     print()

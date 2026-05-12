@@ -49,7 +49,8 @@ func _init():
 
     print("Try take bird from wrong room:")
     var r1 = adv.do_command("take", "bird")
-    _expect("take bird wrong room", r1, "There is no bird here.")
+    # Canon advent.for STMT 9010 SPK=25 — TAKE X with X not here.
+    _expect("take bird wrong room", r1, "You can't be serious!")
     _expect("bird still free",      adv.bird_state(), "free")
 
     print("Take cage at cobbles (canon 10) — required to take bird:")
@@ -62,7 +63,9 @@ func _init():
     var r2 = adv.do_command("look", "")
     _expect("room desc mentions bird", r2.contains("bird"), true)
     var r3 = adv.do_command("take", "bird")
-    _expect("take response",  r3, "You catch the bird in your hand.")
+    # Canon: TAKE BIRD with cage emits msg #54 "OK". The caged
+    # state shows up on the next LOOK via obj#BIRD prop=1.
+    _expect("take response",  r3, "OK")
     _expect("bird state",     adv.bird_state(),     "caged")
     _expect("bird location",  adv.bird_location(),  -1)
     _expect("player carrying", adv.player.carrying(100), true)
@@ -114,7 +117,10 @@ func _init():
     adv3.do_command("take", "bird")
     adv3.player.move_to(33)
     var r8 = adv3.do_command("release", "bird")
-    _expect("released benign",      r8.contains("flies"),  true)
+    # Canon: RELEASE BIRD in a benign room emits msg #54 "OK".
+    # The bird's new free-state is observable via bird_state() and
+    # bird_location() below.
+    _expect("released benign",      r8.contains("OK"),     true)
     _expect("bird back to free",    adv3.bird_state(),     "free")
     _expect("bird at release room", adv3.bird_location(),  33)
 
@@ -136,7 +142,9 @@ func _init():
     _expect("bird carried pre-plover",   adv_p.player.carrying(100), true)
     adv_p.player.move_to(33)               # Y2
     var rp = adv_p.do_command("plover", "")
-    _expect_contains("plover bird msg",   rp, "brilliant flash")
+    # Canon: PLOVER chant with carried bird emits msg #54 "OK"; the
+    # bird's $Dead state is observable via bird_state().
+    _expect_contains("plover bird msg",   rp, "OK")
     _expect("at Plover Room",            adv_p.player_room(),  100)
     _expect("bird not carried",          adv_p.player.carrying(100), false)
     _expect("bird state dead",           adv_p.bird_state(),   "dead")

@@ -91,6 +91,38 @@ func _init():
     _expect("restored value 0",    adv3.vase.get_value(),     0)
     _expect("restored location",   adv3.vase.get_location(),  33)
 
+    # --- Canon msg #145: FILL VASE at a water source shatters it ---
+    # advent.for STMT 9222: with VASE carried AND a liquid source
+    # in the player's room, the thermal shock breaks the vase
+    # in place. Try this fresh — separate Adventure instance so
+    # we're not interacting with the prior shatter.
+    print("FILL VASE at a water source — canon msg #145 cold shatter:")
+    var adv4 = Cca.new()
+    adv4.setup_default_aspects()
+    adv4.player.move_to(97)
+    adv4.do_command("take", "vase")
+    _expect("vase carried setup", adv4.vase.get_state(),       "carried")
+    # Canon water source: room 4 (valley stream) — present in
+    # LIQLOC. Move there carrying the vase, then FILL.
+    adv4.player.move_to(4)
+    var fill_result: String = adv4.do_command("fill", "vase")
+    _expect("fill at water source emits canon msg #145",
+        "shattered" in fill_result, true)
+    _expect("vase broken after fill",  adv4.vase.get_state(),  "broken")
+    _expect("vase shards at room 4",   adv4.vase.get_location(), 4)
+
+    # --- FILL VASE in a no-liquid room still emits canon msg #144 ---
+    print("FILL VASE in dry room — canon msg #144:")
+    var adv5 = Cca.new()
+    adv5.setup_default_aspects()
+    adv5.player.move_to(97)
+    adv5.do_command("take", "vase")
+    adv5.player.move_to(33)               # Y2 — dry
+    var dry_result: String = adv5.do_command("fill", "vase")
+    _expect("dry fill emits msg #144",
+        "nothing here with which to fill" in dry_result, true)
+    _expect("vase intact after dry fill", adv5.vase.get_state(), "carried")
+
     print()
     if failures == 0:
         print("PASS — fragile vase shatters and round-trips correctly")

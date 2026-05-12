@@ -41,14 +41,16 @@ func _init():
     print("Wake all five:")
     adv.wake_dwarves()
     _expect("dwarf1 stalking",  adv.dwarf1.get_state(), "stalking")
-    _expect("dwarf1 room",      adv.dwarf1.get_room(),  12)
+    _expect("dwarf1 room",      adv.dwarf1.get_room(),  19)
     _expect("dwarf3 room",      adv.dwarf3.get_room(),  47)
     _expect("dwarf5 room",      adv.dwarf5.get_room(),  118)
 
     print("Attack from wrong room — no dwarf:")
     adv.player.move_to(99)
     var r1 = adv.attack_dwarf_in_room()
-    _expect("no dwarf here",    r1, "There's no dwarf here.")
+    # Canon msg #76 "PECULIAR. NOTHING UNEXPECTED HAPPENS." for
+    # ATTACK with no target in the room.
+    _expect("no dwarf here",    r1, "Peculiar. Nothing unexpected happens.")
 
     print("Attack dwarf3 in its room (deterministic outcome):")
     adv.player.move_to(47)
@@ -59,10 +61,12 @@ func _init():
     # we DO assert: the dwarf's step counter advanced by 1, and
     # the response is one of the two valid messages.
     _expect("dwarf3 step ≥ 1", adv.dwarf3.get_step() >= 1, true)
-    _expect("response valid", (r2 == "You killed dwarf 3." or r2 == "Your axe missed dwarf 3."), true)
+    # Canon msg #47 (kill) / msg #48 (miss) verbatim. Same prose
+    # regardless of which dwarf was attacked.
+    _expect("response valid", (r2 == "You killed a little dwarf." or r2 == "You attack a little dwarf, but he dodges out of the way."), true)
 
     print("Hammer dwarf1 until dead — eventually it dies:")
-    adv.player.move_to(12)
+    adv.player.move_to(19)
     var attempts: int = 0
     while adv.dwarf1.get_state() == "stalking" and attempts < 20:
         adv.attack_dwarf_in_room()

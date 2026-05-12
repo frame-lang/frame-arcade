@@ -204,8 +204,8 @@ func _init():
     d3._process_input("north")
     var lines3: Array = d3.captured.slice(pre3)
     _expect("19:north blocked by snake",          d3.fsm.player_room(), 19)
-    _expect_any_match("19:north emits snake bumper",
-        lines3, "snake glares")
+    _expect_any_match("19:north emits canon msg #14 snake bumper",
+        lines3, "can't get by the snake")
 
     if failures == 0:
         print("PASS — 19:sw canon chain honors `19 35074 49` + `19 211032 49`")

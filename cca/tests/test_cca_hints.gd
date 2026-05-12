@@ -58,7 +58,8 @@ func _init():
 
     print("Re-request bird hint — already given:")
     var r2 = adv.request_hint("bird")
-    _expect("already given",       r2.contains("already"), true)
+    # Canon: hint already given emits msg #54 "OK".
+    _expect("already given",       r2.contains("OK"), true)
 
     print("Streak resets when condition becomes false:")
     adv.player.move_to(1)              # leave bird room (end of road)
@@ -74,7 +75,8 @@ func _init():
 
     print("Request hint that's not eligible:")
     var r3 = adv.request_hint("snake")
-    _expect("not eligible",        r3.contains("No hint"), true)
+    # Canon: hint not eligible emits msg #54 "OK".
+    _expect("not eligible",        r3.contains("OK"), true)
 
     print("Save mid-streak, mutate, restore:")
     var adv2 = Cca.new()

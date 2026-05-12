@@ -44,14 +44,16 @@ func _init():
     print("INSERT without coins deflects:")
     adv.player.move_to(140)
     var r1 = adv.do_command("insert", "coins")
-    _expect_contains("response",   r1, "don't have any coins")
+    # Canon msg #29 — "You aren't carrying it!"
+    _expect_contains("response",   r1, "aren't carrying")
     _expect("still loaded",        adv.vending_loaded(),     true)
 
     # --- INSERT from wrong room ---
     print("INSERT from wrong room deflects:")
     adv.player.move_to(11)
     var r2 = adv.do_command("insert", "coins")
-    _expect_contains("response",   r2, "nothing here")
+    # Canon msg #76 — "Peculiar. Nothing unexpected happens."
+    _expect_contains("response",   r2, "Peculiar")
     _expect("still loaded",        adv.vending_loaded(),     true)
 
     # --- Pick up coins, drain lamp partially, then insert ---

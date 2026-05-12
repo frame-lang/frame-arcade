@@ -843,12 +843,12 @@ const GATES: Dictionary = {
     # canon 29, jewelry). East back to 15 is unguarded — that's
     # how the player retreats. Bird-release at 19 sends snake
     # away.
-    "19:north":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
-    "19:south":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
-    "19:west":   {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
-    "19:left":   {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
-    "19:right":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
-    "19:forward":{"check": "snake",  "msg": "The snake glares at you and refuses to move."},
+    "19:north":  {"check": "snake",  "msg": "You can't get by the snake."},
+    "19:south":  {"check": "snake",  "msg": "You can't get by the snake."},
+    "19:west":   {"check": "snake",  "msg": "You can't get by the snake."},
+    "19:left":   {"check": "snake",  "msg": "You can't get by the snake."},
+    "19:right":  {"check": "snake",  "msg": "You can't get by the snake."},
+    "19:forward":{"check": "snake",  "msg": "You can't get by the snake."},
     # Canon SW from Hall of Mountain King — TWO rows in section
     # 3 walked in order:
     #   `19 35074 49`  → 35% probability to canon 74 (the secret

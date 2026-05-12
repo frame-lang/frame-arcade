@@ -51,7 +51,9 @@ func _init():
 
     print("Take chain → following:")
     var r3 = adv.do_command("take", "chain")
-    _expect("take chain response", r3.contains("lumbers"), true)
+    # Canon: TAKE CHAIN with tame bear is silent ("OK"); the
+    # follow-state is observable via bear_state() below.
+    _expect("take chain response", r3.contains("OK"),  true)
     _expect("bear state",          adv.bear_state(),    "following")
     _expect("carrying chain",      adv.player.carrying(101), true)
 

@@ -67,8 +67,9 @@ func _init():
     # the canon "you don't have the bottle" prose, not the door
     # FSM's lubricate path.
     var resp_oil0: String = adv.do_command("pour", "")
+    # Canon msg #29 — "You aren't carrying it!"
     _expect_contains("pour with no bottle in inventory",
-        resp_oil0.to_lower(), "bottle")
+        resp_oil0.to_lower(), "aren't carrying")
 
     # Phase 2: bottle holds water — pouring at 94 doesn't lubricate.
     print("Phase 2: pour water at 94 — door stays rusty")
@@ -85,8 +86,11 @@ func _init():
     var resp_water: String = adv.do_command("pour", "")
     _expect("door still rusty after water",
         adv.rusty_door.is_rusty(),    true)
-    _expect_contains("water response mentions wet ground",
-        resp_water.to_lower(), "wet")
+    # Canon msg #113 — water at the door fires "hinges are quite
+    # thoroughly rusted" (advent.for 9132: SPK = 113+PROP(DOOR)
+    # with PROP=0 once water washes the oil off).
+    _expect_contains("water response emits canon msg #113",
+        resp_water.to_lower(), "thoroughly rusted")
 
     # Phase 3: fill with oil at canon 105, return, pour at 94.
     print("Phase 3: oil at 94 — door transitions to oiled")

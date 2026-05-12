@@ -117,9 +117,11 @@ func _explore_plant() -> void:
     ]
     var report = StateExplorer.explore(factory, events)
     StateExplorer.print_report(report, "Plant")
+    # Canon over-water cycles huge → tiny (advent.for 9132,
+    # PROP(PLANT) = MOD(PROP+2, 6)), so there's no dead-end now.
     _validate(report, "Plant",
         ["tiny", "tall", "huge"],
-        ["huge"])
+        [])
 
 func _explore_crystal_bridge() -> void:
     var factory = func() -> Variant: return Cca.CrystalBridge.new()

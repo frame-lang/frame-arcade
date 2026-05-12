@@ -554,7 +554,7 @@
                     @@:return({
                         "verdict": "consume",
                         "event": event,
-                        "message": "It is pitch dark. You can't see a thing.",
+                        "message": "It is now pitch dark. If you proceed you will likely fall into a pit.",
                     })
                 @@:({"verdict": "pass", "event": event})
             }
@@ -1072,11 +1072,21 @@
 
     interface:
         wake_up(at_room: int)
-        attack()                   # player attacks dwarf — may kill
-        try_throw_axe(anger: int): bool  # dwarf attacks player — hit pct ramps with anger
-        flee()                     # dwarf disengages
+        attack()                              # player attacks dwarf — may kill
+        try_throw_axe(anger: int): bool       # dwarf attacks player — hit pct ramps with anger
+        flee()                                # dwarf disengages
+        # Canon dwarf movement (advent.for STMT 6010-6030). Per
+        # turn each stalking dwarf walks one step. The driver
+        # picks the destination from canon section-3 exits with
+        # the no-backtrack / no-surface / no-forced filters; the
+        # FSM just records the transition.
+        step_to(new_room: int)
+        snap_to_player(at_room: int)          # canon "DSEEN=true → DLOC=LOC"
+        mark_unseen()                         # canon "DSEEN=false when player exits cave"
         get_state(): String
         get_room(): int
+        get_prev_room(): int
+        is_seen(): bool                       # has spotted the player this run
         get_seed(): int
         get_step(): int
         get_attack_step(): int
@@ -1086,6 +1096,7 @@
         $Hidden {
             wake_up(at_room: int) {
                 self.room = at_room
+                self.prev_room = at_room
                 -> $Stalking
             }
             try_throw_axe(anger: int): bool {
@@ -1093,6 +1104,8 @@
             }
             get_state(): String      { @@:("hidden") }
             get_room(): int          { @@:(-1) }
+            get_prev_room(): int     { @@:(-1) }
+            is_seen(): bool          { @@:(false) }
             get_seed(): int          { @@:(self.seed) }
             get_step(): int          { @@:(self.step) }
             get_attack_step(): int   { @@:(self.attack_step) }
@@ -1137,11 +1150,28 @@
                     hit_pct = 95 * (anger - 2) / 10
                 @@:(roll < hit_pct)
             }
+            step_to(new_room: int) {
+                # Canon: ODLOC(i) ← DLOC(i); DLOC(i) ← chosen exit.
+                self.prev_room = self.room
+                self.room = new_room
+            }
+            snap_to_player(at_room: int) {
+                # Canon: DSEEN(i) ← true; DLOC(i) ← LOC.
+                self.seen = true
+                self.room = at_room
+            }
+            mark_unseen() {
+                # Canon: when player drops below LOC 15 (surface),
+                # DSEEN clears and the dwarf goes back to wandering.
+                self.seen = false
+            }
             flee() {
                 -> $Hidden
             }
             get_state(): String      { @@:("stalking") }
             get_room(): int          { @@:(self.room) }
+            get_prev_room(): int     { @@:(self.prev_room) }
+            is_seen(): bool          { @@:(self.seen) }
             get_seed(): int          { @@:(self.seed) }
             get_step(): int          { @@:(self.step) }
             get_attack_step(): int   { @@:(self.attack_step) }
@@ -1154,6 +1184,8 @@
             }
             get_state(): String      { @@:("dead") }
             get_room(): int          { @@:(-1) }
+            get_prev_room(): int     { @@:(-1) }
+            is_seen(): bool          { @@:(false) }
             get_seed(): int          { @@:(self.seed) }
             get_step(): int          { @@:(self.step) }
             get_attack_step(): int   { @@:(self.attack_step) }
@@ -1162,6 +1194,14 @@
     domain:
         seed: int = seed
         room: int = -1
+        # Canon ODLOC(i) — dwarf's previous-turn room. Used to
+        # decide "did this dwarf just move into our room (free
+        # turn) or has it been here already (it gets to throw)".
+        prev_room: int = -1
+        # Canon DSEEN(i) — once true, the dwarf is locked onto the
+        # player and snaps to LOC each turn until the player drops
+        # below the deep-cave threshold.
+        seen: bool = false
         step: int = 0
         attack_step: int = 0
 }
@@ -1453,7 +1493,7 @@
                     self.streak = 0
             }
             request_hint(text_if_eligible: String): String {
-                @@:("No hint available right now.")
+                @@:("OK")
             }
             get_state(): String     { @@:("pending") }
             is_eligible(): bool     { @@:(false) }
@@ -1482,7 +1522,7 @@
         $Offered {
             observe(condition_true: bool) {}
             request_hint(text_if_eligible: String): String {
-                @@:("That hint has already been given.")
+                @@:("OK")
             }
             get_state(): String     { @@:("offered") }
             is_eligible(): bool     { @@:(false) }
@@ -1999,8 +2039,12 @@
                 if word == "fie":
                     -> $WaitingFoe
                     @@:return("Foe?")
+                # Canon silently resets the chant — advent.for STMT
+                # 2608 sets FOOBAR = MIN0(0, -FOOBAR), no message
+                # printed. We emit msg #54 ("OK.") as a minimal
+                # acknowledgement so the player sees a turn happened.
                 -> $Idle
-                @@:("You broke the chant.")
+                @@:return("OK")
             }
             get_state(): String  { @@:("waiting_fie") }
         }
@@ -2010,8 +2054,12 @@
                 if word == "foe":
                     -> $WaitingFoo
                     @@:return("Foo?")
+                # Canon silently resets the chant — advent.for STMT
+                # 2608 sets FOOBAR = MIN0(0, -FOOBAR), no message
+                # printed. We emit msg #54 ("OK.") as a minimal
+                # acknowledgement so the player sees a turn happened.
                 -> $Idle
-                @@:("You broke the chant.")
+                @@:return("OK")
             }
             get_state(): String  { @@:("waiting_foe") }
         }
@@ -2026,8 +2074,12 @@
                 if word == "foo":
                     -> $Idle
                     @@:return("Done!")
+                # Canon silently resets the chant — advent.for STMT
+                # 2608 sets FOOBAR = MIN0(0, -FOOBAR), no message
+                # printed. We emit msg #54 ("OK.") as a minimal
+                # acknowledgement so the player sees a turn happened.
                 -> $Idle
-                @@:("You broke the chant.")
+                @@:return("OK")
             }
             get_state(): String  { @@:("waiting_foo") }
         }
@@ -2088,7 +2140,7 @@
         $Bridge {
             wave(): String  {
                 -> $NoBridge
-                @@:return("The crystal bridge shimmers and vanishes.")
+                @@:return("OK")
             }
             get_state(): String  { @@:("built") }
             is_built(): bool     { @@:(true) }
@@ -2189,6 +2241,11 @@
 
     interface:
         oil(): String
+        # Canon advent.for 9132: POUR WATER at the door resets
+        # PROP(DOOR)=0 (washes the oil off). From $Oiled this is
+        # a regression back to $Rusty; from $Rusty it just emits
+        # msg #113 ("hinges are quite thoroughly rusted").
+        water(): String
         get_state(): String
         is_rusty(): bool
 
@@ -2199,12 +2256,28 @@
                 -> $Oiled
                 @@:return("The oil has freed up the hinges so that the door will now move, although it requires some effort.")
             }
+            water(): String {
+                # Canon msg #113.
+                @@:("The hinges are quite thoroughly rusted now and won't budge.")
+            }
             get_state(): String      { @@:("rusty") }
             is_rusty(): bool         { @@:(true) }
         }
 
         $Oiled {
-            oil(): String            { @@:("The hinges are already well-lubricated.") }
+            oil(): String {
+                # Canon advent.for 9132: SPK=113+PROP(DOOR). When
+                # already $Oiled, PROP(DOOR)=1, SPK=114 — the same
+                # msg fires as the first oil application. Keeps the
+                # canon prose consistent across repeat pours.
+                @@:("The oil has freed up the hinges so that the door will now move, although it requires some effort.")
+            }
+            water(): String {
+                # Canon: water washes the oil off; door re-rusts.
+                # Emit msg #113 because the resulting PROP(DOOR)=0.
+                -> $Rusty
+                @@:return("The hinges are quite thoroughly rusted now and won't budge.")
+            }
             get_state(): String      { @@:("oiled") }
             is_rusty(): bool         { @@:(false) }
         }
@@ -2256,7 +2329,7 @@
                 if have_coins:
                     -> $Empty
                     @@:return("The vending machine clanks twice and dispenses a fresh set of lamp batteries.")
-                @@:("You don't have any coins to insert.")
+                @@:("You aren't carrying it!")
             }
             get_state(): String      { @@:("loaded") }
             is_loaded(): bool        { @@:(true) }
@@ -2323,8 +2396,8 @@
                     @@:return("Your bottle is now full of oil.")
                 @@:("There is nothing here with which to fill the bottle.")
             }
-            pour(): String           { @@:("The bottle is empty.") }
-            drink(): String          { @@:("The bottle is empty.") }
+            pour(): String           { @@:("You aren't carrying it!") }
+            drink(): String          { @@:("You aren't carrying it!") }
             get_state(): String      { @@:("empty") }
             has_water(): bool        { @@:(false) }
             has_oil(): bool          { @@:(false) }
@@ -2336,7 +2409,7 @@
                 @@:("Your bottle is already full.")
             }
             fill_oil(at_oil_source: bool): String  {
-                @@:("The bottle is full of water — empty it first.")
+                @@:("Your bottle is already full.")
             }
             pour(): String           {
                 # Canon msg #77: "YOUR BOTTLE IS EMPTY AND THE GROUND IS WET."
@@ -2358,14 +2431,14 @@
 
         $Oil {
             fill(at_water_source: bool): String  {
-                @@:("The bottle is full of oil — empty it first.")
+                @@:("Your bottle is already full.")
             }
             fill_oil(at_oil_source: bool): String  {
-                @@:("The bottle is already full of oil.")
+                @@:("Your bottle is already full.")
             }
             pour(): String           {
                 -> $Empty
-                @@:return("The oil pours out, soaking into whatever is beneath you.")
+                @@:return("Your bottle is empty and the ground is wet.")
             }
             drink(): String          {
                 @@:("Drink that?  Don't be ridiculous.")
@@ -2411,9 +2484,12 @@
     machine:
 
         $Tiny {
+            # Canon obj#PLANT prop=1 description (advent.dat §5,
+            # message key 100) — emitted as PSPEAK(PLANT, PROP+1)
+            # at the watering moment per canon STMT 9132.
             water(): String          {
                 -> $Tall
-                @@:return("The plant grows ten feet, towering above you.")
+                @@:return("The plant spurts into furious growth for a few seconds.")
             }
             get_state(): String      { @@:("tiny") }
             is_tall(): bool          { @@:(false) }
@@ -2421,9 +2497,11 @@
         }
 
         $Tall {
+            # Canon obj#PLANT prop=3 description (advent.dat §5,
+            # message key 300).
             water(): String          {
                 -> $Huge
-                @@:return("The plant grows another fifty feet, vanishing into the gloom above.")
+                @@:return("The plant grows explosively, almost filling the bottom of the pit.")
             }
             get_state(): String      { @@:("tall") }
             is_tall(): bool          { @@:(true) }
@@ -2431,7 +2509,15 @@
         }
 
         $Huge {
-            water(): String          { @@:("The plant is already enormous.") }
+            # Canon advent.for 9132 + advent.dat obj #500:
+            # watering the huge beanstalk over-waters it. The
+            # plant cycles back to "tiny / dead" — canon's
+            # PROP(PLANT) = MOD(PROP+2, 6). The player can then
+            # water it again to restart the chain.
+            water(): String          {
+                -> $Tiny
+                @@:return("You've over-watered the plant! It's shriveling up! It's, it's...")
+            }
             get_state(): String      { @@:("huge") }
             is_tall(): bool          { @@:(true) }
             is_huge(): bool          { @@:(true) }
@@ -2678,8 +2764,30 @@
         attack_dwarf_in_room(): String        # tries the dwarf at player's location
         living_dwarves(): int
         dwarf_threw_axe(): bool               # latched flag — driver reads & clears
+        dwarf_threw_and_missed(): bool        # canon msg #6 latch — threw but didn't connect
+        resolve_dwarf_attack()                # driver calls after walking dwarves; populates DTOTAL/ATTACK/STICK
+        # Canon multi-dwarf telemetry (advent.for STMT 6010-6030).
+        # The driver reads-and-clears these latches after every
+        # _maybe_dwarf_attack tick to render canon msgs #4 / #67
+        # (one / N dwarves in room) and msg combinations for the
+        # throw outcomes (canon msgs #5 / #52 / #53 / #6 / #7 + the
+        # FORMAT-statement #67/#68/#78 N-formatted variants).
+        dwarf_count_in_room(): int            # canon DTOTAL — dwarves at player's room
+        dwarf_attack_count(): int             # canon ATTACK — dwarves that threw a knife
+        dwarf_hit_count(): int                # canon STICK — dwarves whose knife hit
         bump_dwarf_anger()                    # FEED dwarf increments anger (canon DFLAG++)
         get_dwarf_anger(): int                # current dwarf anger (canon DFLAG, floor 2)
+        # Driver-side helpers for the canon dwarf-movement loop
+        # (per-turn step toward player along canon section-3
+        # exits). The driver picks new_room with the canon filter
+        # rules (no surface, no forced motion, no backtracking)
+        # and calls these to bulk-update each dwarf's state.
+        dwarf_step_to(idx: int, new_room: int)
+        dwarf_room_of(idx: int): int
+        dwarf_prev_room_of(idx: int): int
+        dwarf_is_seen(idx: int): bool
+        dwarf_snap_to_player(idx: int)        # canon DSEEN=true → DLOC=LOC
+        dwarf_unsee(idx: int)                 # canon player drops below LOC 15
 
         # Endgame
         deposit_treasure()
@@ -2821,6 +2929,17 @@
             }
 
             tick() {
+                # Resolve any pending dwarf attack BEFORE other
+                # per-turn state advances. The driver has already
+                # walked each stalking dwarf one step (canon STMT
+                # 6010 — see _step_dwarves in driver.gd) and the
+                # FSM has recorded their new prev_room/room. We
+                # now run the canon throw-and-hit count loop. If
+                # called from a test that bypassed the driver
+                # walker, dwarves stay at their wake-up rooms,
+                # and the attack still resolves correctly against
+                # those positions.
+                self._maybe_dwarf_attack(self.player.get_room())
                 self.lamp.tick()
                 self.endgame.tick()
                 # Cave-closing teleport. Canon CCA whisks the player
@@ -2874,13 +2993,14 @@
                 # steal. The driver checks pirate_try_steal()
                 # results and applies the consequence.
                 self.pirate.treasures_carried(self.player.inventory_size())
-                # Stalking dwarves in the player's room get a
-                # per-turn axe-throw chance. We resolve the
-                # first-encountered stalking dwarf — a single
-                # death is a single death whether one dwarf or
-                # five threw the axe. Adventure surfaces the
-                # message via dwarf_threw_axe().
-                self._maybe_dwarf_attack(r)
+                # Dwarf attack resolution is no longer driven from
+                # observe_player_move — the driver invokes it
+                # explicitly via resolve_dwarf_attack() AFTER it has
+                # walked each stalking dwarf one step along the
+                # canon section-3 travel graph. That ordering
+                # preserves canon STMT 6010-6030: dwarves move
+                # first, then the count/throw/hit ladder resolves
+                # against their updated positions.
                 # Track first-visit for the visit_score
                 # component. CCA-canonical: each unique room
                 # explored is worth one point.
@@ -2926,11 +3046,14 @@
             }
 
             wake_dwarves() {
-                # Spread the five dwarves across the cave's
-                # transit and combat rooms. Real CCA wakes
-                # them probabilistically as the player wanders;
-                # this is the deterministic version for testing.
-                self.dwarf1.wake_up(12)   # awkward canyon
+                # Spread the five dwarves across the deep cave's
+                # transit and combat rooms (all LOC >= 15 per canon
+                # STMT 6012, which forbids dwarves from below the
+                # deep-cave threshold). Real CCA wakes them
+                # probabilistically as the player wanders; this is
+                # the deterministic version for testing and for the
+                # auto-wake threshold.
+                self.dwarf1.wake_up(19)   # Hall of Mt King
                 self.dwarf2.wake_up(33)   # Y2 marker
                 self.dwarf3.wake_up(47)   # snake passage
                 self.dwarf4.wake_up(65)   # bedquilt / bear chamber (canon 65)
@@ -2961,33 +3084,33 @@
                     self.dwarf1.attack()
                     if self.dwarf1.get_state() == "dead":
                         self.mark_rod_item.place(r)
-                        @@:return("You killed dwarf 1.")
-                    @@:return("Your axe missed dwarf 1.")
+                        @@:return("You killed a little dwarf.")
+                    @@:return("You attack a little dwarf, but he dodges out of the way.")
                 elif self.dwarf2.get_state() == "stalking" and self.dwarf2.get_room() == r:
                     self.dwarf2.attack()
                     if self.dwarf2.get_state() == "dead":
                         self.mark_rod_item.place(r)
-                        @@:return("You killed dwarf 2.")
-                    @@:return("Your axe missed dwarf 2.")
+                        @@:return("You killed a little dwarf.")
+                    @@:return("You attack a little dwarf, but he dodges out of the way.")
                 elif self.dwarf3.get_state() == "stalking" and self.dwarf3.get_room() == r:
                     self.dwarf3.attack()
                     if self.dwarf3.get_state() == "dead":
                         self.mark_rod_item.place(r)
-                        @@:return("You killed dwarf 3.")
-                    @@:return("Your axe missed dwarf 3.")
+                        @@:return("You killed a little dwarf.")
+                    @@:return("You attack a little dwarf, but he dodges out of the way.")
                 elif self.dwarf4.get_state() == "stalking" and self.dwarf4.get_room() == r:
                     self.dwarf4.attack()
                     if self.dwarf4.get_state() == "dead":
                         self.mark_rod_item.place(r)
-                        @@:return("You killed dwarf 4.")
-                    @@:return("Your axe missed dwarf 4.")
+                        @@:return("You killed a little dwarf.")
+                    @@:return("You attack a little dwarf, but he dodges out of the way.")
                 elif self.dwarf5.get_state() == "stalking" and self.dwarf5.get_room() == r:
                     self.dwarf5.attack()
                     if self.dwarf5.get_state() == "dead":
                         self.mark_rod_item.place(r)
-                        @@:return("You killed dwarf 5.")
-                    @@:return("Your axe missed dwarf 5.")
-                @@:("There's no dwarf here.")
+                        @@:return("You killed a little dwarf.")
+                    @@:return("You attack a little dwarf, but he dodges out of the way.")
+                @@:("Peculiar. Nothing unexpected happens.")
             }
 
             living_dwarves(): int {
@@ -3013,6 +3136,95 @@
                 var v: bool = self.dwarf_axe_flag
                 self.dwarf_axe_flag = false
                 @@:(v)
+            }
+            # Canon msg #6 — set when at least one dwarf threw
+            # this turn and no throw connected. Read-and-clear
+            # so the driver renders the canon "None of them hit
+            # you!" line exactly once per attack tick.
+            dwarf_threw_and_missed(): bool {
+                var v: bool = self.dwarf_axe_miss_flag
+                self.dwarf_axe_miss_flag = false
+                @@:(v)
+            }
+            # Canon DTOTAL/ATTACK/STICK accessors — read-and-clear
+            # per-turn counters that the driver consumes to render
+            # the canon multi-dwarf prose ladder (msg #4 / msg #67
+            # for the in-room count, msg #5 / msg #78 for the throw
+            # announcement, and msg #52 / #53 / #6 / #7 / #68 for
+            # the outcome). All three reset on read; the orchestrator
+            # repopulates them next _maybe_dwarf_attack tick.
+            resolve_dwarf_attack() {
+                # Public entry — populates DTOTAL/ATTACK/STICK at
+                # the player's current room. Driver invokes this
+                # AFTER walking each stalking dwarf one canon
+                # step, so the counts reflect the post-movement
+                # world. Mirrors canon STMT 6010-6030.
+                self._maybe_dwarf_attack(self.player.get_room())
+            }
+            dwarf_count_in_room(): int {
+                var v: int = self.dwarf_total_in_room
+                self.dwarf_total_in_room = 0
+                @@:(v)
+            }
+            dwarf_attack_count(): int {
+                var v: int = self.dwarf_attack_total
+                self.dwarf_attack_total = 0
+                @@:(v)
+            }
+            dwarf_hit_count(): int {
+                var v: int = self.dwarf_hit_total
+                self.dwarf_hit_total = 0
+                @@:(v)
+            }
+            # Driver-facing dwarf movement helpers — the per-turn
+            # canon STMT 6010 loop runs in the driver (which owns
+            # the section-3 travel table); we expose simple
+            # per-dwarf step/snap/unsee primitives plus getters.
+            dwarf_step_to(idx: int, new_room: int) {
+                if idx == 1: self.dwarf1.step_to(new_room)
+                elif idx == 2: self.dwarf2.step_to(new_room)
+                elif idx == 3: self.dwarf3.step_to(new_room)
+                elif idx == 4: self.dwarf4.step_to(new_room)
+                elif idx == 5: self.dwarf5.step_to(new_room)
+            }
+            dwarf_snap_to_player(idx: int) {
+                var r: int = self.player.get_room()
+                if idx == 1: self.dwarf1.snap_to_player(r)
+                elif idx == 2: self.dwarf2.snap_to_player(r)
+                elif idx == 3: self.dwarf3.snap_to_player(r)
+                elif idx == 4: self.dwarf4.snap_to_player(r)
+                elif idx == 5: self.dwarf5.snap_to_player(r)
+            }
+            dwarf_unsee(idx: int) {
+                if idx == 1: self.dwarf1.mark_unseen()
+                elif idx == 2: self.dwarf2.mark_unseen()
+                elif idx == 3: self.dwarf3.mark_unseen()
+                elif idx == 4: self.dwarf4.mark_unseen()
+                elif idx == 5: self.dwarf5.mark_unseen()
+            }
+            dwarf_room_of(idx: int): int {
+                if idx == 1: @@:return(self.dwarf1.get_room())
+                elif idx == 2: @@:return(self.dwarf2.get_room())
+                elif idx == 3: @@:return(self.dwarf3.get_room())
+                elif idx == 4: @@:return(self.dwarf4.get_room())
+                elif idx == 5: @@:return(self.dwarf5.get_room())
+                @@:(-1)
+            }
+            dwarf_prev_room_of(idx: int): int {
+                if idx == 1: @@:return(self.dwarf1.get_prev_room())
+                elif idx == 2: @@:return(self.dwarf2.get_prev_room())
+                elif idx == 3: @@:return(self.dwarf3.get_prev_room())
+                elif idx == 4: @@:return(self.dwarf4.get_prev_room())
+                elif idx == 5: @@:return(self.dwarf5.get_prev_room())
+                @@:(-1)
+            }
+            dwarf_is_seen(idx: int): bool {
+                if idx == 1: @@:return(self.dwarf1.is_seen())
+                elif idx == 2: @@:return(self.dwarf2.is_seen())
+                elif idx == 3: @@:return(self.dwarf3.is_seen())
+                elif idx == 4: @@:return(self.dwarf4.is_seen())
+                elif idx == 5: @@:return(self.dwarf5.is_seen())
+                @@:(false)
             }
 
             deposit_treasure() {
@@ -3207,7 +3419,7 @@
                 # carrying anything stash-able. The roll is
                 # consumed (Pirate is now $Vanished); we just
                 # surface a flavor message.
-                @@:("A bearded pirate steps out of the gloom, sees your empty hands, and slinks off in disgust.")
+                @@:("There are faint rustling noises from the darkness behind you.")
             }
 
             bridge_built(): bool       { @@:(self.crystal_bridge.is_built()) }
@@ -3280,51 +3492,66 @@
     actions:
 
         _maybe_dwarf_attack(room: int) {
-            # Ask each dwarf in the player's room for an axe-
-            # throw roll. First hit ends the turn. The dwarf
-            # axe flag is set so the driver can render the
-            # message; the player dies via player.die() which
-            # routes through the standard $Alive → $Dead path.
-            # Canon: every throw — hit or miss — leaves the axe
-            # in the room. The Item FSM's `place(at_room)` event
-            # handles "appear in world at this room" cleanly
-            # whether the axe was already there ($InRoom) or
-            # never existed yet ($InRoom with location -1).
+            # Canon advent.for STMT 6020-6030. Each turn, every
+            # stalking dwarf in the player's room joins the in-
+            # room count (DTOTAL). Among those, dwarves whose
+            # prev_room equals the current room — i.e., they were
+            # already with the player last turn rather than just
+            # arriving — get to throw a knife (ATTACK). Of those
+            # throws, hits (STICK) accumulate per the canon hit
+            # formula. The first hit kills the player.
+            #
+            # Note: every throw (hit or miss) leaves the axe at
+            # the room — canon advent.for "IF(KNFLOC.GE.0)KNFLOC=LOC".
+            var dtotal: int = 0
+            var attack: int = 0
+            var stick: int = 0
             if self.dwarf1.get_state() == "stalking" and self.dwarf1.get_room() == room:
-                var d1_hit: bool = self.dwarf1.try_throw_axe(self.dwarf_anger)
-                self.axe_item.place(room)
-                if d1_hit:
-                    self.dwarf_axe_flag = true
-                    self.player.die()
-                    return
+                dtotal = dtotal + 1
+                if self.dwarf1.get_prev_room() == room:
+                    attack = attack + 1
+                    self.axe_item.place(room)
+                    if self.dwarf1.try_throw_axe(self.dwarf_anger):
+                        stick = stick + 1
             if self.dwarf2.get_state() == "stalking" and self.dwarf2.get_room() == room:
-                var d2_hit: bool = self.dwarf2.try_throw_axe(self.dwarf_anger)
-                self.axe_item.place(room)
-                if d2_hit:
-                    self.dwarf_axe_flag = true
-                    self.player.die()
-                    return
+                dtotal = dtotal + 1
+                if self.dwarf2.get_prev_room() == room:
+                    attack = attack + 1
+                    self.axe_item.place(room)
+                    if self.dwarf2.try_throw_axe(self.dwarf_anger):
+                        stick = stick + 1
             if self.dwarf3.get_state() == "stalking" and self.dwarf3.get_room() == room:
-                var d3_hit: bool = self.dwarf3.try_throw_axe(self.dwarf_anger)
-                self.axe_item.place(room)
-                if d3_hit:
-                    self.dwarf_axe_flag = true
-                    self.player.die()
-                    return
+                dtotal = dtotal + 1
+                if self.dwarf3.get_prev_room() == room:
+                    attack = attack + 1
+                    self.axe_item.place(room)
+                    if self.dwarf3.try_throw_axe(self.dwarf_anger):
+                        stick = stick + 1
             if self.dwarf4.get_state() == "stalking" and self.dwarf4.get_room() == room:
-                var d4_hit: bool = self.dwarf4.try_throw_axe(self.dwarf_anger)
-                self.axe_item.place(room)
-                if d4_hit:
-                    self.dwarf_axe_flag = true
-                    self.player.die()
-                    return
+                dtotal = dtotal + 1
+                if self.dwarf4.get_prev_room() == room:
+                    attack = attack + 1
+                    self.axe_item.place(room)
+                    if self.dwarf4.try_throw_axe(self.dwarf_anger):
+                        stick = stick + 1
             if self.dwarf5.get_state() == "stalking" and self.dwarf5.get_room() == room:
-                var d5_hit: bool = self.dwarf5.try_throw_axe(self.dwarf_anger)
-                self.axe_item.place(room)
-                if d5_hit:
-                    self.dwarf_axe_flag = true
-                    self.player.die()
-                    return
+                dtotal = dtotal + 1
+                if self.dwarf5.get_prev_room() == room:
+                    attack = attack + 1
+                    self.axe_item.place(room)
+                    if self.dwarf5.try_throw_axe(self.dwarf_anger):
+                        stick = stick + 1
+            self.dwarf_total_in_room = dtotal
+            self.dwarf_attack_total = attack
+            self.dwarf_hit_total = stick
+            # Legacy single-dwarf flags — preserved for the
+            # single-attacker fast path in _check_dwarf_axe. The
+            # driver now prefers the count-aware ladder.
+            if stick > 0:
+                self.dwarf_axe_flag = true
+                self.player.die()
+            elif attack > 0:
+                self.dwarf_axe_miss_flag = true
         }
 
         # The bus holds names; this routes them to the actual
@@ -3443,7 +3670,7 @@
             # round-trip and the chapter prose can co-exist
             # without an extra resource layer.
             var r: int = self.player.get_room()
-            var base: String = "You are deep in the cave."
+            var base: String = "I daresay whatever you want is around here somewhere."
             # --- Canonical CCA rooms (Crowther+Woods 1977 numbering) ---
             # Surface block (1-9): the road, hill, well house, valley,
             # forests, slit in the streambed, depression with grate,
@@ -3593,6 +3820,20 @@
                 base = "YOU ARE IN A DIRTY BROKEN PASSAGE.  TO THE EAST IS A CRAWL.  TO THE WEST IS A LARGE PASSAGE.  ABOVE YOU IS A HOLE TO ANOTHER PASSAGE."
             elif r == 37:
                 base = "YOU ARE ON THE BRINK OF A SMALL CLEAN CLIMBABLE PIT.  A CRAWL LEADS WEST."
+            elif r == 38:
+                # Canon: bottom of the climbable pit (room 37 leads
+                # down here). Stream source for the FILL puzzle.
+                base = "YOU ARE IN THE BOTTOM OF A SMALL PIT WITH A LITTLE STREAM, WHICH ENTERS AND EXITS THROUGH TINY SLITS."
+            elif r == 41:
+                # Canon: west end of the Hall of Mists. Crawls W
+                # and N, plus the 6-foot pillow passage to the
+                # south (where the player throws gold to vault
+                # the steps puzzle in the canon east approach).
+                base = "YOU ARE AT THE WEST END OF HALL OF MISTS.  A LOW WIDE CRAWL CONTINUES WEST AND ANOTHER GOES NORTH.  TO THE SOUTH IS A LITTLE PASSAGE 6 FEET OFF THE FLOOR."
+            elif r == 70:
+                # Canon: secret canyon overlook above the giant's
+                # bedquilt passage.
+                base = "YOU ARE IN A SECRET N/S CANYON ABOVE A SIZABLE PASSAGE."
             # --- Snake/dragon side passages, the two mazes, Witt's End ---
             # Canonical Crowther+Woods has the maze of twisty
             # passages all alike (8 rooms with identical text but
@@ -3899,9 +4140,9 @@
             # adjacent message).
             if noun == "bird":
                 if self.bird.get_state() != "free":
-                    return "There is no bird here."
+                    return "You can't be serious!"
                 if self.player.get_room() != self.bird.get_location():
-                    return "There is no bird here."
+                    return "You can't be serious!"
                 # Canon msg #26 — the rod-with-star frightens the bird.
                 if self.rod_item.is_carried():
                     return "The bird was unafraid when you entered, but as you approach it becomes disturbed and you cannot catch it."
@@ -3910,7 +4151,7 @@
                     return "You can catch the bird, but you cannot carry it."
                 self.bird.capture()
                 self.player.take(self.BIRD_ID)
-                return "You catch the bird in your hand."
+                return "OK"
             # Canon msg #115 — TAKE PLANT regardless of growth state.
             if noun == "plant" or noun == "beanstalk":
                 return "The plant has exceptionally deep roots and cannot be pulled free."
@@ -3920,87 +4161,87 @@
             if noun == "bear":
                 if self.player.get_room() == self.BEAR_HOME_ROOM and self.bear.get_state() != "released":
                     return "The bear is still chained to the wall."
-                return "There is no bear here."
+                return "You can't be serious!"
             if noun == "rod":
                 if self.rod_item.is_carried():
                     return "You are already carrying it!"
                 if not self.rod_item.try_take(self.player.get_room()):
-                    return "There is no rod here."
+                    return "You can't be serious!"
                 self.player.take(self.ROD_ID)
                 return "OK"
             if noun == "keys" or noun == "key":
                 if self.keys_item.is_carried():
                     return "You are already carrying it!"
                 if not self.keys_item.try_take(self.player.get_room()):
-                    return "There are no keys here."
+                    return "You can't be serious!"
                 self.player.take(self.KEYS_ID)
                 return "OK"
             if noun == "bottle":
                 if self.bottle_item.is_carried():
                     return "You are already carrying it!"
                 if not self.bottle_item.try_take(self.player.get_room()):
-                    return "There is no bottle here."
+                    return "You can't be serious!"
                 self.player.take(self.BOTTLE_ID)
                 return "OK"
             if noun == "cage":
                 if self.cage_item.is_carried():
                     return "You are already carrying it!"
                 if not self.cage_item.try_take(self.player.get_room()):
-                    return "There is no cage here."
+                    return "You can't be serious!"
                 self.player.take(self.CAGE_ID)
                 return "OK"
             if noun == "food":
                 if self.food_item.is_carried():
                     return "You are already carrying it!"
                 if not self.food_item.try_take(self.player.get_room()):
-                    return "There is no food here."
+                    return "You can't be serious!"
                 self.player.take(self.FOOD_ID)
                 return "OK"
             if noun == "pillow" or noun == "velvet":
                 if self.pillow_item.is_carried():
                     return "You are already carrying it!"
                 if not self.pillow_item.try_take(self.player.get_room()):
-                    return "There is no pillow here."
+                    return "You can't be serious!"
                 self.player.take(self.PILLOW_ID)
                 return "OK"
             if noun == "axe":
                 if self.axe_item.is_carried():
                     return "You are already carrying it!"
                 if not self.axe_item.try_take(self.player.get_room()):
-                    return "There is no axe here."
+                    return "You can't be serious!"
                 self.player.take(self.AXE_ID)
                 return "OK"
             if noun == "clam":
                 if self.clam_item.is_carried():
                     return "You are already carrying it!"
                 if not self.clam_item.try_take(self.player.get_room()):
-                    return "There is no clam here."
+                    return "You can't be serious!"
                 self.player.take(self.CLAM_ID)
                 return "OK"
             if noun == "oyster":
                 # Canonically the oyster is too heavy to carry.
                 if self.oyster_item.is_in_room(self.player.get_room()):
                     return "You can't be serious — that oyster weighs a ton."
-                return "There is no oyster here."
+                return "You can't be serious!"
             if noun == "batteries" or noun == "battery":
                 if self.batteries_item.is_carried():
                     return "You are already carrying it!"
                 if not self.batteries_item.try_take(self.player.get_room()):
-                    return "There are no batteries here."
+                    return "You can't be serious!"
                 self.player.take(self.BATTERIES_ID)
                 return "OK"
             if noun == "magazine":
                 if self.magazine_item.is_carried():
                     return "You are already carrying it!"
                 if not self.magazine_item.try_take(self.player.get_room()):
-                    return "There is no magazine here."
+                    return "You can't be serious!"
                 self.player.take(self.MAGAZINE_ID)
                 return "OK"
             if noun == "mark" or noun == "mark-rod" or noun == "stick":
                 if self.mark_rod_item.is_carried():
                     return "You are already carrying it!"
                 if not self.mark_rod_item.try_take(self.player.get_room()):
-                    return "There is no second rod here."
+                    return "You can't be serious!"
                 self.player.take(self.MARK_ROD_ID)
                 return "OK"
             if noun == "chain":
@@ -4022,18 +4263,24 @@
                         self.player.die()
                         return "With a roar the bear lunges at you. You should have fed it first. You have been killed."
                     elif bs == "tame":
+                        # Canon advent.for: TAKE CHAIN with tame
+                        # bear succeeds silently and emits msg #54
+                        # ("OK."). The bear's new follow-state is
+                        # narrated by obj#35 prop=2 ("YOU ARE BEING
+                        # FOLLOWED BY A VERY LARGE, TAME BEAR.") at
+                        # the next LOOK / room display.
                         self.bear.take_chain()
                         self.chain.try_take(room)
                         self.player.take(self.CHAIN_ID)
-                        return "The bear lumbers along behind you on its chain."
-                    return "The chain has already been taken."
+                        return "OK"
+                    return "OK"
                 # Off-bear-room: chain might be lying as a treasure
                 # (e.g. dropped at the troll bridge). Use the
                 # standard treasure take pathway.
                 if self.chain.try_take(room):
                     self.player.take(self.CHAIN_ID)
                     return "OK"
-                return "There is no chain here."
+                return "You can't be serious!"
             # Treasures
             return self._take_treasure_by_name(noun)
         }
@@ -4148,7 +4395,10 @@
                         self.score_treasures = self.score_treasures + self.chain.get_value()
                         self.real_score = self.real_score + self.chain.get_value()
                         return "OK"
-                    return "The bear settles down at your side, glaring."
+                    # Canon: DROP CHAIN away from the troll bridge
+                    # is silent (msg #54 "OK"). The bear's new
+                    # un-followed state shows up on the next LOOK.
+                    return "OK"
                 # Bear no longer following — chain is a regular
                 # treasure carry. Standard try_drop semantics.
                 if self.chain.get_state() != "carried":
@@ -4171,76 +4421,76 @@
                 if self.gold.try_take(room):
                     self.player.take(self.GOLD_ID)
                     return "OK"
-                return "There is no gold here."
+                return "You can't be serious!"
             elif name == "silver":
                 if self.silver.try_take(room):
                     self.player.take(self.SILVER_ID)
                     return "OK"
-                return "There is no silver here."
+                return "You can't be serious!"
             elif name == "diamonds":
                 if self.diamonds.try_take(room):
                     self.player.take(self.DIAMONDS_ID)
                     return "OK"
-                return "There are no diamonds here."
+                return "You can't be serious!"
             elif name == "jewelry":
                 if self.jewelry.try_take(room):
                     self.player.take(self.JEWELRY_ID)
                     return "OK"
-                return "There is no jewelry here."
+                return "You can't be serious!"
             elif name == "pearl":
                 if self.pearl.try_take(room):
                     self.player.take(self.PEARL_ID)
                     return "OK"
-                return "There is no pearl here."
+                return "You can't be serious!"
             elif name == "vase":
                 if self.vase.try_take(room):
                     self.player.take(self.VASE_ID)
                     return "OK"
-                return "There is no vase here."
+                return "You can't be serious!"
             elif name == "eggs":
                 if self.eggs.try_take(room):
                     self.player.take(self.EGGS_ID)
                     return "OK"
-                return "There are no eggs here."
+                return "You can't be serious!"
             elif name == "trident":
                 if self.trident.try_take(room):
                     self.player.take(self.TRIDENT_ID)
                     return "OK"
-                return "There is no trident here."
+                return "You can't be serious!"
             elif name == "emerald":
                 if self.emerald.try_take(room):
                     self.player.take(self.EMERALD_ID)
                     return "OK"
-                return "There is no emerald here."
+                return "You can't be serious!"
             elif name == "spices":
                 if self.spices.try_take(room):
                     self.player.take(self.SPICES_ID)
                     return "OK"
-                return "There are no spices here."
+                return "You can't be serious!"
             elif name == "chest":
                 if self.chest.try_take(room):
                     self.player.take(self.CHEST_ID)
                     return "OK"
-                return "There is no chest here."
+                return "You can't be serious!"
             elif name == "pyramid":
                 if self.pyramid.try_take(room):
                     self.player.take(self.PYRAMID_ID)
                     return "OK"
-                return "There is no pyramid here."
+                return "You can't be serious!"
             elif name == "rug":
                 # The rug is under the dragon. Only takeable
                 # after the dragon is dead. Cross-FSM gate.
                 if self.dragon.is_alive() and room == self.DRAGON_ROOM:
-                    return "The dragon is sleeping on the rug. You'd best deal with it first."
+                    return "It is beyond your power to do that."
                 if self.rug.try_take(room):
                     self.player.take(self.RUG_ID)
                     return "OK"
-                return "There is no rug here."
+                return "You can't be serious!"
             elif name == "coins":
                 if self.coins.try_take(room):
                     self.player.take(self.COINS_ID)
                     return "OK"
-                return "There are no coins here."
+                return "You can't be serious!"
             # Canon msg #12 — unknown noun for TAKE.
             return "I don't know how to apply that word here."
         }
@@ -4322,7 +4572,7 @@
                 # Canon msg #29.
                 return "You aren't carrying it!"
             if outcome == "already deposited":
-                return "That treasure is already deposited."
+                return "OK"
             self.player.drop(item_id)
             if outcome == "deposited":
                 # Cross-FSM: deposit drives the endgame timer.
@@ -4355,13 +4605,13 @@
             if noun != "bear":
                 return "I don't know how to feed that."
             if self.player.get_room() != self.BEAR_HOME_ROOM:
-                return "There is no bear here."
+                return "You can't be serious!"
             if self.bear.get_state() != "hungry":
                 # Canon msg #102.
                 return "There's nothing here it wants to eat (except perhaps you)."
             # Canon: feeding requires the food item. Consume on use.
             if not self.food_item.is_carried():
-                return "You have nothing to feed the bear."
+                return "You aren't carrying it!"
             self.food_item.consume()                      # → $Consumed (terminal)
             self.player.drop(self.FOOD_ID)
             self.bear.feed()
@@ -4407,7 +4657,7 @@
         _verb_no(): String {
             if self.dragon.is_awaiting_confirmation():
                 self.dragon.no()
-                return "The dragon, sensing your hesitation, lets you back away."
+                return "OK"
             return "I don't understand."
         }
 
@@ -4429,15 +4679,15 @@
                 if self.player.carrying(self.BIRD_ID):
                     return "There is a little bird in the cage."
                 if self.bird.get_state() == "released":
-                    return "There is no bird here anymore."
+                    return "You can't be serious!"
                 if self.player.get_room() != self.bird.get_location():
-                    return "There is no bird here anymore."
+                    return "You can't be serious!"
                 return "A cheerful little bird is sitting here singing."
             elif noun == "snake":
                 # Canon §5 obj #11 SNAKE prop=0.
                 if self.snake.is_blocking():
                     return "A huge green fierce snake bars the way!"
-                return "There is no snake here anymore."
+                return "You can't be serious!"
             elif noun == "dragon":
                 # Canon §5 obj #31 DRAGON prop=0 / prop=200.
                 if self.dragon.is_alive():
@@ -4457,17 +4707,18 @@
                     return "You are being followed by a very large, tame bear."
                 elif bs == "released":
                     return "There is a contented-looking bear wandering about nearby."
-                return "There is no bear here."
+                return "You can't be serious!"
             elif noun == "troll":
                 # Canon §5 obj #33 TROLL prop=0 verbatim.
                 if self.troll.is_blocking_bridge():
                     return "A burly troll stands by the bridge and insists you throw him a treasure before you may cross."
-                return "The troll is gone."
+                # Canon obj#34 (PHONY TROLL) prop=0 verbatim.
+                return "The troll is nowhere to be seen."
             elif noun == "sign":
                 if self.player.get_room() == 33:    # Y2 (canonical)
                     return "The sign reads: 'Y2'."
-                return "There is no sign here."
-            return "You see nothing special about that."
+                return "You can't be serious!"
+            return "Peculiar. Nothing unexpected happens."
         }
 
         _verb_read(noun: String): String {
@@ -4476,15 +4727,15 @@
             if noun == "sign":
                 if self.player.get_room() == 33:    # Y2 (canonical)
                     return "The sign reads: 'Y2'."
-                return "There is no sign here."
+                return "You can't be serious!"
             # Canon msg #190 — READ MAGAZINE.
             if noun == "magazine":
                 if self.magazine_item.is_carried() or self.magazine_item.is_in_room(self.player.get_room()):
                     return "I'm afraid the magazine is written in dwarvish."
-                return "There is no magazine here."
+                return "You can't be serious!"
             elif noun == "keys" or noun == "bottle":
-                return "Nothing is written on it."
-            return "There is nothing to read here."
+                return "Peculiar. Nothing unexpected happens."
+            return "Peculiar. Nothing unexpected happens."
         }
 
         _verb_chant(word: String): String {
@@ -4511,7 +4762,7 @@
             #      troll catches, vanishes irrevocably with the loot.
             if noun == "axe":
                 if not self.axe_item.is_carried():
-                    return "You have no axe to throw."
+                    return "You aren't carrying it!"
                 # Axe leaves the player's hand and lands in the
                 # current room regardless of hit/miss.
                 self.axe_item.try_drop(self.player.get_room())
@@ -4588,9 +4839,9 @@
             # the player knows the rod has a use without giving
             # the puzzle away outright.
             if noun != "rod":
-                return "Waving that around won't do much."
+                return "Peculiar. Nothing unexpected happens."
             if not self.rod_item.is_carried():
-                return "You don't have the rod."
+                return "You aren't carrying it!"
             var r: int = self.player.get_room()
             if r != self.FISSURE_ROOM:
                 return "You wave the rod, feeling slightly silly. Nothing happens."
@@ -4656,7 +4907,7 @@
                 if self.oyster_item.is_carried():
                     return "I advise you to put down the oyster before opening it. >WRENCH!<"
                 if not self.oyster_item.is_in_room(here):
-                    return "There is no oyster here."
+                    return "You can't be serious!"
                 # Canon msg #123 — no rod, no luck.
                 if not self.rod_item.is_carried():
                     return "You don't have anything strong enough to open the oyster."
@@ -4669,7 +4920,7 @@
             if self.clam_item.is_carried():
                 return "I advise you to put down the clam before opening it. >STRAIN!<"
             if not self.clam_item.is_in_room(here):
-                return "There is no clam here."
+                return "You can't be serious!"
             # Canon msg #122 — no rod, no luck.
             if not self.rod_item.is_carried():
                 return "You don't have anything strong enough to open the clam."
@@ -4688,16 +4939,16 @@
             #   INSERT BATTERIES (or USE BATTERIES) → refresh lamp
             if noun == "batteries" or noun == "battery":
                 if not self.batteries_item.is_carried():
-                    return "You don't have any batteries."
+                    return "You aren't carrying it!"
                 # Used up — remove from world entirely.
                 self.batteries_item.consume()
                 self.player.drop(self.BATTERIES_ID)
                 self.lamp.refresh()
                 return "You replace the lamp's old batteries with the fresh ones. The lamp is now full."
             if noun != "coins" and noun != "coin":
-                return "You can't insert that."
+                return "Peculiar. Nothing unexpected happens."
             if self.player.get_room() != self.VENDING_ROOM:
-                return "There's nothing here to insert into."
+                return "Peculiar. Nothing unexpected happens."
             # Defer to the vending FSM. We snapshot the
             # before-state so we can detect a successful
             # transition vs an already-empty machine.
@@ -4754,7 +5005,7 @@
                 if not self.bottle_item.is_carried():
                     if self._at_water_source() or self._at_oil_source():
                         return "You have nothing in which to carry it."
-                    return "You don't have the bottle."
+                    return "You aren't carrying it!"
                 # Canon: same FILL verb takes either source. If
                 # an oil pool is here, that beats water — the
                 # player wouldn't normally be standing in both at
@@ -4762,9 +5013,24 @@
                 if self._at_oil_source():
                     return self.bottle.fill_oil(true)
                 return self.bottle.fill(self._at_water_source())
-            # Canon msg #144 — FILL VASE always fails.
             if noun == "vase":
-                return "There is nothing here with which to fill the vase."
+                # Canon advent.for STMT 9222 — FILL VASE has two
+                # outcomes depending on whether the player's room
+                # has a liquid source. No liquid → msg #144 ("there
+                # is nothing here with which to fill the vase").
+                # Liquid present → msg #145, vase shatters from the
+                # thermal shock (PROP(VASE)=2 + FIXED(VASE)=-1).
+                if not self._at_water_source() and not self._at_oil_source():
+                    return "There is nothing here with which to fill the vase."
+                if not self.player.carrying(self.VASE_ID):
+                    return "There is nothing here with which to fill the vase."
+                # Drop the vase as part of shattering — canon leaves
+                # the shards in place at the player's room. The
+                # Treasure FSM's fragile-drop path lands it in
+                # $Broken, which makes it immobile and worthless.
+                self.player.drop(self.VASE_ID)
+                self.vase.try_drop(self.player.get_room())
+                return "The sudden change in temperature has delicately shattered the vase."
             return "You can't fill that."
         }
 
@@ -4779,9 +5045,9 @@
             if noun != "" and noun != "bottle" and noun != "water" and noun != "oil":
                 return "You can't pour that."
             if not self.bottle_item.is_carried():
-                return "You don't have the bottle."
+                return "You aren't carrying it!"
             if not self.bottle.has_water() and not self.bottle.has_oil():
-                return "The bottle is empty."
+                return "You aren't carrying it!"
             var r: int = self.player.get_room()
             var was_water: bool = self.bottle.has_water()
             var was_oil: bool = self.bottle.has_oil()
@@ -4789,7 +5055,7 @@
             if was_water and r == self.WEST_PIT_ROOM:
                 # Cross-FSM: water the plant.
                 var grow_msg: String = self.plant.water()
-                return "The water soaks into the soil. " + grow_msg
+                return "" + grow_msg
             if was_oil and r == self.WEST_PIT_ROOM:
                 # Canon msg #112 (advent.dat msgs section): the
                 # plant rejects oil and asks for water instead.
@@ -4797,6 +5063,11 @@
             if was_oil and r == self.RUSTY_DOOR_ROOM and self.rusty_door.is_rusty():
                 # Cross-FSM: oil the hinges. Canonical msg #114.
                 return self.rusty_door.oil()
+            if was_water and r == self.RUSTY_DOOR_ROOM:
+                # Canon advent.for 9132: POUR WATER at the door —
+                # always emits msg #113 ("hinges thoroughly rusted").
+                # If door was previously oiled, water re-rusts it.
+                return self.rusty_door.water()
             return msg
         }
 
@@ -4805,9 +5076,9 @@
             # bare WATER (defaults to the plant if at West Pit)
             # and "water plant" / "water beanstalk" / "water it".
             if noun != "" and noun != "plant" and noun != "beanstalk" and noun != "it":
-                return "You can't water that."
+                return "Peculiar. Nothing unexpected happens."
             if self.player.get_room() != self.WEST_PIT_ROOM:
-                return "There's nothing here that needs watering."
+                return "Peculiar. Nothing unexpected happens."
             # Same effect as POUR at the West Pit — defer to
             # _verb_pour to keep the choreography in one place.
             return self._verb_pour("water")
@@ -4818,14 +5089,14 @@
             # carried, or drinks directly from the stream at any
             # water source.
             if noun != "" and noun != "water" and noun != "bottle":
-                return "You can't drink that."
+                return "Peculiar. Nothing unexpected happens."
             # At a water source, DRINK works without a bottle —
             # the player drinks from the stream. Canon msg #73.
             if self._at_water_source() and not (
                 self.bottle_item.is_carried() and self.bottle.has_water()):
                 return "You have taken a drink from the stream. The water tastes strongly of minerals, but is not unpleasant. It is extremely cold."
             if not self.bottle_item.is_carried():
-                return "You have nothing to drink."
+                return "You aren't carrying it!"
             return self.bottle.drink()
         }
 
@@ -4886,7 +5157,7 @@
                     return "You killed a little dwarf."
                 # Canon msg #48.
                 return "You attack a little dwarf, but he dodges out of the way."
-            return "There's no dwarf to throw an axe at here."
+            return "Peculiar. Nothing unexpected happens."
         }
 
         _verb_release(noun: String): String {
@@ -4912,7 +5183,7 @@
             elif bs == "dead":
                 # Canon msg #154.
                 return "The little bird attacks the green dragon, and in an astounding flurry gets burnt to a cinder. The ashes blow away."
-            return "The bird flies off into the gloom."
+            return "OK"
         }
 
         _verb_move(noun: String): String {
@@ -4931,7 +5202,7 @@
             if dest == 100 and self.player.carrying(self.BIRD_ID):
                 self.bird.vanish()
                 self.player.drop(self.BIRD_ID)
-                plover_bird_msg = "As you start to chant, the magic of the Plover Room flares around the little bird in your hand. There is a brief, brilliant flash, and the bird is gone. "
+                plover_bird_msg = "OK "
             # Canon clam carry-state branch at the Shell Room
             # (canon 103). Going SOUTH with the clam (or oyster)
             # in inventory canonically fails with msg #118 / #119
@@ -5289,6 +5560,23 @@
         # when a dwarf hits and read+cleared via dwarf_threw_axe().
         # Domain bool so @@[persist] round-trips it across saves.
         dwarf_axe_flag: bool = false
+        # Companion flag — set when at least one dwarf threw but
+        # the throw rolled a miss (and no hit was registered this
+        # turn). Drives canon msg #6 "None of them hit you!" in
+        # the driver's per-turn check.
+        dwarf_axe_miss_flag: bool = false
+        # Canon DTOTAL / ATTACK / STICK per-turn counters
+        # (advent.for STMT 6010-6030). DTOTAL = stalking dwarves
+        # at the player's room this turn; ATTACK = of those, how
+        # many threw a knife (i.e., prev_room == current room —
+        # they were already with the player and didn't just
+        # arrive); STICK = throws that connected. The driver
+        # reads these via the three accessor methods to render
+        # canon msgs #4 / #67 / #5 / #78 / #6 / #7 / #52 / #53
+        # plus the FORMAT-68 N-formatted "N of them get you!".
+        dwarf_total_in_room: int = 0
+        dwarf_attack_total: int = 0
+        dwarf_hit_total: int = 0
         # Rising-edge guard for the cave-closing teleport. Set true
         # the first tick after endgame transitions to $InRepository
         # (when self.player.move_to(REPOSITORY_ROOM) fires). Persists

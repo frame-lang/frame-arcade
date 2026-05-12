@@ -82,7 +82,9 @@ func _init():
     adv.do_command("move", "13")
     _expect("at bird chamber", adv.player_room(),   13)
     var r7 = adv.do_command("take", "bird")
-    _expect_contains("caught bird", r7, "catch")
+    # Canon: TAKE BIRD with cage emits msg #54 "OK". The follow-up
+    # state assertion below confirms the bird is caged.
+    _expect_contains("caught bird", r7, "OK")
 
     print("Move up to Y2, then to snake at canon 19 (Hall of Mt King):")
     adv.do_command("move", "33")
@@ -123,7 +125,9 @@ func _init():
     var r12 = adv.do_command("feed", "bear")
     _expect_contains("fed bear",   r12, "wolfs down")
     var r13 = adv.do_command("take", "chain")
-    _expect_contains("got chain",  r13, "lumbers")
+    # Canon: TAKE CHAIN with tame bear emits msg #54 "OK"; the
+    # bear's new follow-state shows up on the next LOOK.
+    _expect_contains("got chain",  r13, "OK")
 
     print("Up to Bedquilt then east to troll bridge, drop chain — troll flees:")
     adv.do_command("move", "65")

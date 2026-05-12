@@ -829,12 +829,12 @@ var gated_exits: Dictionary = {
     # canon 29, jewelry). East back to 15 is unguarded — that's
     # how the player retreats. Bird-release at 19 sends snake
     # away.
-    "19:north":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
-    "19:south":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
-    "19:west":   {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
-    "19:left":   {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
-    "19:right":  {"check": "snake",  "msg": "The snake glares at you and refuses to move."},
-    "19:forward":{"check": "snake",  "msg": "The snake glares at you and refuses to move."},
+    "19:north":  {"check": "snake",  "msg": "You can't get by the snake."},
+    "19:south":  {"check": "snake",  "msg": "You can't get by the snake."},
+    "19:west":   {"check": "snake",  "msg": "You can't get by the snake."},
+    "19:left":   {"check": "snake",  "msg": "You can't get by the snake."},
+    "19:right":  {"check": "snake",  "msg": "You can't get by the snake."},
+    "19:forward":{"check": "snake",  "msg": "You can't get by the snake."},
     # Canon SW chain (rows `19 35074 49` + `19 211032 49`):
     # 35% probability shortcut to canon 74 (dragon-side secret
     # canyon); on miss, snake-here bumper. Snake gone + miss =
@@ -1040,9 +1040,9 @@ var gated_exits: Dictionary = {
     #   `25 23 29 11`, condition 11 = plant tall).
     #   25 CLIMB → 26 gated by plant huge (canon row
     #   `25 724031 56`, condition encodes plant huge).
-    "25:up":     {"check": "plant_tall", "msg": "There is nothing here to climb. The plant is a tiny shoot, struggling for water."},
-    "25:out":    {"check": "plant_tall", "msg": "There is nothing here to climb. The plant is a tiny shoot, struggling for water."},
-    "25:climb":  {"check": "plant_huge", "msg": "The plant is too feeble to support your weight that high."},
+    "25:up":     {"check": "plant_tall", "msg": "There is nothing here to climb. Use \"UP\" or \"OUT\" to leave the pit."},
+    "25:out":    {"check": "plant_tall", "msg": "There is nothing here to climb. Use \"UP\" or \"OUT\" to leave the pit."},
+    "25:climb":  {"check": "plant_huge", "msg": "There is nothing here to climb. Use \"UP\" or \"OUT\" to leave the pit."},
     # Plover Room narrow tunnel — canon CCA permits only the
     # emerald (small enough) or empty hands through the squeeze.
     # Anything else and the player can't fit.
@@ -1431,7 +1431,7 @@ func _process_input(text: String) -> void:
                 _println("[color=#88dd88]Okay, now where did I put my orange smoke?....   >POOF!<")
                 _println("Everything disappears in a dense cloud of orange smoke.[/color]")
             else:
-                _println("[color=#88dd88]>POOF!< (somehow.)[/color]")
+                _println("[color=#88dd88]OK[/color]")
             _last_room = -1   # force room re-print
             _print_room()
             return
@@ -1482,42 +1482,48 @@ func _process_input(text: String) -> void:
         _oyster_prompt_active = false
 
     # ----- UI-only verbs (driver-handled, never reach the FSM) -----
-    if _handle_ui_verb(verb, noun): return
+    # Mirror cca/godot/scripts/driver.gd — every turn-taking
+    # intercept routes through _post_intercept_tick so the canon
+    # per-turn checks (dwarf movement, lamp, hints, pirate steal)
+    # fire on every turn.
+    if _handle_ui_verb(verb, noun): _post_intercept_tick(); return
 
     # ----- Canon bear-on-bridge cross (msg #162) -----
-    if _intercept_bridge_cross(verb): return
+    if _intercept_bridge_cross(verb): _post_intercept_tick(); return
 
     # ----- Bumper rules + dark-pit hazard -----
-    if _dispatch_bumper(verb): return
-    if verb in MOTION_VERBS and _check_dark_pit_hazard(): return
+    if _dispatch_bumper(verb): _post_intercept_tick(); return
+    if verb in MOTION_VERBS and _check_dark_pit_hazard(): _post_intercept_tick(); return
 
-    # ENTER STREAM/WATER must precede DIRECTIONS — "enter" is in
-    # DIRECTIONS, so the intercept has to win first.
-    if _intercept_enter_stream(verb, noun): return
+    # ENTER STREAM/WATER must precede DIRECTIONS.
+    if _intercept_enter_stream(verb, noun): _post_intercept_tick(); return
     if verb in DIRECTIONS:
         _handle_movement(verb)
         return
 
     # ----- Canon verb intercepts (order is canon-significant) -----
-    if _intercept_break_mirror(verb, noun): return
-    if _intercept_drop_bird(verb, noun): return
-    if _intercept_attack_bird(verb, noun): return
-    if _intercept_attack_bear(verb, noun): return
-    if _intercept_take_knife(verb, noun): return
-    if _intercept_take_bear(verb, noun): return
-    if _intercept_unlock_chain(verb, noun): return
-    if _intercept_take_scenery(verb, noun): return
-    if _intercept_throw_axe(verb, noun): return
+    if _intercept_break_mirror(verb, noun): _post_intercept_tick(); return
+    if _intercept_drop_bird(verb, noun): _post_intercept_tick(); return
+    if _intercept_attack_bird(verb, noun): _post_intercept_tick(); return
+    if _intercept_attack_bear(verb, noun): _post_intercept_tick(); return
+    if _intercept_take_knife(verb, noun): _post_intercept_tick(); return
+    if _intercept_take_bear(verb, noun): _post_intercept_tick(); return
+    if _intercept_unlock_chain(verb, noun): _post_intercept_tick(); return
+    if _intercept_take_scenery(verb, noun): _post_intercept_tick(); return
+    if _intercept_throw_axe(verb, noun): _post_intercept_tick(); return
     _intercept_plover_emerald(verb, noun)              # side-effect; falls through to FSM
-    if _intercept_calm(verb, noun): return
-    if _intercept_eat(verb, noun): return
-    if _intercept_feed(verb, noun): return
-    if _intercept_scenery_read(verb, noun): return
+    if _intercept_calm(verb, noun): _post_intercept_tick(); return
+    if _intercept_eat(verb, noun): _post_intercept_tick(); return
+    if _intercept_feed(verb, noun): _post_intercept_tick(); return
+    if _intercept_scenery_read(verb, noun): _post_intercept_tick(); return
 
     # ----- FSM dispatch + unknown-verb prose mix -----
     _dispatch_to_fsm(verb, noun)
 
     # ----- Per-turn check chain -----
+    _run_per_turn_checks()
+
+func _post_intercept_tick() -> void:
     _run_per_turn_checks()
 
 # ============================================================
@@ -1746,6 +1752,7 @@ func _dispatch_to_fsm(verb: String, noun: String) -> void:
 
 # Per-turn check chain.
 func _run_per_turn_checks() -> void:
+    _step_dwarves()
     fsm.tick()
     _check_pirate_steal()
     _check_lamp_warnings()
@@ -1755,6 +1762,54 @@ func _run_per_turn_checks() -> void:
     _check_hint_prompts()
     _check_player_death()
     _maybe_print_room_after_move()
+
+# Canon STMT 6010 dwarf-movement loop. Mirrors the cca/godot
+# driver implementation. The per-turn walker picks each
+# stalking dwarf a non-backtrack non-surface destination from
+# the canon section-3 travel graph; if the dwarf has SEEN the
+# player and the player is still in the deep cave, it snaps
+# to the player's room.
+var _dwarf_walk_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+
+func _step_dwarves() -> void:
+    var player_room: int = fsm.player_room()
+    for i in [1, 2, 3, 4, 5]:
+        var d_state: String = _dwarf_state(i)
+        if d_state != "stalking":
+            continue
+        var cur: int = fsm.dwarf_room_of(i)
+        var prev: int = fsm.dwarf_prev_room_of(i)
+        var was_seen: bool = fsm.dwarf_is_seen(i)
+        var candidates: Array = []
+        for dest in room_exits.get(cur, {}).values():
+            if dest == cur or dest == prev:
+                continue
+            if dest < 15 or dest > 130:
+                continue
+            if not candidates.has(dest):
+                candidates.append(dest)
+        var new_room: int = cur
+        if candidates.is_empty():
+            new_room = prev if prev != -1 else cur
+        else:
+            new_room = candidates[_dwarf_walk_rng.randi() % candidates.size()]
+        fsm.dwarf_step_to(i, new_room)
+        var now_at: int = fsm.dwarf_room_of(i)
+        var now_prev: int = fsm.dwarf_prev_room_of(i)
+        var saw_player: bool = (now_at == player_room) or (now_prev == player_room)
+        var new_seen: bool = saw_player or (was_seen and player_room >= 15)
+        if new_seen:
+            fsm.dwarf_snap_to_player(i)
+        elif player_room < 15:
+            fsm.dwarf_unsee(i)
+
+func _dwarf_state(idx: int) -> String:
+    if idx == 1: return fsm.dwarf1.get_state()
+    if idx == 2: return fsm.dwarf2.get_state()
+    if idx == 3: return fsm.dwarf3.get_state()
+    if idx == 4: return fsm.dwarf4.get_state()
+    if idx == 5: return fsm.dwarf5.get_state()
+    return "hidden"
 
 # Canon hint Y/N auto-prompt. See cca/godot/scripts/driver.gd.
 func _check_hint_prompts() -> void:
@@ -1827,7 +1882,7 @@ func _intercept_attack_bear(verb: String, noun: String) -> bool:
     elif bs == "released":
         _println("For crying out loud, the poor thing is already dead!")
     else:
-        _println("There is no bear here to attack.")
+        _println("You can't be serious!")
     return true
 
 func _intercept_take_knife(verb: String, noun: String) -> bool:
@@ -1844,9 +1899,9 @@ func _intercept_take_bear(verb: String, noun: String) -> bool:
         _println("The bear is still chained to the wall.")
         return true
     if bs == "following":
-        _println("You are already leading the bear by the chain.")
+        _println("OK")
         return true
-    _println("There is no bear here to take.")
+    _println("You can't be serious!")
     return true
 
 func _intercept_unlock_chain(verb: String, noun: String) -> bool:
@@ -1930,7 +1985,7 @@ func _intercept_plover_emerald(verb: String, noun: String) -> void:
     if (here_pl == 33 or here_pl == 100) and fsm.player.carrying(EMERALD_ID):
         fsm.emerald.try_drop(here_pl)
         fsm.player.drop(EMERALD_ID)
-        _println("As you start to chant, the emerald slips from your grasp and falls to the floor.")
+        _println("OK")
 
 func _intercept_calm(verb: String, noun: String) -> bool:
     if verb != "calm" and verb != "tame":
@@ -1979,7 +2034,7 @@ func _intercept_scenery_read(verb: String, noun: String) -> bool:
     # ROD2 prop change — pre-CLOSED rod / post-CLOSED dynamite.
     if noun == "rod" and fsm.mark_rod_here():
         if fsm.endgame_state() == "in_repository":
-            _println("It looks suspiciously like a stick of dynamite. Better not let it get near a flame.")
+            _println("Peculiar. Nothing unexpected happens.")
         else:
             _println("A small black rod with a rusty mark on the end.")
         return true
@@ -2000,27 +2055,25 @@ func _intercept_scenery_read(verb: String, noun: String) -> bool:
         _println("read it. Should I go ahead and read it anyway?")
         return true
     if noun == "mirror" and er == 109:
-        _println("It's a two-sided mirror suspended high above the canyon floor.")
-        _println("Provided for the dwarves, who as you know are extremely vain.")
+        _println("Peculiar. Nothing unexpected happens.")
         return true
     if (noun == "figure" or noun == "shadow") and (er == 35 or er == 110):
         _println("The shadowy figure seems to be trying to attract your attention.")
         return true
     if noun == "stalactite" and er == 111:
-        _println("It's a large stalactite extending from the roof and almost reaching the floor below.")
+        _println("Peculiar. Nothing unexpected happens.")
         return true
     if (noun == "drawings" or noun == "drawing") and er == 97:
-        _println("The cave drawings are ancient and Oriental in style.")
+        _println("Peculiar. Nothing unexpected happens.")
         return true
     if (noun == "volcano" or noun == "geyser") and er == 126:
-        _println("Great gouts of molten lava come surging out of an active volcano,")
-        _println("cascading back down into the depths.")
+        _println("Peculiar. Nothing unexpected happens.")
         return true
     if (noun == "carpet" or noun == "moss") and er == 96:
-        _println("The carpet is soft and the moss-covered ceiling muffles every sound.")
+        _println("Peculiar. Nothing unexpected happens.")
         return true
     if (noun == "plant" or noun == "plant2") and (er == 23 or er == 35):
-        _println("It's the top of a tall beanstalk poking out of the west pit.")
+        _println("There is a huge beanstalk growing out of the west pit up to the hole.")
         return true
     # Canon msg #63 — EXAMINE GRATE at the depression.
     if noun == "grate" and (er == 8 or er == 9):
@@ -2110,6 +2163,10 @@ func _handle_movement(direction: String) -> void:
         if direction == "in" or direction == "out":
             _println("I don't know in from out here. Use compass points or name something")
             _println("in the general direction you want to go.")
+            return
+        # Canon msg #10 — LEFT/RIGHT/FORWARD without facing context.
+        if direction == "left" or direction == "right" or direction == "forward":
+            _println("I am unsure how you are facing. Use compass points or nearby objects.")
             return
         # Canon msg #9 — uniform "no exit that way" rebuff. Canon
         # doesn't echo the direction the player tried.
@@ -2384,13 +2441,38 @@ func _check_lamp_warnings() -> void:
             get_tree().quit()
 
 func _check_dwarf_axe() -> void:
-    # Canon msg #4 — per-turn "threatening dwarf in room" announce.
-    if _dwarf_at_room(fsm.player_room()) and _dwarf_first_encounter_done:
+    # Canon STMT 6010-6030 multi-dwarf prose ladder. Mirrors
+    # cca/godot/scripts/driver.gd:_check_dwarf_axe — see that
+    # file for the full ladder commentary.
+    var dtotal: int = fsm.dwarf_count_in_room()
+    var attack: int = fsm.dwarf_attack_count()
+    var stick:  int = fsm.dwarf_hit_count()
+    fsm.dwarf_threw_axe()
+    fsm.dwarf_threw_and_missed()
+    if dtotal == 0:
+        return
+    if not _dwarf_first_encounter_done:
+        _dwarf_first_encounter_done = true
+    if dtotal == 1:
         _println("[color=#cc7777][i]There is a threatening little dwarf in the room with you![/i][/color]")
-    if fsm.dwarf_threw_axe():
-        # Canon msg #5 + msg #53.
+    else:
+        _println("[color=#cc7777][i]There are %d threatening little dwarves in the room with you.[/i][/color]" % dtotal)
+    if attack == 0:
+        return
+    if attack == 1:
         _println("[color=#cc7777][i]One sharp nasty knife is thrown at you![/i][/color]")
-        _println("[color=#cc7777][i]It gets you![/i][/color]")
+        if stick == 0:
+            _println("[color=#cc7777][i]It misses![/i][/color]")
+        else:
+            _println("[color=#cc7777][i]It gets you![/i][/color]")
+        return
+    _println("[color=#cc7777][i]%d of them throw knives at you![/i][/color]" % attack)
+    if stick == 0:
+        _println("[color=#cc7777][i]None of them hit you![/i][/color]")
+    elif stick == 1:
+        _println("[color=#cc7777][i]One of them gets you![/i][/color]")
+    else:
+        _println("[color=#cc7777][i]%d of them get you![/i][/color]" % stick)
 
 # Canon chest-only-outstanding hint (advent.for STMT 6020, msg
 # #186). Fires once when 14 of 15 treasures are deposited and
@@ -2466,7 +2548,7 @@ func _check_endgame_phase_change() -> void:
             _println("[color=#cc7777][b]The sepulchral voice entones, \"The cave is now closed.\" As the echoes fade, there is a blinding flash of light (and a small puff of orange smoke). . . . As your eyes refocus, you look around and find...[/b][/color]")
             _println("[color=#aaaaaa][i](Try DETONATE.)[/i][/color]")
         elif s == "won":
-            _println("[color=#88dd88][b]You have escaped! Final score: %d. Thank you for playing.[/b][/color]" % fsm.total_score())
+            _println("[color=#88dd88][b]There is a loud explosion, and a twenty-foot hole appears in the far wall, burying the dwarves in the rubble. You march through the hole and find yourself in the main office, where a cheering band of friendly elves carry the conquering adventurer off into the sunset. (Final score: %d)[/b][/color]" % fsm.total_score())
 
     # Closing-phase crescendo. Canon msg #129 is the single
     # cave-closing warning; the t=15 and t=5 escalations below are
@@ -2477,13 +2559,13 @@ func _check_endgame_phase_change() -> void:
         var t: float = fsm.endgame_timer()
         if t <= 25.0 and not _closing_warned_25:
             _closing_warned_25 = true
-            _println("[color=#cc7777][i]The voice booms once more from the depths: 'Cave closing soon.'[/i][/color]")
+            _println("[color=#cc7777][i]A sepulchral voice reverberating through the cave, says, \"Cave closing soon. All adventurers exit immediately through main office.\"[/i][/color]")
         if t <= 15.0 and not _closing_warned_15:
             _closing_warned_15 = true
-            _println("[color=#cc7777][i]The walls of the cave seem to be trembling. A brilliant white light suddenly fills the cave.[/i][/color]")
+            _println("[color=#cc7777][i]A sepulchral voice reverberating through the cave, says, \"Cave closing soon. All adventurers exit immediately through main office.\"[/i][/color]")
         if t <= 5.0 and not _closing_warned_5:
             _closing_warned_5 = true
-            _println("[color=#cc7777][b]The voice intones again: 'The cave is closing — exit NOW.' The ground shudders beneath your feet.[/b][/color]")
+            _println("[color=#cc7777][b]A mysterious recorded voice groans into life and announces: \"This exit is closed. Please leave via main office.\"[/b][/color]")
 
 func _maybe_print_room_after_move() -> void:
     var current: int = fsm.player_room()
@@ -2615,7 +2697,14 @@ func _format_inventory() -> String:
         items.append("  Black rod with a rusty mark on the end")
 
     if fsm.player.carrying(KEYS_ID):     items.append("  Set of keys")
-    if fsm.player.carrying(BOTTLE_ID):   items.append("  Small bottle")
+    if fsm.player.carrying(BOTTLE_ID):
+        # Canon obj#20/21/22: bottle label varies with contents.
+        if fsm.bottle.has_water():
+            items.append("  Water in the bottle")
+        elif fsm.bottle.has_oil():
+            items.append("  Oil in the bottle")
+        else:
+            items.append("  Small bottle")
     if fsm.player.carrying(FOOD_ID):     items.append("  Tasty food")
     if fsm.player.carrying(PILLOW_ID):   items.append("  Velvet pillow")
     if fsm.player.carrying(AXE_ID):      items.append("  Dwarf's axe")

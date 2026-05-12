@@ -238,6 +238,13 @@ var _input_history_idx: int = -1
 # narrative beat, simpler trigger.
 var _dwarf_first_encounter_done: bool = false
 
+# Canon dwarf movement RNG. Each turn, every stalking dwarf
+# walks one step along the canon section-3 travel graph. We
+# pick a random non-backtrack non-surface destination per
+# canon STMT 6010-6030. The seed is set in _ready() so playthroughs
+# replay byte-identical from a saved game.
+var _dwarf_walk_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+
 # Canon OYSTER hint chain (advent.dat msgs #192/193/194). READ
 # OYSTER on the in-place oyster (post-clam-break) costs 10 points
 # but reveals the magic-words hint. Canon flow:
@@ -574,7 +581,7 @@ func _process_input(text: String) -> void:
                 # 3rd revive — out of orange smoke; canon
                 # transitions to msg #86 (handled in $Permadead
                 # branch). Defensive: still revive if reached.
-                _println("[color=#88dd88]>POOF!< (somehow.)[/color]")
+                _println("[color=#88dd88]OK[/color]")
             _last_room = -1   # force room re-print
             _print_room()
             return
@@ -596,44 +603,57 @@ func _process_input(text: String) -> void:
         return
 
     # ----- UI-only verbs (driver-handled, never reach the FSM) -----
-    if _handle_ui_verb(verb, noun): return
+    # Every turn-taking intercept routes through _post_intercept_tick
+    # at the end so the canon per-turn checks (dwarf movement, lamp
+    # battery, hint observation, pirate steal) fire regardless of
+    # which verb was handled. Non-turn UI verbs (HOURS / WIZARD /
+    # MAINT / SUSPEND) opt out via _handle_ui_verb's own logic.
+    if _handle_ui_verb(verb, noun): _post_intercept_tick(); return
 
     # ----- Canon bear-on-bridge cross (msg #162) -----
-    # Must precede _dispatch_bumper so the bear-following case
-    # fires BEFORE the troll/chasm gate check for the same verb.
-    if _intercept_bridge_cross(verb): return
+    if _intercept_bridge_cross(verb): _post_intercept_tick(); return
 
     # ----- Bumper rules + dark-pit hazard -----
-    if _dispatch_bumper(verb): return
-    if verb in MOTION_VERBS and _check_dark_pit_hazard(): return
+    if _dispatch_bumper(verb): _post_intercept_tick(); return
+    if verb in MOTION_VERBS and _check_dark_pit_hazard(): _post_intercept_tick(); return
 
     # ENTER STREAM/WATER must precede DIRECTIONS — "enter" is in
     # DIRECTIONS, so the intercept has to win first.
-    if _intercept_enter_stream(verb, noun): return
+    if _intercept_enter_stream(verb, noun): _post_intercept_tick(); return
     if verb in DIRECTIONS:
+        # _handle_movement runs its own per-turn chain via _run_per_turn_checks.
         _handle_movement(verb)
         return
 
     # ----- Canon verb intercepts (order is canon-significant) -----
-    if _intercept_break_mirror(verb, noun): return
-    if _intercept_drop_bird(verb, noun): return
-    if _intercept_attack_bird(verb, noun): return
-    if _intercept_attack_bear(verb, noun): return
-    if _intercept_take_knife(verb, noun): return
-    if _intercept_take_bear(verb, noun): return
-    if _intercept_unlock_chain(verb, noun): return
-    if _intercept_take_scenery(verb, noun): return
-    if _intercept_throw_axe(verb, noun): return
+    if _intercept_break_mirror(verb, noun): _post_intercept_tick(); return
+    if _intercept_drop_bird(verb, noun): _post_intercept_tick(); return
+    if _intercept_attack_bird(verb, noun): _post_intercept_tick(); return
+    if _intercept_attack_bear(verb, noun): _post_intercept_tick(); return
+    if _intercept_take_knife(verb, noun): _post_intercept_tick(); return
+    if _intercept_take_bear(verb, noun): _post_intercept_tick(); return
+    if _intercept_unlock_chain(verb, noun): _post_intercept_tick(); return
+    if _intercept_take_scenery(verb, noun): _post_intercept_tick(); return
+    if _intercept_throw_axe(verb, noun): _post_intercept_tick(); return
     _intercept_plover_emerald(verb, noun)              # side-effect; falls through to FSM
-    if _intercept_calm(verb, noun): return
-    if _intercept_eat(verb, noun): return
-    if _intercept_feed(verb, noun): return
-    if _intercept_scenery_read(verb, noun): return
+    if _intercept_calm(verb, noun): _post_intercept_tick(); return
+    if _intercept_eat(verb, noun): _post_intercept_tick(); return
+    if _intercept_feed(verb, noun): _post_intercept_tick(); return
+    if _intercept_scenery_read(verb, noun): _post_intercept_tick(); return
 
     # ----- FSM dispatch + unknown-verb prose mix -----
     _dispatch_to_fsm(verb, noun)
 
     # ----- Per-turn check chain -----
+    _run_per_turn_checks()
+
+# Per-turn tick for paths where a verb intercept handled the
+# input before the FSM dispatcher ran. Canon advances TURNS on
+# any real action (LOOK, RUB, SAY, BLAST, TAKE, FEED, etc.), so
+# dwarves walk + attack on every turn-taking verb — not just
+# direction commands. The non-turn easter-egg verbs (HOURS,
+# WIZARD, MAINT, SUSPEND) gate themselves out via _handle_ui_verb.
+func _post_intercept_tick() -> void:
     _run_per_turn_checks()
 
 # ============================================================
@@ -685,6 +705,12 @@ func _dispatch_to_fsm(verb: String, noun: String) -> void:
 # player has moved. Order matters — death must come last so the
 # revive prompt has the latest state.
 func _run_per_turn_checks() -> void:
+    # Canon STMT 6010 — walk each stalking dwarf one step along the
+    # canon section-3 travel graph BEFORE the FSM tick fires the
+    # attack resolution. The driver owns the topology (room_exits)
+    # so the walk lives here; the FSM tick reads the post-walk
+    # positions to populate DTOTAL / ATTACK / STICK.
+    _step_dwarves()
     fsm.tick()
     _check_pirate_steal()
     _check_lamp_warnings()
@@ -694,6 +720,65 @@ func _run_per_turn_checks() -> void:
     _check_hint_prompts()
     _check_player_death()
     _maybe_print_room_after_move()
+
+# Canon STMT 6010 dwarf-movement loop. Each stalking dwarf
+# walks one step along the section-3 travel graph. Per canon:
+#   - no backtracking to prev_room unless no other option
+#   - no surface rooms (LOC < 15)
+#   - no rooms outside the deep cave (LOC > 130)
+#   - if the dwarf has SEEN the player and player is still in
+#     the deep cave, the dwarf snaps to the player's room
+#   - if player drops to the surface, the dwarf loses sight
+#     and goes back to wandering
+func _step_dwarves() -> void:
+    var player_room: int = fsm.player_room()
+    for i in [1, 2, 3, 4, 5]:
+        # Skip hidden/dead dwarves. The Dwarf FSM's `get_room()`
+        # returns -1 in those states, so the room lookup below
+        # would fail anyway, but the state-string check is
+        # cheaper and clearer.
+        var d_state: String = _dwarf_state(i)
+        if d_state != "stalking":
+            continue
+        var cur: int = fsm.dwarf_room_of(i)
+        var prev: int = fsm.dwarf_prev_room_of(i)
+        var was_seen: bool = fsm.dwarf_is_seen(i)
+        # Build the canon candidate list: every exit from cur,
+        # minus self-loops, minus prev (no backtrack), minus
+        # outside-cave rooms.
+        var candidates: Array = []
+        for dest in room_exits.get(cur, {}).values():
+            if dest == cur or dest == prev:
+                continue
+            if dest < 15 or dest > 130:
+                continue
+            if not candidates.has(dest):
+                candidates.append(dest)
+        var new_room: int = cur
+        if candidates.is_empty():
+            # Canon "no alternative" fallback: backtrack to prev.
+            new_room = prev if prev != -1 else cur
+        else:
+            new_room = candidates[_dwarf_walk_rng.randi() % candidates.size()]
+        fsm.dwarf_step_to(i, new_room)
+        # Canon DSEEN update — sticky while in deep cave; clears
+        # when player surfaces.
+        var now_at: int = fsm.dwarf_room_of(i)
+        var now_prev: int = fsm.dwarf_prev_room_of(i)
+        var saw_player: bool = (now_at == player_room) or (now_prev == player_room)
+        var new_seen: bool = saw_player or (was_seen and player_room >= 15)
+        if new_seen:
+            fsm.dwarf_snap_to_player(i)
+        elif player_room < 15:
+            fsm.dwarf_unsee(i)
+
+func _dwarf_state(idx: int) -> String:
+    if idx == 1: return fsm.dwarf1.get_state()
+    if idx == 2: return fsm.dwarf2.get_state()
+    if idx == 3: return fsm.dwarf3.get_state()
+    if idx == 4: return fsm.dwarf4.get_state()
+    if idx == 5: return fsm.dwarf5.get_state()
+    return "hidden"
 
 # Canon hint Y/N auto-prompt. When a Hint FSM transitions to
 # $Eligible (player has been in the trigger condition for N
@@ -1024,7 +1109,7 @@ func _intercept_attack_bear(verb: String, noun: String) -> bool:
     elif bs == "released":
         _println("For crying out loud, the poor thing is already dead!")
     else:
-        _println("There is no bear here to attack.")
+        _println("You can't be serious!")
     return true
 
 # Canon TAKE KNIFE (msg #116) — dwarf knives vanish on impact.
@@ -1043,9 +1128,9 @@ func _intercept_take_bear(verb: String, noun: String) -> bool:
         _println("The bear is still chained to the wall.")
         return true
     if bs == "following":
-        _println("You are already leading the bear by the chain.")
+        _println("OK")
         return true
-    _println("There is no bear here to take.")
+    _println("You can't be serious!")
     return true
 
 # Canon UNLOCK CHAIN (msg #170) — without keys, chain stays
@@ -1147,7 +1232,7 @@ func _intercept_plover_emerald(verb: String, noun: String) -> void:
     if (here_pl == 33 or here_pl == 100) and fsm.player.carrying(EMERALD_ID):
         fsm.emerald.try_drop(here_pl)
         fsm.player.drop(EMERALD_ID)
-        _println("As you start to chant, the emerald slips from your grasp and falls to the floor.")
+        _println("OK")
 
 # Canon CALM/TAME (verb 10, msg #14) — no-op flavor placeholder.
 func _intercept_calm(verb: String, noun: String) -> bool:
@@ -1205,7 +1290,7 @@ func _intercept_scenery_read(verb: String, noun: String) -> bool:
     # ROD2 prop change (object 6) — pre-CLOSED rod / post-CLOSED dynamite.
     if noun == "rod" and fsm.mark_rod_here():
         if fsm.endgame_state() == "in_repository":
-            _println("It looks suspiciously like a stick of dynamite. Better not let it get near a flame.")
+            _println("Peculiar. Nothing unexpected happens.")
         else:
             _println("A small black rod with a rusty mark on the end.")
         return true
@@ -1232,8 +1317,7 @@ func _intercept_scenery_read(verb: String, noun: String) -> bool:
         return true
     # MIRROR (object 23) at canon 109 (Mirror Canyon).
     if noun == "mirror" and er == 109:
-        _println("It's a two-sided mirror suspended high above the canyon floor.")
-        _println("Provided for the dwarves, who as you know are extremely vain.")
+        _println("Peculiar. Nothing unexpected happens.")
         return true
     # SHADOWY FIGURE (object 27) at canon 35 / 110.
     if (noun == "figure" or noun == "shadow") and (er == 35 or er == 110):
@@ -1241,24 +1325,23 @@ func _intercept_scenery_read(verb: String, noun: String) -> bool:
         return true
     # STALACTITE (object 26) at canon 111.
     if noun == "stalactite" and er == 111:
-        _println("It's a large stalactite extending from the roof and almost reaching the floor below.")
+        _println("Peculiar. Nothing unexpected happens.")
         return true
     # CAVE DRAWINGS (object 29) at canon 97.
     if (noun == "drawings" or noun == "drawing") and er == 97:
-        _println("The cave drawings are ancient and Oriental in style.")
+        _println("Peculiar. Nothing unexpected happens.")
         return true
     # VOLCANO/GEYSER (object 37) at canon 126.
     if (noun == "volcano" or noun == "geyser") and er == 126:
-        _println("Great gouts of molten lava come surging out of an active volcano,")
-        _println("cascading back down into the depths.")
+        _println("Peculiar. Nothing unexpected happens.")
         return true
     # CARPET/MOSS (object 40) at canon 96.
     if (noun == "carpet" or noun == "moss") and er == 96:
-        _println("The carpet is soft and the moss-covered ceiling muffles every sound.")
+        _println("Peculiar. Nothing unexpected happens.")
         return true
     # PHONY PLANT (object 25) at canon 23/35.
     if (noun == "plant" or noun == "plant2") and (er == 23 or er == 35):
-        _println("It's the top of a tall beanstalk poking out of the west pit.")
+        _println("There is a huge beanstalk growing out of the west pit up to the hole.")
         return true
     # Canon msg #63 — EXAMINE GRATE at the depression (canon 8).
     if noun == "grate" and (er == 8 or er == 9):
@@ -1339,6 +1422,14 @@ func _handle_movement(direction: String) -> void:
         if direction == "in" or direction == "out":
             _println("I don't know in from out here. Use compass points or name something")
             _println("in the general direction you want to go.")
+            return
+        # Canon msg #10 (advent.for word table 7/36/37) — player-
+        # relative motion verbs the parser can't resolve without
+        # facing context. Fires only when the current room hasn't
+        # mapped this verb to a specific direction (a handful of
+        # rooms — canon 4 / 17 / 19 / 124 — do).
+        if direction == "left" or direction == "right" or direction == "forward":
+            _println("I am unsure how you are facing. Use compass points or nearby objects.")
             return
         # Canon msg #9 — uniform "no exit that way" rebuff. Canon
         # doesn't echo the direction the player tried.
@@ -1716,20 +1807,73 @@ func _check_lamp_warnings() -> void:
             get_tree().quit()
 
 func _check_dwarf_axe() -> void:
-    # Canon msg #4 — per-turn "threatening dwarf in room" announce
-    # whenever a stalking dwarf is at the player's location. Fires
-    # before the throw outcome.
-    if _dwarf_at_room(fsm.player_room()) and _dwarf_first_encounter_done:
+    # Canon STMT 6010-6030 multi-dwarf prose ladder. The
+    # orchestrator's resolve_dwarf_attack() has already run and
+    # populated DTOTAL / ATTACK / STICK counters; we drain them
+    # here, then render the canon msgs.
+    #
+    #   DTOTAL == 0          → silent (no dwarves here)
+    #   DTOTAL == 1          → msg #4 ("There is a threatening
+    #                             little dwarf in the room with
+    #                             you!")
+    #   DTOTAL >= 2          → canon FORMAT 67 ("There are N
+    #                             threatening little dwarves...")
+    #
+    #   ATTACK == 0          → no throw line
+    #   ATTACK == 1, STICK=0 → msg #5 + msg #52 ("It misses!")
+    #   ATTACK == 1, STICK=1 → msg #5 + msg #53 ("It gets you!")
+    #   ATTACK >= 2, STICK=0 → canon FORMAT 78 + msg #6
+    #   ATTACK >= 2, STICK=1 → canon FORMAT 78 + msg #7
+    #   ATTACK >= 2, STICK>1 → canon FORMAT 78 + canon FORMAT 68
+    #
+    # We still consume dwarf_threw_axe / dwarf_threw_and_missed
+    # because the orchestrator sets those legacy flags for
+    # save/restore compatibility — but the count-aware ladder is
+    # what the player sees.
+    var dtotal: int = fsm.dwarf_count_in_room()
+    var attack: int = fsm.dwarf_attack_count()
+    var stick:  int = fsm.dwarf_hit_count()
+    # Drain the legacy single-dwarf flags so a later turn doesn't
+    # see stale state. The ladder below already handled the
+    # message rendering.
+    fsm.dwarf_threw_axe()
+    fsm.dwarf_threw_and_missed()
+    if dtotal == 0:
+        return
+    if not _dwarf_first_encounter_done:
+        # First-encounter narration (msg #3 set by observe_player_move
+        # path runs only on the player's first walk-into; here we
+        # latch the flag so the per-turn count msgs don't double
+        # up with that intro.
+        _dwarf_first_encounter_done = true
+    if dtotal == 1:
         _println("[color=#cc7777][i]There is a threatening little dwarf in the room with you![/i][/color]")
-    if fsm.dwarf_threw_axe():
-        # Canon msg #5 — knife thrown. msg #6/#7/#53 are the
-        # outcome variants; the port currently fires #53 (gets
-        # you) for any successful hit. The miss case is silent
-        # since canon msg #6 ("None of them hit you!") only
-        # fires on a multi-dwarf scene which the port models
-        # as a single stalking dwarf at a time.
+    else:
+        # Canon FORMAT 67 — "There are N threatening little dwarves..."
+        _println("[color=#cc7777][i]There are %d threatening little dwarves in the room with you.[/i][/color]" % dtotal)
+    if attack == 0:
+        return
+    if attack == 1:
+        # Canon msg #5 — singular throw.
         _println("[color=#cc7777][i]One sharp nasty knife is thrown at you![/i][/color]")
-        _println("[color=#cc7777][i]It gets you![/i][/color]")
+        if stick == 0:
+            # Canon msg #52 — "It misses!"
+            _println("[color=#cc7777][i]It misses![/i][/color]")
+        else:
+            # Canon msg #53 — "It gets you!"
+            _println("[color=#cc7777][i]It gets you![/i][/color]")
+        return
+    # ATTACK >= 2 — canon FORMAT 78 "N of them throw knives at you!"
+    _println("[color=#cc7777][i]%d of them throw knives at you![/i][/color]" % attack)
+    if stick == 0:
+        # Canon msg #6 — "None of them hit you!"
+        _println("[color=#cc7777][i]None of them hit you![/i][/color]")
+    elif stick == 1:
+        # Canon msg #7 — "One of them gets you!"
+        _println("[color=#cc7777][i]One of them gets you![/i][/color]")
+    else:
+        # Canon FORMAT 68 — "N of them get you!"
+        _println("[color=#cc7777][i]%d of them get you![/i][/color]" % stick)
 
 # Canon chest-only-outstanding hint (advent.for STMT 6020, msg
 # #186). Fires once when the player has deposited all 14
@@ -1814,7 +1958,7 @@ func _check_endgame_phase_change() -> void:
             _println("[color=#cc7777][b]The sepulchral voice entones, \"The cave is now closed.\" As the echoes fade, there is a blinding flash of light (and a small puff of orange smoke). . . . As your eyes refocus, you look around and find...[/b][/color]")
             _println("[color=#aaaaaa][i](Try DETONATE.)[/i][/color]")
         elif s == "won":
-            _println("[color=#88dd88][b]You have escaped! Final score: %d. Thank you for playing.[/b][/color]" % fsm.total_score())
+            _println("[color=#88dd88][b]There is a loud explosion, and a twenty-foot hole appears in the far wall, burying the dwarves in the rubble. You march through the hole and find yourself in the main office, where a cheering band of friendly elves carry the conquering adventurer off into the sunset. (Final score: %d)[/b][/color]" % fsm.total_score())
 
     # Closing-phase crescendo. Canon msg #129 is the single
     # cave-closing warning; the t=15 and t=5 escalations below are
@@ -1825,13 +1969,13 @@ func _check_endgame_phase_change() -> void:
         var t: float = fsm.endgame_timer()
         if t <= 25.0 and not _closing_warned_25:
             _closing_warned_25 = true
-            _println("[color=#cc7777][i]The voice booms once more from the depths: 'Cave closing soon.'[/i][/color]")
+            _println("[color=#cc7777][i]A sepulchral voice reverberating through the cave, says, \"Cave closing soon. All adventurers exit immediately through main office.\"[/i][/color]")
         if t <= 15.0 and not _closing_warned_15:
             _closing_warned_15 = true
-            _println("[color=#cc7777][i]The walls of the cave seem to be trembling. A brilliant white light suddenly fills the cave.[/i][/color]")
+            _println("[color=#cc7777][i]A sepulchral voice reverberating through the cave, says, \"Cave closing soon. All adventurers exit immediately through main office.\"[/i][/color]")
         if t <= 5.0 and not _closing_warned_5:
             _closing_warned_5 = true
-            _println("[color=#cc7777][b]The voice intones again: 'The cave is closing — exit NOW.' The ground shudders beneath your feet.[/b][/color]")
+            _println("[color=#cc7777][b]A mysterious recorded voice groans into life and announces: \"This exit is closed. Please leave via main office.\"[/b][/color]")
 
 func _maybe_print_room_after_move() -> void:
     var current: int = fsm.player_room()
@@ -1965,7 +2109,18 @@ func _format_inventory() -> String:
     if fsm.player.carrying(MARK_ROD_ID):
         items.append("  Black rod with a rusty mark on the end")
     if fsm.player.carrying(KEYS_ID):     items.append("  Set of keys")
-    if fsm.player.carrying(BOTTLE_ID):   items.append("  Small bottle")
+    if fsm.player.carrying(BOTTLE_ID):
+        # Canon obj#20/21/22: bottle label varies with contents.
+        # Empty → "Small bottle", with water → "Water in the bottle",
+        # with oil → "Oil in the bottle". Advent.dat distinguishes
+        # the prop=0/2/4 forms; the port reads bottle state via the
+        # FSM getters.
+        if fsm.bottle.has_water():
+            items.append("  Water in the bottle")
+        elif fsm.bottle.has_oil():
+            items.append("  Oil in the bottle")
+        else:
+            items.append("  Small bottle")
     if fsm.player.carrying(FOOD_ID):     items.append("  Tasty food")
     if fsm.player.carrying(PILLOW_ID):   items.append("  Velvet pillow")
     if fsm.player.carrying(AXE_ID):      items.append("  Dwarf's axe")

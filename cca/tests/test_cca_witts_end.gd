@@ -93,7 +93,16 @@ func _init():
     var saw_bounce_msg: bool = false
     var saw_escape: bool = false
     for _i in range(1000):
+        # Refresh the lamp every iteration — _process_input now
+        # advances per-turn state on every command (canon STMT
+        # 6010 dwarf walker + lamp tick + endgame timer), so over
+        # 1000 EAST rolls the lamp would drain past LIMIT=330 and
+        # the dark-pit hazard would start killing the player.
+        # Refreshing keeps Witt's End the system under test, not
+        # battery depletion.
+        d.fsm.refresh_lamp()
         d.fsm.player.move_to(108)        # reset position each attempt
+        d.fsm.player.revive()             # in case a dwarf got lucky
         var pre: int = d.captured.size()
         d._process_input("east")
         var lines: Array = d.captured.slice(pre)
@@ -119,7 +128,9 @@ func _init():
     print("Phase 3: NORTH never lets the player leave 108")
     var moved: int = 0
     for _i in range(200):
+        d.fsm.refresh_lamp()
         d.fsm.player.move_to(108)
+        d.fsm.player.revive()
         d._process_input("north")
         if d.fsm.player_room() != 108:
             moved += 1

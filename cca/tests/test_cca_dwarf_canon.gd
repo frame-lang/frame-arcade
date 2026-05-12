@@ -45,13 +45,18 @@ func _init():
     print("=== CCA dwarf canon — msgs #2 / #3 / #116 ===")
 
     # ----- Phase 1: movement into a stalking-dwarf room blocks -----
-    # wake_dwarves places dwarf1 at canon 12 (East Canyon). From
-    # canon 11 (East End of Hall of Mists), WEST → 12 should be
-    # blocked by dwarf1.
+    # wake_dwarves places dwarf2 at canon 33 (Y2 marker). From
+    # canon 14 (small pit at bottom of slit), UP / IN to canon
+    # 33 routes via the canon section-3 travel table.
+    # We use _put_dwarf_at to force the dwarf into the player's
+    # intended destination so msg #2 fires.
     print("Phase 1: movement into stalking-dwarf room → msg #2")
     var d1 := H.make_driver()
     d1.fsm.wake_dwarves()
     d1.fsm.player.move_to(11)         # canon East End of Hall of Mists
+    # Force dwarf1 into canon 12 so the WEST move into 12 is blocked.
+    d1.fsm.dwarf_step_to(1, 12)
+    d1.fsm.dwarf_step_to(1, 12)
     var l1: Array = H.capture(d1, "west")     # 11 → 12 has dwarf1
     _expect_any_match("walking into dwarf1's room emits msg #2",
         l1, "little dwarf with a big knife")
@@ -67,13 +72,13 @@ func _init():
         l2, "little dwarf with a big knife")
 
     # ----- Phase 3: msg #3 first-encounter narration -----
-    # Drive the player to dwarf1's room (canon 12) by force-placing.
+    # Drive the player to dwarf1's room (canon 19) by force-placing.
     # _print_room is what fires the msg #3 narration on first
     # entry. Since we use _print_room directly the visit counts.
     print("Phase 3: first stalking-dwarf encounter → msg #3")
     var d3 := H.make_driver()
     d3.fsm.wake_dwarves()
-    d3.fsm.player.move_to(12)
+    d3.fsm.player.move_to(19)
     var pre3: int = d3.captured.size()
     d3._print_room()
     var lines3: Array = d3.captured.slice(pre3)
