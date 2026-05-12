@@ -2799,12 +2799,16 @@ func _format_inventory() -> String:
 # ============================================================
 # Save / load
 # ============================================================
+## Save-file magic — see cca/godot/scripts/driver.gd for full doc.
+static var _SAVE_MAGIC: PackedByteArray = PackedByteArray([67, 67, 65, 49])  # "CCA1"
+
 func _save_game() -> void:
     var bytes: PackedByteArray = fsm.save_state()
     var f := FileAccess.open(_save_path, FileAccess.WRITE)
     if f == null:
         _println("Save failed.")
         return
+    f.store_buffer(_SAVE_MAGIC)
     f.store_buffer(bytes)
     f.close()
     _println("Saved.")
@@ -2817,8 +2821,17 @@ func _load_game() -> void:
     if f == null:
         _println("Load failed.")
         return
-    var bytes := f.get_buffer(f.get_length())
+    var raw := f.get_buffer(f.get_length())
     f.close()
+    # Save-file format magic — see cca/godot/scripts/driver.gd
+    # for full inline doc. Drops incompatible saves cleanly.
+    if raw.size() < 4 or raw.slice(0, 4) != _SAVE_MAGIC:
+        _println("Saved game is from an older version and is no longer compatible. Starting fresh.")
+        DirAccess.remove_absolute(ProjectSettings.globalize_path(_save_path))
+        _print_welcome()
+        _print_room()
+        return
+    var bytes := raw.slice(4)
     fsm.restore_state(bytes)
     # Canon SAVED latch (advent.for STMT 6010 line 777) — dwarves
     # snap to DFLAG=20 on next attack tick.
