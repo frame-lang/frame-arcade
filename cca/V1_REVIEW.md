@@ -217,24 +217,43 @@ Every canon-foundational mechanism is present:
 | Caret color | Same as input — `#ebf299` | |
 | Placeholder color | `#8c8c8c` (0.55, 0.55, 0.55) — mid-gray | |
 
-### V1 + future memorabilia ideas (not yet implemented)
+### Memorabilia roadmap
 
-Ranked roughly by player-visible delight per hour of work:
+#### Approved for V1 (pending implementation)
 
-1. **Bigger ASCII art well-house** in welcome panel (could be a real
-   period line-printer drawing of a brick building with stream
-   underflow)
-2. **PDP-10 boot-sequence ASCII** as a literal first screen before the
-   credits (a 1977-feeling reset experience)
-3. **Crowther's hand-drawn Mammoth-Cave-Bedquilt map** as a hidden
-   easter egg (find via a specific verb at a specific room)
-4. **End-of-game score screen** that mimics PDP-10 line-printer output
-5. **Pulsing-cursor "Type HELP for instructions"** at the welcome
-6. **A small map indicator** showing visited rooms (player-facing,
-   non-canon but era-appropriate)
-7. **Era-appropriate terminal click sound** on keystroke (carefully
-   gated — must be off-by-default; sound-effects fight the
-   contemplative IF mood)
+1. **Bigger ASCII well-house** in welcome panel — replaces the
+   current 5-line silhouette with a fuller period line-printer
+   drawing (brick building, stream underflow, surrounding forest).
+   User approved 2026-05-12.
+2. **Crowther's hand-drawn Mammoth-Cave-Bedquilt map** as a hidden
+   easter egg. Trigger verb / room TBD — proposed: `MAP` at the
+   well-house, or LOOK at a hidden artifact in the repository.
+   User approved 2026-05-12.
+
+#### Pending user decision
+
+3. **Line-printer-style end-of-game score screen** mimicking PDP-10
+   chain-printer output:
+   - All caps, monospace, fixed columns
+   - 132-char tractor-feed width
+   - Block-letter "FINAL SCORE" banner with `=` rule lines
+   - Dot-leader columns aligning the score components
+   The actual prose stays canon (advent.for FORMAT 20100 + the
+   rating ladder); only the typographic dressing is added.
+
+#### Open ideas (not selected; revisit post-V1)
+
+4. **PDP-10 boot-sequence ASCII** as a first screen before the
+   credits — a 1977-feeling reset experience (DEC monitor banner,
+   TOPS-10 login prompt fade).
+5. **Pulsing-cursor "Type HELP for instructions"** at the welcome —
+   subtle terminal-cursor animation on the post-msg #1 nudge.
+6. **Small map indicator** showing visited rooms — player-facing
+   compass-style overlay; non-canon but era-appropriate. Risk:
+   conflicts with the canon-fidelity vibe.
+7. **Era-appropriate terminal click sound** on keystroke — gated
+   off-by-default. Risk: sound-effects fight the contemplative
+   IF mood; ship muted with a toggle in settings.
 
 ---
 
