@@ -1094,6 +1094,8 @@ var verb_synonyms: Dictionary = {
     # Canon CAVE (advent.for STMT 40) — purely informational verb:
     # outdoors → msg #57, indoors → msg #58.
     "cave": "cave",
+    # Port-only easter egg — Crowther's hand-drawn Bedquilt map.
+    "map": "map",
 }
 
 # Direction keywords that map to room navigation. These get
@@ -1699,6 +1701,16 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
                 _println("I don't know where the cave is, but hereabouts no stream can run on the surface for long. I would try the stream.")
             else:
                 _println("I need more detailed instructions to do that.")
+            return true
+        "map":
+            # Port-only easter egg — Crowther's Bedquilt map.
+            # Available at the well-house (canon 3) or in the deep
+            # cave (LOC ≥ 15); surface forest gets canon msg #60.
+            var here_r: int = fsm.player_room()
+            if here_r != 3 and here_r < 15:
+                _println("I don't know that word.")
+                return true
+            _print_crowther_map()
             return true
         "look":
             if _look_detail_count < 3:
@@ -2832,11 +2844,24 @@ func _print_welcome() -> void:
     # Mirrors cca/godot/scripts/driver.gd:_print_welcome.
     var art: String = (
         "[color=#a89878]"
-        + "             ____\n"
-        + "            /    \\\n"
-        + "           /______\\\n"
-        + "           |() ()|\n"
-        + "           |_____|\n"
+        + "                       __\n"
+        + "                      /  \\\n"
+        + "                     /    \\\n"
+        + "                    /      \\\n"
+        + "                   /________\\\n"
+        + "                   |  __ __  |\n"
+        + "                   | |..|..| |\n"
+        + "                   | |..|..| |\n"
+        + "                   |_|..|..|_|\n"
+        + "                   |         |\n"
+        + "                   |   ___   |\n"
+        + "                   |  |...|  |\n"
+        + "                   |  |...|  |\n"
+        + "                   |__|...|__|\n"
+        + " ^  ^  ^  ^  ^  ^  ===========  ^  ^  ^  ^  ^  ^\n"
+        + " | | | | | | | | |             | | | | | | | | |\n"
+        + "                                ~~~~~~~~~~~~~~~~\n"
+        + "  ~~~  forest  ~~~              ~~  stream  ~~~~\n"
         + "[/color]"
     )
     _println(art)
@@ -2847,6 +2872,55 @@ func _print_welcome() -> void:
     _println("Welcome to Adventure!! Would you like instructions?")
     _println("Type HELP for a list of commands, or press Enter to begin.")
     _println("[b]Cabinet keys:[/b] [b]F5[/b] quick-save, [b]F9[/b] quick-load, [b]Esc[/b] save/quit dialog.")
+
+# Port-only easter egg — Will Crowther's Bedquilt cave map (1972).
+# Mirrors cca/godot/scripts/driver.gd:_print_crowther_map. Triggered
+# by the MAP verb at the well-house or in the deep cave.
+func _print_crowther_map() -> void:
+    var map: String = (
+        "[color=#a89878]"
+        + "                                                       \n"
+        + "      W. CROWTHER -- BEDQUILT  MAP -- 1972 (RECONSTRUCTED)\n"
+        + "      ====================================================\n"
+        + "                                                       \n"
+        + "                          .-- Hall of Mists --.        \n"
+        + "                          |                   |        \n"
+        + "                          v                   v        \n"
+        + "                       Slab Rm           Mist Hall     \n"
+        + "                          |                   |        \n"
+        + "                          '---->  BEDQUILT  <-'        \n"
+        + "                                  (canon 65)           \n"
+        + "                                     |                 \n"
+        + "                  .------------------+-------------.   \n"
+        + "                  |              |                 |   \n"
+        + "                  v              v                 v   \n"
+        + "             Y2 marker     Mt King Hall      Anteroom  \n"
+        + "                  |              |                 |   \n"
+        + "                  |              v                 v   \n"
+        + "                  |        Snake Passage    Shell Room \n"
+        + "                  |                                |   \n"
+        + "                  v                                v   \n"
+        + "             Twopit Rm                      The Oyster \n"
+        + "                  |                                    \n"
+        + "        .---------+---------.                          \n"
+        + "        |                   |                          \n"
+        + "        v                   v                          \n"
+        + "    East Pit             West Pit -- plant ascends     \n"
+        + "    (oil pool)           (canon 25)        |           \n"
+        + "                                           v           \n"
+        + "                                       Giant Room      \n"
+        + "                                           |           \n"
+        + "                                           v           \n"
+        + "                                      Repository       \n"
+        + "                                                       \n"
+        + "      ----------------------------------------------   \n"
+        + "      \"Most of the passages turn, and leaving a room   \n"
+        + "       to the north does not guarantee entering the    \n"
+        + "       next from the south.\"  -- W. Crowther, 1976     \n"
+        + "      ----------------------------------------------   \n"
+        + "[/color]"
+    )
+    _println(map)
 
 # Opens [url=...] BBCode links in the player's default browser.
 # `meta` arrives as a Variant (the bare url string from BBCode).

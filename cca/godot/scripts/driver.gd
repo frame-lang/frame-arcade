@@ -133,6 +133,12 @@ var verb_synonyms: Dictionary = {
     # Canon CAVE (advent.for STMT 40) — purely informational verb:
     # outdoors → msg #57, indoors → msg #58.
     "cave": "cave",
+    # Port-only easter-egg verb. MAP reveals a stylized recreation
+    # of Will Crowther's hand-drawn Bedquilt cave map (1972) when
+    # the player is at the well-house or somewhere in the deep
+    # cave. From the surface forest it falls through to msg #60
+    # "I don't know that word." per canon.
+    "map": "map",
 }
 
 # Direction keywords that map to room navigation. These get
@@ -1046,6 +1052,19 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
                 _println("I don't know where the cave is, but hereabouts no stream can run on the surface for long. I would try the stream.")
             else:
                 _println("I need more detailed instructions to do that.")
+            return true
+        "map":
+            # Port-only easter egg — Will Crowther's hand-drawn
+            # Bedquilt cave map (1972). Discoverable from the well-
+            # house (canon room 3) or anywhere in the deep cave
+            # (LOC ≥ 15). On the surface, falls through to canon
+            # msg #60 "I don't know that word." so the player isn't
+            # spoiled into discovering it from idle wandering.
+            var here_r: int = fsm.player_room()
+            if here_r != 3 and here_r < 15:
+                _println("I don't know that word.")
+                return true
+            _print_crowther_map()
             return true
         "look":
             # Canon LOOK (advent.for STMT 30). msg #15 first 3
@@ -2266,17 +2285,31 @@ func _print_welcome() -> void:
     # canon prose; the silhouette is decoration and the canon
     # text is unmodified.
     #
+    # Period line-printer brick well-house with stream underflow,
+    # canon room #1 ("a small brick building" with the stream).
     # Bracket pairs like `[]` would be parsed as empty BBCode
-    # tags and corrupt the parser state for everything that
-    # comes after, so the window squares are drawn with `( )`
-    # instead — same visual rhythm, no parser hazard.
+    # tags and corrupt the parser state, so the window panes are
+    # drawn with `( )` and `.` decorations instead.
     var art: String = (
         "[color=#a89878]"
-        + "             ____\n"
-        + "            /    \\\n"
-        + "           /______\\\n"
-        + "           |() ()|\n"
-        + "           |_____|\n"
+        + "                       __\n"
+        + "                      /  \\\n"
+        + "                     /    \\\n"
+        + "                    /      \\\n"
+        + "                   /________\\\n"
+        + "                   |  __ __  |\n"
+        + "                   | |..|..| |\n"
+        + "                   | |..|..| |\n"
+        + "                   |_|..|..|_|\n"
+        + "                   |         |\n"
+        + "                   |   ___   |\n"
+        + "                   |  |...|  |\n"
+        + "                   |  |...|  |\n"
+        + "                   |__|...|__|\n"
+        + " ^  ^  ^  ^  ^  ^  ===========  ^  ^  ^  ^  ^  ^\n"
+        + " | | | | | | | | |             | | | | | | | | |\n"
+        + "                                ~~~~~~~~~~~~~~~~\n"
+        + "  ~~~  forest  ~~~              ~~  stream  ~~~~\n"
         + "[/color]"
     )
     _println(art)
@@ -2291,6 +2324,59 @@ func _print_welcome() -> void:
     # with a dedicated HELP verb. Single line, no BBCode markup
     # so it doesn't compete with the canon prose above.
     _println("Type HELP for a list of commands, or press Enter to begin.")
+
+# Port-only easter egg — a stylized ASCII recreation of Will
+# Crowther's original Bedquilt cave map (the hand-drawn sketch he
+# kept while surveying Mammoth Cave in 1972, four years before
+# the Adventure program). The schematic shows the deep cave's
+# main hubs and how the canon section-3 travel graph stitches
+# them together. Triggered by typing `MAP` at the well-house or
+# anywhere in the deep cave.
+func _print_crowther_map() -> void:
+    var map: String = (
+        "[color=#a89878]"
+        + "                                                       \n"
+        + "      W. CROWTHER -- BEDQUILT  MAP -- 1972 (RECONSTRUCTED)\n"
+        + "      ====================================================\n"
+        + "                                                       \n"
+        + "                          .-- Hall of Mists --.        \n"
+        + "                          |                   |        \n"
+        + "                          v                   v        \n"
+        + "                       Slab Rm           Mist Hall     \n"
+        + "                          |                   |        \n"
+        + "                          '---->  BEDQUILT  <-'        \n"
+        + "                                  (canon 65)           \n"
+        + "                                     |                 \n"
+        + "                  .------------------+-------------.   \n"
+        + "                  |              |                 |   \n"
+        + "                  v              v                 v   \n"
+        + "             Y2 marker     Mt King Hall      Anteroom  \n"
+        + "                  |              |                 |   \n"
+        + "                  |              v                 v   \n"
+        + "                  |        Snake Passage    Shell Room \n"
+        + "                  |                                |   \n"
+        + "                  v                                v   \n"
+        + "             Twopit Rm                      The Oyster \n"
+        + "                  |                                    \n"
+        + "        .---------+---------.                          \n"
+        + "        |                   |                          \n"
+        + "        v                   v                          \n"
+        + "    East Pit             West Pit -- plant ascends     \n"
+        + "    (oil pool)           (canon 25)        |           \n"
+        + "                                           v           \n"
+        + "                                       Giant Room      \n"
+        + "                                           |           \n"
+        + "                                           v           \n"
+        + "                                      Repository       \n"
+        + "                                                       \n"
+        + "      ----------------------------------------------   \n"
+        + "      \"Most of the passages turn, and leaving a room   \n"
+        + "       to the north does not guarantee entering the    \n"
+        + "       next from the south.\"  -- W. Crowther, 1976     \n"
+        + "      ----------------------------------------------   \n"
+        + "[/color]"
+    )
+    _println(map)
 
 # Opens [url=...] BBCode links in the player's default browser.
 # `meta` arrives as a Variant (the bare url string from BBCode).
