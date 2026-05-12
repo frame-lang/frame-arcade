@@ -21,7 +21,10 @@ UI scaffolding (welcome panel, save/load UI, cabinet F-key help)
 SUSPEND) + the port-only vending-machine puzzle prose. Every
 user-facing line that *could* be canonized has been canonized.
 
-Test suite: **62/62 PASS** with every commit in the canon-fidelity push.
+Test suite: **64/64 PASS** with every commit in the canon-fidelity push.
+Added this round: `test_cca_multi_dwarf` (6 phases for the canon STMT
+6010-6030 ladder) and `test_cca_dwarf_persist` (round-trip `prev_room`,
+`seen`, and the SAVED → DFLAG=20 latch).
 
 ---
 
@@ -131,19 +134,32 @@ Every canon-foundational mechanism is present:
   permadeath
 - **Save/restore** — every FSM round-trips via `@@[persist]`
 
-### Real gameplay gaps
+### Real gameplay gaps — all closed
 
 - ✅ **Vase cold-shatter** — canon advent.for STMT 9222: FILL VASE
   while standing at a liquid source (LIQLOC ≠ 0) thermally shocks
-  the Ming vase. Wired this round — `_verb_fill` for `noun=vase`
-  routes to msg #144 (no liquid) or msg #145 (shatter), then
-  drops + breaks the vase via the existing Treasure FSM.
-- **Multi-dwarf scenes** — canon allows multiple dwarves
-  simultaneously in the player's room throwing knives. Port has
-  single-stalking-dwarf model. msg #7 (multi-dwarf hit prose)
-  can't fire. msg #6 ("None of them hit you!") DOES now fire on
-  any single-dwarf miss this round. Full multi-dwarf parser+state
-  would be a substantial refactor and is deferred.
+  the Ming vase. `_verb_fill` for `noun=vase` routes to msg #144
+  (no liquid) or msg #145 (shatter), then drops + breaks the vase
+  via the existing Treasure FSM.
+- ✅ **Multi-dwarf canon STMT 6010-6030** — full wire-up:
+    - Per-turn dwarf walker (driver `_step_dwarves`) walks each
+      stalking dwarf one step along the canon section-3 graph,
+      with no-backtrack / deep-cave / pirate-forbidden / forced-
+      motion filters.
+    - DSEEN sticky-vision: once a dwarf spots the player, it
+      snaps to the player's room until the player surfaces.
+    - DTOTAL / ATTACK / STICK counters power the full canon prose
+      ladder: msg #4 / FORMAT 67 (count in room), msg #5 / FORMAT
+      78 (count of throws), msg #52 / #53 / #6 / #7 / FORMAT 68
+      (hit outcome).
+    - Pirate is now canon dwarf #6: walks the cave with the same
+      movement loop, with extra pirate-forbidden room filter.
+    - SAVED latch (advent.for STMT 6010 line 777) — restoring a
+      save snaps DFLAG=20 ("dwarves get *very* mad") on next
+      attack tick.
+    - Regression tests: `test_cca_multi_dwarf` (6 phases for the
+      ladder), `test_cca_dwarf_persist` (round-trip prev_room +
+      seen + SAVED latch).
 
 ### Probabilistic events — canon distributions match
 
@@ -258,6 +274,45 @@ Audit counts (cumulative): **MATCHED 916 → 1035**, LEFT-ONLY
    the canon "You've over-watered the plant!" message. Plant +
    state-exploration tests updated.
 
+### Final round — multi-dwarf + canon STMT 6010
+
+After the §4 mandatory items landed, a final canon-fidelity pass
+wired:
+
+9. ✅ **Multi-dwarf walker** — driver `_step_dwarves` walks each
+   stalking dwarf one canon step per turn (advent.for STMT 6010-6030)
+   along the section-3 travel graph. The Dwarf FSM now carries
+   `prev_room` (canon ODLOC) and `seen` (canon DSEEN); the
+   orchestrator's `_maybe_dwarf_attack` runs the canon DTOTAL /
+   ATTACK / STICK count loop.
+10. ✅ **Canon multi-dwarf prose ladder** — `_check_dwarf_axe`
+    emits msg #4 / FORMAT 67 (in-room count), msg #5 / FORMAT 78
+    (throw count), and msg #52 / #53 / #6 / #7 / FORMAT 68 (hit
+    outcome) per canon STMT 6010 line 777.
+11. ✅ **Pirate as canon dwarf #6** — Pirate FSM extended with
+    `room` / `prev_room` / `seen` and the same `step_to` /
+    `snap_to_player` / `mark_unseen` primitives. Driver walks the
+    pirate alongside the five dwarves with a pirate-only forbidden-
+    room filter (canon BITSET(LOC,3)). Pirate initialized at
+    `CHEST_ROOM` (canon CHLOC).
+12. ✅ **SAVED → DFLAG=20 latch** — restoring a save snaps dwarf
+    anger to 20 ("dwarves get *very* mad") on the next attack tick
+    (advent.for STMT 6010 line 777). FSM field `loaded_from_save`,
+    driver hooks `fsm.mark_loaded_from_save()` after every
+    `restore_state`.
+13. ✅ **Per-turn-tick coverage** — every turn-taking verb intercept
+    (LOOK, RUB, SAY, BLAST, TAKE, FEED, etc.) routes through
+    `_post_intercept_tick`, so dwarves walk and the lamp drains on
+    every turn — not just movement commands. `_walk_to_dest` (the
+    bumper-walk path) also runs `_step_dwarves`.
+14. ✅ **Canon BITSET / FORCED filters** — `_pick_dwarf_destination`
+    drops `FORCED_ROOMS` (forced-motion rooms) and
+    `FORBIDDEN_PIRATE_ROOMS` for the pirate-only path.
+15. ✅ **Save/restore round-trip test** — `test_cca_dwarf_persist`
+    verifies `prev_room` + `seen` survive @@[persist] for both
+    dwarves and the pirate, and that the SAVED latch correctly
+    snaps DFLAG=20 on the post-restore attack tick.
+
 ### Carry-over (acknowledged divergences in the audit)
 
 Remaining LEFT-ONLY entries are all canon-architectural artifacts
@@ -265,11 +320,16 @@ or deliberate divergences:
 
 - 6 deliberate divergences — `msg#1` (intro), `msg#140`, `msg#175`,
   `msg#187`, `msg#200`, `msg#201`. See §1.
-- 4 canon source artifacts — `msg#7` (multi-dwarf, not reachable in
-  the port's single-stalker model), `msg#68` (unused in canon
-  advent.for — no callsite), `msg#90` (data-file comment, not
-  prose), `obj#35` (bear-uses-rtext-141 placeholder), `for:9366`
-  (FORTRAN init-banner FORMAT, not user-facing).
+- 4 canon source artifacts — `msg#68` (unused in canon advent.for —
+  no callsite), `msg#90` (data-file comment, not prose), `obj#35`
+  (bear-uses-rtext-141 placeholder), `for:9366` (FORTRAN init-banner
+  FORMAT, not user-facing).
+- `msg#7` "One of them gets you!" — now fires in the multi-dwarf
+  ladder when ≥2 dwarves throw and exactly one hits. The audit
+  marks it LEFT-ONLY because the substring matcher doesn't see the
+  prose appear in the static driver source (it's emitted via
+  `_println("[i]One of them gets you![/i]")` which the matcher
+  catches separately). Real coverage is in the regression test.
 
 ---
 

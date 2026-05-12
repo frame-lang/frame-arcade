@@ -743,23 +743,7 @@ func _step_dwarves() -> void:
         var cur: int = fsm.dwarf_room_of(i)
         var prev: int = fsm.dwarf_prev_room_of(i)
         var was_seen: bool = fsm.dwarf_is_seen(i)
-        # Build the canon candidate list: every exit from cur,
-        # minus self-loops, minus prev (no backtrack), minus
-        # outside-cave rooms.
-        var candidates: Array = []
-        for dest in room_exits.get(cur, {}).values():
-            if dest == cur or dest == prev:
-                continue
-            if dest < 15 or dest > 130:
-                continue
-            if not candidates.has(dest):
-                candidates.append(dest)
-        var new_room: int = cur
-        if candidates.is_empty():
-            # Canon "no alternative" fallback: backtrack to prev.
-            new_room = prev if prev != -1 else cur
-        else:
-            new_room = candidates[_dwarf_walk_rng.randi() % candidates.size()]
+        var new_room: int = _pick_dwarf_destination(cur, prev, false)
         fsm.dwarf_step_to(i, new_room)
         # Canon DSEEN update — sticky while in deep cave; clears
         # when player surfaces.
@@ -771,6 +755,58 @@ func _step_dwarves() -> void:
             fsm.dwarf_snap_to_player(i)
         elif player_room < 15:
             fsm.dwarf_unsee(i)
+    # Canon dwarf #6 — the pirate. Walks the cave with the same
+    # movement loop once activated (treasures_carried >= 3). The
+    # pirate's room tracking lets the player encounter it
+    # probabilistically along the canon section-3 graph, instead
+    # of teleporting in from nowhere. The pirate-specific outcomes
+    # (steal vs msg #127 rustling) resolve in _check_pirate_steal.
+    if fsm.pirate.is_stalking():
+        var p_cur: int = fsm.pirate_room()
+        var p_prev: int = fsm.pirate_prev_room()
+        var p_was_seen: bool = fsm.pirate_is_seen()
+        # Pirate is canon-forbidden from additional rooms (BITSET 3)
+        # but for V1 we use the same deep-cave filter as dwarves.
+        var p_new: int = _pick_dwarf_destination(p_cur, p_prev, true)
+        fsm.pirate_step_to(p_new)
+        var p_at: int = fsm.pirate_room()
+        var p_pat: int = fsm.pirate_prev_room()
+        var p_saw: bool = (p_at == player_room) or (p_pat == player_room)
+        var p_new_seen: bool = p_saw or (p_was_seen and player_room >= 15)
+        if p_new_seen:
+            fsm.pirate_snap_to_player()
+        elif player_room < 15:
+            fsm.pirate_unsee()
+
+# Canon STMT 6012 destination picker. Builds the candidate list
+# from the section-3 exits of `cur`, drops self-loops, prev_room
+# (no backtrack), and rooms outside the deep cave (LOC < 15 or
+# LOC > 130). For pirate-forbidden rooms (canon BITSET 3) we use
+# the same conservative deep-cave bound for V1 — those rooms are
+# the dark-room (101), dead ends, and a few flavor rooms canon
+# explicitly excludes; the deep-cave bound captures most.
+func _pick_dwarf_destination(cur: int, prev: int, is_pirate: bool) -> int:
+    var candidates: Array = []
+    for dest in room_exits.get(cur, {}).values():
+        if dest == cur or dest == prev:
+            continue
+        if dest < 15 or dest > 130:
+            continue
+        if is_pirate and dest in FORBIDDEN_PIRATE_ROOMS:
+            continue
+        if dest in FORCED_ROOMS:
+            continue
+        if not candidates.has(dest):
+            candidates.append(dest)
+    if candidates.is_empty():
+        # Canon "no alternative" fallback: backtrack to prev.
+        return prev if prev != -1 else cur
+    return candidates[_dwarf_walk_rng.randi() % candidates.size()]
+
+# Canon BITSET(LOC,3) — rooms the pirate is canonically barred
+# from. Mostly the dark-room and a few one-way-passage rooms.
+# Conservative list for V1; expand if canon trace surfaces more.
+const FORBIDDEN_PIRATE_ROOMS: Array = [101, 117, 122]
 
 func _dwarf_state(idx: int) -> String:
     if idx == 1: return fsm.dwarf1.get_state()
@@ -1667,6 +1703,9 @@ func _walk_to_dest(dest_room: int) -> void:
     _old_loc = fsm.player_room()
     var resp: String = fsm.do_command("move", str(dest_room))
     _println(resp)
+    # Canon STMT 6010 — bumper-walks still advance the dwarf turn
+    # counter, so dwarves walk and may attack along this path too.
+    _step_dwarves()
     fsm.tick()
     _check_pirate_steal()
     _check_lamp_warnings()
@@ -2177,6 +2216,9 @@ func _load_game() -> void:
     var bytes := f.get_buffer(f.get_length())
     f.close()
     fsm.restore_state(bytes)
+    # Canon advent.for STMT 6010 line 777: SAVED != -1 → dwarves
+    # snap to DFLAG=20 on next attack. The FSM latch fires once.
+    fsm.mark_loaded_from_save()
     _last_endgame_state = fsm.endgame_state()
     _last_room = -1
     _println("Restored.")

@@ -1780,19 +1780,7 @@ func _step_dwarves() -> void:
         var cur: int = fsm.dwarf_room_of(i)
         var prev: int = fsm.dwarf_prev_room_of(i)
         var was_seen: bool = fsm.dwarf_is_seen(i)
-        var candidates: Array = []
-        for dest in room_exits.get(cur, {}).values():
-            if dest == cur or dest == prev:
-                continue
-            if dest < 15 or dest > 130:
-                continue
-            if not candidates.has(dest):
-                candidates.append(dest)
-        var new_room: int = cur
-        if candidates.is_empty():
-            new_room = prev if prev != -1 else cur
-        else:
-            new_room = candidates[_dwarf_walk_rng.randi() % candidates.size()]
+        var new_room: int = _pick_dwarf_destination(cur, prev, false)
         fsm.dwarf_step_to(i, new_room)
         var now_at: int = fsm.dwarf_room_of(i)
         var now_prev: int = fsm.dwarf_prev_room_of(i)
@@ -1802,6 +1790,40 @@ func _step_dwarves() -> void:
             fsm.dwarf_snap_to_player(i)
         elif player_room < 15:
             fsm.dwarf_unsee(i)
+    # Canon dwarf #6 — the pirate. Same movement loop once active.
+    if fsm.pirate.is_stalking():
+        var p_cur: int = fsm.pirate_room()
+        var p_prev: int = fsm.pirate_prev_room()
+        var p_was_seen: bool = fsm.pirate_is_seen()
+        var p_new: int = _pick_dwarf_destination(p_cur, p_prev, true)
+        fsm.pirate_step_to(p_new)
+        var p_at: int = fsm.pirate_room()
+        var p_pat: int = fsm.pirate_prev_room()
+        var p_saw: bool = (p_at == player_room) or (p_pat == player_room)
+        var p_new_seen: bool = p_saw or (p_was_seen and player_room >= 15)
+        if p_new_seen:
+            fsm.pirate_snap_to_player()
+        elif player_room < 15:
+            fsm.pirate_unsee()
+
+func _pick_dwarf_destination(cur: int, prev: int, is_pirate: bool) -> int:
+    var candidates: Array = []
+    for dest in room_exits.get(cur, {}).values():
+        if dest == cur or dest == prev:
+            continue
+        if dest < 15 or dest > 130:
+            continue
+        if is_pirate and dest in FORBIDDEN_PIRATE_ROOMS:
+            continue
+        if dest in FORCED_ROOMS:
+            continue
+        if not candidates.has(dest):
+            candidates.append(dest)
+    if candidates.is_empty():
+        return prev if prev != -1 else cur
+    return candidates[_dwarf_walk_rng.randi() % candidates.size()]
+
+const FORBIDDEN_PIRATE_ROOMS: Array = [101, 117, 122]
 
 func _dwarf_state(idx: int) -> String:
     if idx == 1: return fsm.dwarf1.get_state()
@@ -2341,6 +2363,8 @@ func _walk_to_dest(dest_room: int) -> void:
     _old_loc = fsm.player_room()
     var resp: String = fsm.do_command("move", str(dest_room))
     _println(resp)
+    # Canon STMT 6010 — bumper-walks advance the dwarf turn too.
+    _step_dwarves()
     fsm.tick()
     _check_pirate_steal()
     _check_lamp_warnings()
@@ -2763,6 +2787,9 @@ func _load_game() -> void:
     var bytes := f.get_buffer(f.get_length())
     f.close()
     fsm.restore_state(bytes)
+    # Canon SAVED latch (advent.for STMT 6010 line 777) — dwarves
+    # snap to DFLAG=20 on next attack tick.
+    fsm.mark_loaded_from_save()
     _last_endgame_state = fsm.endgame_state()
     _last_room = -1
     _println("Restored.")

@@ -2556,6 +2556,16 @@
     interface:
         treasures_carried(n: int)
         try_steal(): bool                # returns true if pirate stole
+        # Canon advent.for STMT 6010 — the pirate is dwarf #6 and
+        # walks the cave with the same movement loop. Driver picks
+        # the destination from canon section-3 exits; the FSM
+        # records the step. Mirrors the Dwarf interface.
+        step_to(new_room: int)
+        snap_to_player(at_room: int)
+        mark_unseen()
+        get_room(): int
+        get_prev_room(): int
+        is_seen(): bool
         get_state(): String
         is_stalking(): bool
 
@@ -2569,6 +2579,16 @@
             try_steal(): bool {
                 @@:(false)
             }
+            step_to(new_room: int) {
+                # The pirate doesn't wander until activated. Canon
+                # mirrors this with PROP(CHEST) >= 0 — pirate only
+                # starts moving once the chest's been "spotted."
+            }
+            snap_to_player(at_room: int) {}
+            mark_unseen() {}
+            get_room(): int      { @@:(-1) }
+            get_prev_room(): int { @@:(-1) }
+            is_seen(): bool      { @@:(false) }
             get_state(): String  { @@:("dormant") }
             is_stalking(): bool  { @@:(false) }
         }
@@ -2576,11 +2596,12 @@
         $Stalking {
             treasures_carried(n: int) {
                 # Already stalking; staying here is fine.
-                # No re-trigger.
             }
             try_steal(): bool {
                 # 25% chance per turn — same deterministic PRNG
-                # shape as Dwarf.attack().
+                # shape as Dwarf.attack(). Note: this is now used
+                # as a probability gate; the location check (pirate
+                # at player's room) is the driver's responsibility.
                 self.step = self.step + 1
                 var x: int = self.seed * 1664525 + self.step * 1013904223
                 x = ((x >> 16) ^ x) * 22695477
@@ -2591,6 +2612,20 @@
                     @@:return(true)
                 @@:(false)
             }
+            step_to(new_room: int) {
+                self.prev_room = self.room
+                self.room = new_room
+            }
+            snap_to_player(at_room: int) {
+                self.seen = true
+                self.room = at_room
+            }
+            mark_unseen() {
+                self.seen = false
+            }
+            get_room(): int      { @@:(self.room) }
+            get_prev_room(): int { @@:(self.prev_room) }
+            is_seen(): bool      { @@:(self.seen) }
             get_state(): String  { @@:("stalking") }
             is_stalking(): bool  { @@:(true) }
         }
@@ -2600,6 +2635,12 @@
             try_steal(): bool {
                 @@:(false)
             }
+            step_to(new_room: int) {}
+            snap_to_player(at_room: int) {}
+            mark_unseen() {}
+            get_room(): int      { @@:(self.room) }
+            get_prev_room(): int { @@:(self.prev_room) }
+            is_seen(): bool      { @@:(false) }
             get_state(): String  { @@:("vanished") }
             is_stalking(): bool  { @@:(false) }
         }
@@ -2607,6 +2648,12 @@
     domain:
         seed: int = seed
         step: int = 0
+        # Canon DLOC(6) — pirate's current room. Initialized to
+        # canon chest stash location (CHLOC) which the orchestrator
+        # injects via wake_dwarves(). -1 until then.
+        room: int = -1
+        prev_room: int = -1
+        seen: bool = false
         ACTIVATION_THRESHOLD: int = 3
 }
 
@@ -2777,6 +2824,13 @@
         dwarf_hit_count(): int                # canon STICK — dwarves whose knife hit
         bump_dwarf_anger()                    # FEED dwarf increments anger (canon DFLAG++)
         get_dwarf_anger(): int                # current dwarf anger (canon DFLAG, floor 2)
+        # Canon advent.for STMT 6010 line 777 — when the player has
+        # ever resumed from a save (SAVED != -1), the dwarves snap
+        # to DFLAG=20 (max anger) on their first attack-tick after
+        # restore. Driver calls mark_loaded_from_save() right after
+        # restore_state() so this latch fires correctly.
+        mark_loaded_from_save()
+        is_loaded_from_save(): bool
         # Driver-side helpers for the canon dwarf-movement loop
         # (per-turn step toward player along canon section-3
         # exits). The driver picks new_room with the canon filter
@@ -2788,6 +2842,17 @@
         dwarf_is_seen(idx: int): bool
         dwarf_snap_to_player(idx: int)        # canon DSEEN=true → DLOC=LOC
         dwarf_unsee(idx: int)                 # canon player drops below LOC 15
+        # Pirate is canon dwarf #6 — same movement primitives as the
+        # other five. Driver picks the destination per the canon
+        # section-3 filter and calls these. The pirate-specific
+        # behavior (steal vs throw, msg #127 rustling) lives in the
+        # driver's per-turn pirate check.
+        pirate_step_to(new_room: int)
+        pirate_room(): int
+        pirate_prev_room(): int
+        pirate_is_seen(): bool
+        pirate_snap_to_player()
+        pirate_unsee()
 
         # Endgame
         deposit_treasure()
@@ -3058,7 +3123,22 @@
                 self.dwarf3.wake_up(47)   # snake passage
                 self.dwarf4.wake_up(65)   # bedquilt / bear chamber (canon 65)
                 self.dwarf5.wake_up(118)  # cliff with ledge (beyond bridge)
+                # Canon DLOC(6) — pirate's initial room. Canon CCA
+                # puts the pirate at CHLOC (the chest stash room) at
+                # start; the port mirrors this by seeding the pirate
+                # at CHEST_ROOM via a direct step_to. Pirate stays in
+                # $Dormant until activated by treasure-carry threshold,
+                # but tracks position so it can walk once active.
+                self.pirate.step_to(self.CHEST_ROOM)
             }
+
+            mark_loaded_from_save() {
+                # Canon SAVED ← 0 (was -1 before any suspend). The
+                # latch is consumed by _maybe_dwarf_attack on the
+                # first attack tick — there it snaps DFLAG=20.
+                self.loaded_from_save = true
+            }
+            is_loaded_from_save(): bool { @@:(self.loaded_from_save) }
 
             bump_dwarf_anger() {
                 # FEED dwarf in canon (advent.for STMT 9213) raises
@@ -3226,6 +3306,18 @@
                 elif idx == 5: @@:return(self.dwarf5.is_seen())
                 @@:(false)
             }
+            pirate_step_to(new_room: int) {
+                self.pirate.step_to(new_room)
+            }
+            pirate_snap_to_player() {
+                self.pirate.snap_to_player(self.player.get_room())
+            }
+            pirate_unsee() {
+                self.pirate.mark_unseen()
+            }
+            pirate_room(): int      { @@:(self.pirate.get_room()) }
+            pirate_prev_room(): int { @@:(self.pirate.get_prev_room()) }
+            pirate_is_seen(): bool  { @@:(self.pirate.is_seen()) }
 
             deposit_treasure() {
                 self.endgame.treasure_deposited()
@@ -3544,6 +3636,12 @@
             self.dwarf_total_in_room = dtotal
             self.dwarf_attack_total = attack
             self.dwarf_hit_total = stick
+            # Canon STMT 6010 line 777 — once a player resumes from
+            # a save, the next dwarf attack snaps DFLAG=20 ("dwarves
+            # get *very* mad"). The latch fires once per restored
+            # run, on the first turn where at least one dwarf throws.
+            if attack > 0 and self.loaded_from_save and self.dwarf_anger < 20:
+                self.dwarf_anger = 20
             # Legacy single-dwarf flags — preserved for the
             # single-attacker fast path in _check_dwarf_axe. The
             # driver now prefers the count-aware ladder.
@@ -5597,6 +5695,12 @@
         # fighting") — knife-throw hit pct = 95*(anger-2)/1000.
         # FEED dwarf bumps this; without FEEDs the rate stays at 0%.
         dwarf_anger: int = 2
+        # Canon SAVED latch (advent.for STMT 6010 line 777). True
+        # iff the player has resumed from a save this run. On the
+        # next dwarf attack tick, DFLAG snaps to 20 ("dwarves get
+        # *very* mad"). Driver sets via mark_loaded_from_save() on
+        # restore_state.
+        loaded_from_save: bool = false
 
         # Canon msgs #161/#162 — once a player crosses the troll
         # bridge with the bear following, the bridge buckles
