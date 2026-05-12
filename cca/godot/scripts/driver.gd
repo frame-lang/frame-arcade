@@ -2235,15 +2235,12 @@ func _print_player_input(text: String) -> void:
     output.append_text("[color=#888888]> %s[/color]\n" % text)
 
 func _print_welcome() -> void:
-    # Crowther/Woods credit splash — every CCA session opens
-    # with explicit attribution to the original 1976/77 work
-    # before any game prose. Era-appropriate plain text, no
-    # emoji or modern iconography. Routed through `_println`
-    # (rather than direct `output.append_text` calls) so the
-    # captured-driver test can observe the welcome output.
-    var rule: String = "[color=#a89878]─────────────────────────────[/color]"
-    # Small brick-building silhouette, period line-printer style.
-    # Echoes the canon opening room ("a small brick building").
+    # Canon msg #1 verbatim — the 1977 Don Woods intro with the
+    # Crowther/Woods attribution already baked in at the bottom.
+    # The port adds a small brick-building silhouette above the
+    # canon prose; the silhouette is decoration and the canon
+    # text is unmodified.
+    #
     # Bracket pairs like `[]` would be parsed as empty BBCode
     # tags and corrupt the parser state for everything that
     # comes after, so the window squares are drawn with `( )`
@@ -2257,26 +2254,18 @@ func _print_welcome() -> void:
         + "           |_____|\n"
         + "[/color]"
     )
-    var msg: String = ""
-    msg += "[color=#e0c890][b]COLOSSAL CAVE ADVENTURE[/b][/color]\n"
-    msg += rule + "\n\n"
-    msg += art + "\n"
-    msg += "  Originally written by [b]Will Crowther[/b] (1976)\n"
-    msg += "  and expanded to the canonical 350-point version\n"
-    msg += "  by [b]Don Woods[/b] at the Stanford AI Lab (1977).\n\n"
-    msg += "[color=#a89878]"
-    msg += "  This Frame state-machine implementation re-ports\n"
-    msg += "  the original PDP-10 FORTRAN-IV source preserved at\n"
-    msg += "  the [url=https://www.ifarchive.org/]Interactive Fiction Archive[/url].\n"
-    msg += "  Public domain; redistributed for historical record.\n"
-    msg += "[/color]\n"
-    msg += rule
-    _println(msg)
-    # Canon msg #65 — original opening prompt. Followed by the
-    # port's HELP hint since the canon Y/N flow for instructions
-    # is out of scope (port has a dedicated HELP verb instead).
+    _println(art)
+    # Canon msg #1 — verbatim from advent.dat. The "- - -" rule
+    # and Crowther/Woods byline are canon, not port decoration.
+    _println("Somewhere nearby is Colossal Cave, where others have found fortunes in treasure and gold, though it is rumored that some who enter are never seen again. Magic is said to work in the cave. I will be your eyes and hands. Direct me with commands of 1 or 2 words. I should warn you that I look at only the first five letters of each word, so you'll have to enter \"NORTHEAST\" as \"NE\" to distinguish it from \"NORTH\". (Should you get stuck, type \"HELP\" for some general hints. For information on how to end your adventure, etc., type \"INFO\".)")
+    _println("                      - - -")
+    _println("This program was originally developed by Willie Crowther. Most of the features of the current program were added by Don Woods (DON @ SU-AI). Contact Don if you have any questions, comments, etc.")
+    # Canon msg #65 — opening prompt.
     _println("Welcome to Adventure!! Would you like instructions?")
-    _println("Type [b]HELP[/b] for a list of commands, or press Enter to begin.")
+    # Port help nudge — canon's instruction Y/N flow is replaced
+    # with a dedicated HELP verb. Single line, no BBCode markup
+    # so it doesn't compete with the canon prose above.
+    _println("Type HELP for a list of commands, or press Enter to begin.")
 
 # Opens [url=...] BBCode links in the player's default browser.
 # `meta` arrives as a Variant (the bare url string from BBCode).

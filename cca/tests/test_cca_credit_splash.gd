@@ -1,17 +1,9 @@
 extends SceneTree
 
-# Verifies the Crowther/Woods credit splash. Every CCA session
-# opens with explicit attribution to the 1976/77 original before
-# any game prose; the splash is the first thing a player sees
-# on launch (standalone build) or on chapter-select (arcade
-# build). The text lives in Driver._print_welcome and is mirrored
-# verbatim in arcade/godot/scripts/cca_main.gd's _print_welcome.
-#
-# Captured-driver pattern: subclass Driver to override _println,
-# call _print_welcome, scan the captured buffer for canonical
-# attribution beats. The text is the user-facing tribute — if
-# any of the eight checks below fail, the splash isn't paying
-# the proper credit.
+# Verifies the canon msg #1 welcome — the 1977 Don Woods intro
+# verbatim from advent.dat. Canon already includes the Willie
+# Crowther + Don Woods attribution baked into the prose; the
+# splash uses canon text rather than port-flavored credits.
 
 const H = preload("res://scripts/_test_helpers.gd")
 
@@ -43,19 +35,22 @@ func _init():
     d._print_welcome()
     var t: String = d.joined()
 
-    _expect_contains("title",            t, "COLOSSAL CAVE ADVENTURE")
-    _expect_contains("Crowther credit",  t, "Will Crowther")
-    _expect_contains("year — Crowther",  t, "1976")
-    _expect_contains("Woods credit",     t, "Don Woods")
-    _expect_contains("year — Woods",     t, "1977")
-    _expect_contains("Stanford AI Lab",  t, "Stanford AI Lab")
-    _expect_contains("FORTRAN provenance", t, "PDP-10 FORTRAN-IV")
-    _expect_contains("IF Archive",       t, "Interactive Fiction Archive")
-    _expect_contains("public domain",    t, "Public domain")
-    _expect_contains("HELP hint",        t, "HELP")
+    # Canon msg #1 verbatim beats (advent.dat). The famous Don
+    # Woods 1977 intro paragraph with the Crowther + Woods byline
+    # baked in at the bottom. The brick-house ASCII silhouette is
+    # port decoration above the canon prose.
+    _expect_contains("canon msg #1 opener",       t, "Somewhere nearby is Colossal Cave")
+    _expect_contains("canon msg #1 magic",        t, "Magic is said to work in the cave")
+    _expect_contains("canon msg #1 5-letter rule", t, "first five letters")
+    _expect_contains("canon msg #1 HELP nudge",   t, "HELP")
+    _expect_contains("canon byline — Crowther",   t, "Willie Crowther")
+    _expect_contains("canon byline — Woods",      t, "Don Woods")
+    _expect_contains("canon byline — SU-AI",      t, "SU-AI")
+    _expect_contains("canon msg #65 prompt",      t, "Welcome to Adventure")
+    _expect_contains("HELP hint",                 t, "HELP")
 
     if failures == 0:
-        print("PASS — credit splash names Crowther + Woods + IF Archive")
+        print("PASS — canon msg #1 welcome emits verbatim")
     else:
         print("FAIL — %d check(s) missed" % failures)
     quit(failures)
