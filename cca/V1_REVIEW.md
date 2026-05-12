@@ -12,14 +12,14 @@ Authoritative canon source: Don Woods' 1977 PDP-10 release at
 Audit tool: `cca/canon/audit_string_join.py` — joins canon prose
 against port-emitted strings. Run with `python3 cca/canon/audit_string_join.py`.
 
-Latest audit: **1200 MATCHED / 12 LEFT-ONLY / 78 RIGHT-ONLY**.
+Latest audit: **1208 MATCHED / 7 LEFT-ONLY / 71 RIGHT-ONLY**.
 
-The 12 LEFT-ONLY entries are canon-architectural or explicit
-divergences (see §1). The 78 RIGHT-ONLY entries are now entirely
-UI scaffolding (welcome panel, save/load UI, cabinet F-key help)
-+ user-pre-approved easter-egg dialogue (HOURS / WIZARD / MAINT /
-SUSPEND) + the port-only vending-machine puzzle prose. Every
-user-facing line that *could* be canonized has been canonized.
+The 7 remaining LEFT-ONLY entries are all canon-source artifacts —
+they have no `RSPEAK()` callsite in advent.for that can fire in
+normal play. The 71 RIGHT-ONLY entries are UI scaffolding (save/
+load dialog, cabinet F-key help) + the port-only vending-machine
+puzzle prose. Every user-facing canon msg with a reachable trigger
+in advent.for now emits verbatim.
 
 Test suite: **64/64 PASS** with every commit in the canon-fidelity push.
 Added this round: `test_cca_multi_dwarf` (6 phases for the canon STMT
@@ -53,30 +53,33 @@ Sorted by severity:
 These are audit-script blind spots, not gameplay gaps. Future polish:
 extend the audit to recognize inventory-label patterns specifically.
 
-#### Deliberate divergences (port-architectural choice)
-- **`msg#1`** — Canon's 200-word "Somewhere nearby is Colossal Cave..."
-  intro. **Replaced** by the Crowther/Woods credit splash at every
-  session start. Port choice: era-appropriate attribution as the
-  permanent welcome rather than the canon hint-laden intro.
-- **`msg#140`** "You can't get there from here." — BACK with no path.
-  Port emits canon `msg#91` ("Sorry, but I no longer seem to remember
-  how it was you got here.") in this case, which canon also uses
-  in a closely-related path. Both are canon prose; the port picks
-  one consistently.
-- **`msg#175`** "Do you want the hint?" — generic hint Y/N prompt
-  that canon falls back to. Port uses per-hint canon prompts
+#### Canon-unreachable (no `RSPEAK()` callsite in normal play)
+- **`msg#175`** "Do you want the hint?" — canon's *fallback* prompt
+  for hints without a specific Y/N msg. All six port hints
   (`msg#18` bird, `msg#20` snake, `msg#62` cave, `msg#176` maze,
-  `msg#178` plover, `msg#180` witts) — these all fire correctly.
-- **`msg#187`** "Your lamp is getting dim. You'd best go back for
-  those batteries." — canon emits this when batteries are
-  available somewhere but not in inventory. Port conflates this
-  state with `msg#189` ("out of spare batteries") — same actionable
-  advice for the player, simpler state model. Documented
-  in `driver._check_lamp_warnings`.
-- **`msg#200`** "Is this acceptable?" — canon final-score Y/N.
-  Port endgame doesn't have this final-confirmation flow.
+  `msg#178` plover, `msg#180` witts) have specific canon prompts;
+  the fallback never fires.
 - **`msg#201`** "There's no point in suspending a demonstration
-  game." — port has no demo mode.
+  game." — canon SUSPEND-in-DEMO guard. Canon DEMO mode was a
+  multi-user PDP-10 timesharing artifact (canon: SUSPEND aborts
+  silently if `DEMO=.TRUE.`). The port has no demo mode, so this
+  msg has no trigger.
+
+#### Canonized this round
+- ✅ **`msg#1`** — Canon's 200-word "Somewhere nearby is Colossal
+  Cave..." intro now emits verbatim above the brick-house ASCII
+  silhouette. The Crowther/Woods byline is baked into canon msg #1.
+- ✅ **`msg#140`** "You can't get there from here." — now fires when
+  BACK is typed and the player's OLDLOC is valid but unreachable
+  from the current room (canon STMT 23). `msg#91` still fires for
+  the no-history case (canon STMT 21).
+- ✅ **`msg#187`** "Your lamp is getting dim. You'd best go back
+  for those batteries." — wired in `_check_lamp_warnings`: emits
+  when batteries have been dispensed but the player isn't
+  carrying them, distinct from `msg#189` (depleted).
+- ✅ **`msg#200`** "Is this acceptable?" — wired as the canon
+  SUSPEND confirmation prompt (advent.for STMT 8300 + msg #200).
+  YES saves and exits; NO cancels with `msg#54`.
 
 #### Resolved this round (post-§4)
 

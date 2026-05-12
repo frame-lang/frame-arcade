@@ -1179,6 +1179,9 @@ var _dwarf_first_encounter_done: bool = false
 # Canon chest-only-outstanding hint latch (msg #186, fires once).
 var _chest_hint_done: bool = false
 
+# Canon SUSPEND Y/N latch (advent.for STMT 8300, msg #200).
+var _suspend_pending: bool = false
+
 # Canon OYSTER hint chain (advent.dat msgs #192/193/194).
 var _oyster_prompt_active: bool = false
 var _oyster_revealed: bool = false
@@ -1464,6 +1467,20 @@ func _process_input(text: String) -> void:
             return
         # Fall through to normal verb processing.
 
+    # Canon SUSPEND Y/N flow (advent.for STMT 8300, msg #200).
+    # YES saves and ends the session; NO cancels with msg #54.
+    if _suspend_pending:
+        if verb == "yes":
+            _suspend_pending = false
+            _println("OK")
+            _save_game()
+            return
+        if verb == "no":
+            _suspend_pending = false
+            _println("OK")
+            return
+        _suspend_pending = false
+
     # Canon oyster-clue Y/N prompt (advent.dat msg #192). YES
     # costs 10 points and reveals msg #193, NO cancels.
     if _oyster_prompt_active:
@@ -1568,13 +1585,12 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
             _load_game()
             return true
         "suspend":
-            # Canon SUSPEND (advent.for STMT 8300). Honor the
-            # canon prose + a wink, then save instantly.
+            # Canon SUSPEND (advent.for STMT 8300) — prompts msg
+            # #200 confirmation; YES saves + ends, NO cancels.
             _println("I can suspend your adventure for you so that you can resume later, but")
             _println("you will have to wait at least 45 minutes before continuing.")
-            _println("")
-            _println("... or not.")
-            _save_game()
+            _println("Is this acceptable?")
+            _suspend_pending = true
             return true
         "hint":
             var hint_name: String = noun if noun != "" else "bird"
@@ -1693,6 +1709,8 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
             _print_room()
             return true
         "back":
+            # Canon BACK (advent.for STMT 20-25) — msg #91 if no
+            # history, msg #140 if history valid but unreachable.
             var bk_current: int = fsm.player_room()
             var bk_exits: Dictionary = room_exits.get(bk_current, {})
             if "back" in bk_exits:
@@ -1701,17 +1719,14 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
             var k: int = _old_loc
             if k in FORCED_ROOMS:
                 k = _old_loc2
-            if k < 0:
+            if k < 0 or k == bk_current:
                 _println("Sorry, but I no longer seem to remember how it was you got here.")
-                return true
-            if k == bk_current:
-                _println("Where?")
                 return true
             for bk_dir in bk_exits:
                 if bk_exits[bk_dir] == k:
                     _handle_movement(bk_dir)
                     return true
-            _println("Sorry, but I no longer seem to remember how it was you got here.")
+            _println("You can't get there from here.")
             return true
     return false
 
@@ -2447,15 +2462,21 @@ func _check_pirate_rustle() -> void:
 func _check_lamp_warnings() -> void:
     var msg: String = fsm.get_lamp_message()
     if msg != "":
-        # Canon msg #183/#188/#189 — see cca/godot/scripts/driver.gd
-        # for full inline doc.
+        # Canon STMT 12000/12200 — see cca/godot/scripts/driver.gd
+        # for full inline doc. Four canon variants by player state:
+        # #188 (auto-replace), #189 (depleted), #183 (vending hint),
+        # #187 (go back for batteries).
         if fsm.player.carrying(BATTERIES_ID):
             fsm.refresh_lamp()
             fsm.batteries_item.consume()
             fsm.player.drop(BATTERIES_ID)
             msg = "Your lamp is getting dim. I'm taking the liberty of replacing the batteries."
-        elif not fsm.vending_loaded():
+        elif fsm.batteries_item.get_state() == "consumed":
             msg = "Your lamp is getting dim, and you're out of spare batteries. You'd best start wrapping this up."
+        elif fsm.vending_loaded():
+            pass
+        else:
+            msg = "Your lamp is getting dim. You'd best go back for those batteries."
         _println("[color=#ddaa66]%s[/color]" % msg)
     # Canon msg #185 forced quit — lamp out + above-ground.
     if fsm.lamp.get_state() == "out" and fsm.player_room() <= 8:

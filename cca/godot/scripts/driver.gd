@@ -188,6 +188,10 @@ var _awaiting_revive: bool = false
 # QUIT NOW?"). Set when QUIT is typed; the next yes/no answer
 # either exits the game or cancels.
 var _quit_pending: bool = false
+# Canon SUSPEND confirmation latch (msg #200 "IS THIS ACCEPTABLE?").
+# Advent.for STMT 8300 prompts after the "I can suspend..." spiel;
+# YES saves and exits, NO cancels.
+var _suspend_pending: bool = false
 
 # Canon BRIEF flag (advent.for STMT 8260 sets ABBNUM=10000 to
 # suppress long-form descriptions after the first visit).
@@ -519,6 +523,21 @@ func _process_input(text: String) -> void:
         _quit_pending = false
         # Fall through to normal processing — canon: any non-yes
         # answer cancels the quit prompt.
+
+    # Canon SUSPEND Y/N flow (advent.for STMT 8300, msg #200).
+    # YES saves and ends the session; NO cancels with msg #54.
+    if _suspend_pending:
+        if verb == "yes":
+            _suspend_pending = false
+            _println("OK")
+            _save_game()
+            return
+        if verb == "no":
+            _suspend_pending = false
+            _println("OK")
+            return
+        _suspend_pending = false
+        # Fall through to normal processing for any other input.
 
     # Canon hint Y/N flow. YES emits the payload + deducts the
     # per-hint cost (handled inside fsm.request_hint); NO emits
@@ -878,17 +897,15 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
             _load_game()
             return true
         "suspend":
-            # Canon SUSPEND (advent.for STMT 8300). Original 1977
-            # printed the "wait at least N minutes" warning and
-            # called CIAO to write a core image; latency was an
-            # anti-save-scum measure on the multi-user PDP-10.
-            # Modern desktop port: honor the verb with the canon
-            # prose plus a wink, then save instantly.
+            # Canon SUSPEND (advent.for STMT 8300). 1977: printed
+            # the "wait at least N minutes" warning, then prompted
+            # YES(200, 54, 54) — msg #200 "Is this acceptable?",
+            # YES → msg #54 "OK" + save, NO → msg #54 "OK" + cancel.
             _println("I can suspend your adventure for you so that you can resume later, but")
             _println("you will have to wait at least 45 minutes before continuing.")
-            _println("")
-            _println("... or not.")
-            _save_game()
+            # Canon msg #200 — confirmation prompt.
+            _println("Is this acceptable?")
+            _suspend_pending = true
             return true
         "hint":
             var hint_name: String = noun if noun != "" else "bird"
@@ -1041,9 +1058,12 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
             _print_room()
             return true
         "back":
-            # Canon BACK (advent.for STMT 20-25). Walk to OLDLOC
-            # via an exit from current; OLDLC2 if OLDLOC is
-            # forced-motion. msg #140 on no path.
+            # Canon BACK (advent.for STMT 20-25).
+            #   K == LOC (no history / came from same room)
+            #     → msg #91 "Sorry, but I no longer seem to remember
+            #       how it was you got here."
+            #   K is valid but no exit from current LOC leads there
+            #     → msg #140 "You can't get there from here."
             var bk_current: int = fsm.player_room()
             var bk_exits: Dictionary = room_exits.get(bk_current, {})
             if "back" in bk_exits:
@@ -1052,17 +1072,18 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
             var k: int = _old_loc
             if k in FORCED_ROOMS:
                 k = _old_loc2
-            if k < 0:
+            # Canon msg #91 — OLDLOC invalid / unset (first move) OR
+            # OLDLOC equals current LOC (player came from same room).
+            if k < 0 or k == bk_current:
                 _println("Sorry, but I no longer seem to remember how it was you got here.")
-                return true
-            if k == bk_current:
-                _println("Where?")
                 return true
             for bk_dir in bk_exits:
                 if bk_exits[bk_dir] == k:
                     _handle_movement(bk_dir)
                     return true
-            _println("Sorry, but I no longer seem to remember how it was you got here.")
+            # Canon msg #140 — OLDLOC valid but the current room
+            # has no canon exit that leads back to it.
+            _println("You can't get there from here.")
             return true
     return false
 
@@ -1808,28 +1829,32 @@ func _check_pirate_rustle() -> void:
 func _check_lamp_warnings() -> void:
     var msg: String = fsm.get_lamp_message()
     if msg != "":
-        # Canon msg #183/#188/#189 — the lamp-dim warning varies by
-        # player state (advent.for LMWARN):
-        #   carrying batteries   → msg #188 (auto-replace + refresh)
-        #   vending depleted, no
-        #     spares carried     → msg #189 (out of spare batteries)
-        #   vending still loaded → msg #183 (initial dim, find vending)
-        # The Lamp FSM emits msg #183 by default; we substitute the
-        # variant based on cross-FSM state. Canon msg #187 ("go
-        # back for those batteries") is a subtle in-between state
-        # canon tracks via PROP(BATTERIES); the port model conflates
-        # it with msg #189 — same actionable advice.
+        # Canon STMT 12000/12200 — the lamp-dim warning fans out
+        # to four canon variants by player + world state. The
+        # Lamp FSM emits msg #183 by default; we substitute the
+        # correct variant per canon STMT 12200:
+        #   SPK = 187 by default
+        #   PLACE(BATTER) == 0 (batteries never dispensed) → 183
+        #   PROP(BATTER) == 1 (batteries depleted)        → 189
+        #   carrying batteries (canon 12000)               → 188
         if fsm.player.carrying(BATTERIES_ID):
-            # Auto-replace: refresh lamp + consume the batteries.
-            # Canon msg #188 verbatim.
+            # Canon msg #188 — auto-replace.
             fsm.refresh_lamp()
             fsm.batteries_item.consume()
             fsm.player.drop(BATTERIES_ID)
             msg = "Your lamp is getting dim. I'm taking the liberty of replacing the batteries."
-        elif not fsm.vending_loaded():
-            # Canon msg #189 verbatim.
+        elif fsm.batteries_item.get_state() == "consumed":
+            # Canon msg #189 — batteries used (PROP(BATTER)=1).
             msg = "Your lamp is getting dim, and you're out of spare batteries. You'd best start wrapping this up."
-        # Else: msg stays as canon msg #183 (vending loaded).
+        elif fsm.vending_loaded():
+            # Canon msg #183 — vending still loaded (PLACE(BATTER)=0).
+            # Msg already set by Lamp FSM; no substitution needed.
+            pass
+        else:
+            # Canon msg #187 — batteries dispensed and exist
+            # somewhere in the world but the player isn't carrying
+            # them. Canonical actionable advice: go retrieve them.
+            msg = "Your lamp is getting dim. You'd best go back for those batteries."
         _println("[color=#ddaa66]%s[/color]" % msg)
     # Canon msg #185 (advent.for STMT 12600): if the lamp is
     # out and the player has wandered above-ground (canon
