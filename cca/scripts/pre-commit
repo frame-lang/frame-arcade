@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# ============================================================
+# pre-commit — parse-check changed .gd files + drift detector
+# ============================================================
+# Install: ln -s "$(pwd)/cca/scripts/pre-commit" .git/hooks/pre-commit
+#
+# What it catches:
+#   1. GDScript parse errors that would only fire at runtime
+#      (the bug class that shipped _SAVE_MAGIC as a const +
+#      crashed every test that did `extends Driver`).
+#   2. CCA driver drift between cca/godot/scripts/driver.gd and
+#      arcade/godot/scripts/cca_main.gd. New unexpected divergent
+#      functions or unauthorized arcade-only methods.
+#
+# Skip with `git commit --no-verify` if needed.
+# ============================================================
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+FAILED=0
+
+# ---------- Parse-check changed .gd files ----------
+CHANGED_GD=$(git diff --cached --name-only --diff-filter=AM | grep -E '\.gd$' || true)
+
+if [ -n "$CHANGED_GD" ]; then
+    if ! command -v godot >/dev/null 2>&1; then
+        echo "pre-commit: godot not on PATH — skipping parse check"
+    else
+        echo "pre-commit: parse-checking $(echo "$CHANGED_GD" | wc -l | tr -d ' ') changed .gd file(s)..."
+        for f in $CHANGED_GD; do
+            # Pick the godot project rooted nearest the file.
+            project_dir=""
+            d="$(dirname "$f")"
+            while [ "$d" != "/" ] && [ "$d" != "." ]; do
+                if [ -f "$d/project.godot" ]; then
+                    project_dir="$d"
+                    break
+                fi
+                d="$(dirname "$d")"
+            done
+            if [ -z "$project_dir" ]; then
+                continue   # script not under any godot project (e.g. tools/)
+            fi
+            rel="${f#$project_dir/}"
+            out=$(godot --headless --check-only --path "$project_dir" --script "$rel" 2>&1 | grep -E "(SCRIPT ERROR|Parse Error)" || true)
+            # Filter known false positives — Arcade autoload, etc. — these only resolve at full project boot.
+            real_errors=$(echo "$out" | grep -vE "Identifier not found: (Arcade|ExitDialogScript)" || true)
+            if [ -n "$real_errors" ]; then
+                echo "  FAIL: $f"
+                echo "$real_errors" | sed 's/^/    /'
+                FAILED=1
+            fi
+        done
+    fi
+fi
+
+# ---------- CCA driver drift check ----------
+# Always run — drift can come from rebuilds the user didn't commit.
+if [ -x "$REPO_ROOT/cca/scripts/check_cca_drift.py" ]; then
+    if ! python3 "$REPO_ROOT/cca/scripts/check_cca_drift.py" > /tmp/_drift_check.log 2>&1; then
+        echo
+        echo "pre-commit: CCA driver drift check FAILED"
+        cat /tmp/_drift_check.log | sed 's/^/  /'
+        FAILED=1
+    fi
+fi
+
+if [ "$FAILED" -ne 0 ]; then
+    echo
+    echo "pre-commit: $FAILED issue(s). Fix or override with --no-verify."
+    exit 1
+fi
+
+exit 0

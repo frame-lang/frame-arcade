@@ -40,4 +40,15 @@ for name in aspects cca; do
     fi
 done
 
+# topology.gd is hand-written canon data (140 rooms + 75 gates),
+# not framec-generated, but it MUST also stay in sync between
+# the standalone and arcade copies — both `driver.gd` and
+# `cca_main.gd` preload it. We had a silent value drift on three
+# canon gates (room 25 plant climbs) caught only by a manual
+# diff; the mirror below makes that impossible going forward.
+if [ -d "$ARCADE_DIR" ]; then
+    echo "==> mirroring godot/scripts/topology.gd -> arcade/godot/scripts/topology.gd"
+    cp "godot/scripts/topology.gd" "$ARCADE_DIR/topology.gd"
+fi
+
 echo "done."
