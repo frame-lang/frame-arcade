@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# pre-commit — parse-check changed .gd files + drift detector
+# pre-commit — parse-check + drift detector + (conditional) tests
 # ============================================================
 # Install: ln -s "$(pwd)/cca/scripts/pre-commit" .git/hooks/pre-commit
 #
@@ -11,8 +11,11 @@
 #   2. CCA driver drift between cca/godot/scripts/driver.gd and
 #      arcade/godot/scripts/cca_main.gd. New unexpected divergent
 #      functions or unauthorized arcade-only methods.
+#   3. CCA test regressions on changes that can actually cause
+#      one — Frame source, driver, helpers, or test files (V1.2).
 #
-# Skip with `git commit --no-verify` if needed.
+# Skip with `git commit --no-verify` if needed, or set
+# PRE_COMMIT_SKIP_TESTS=1 to skip just the test-suite step.
 # ============================================================
 set -euo pipefail
 
@@ -64,6 +67,36 @@ if [ -x "$REPO_ROOT/cca/scripts/check_cca_drift.py" ]; then
         echo "pre-commit: CCA driver drift check FAILED"
         cat /tmp/_drift_check.log | sed 's/^/  /'
         FAILED=1
+    fi
+fi
+
+# ---------- CCA test suite (conditional) ----------
+# Only run on changes that can actually break tests — Frame source,
+# the standalone driver, the arcade driver mirror, test helpers,
+# or test files themselves. Skips for docs-only / build-script /
+# config commits. ~3 min when it runs.
+if [ -z "${PRE_COMMIT_SKIP_TESTS:-}" ]; then
+    CHANGED_TEST_TRIGGER=$(git diff --cached --name-only --diff-filter=AM | grep -E '^(cca/frame/|cca/godot/scripts/(driver|cca|aspects|_test_helpers|topology)\.gd|cca/tests/|arcade/godot/scripts/cca_main\.gd|arcade/tests/)' || true)
+    if [ -n "$CHANGED_TEST_TRIGGER" ]; then
+        if ! command -v godot >/dev/null 2>&1; then
+            echo "pre-commit: godot not on PATH — skipping test suite"
+        elif [ ! -x "$REPO_ROOT/cca/run_tests.sh" ]; then
+            echo "pre-commit: cca/run_tests.sh not executable — skipping test suite"
+        else
+            echo "pre-commit: running CCA test suite (changes touch frame/driver/tests)..."
+            if ! (cd "$REPO_ROOT/cca" && ./run_tests.sh > /tmp/_cca_tests.log 2>&1); then
+                echo
+                echo "pre-commit: CCA test suite FAILED"
+                tail -30 /tmp/_cca_tests.log | sed 's/^/  /'
+                echo
+                echo "  (full log at /tmp/_cca_tests.log)"
+                FAILED=1
+            else
+                # Echo just the summary line so the commit author
+                # sees the green count.
+                tail -3 /tmp/_cca_tests.log | sed 's/^/  /'
+            fi
+        fi
     fi
 fi
 
