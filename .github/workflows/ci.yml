@@ -69,14 +69,37 @@ jobs:
       - name: Build all chapters (transpile every Frame source)
         run: ./build_all.sh
 
-      - name: Run CCA smoke suite (19 files, ~370 checks)
+      - name: CCA driver-drift detector
+        run: python3 cca/scripts/check_cca_drift.py
+
+      - name: CCA canon audit regression guard
+        # V1.2 floor: 18 LEFT-ONLY canon strings (down from 71 at
+        # the start of V1.1; see cca/V1_REVIEW.md §1). A regression
+        # bumps the count and fails CI.
+        run: |
+          cd cca
+          out=$(python3 canon/audit_string_join.py 2>&1)
+          left=$(echo "$out" | grep -oE 'LEFT-ONLY \([0-9]+\)' | grep -oE '[0-9]+' || echo 999)
+          echo "Canon LEFT-ONLY count: $left (floor: 18)"
+          if [ "$left" -gt 18 ]; then
+            echo "FAIL — canon audit regressed past the V1.2 floor"
+            exit 1
+          fi
+
+      - name: Run CCA smoke suite (64 tests)
         run: |
           cd cca
           ./run_tests.sh
+
+      - name: Run arcade smoke tests
+        run: |
+          cd arcade
+          ./run_smoke_test.sh
 
       - name: Summarise
         if: always()
         run: |
           echo "=== Summary ==="
           echo "Chapters built: $(ls -d ch??-* cca | wc -l)"
-          echo "Smoke tests:    $(ls cca/tests/test_cca_*.gd | wc -l)"
+          echo "CCA tests:      $(ls cca/tests/test_cca_*.gd | wc -l)"
+          echo "Arcade smoke:   $(ls arcade/tests/test_arcade_*_smoke.gd 2>/dev/null | wc -l)"

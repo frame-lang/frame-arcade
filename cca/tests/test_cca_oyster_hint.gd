@@ -64,8 +64,8 @@ func _init():
     var l1: Array = H.capture(d, "read oyster")
     _expect_any_match("READ OYSTER emits canon prompt msg #192",
         l1, "10 points")
-    _expect("prompt active",                d._oyster_prompt_active, true)
-    _expect("not yet revealed",             d._oyster_revealed,      false)
+    _expect("prompt active",                d.prompts.current_prompt(), "oyster")
+    _expect("not yet revealed",             d.fsm.is_oyster_revealed(),      false)
 
     # ----- Phase 2: YES at prompt → msg #193 + 10-pt deduction -----
     print("Phase 2: YES → msg #193 reveal + 10-pt deduction")
@@ -76,8 +76,8 @@ func _init():
         l2, "something strange about this place")
     _expect_any_match("YES emits 'words I've always known' hint",
         l2, "words I've always known")
-    _expect("revealed flag set",            d._oyster_revealed,      true)
-    _expect("prompt cleared",               d._oyster_prompt_active, false)
+    _expect("revealed flag set",            d.fsm.is_oyster_revealed(),      true)
+    _expect("prompt cleared",               d.prompts.is_active(),   false)
     _expect("score dropped by 10",          d.fsm.score(),           score_before - 10)
     _expect("hint penalty dropped by 10",   d.fsm.hint_penalty(),    hints_before - 10)
 
@@ -91,12 +91,12 @@ func _init():
     print("Phase 4: NO at prompt → cancels with no penalty")
     var d2 := _make_driver_with_oyster()
     H.capture(d2, "read oyster")             # arm prompt
-    _expect("prompt armed",                 d2._oyster_prompt_active, true)
+    _expect("prompt armed",                 d2.prompts.current_prompt(), "oyster")
     var score_b4: int = d2.fsm.score()
     var l4: Array = H.capture(d2, "no")
     _expect_any_match("NO emits 'OK.'",     l4, "OK.")
-    _expect("prompt cleared",               d2._oyster_prompt_active, false)
-    _expect("not revealed",                 d2._oyster_revealed,      false)
+    _expect("prompt cleared",               d2.prompts.is_active(),   false)
+    _expect("not revealed",                 d2.fsm.is_oyster_revealed(),      false)
     _expect("score unchanged",              d2.fsm.score(),           score_b4)
 
     # Re-reading after a NO should re-prompt (canon: not revealed).

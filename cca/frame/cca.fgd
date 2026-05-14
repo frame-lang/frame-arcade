@@ -423,6 +423,27 @@
         get_room(): int
         get_deaths(): int
 
+        # V1.2 Phase 0.8 — canon resurrection-prose ladder. Driver
+        # was carrying inline msg #81 / #83 / #85 / #82 / #84 / #86
+        # strings keyed off get_deaths(); the prose belongs next to
+        # the FSM that owns the death counter. Returned strings are
+        # the canon msgs verbatim; the driver wraps with BBCode
+        # coloring for the final display.
+
+        # The pre-revive query ("Do you want me to try to
+        # reincarnate you?"). Selects msg #81 / #83 / #85 by
+        # current death count. State must be $Dead.
+        get_revive_prompt(): String
+
+        # The post-YES revive prose ("All right..." / "Okay, now
+        # where did I put my orange smoke?..." / "OK"). Selects
+        # canon msg #82 / #84 / final on revive count. State
+        # must be $Dead at call time, before revive() fires.
+        get_revive_response(): String
+
+        # The post-NO / permadeath terminal prose (canon msg #86).
+        get_permadeath_msg(): String
+
     machine:
 
         # ------------------------------------------------------------
@@ -458,6 +479,12 @@
             get_state(): String          { @@:("alive") }
             get_room(): int              { @@:(self.room) }
             get_deaths(): int            { @@:(self.deaths) }
+            # V1.2 Phase 0.8 — resurrection prose not meaningful while
+            # alive; return empty strings so a stray driver call is a
+            # no-op rather than a crash.
+            get_revive_prompt(): String    { @@:("") }
+            get_revive_response(): String  { @@:("") }
+            get_permadeath_msg(): String   { @@:("") }
         }
 
         # ------------------------------------------------------------
@@ -478,6 +505,41 @@
             get_state(): String          { @@:("dead") }
             get_room(): int              { @@:(self.room) }
             get_deaths(): int            { @@:(self.deaths) }
+
+            # V1.2 Phase 0.8 — canon resurrection prose, keyed on
+            # the current death count. Driver wraps with BBCode
+            # coloring after read.
+            get_revive_prompt(): String {
+                # Pre-revive query (msg #81 / #83 / #85 by death).
+                if self.deaths == 1:
+                    # Canon msg #81 verbatim.
+                    @@:return("Oh dear, you seem to have gotten yourself killed. I might be able to\nhelp you out, but I've never really done this before. Do you want me\nto try to reincarnate you?")
+                if self.deaths == 2:
+                    # Canon msg #83 verbatim.
+                    @@:return("You clumsy oaf, you've done it again! I don't know how long I can\nkeep this up. Do you want me to try reincarnating you again?")
+                # 3rd+: canon msg #85 ("Now you've really done it! ...").
+                @@:("Now you've really done it! I'm out of orange smoke! You don't expect\nme to do a decent reincarnation without any orange smoke, do you?")
+            }
+
+            get_revive_response(): String {
+                # Post-YES revive response (msg #82 / #84 / default).
+                if self.deaths == 1:
+                    # Canon msg #82 verbatim — "All right..."
+                    @@:return("All right. But don't blame me if something goes wr......\n                --- POOF!! ---\nYou are engulfed in a cloud of orange smoke. Coughing and gasping,\nyou emerge from the smoke and find....")
+                if self.deaths == 2:
+                    # Canon msg #84 verbatim — "Okay, now where..."
+                    @@:return("Okay, now where did I put my orange smoke?....   >POOF!<\nEverything disappears in a dense cloud of orange smoke.")
+                # 3rd revive: canon transitions to permadeath path.
+                # If we get here defensively, return a generic ack.
+                @@:("OK")
+            }
+
+            get_permadeath_msg(): String {
+                # Canon msg #86 — "Okay, if you're so smart, do it
+                # yourself! I'm leaving!" Fires on NO to the revive
+                # prompt OR on the 4th+ death (Player → $Permadead).
+                @@:("Okay, if you're so smart, do it yourself! I'm leaving!")
+            }
         }
 
         # ------------------------------------------------------------
@@ -489,6 +551,14 @@
             get_state(): String          { @@:("permadead") }
             get_room(): int              { @@:(self.room) }
             get_deaths(): int            { @@:(self.deaths) }
+            # V1.2 Phase 0.8 — once permadead, there's no prompt
+            # and no revive. Driver only ever reads
+            # get_permadeath_msg() in this state.
+            get_revive_prompt(): String    { @@:("") }
+            get_revive_response(): String  { @@:("") }
+            get_permadeath_msg(): String   {
+                @@:("Okay, if you're so smart, do it yourself! I'm leaving!")
+            }
         }
 
     domain:
@@ -529,6 +599,19 @@
     interface:
         try_handle(event: Dictionary): Dictionary
 
+        # V1.2 Phase 0.5 — driver's per-turn _check_dark_pit_hazard
+        # is the canon "one free warning per dark room before the
+        # pit-fall roll fires" mechanic (canon msg #16). The
+        # "which dark room have we already warned the player in?"
+        # latch belongs on DarknessGate — the FSM responsible for
+        # dark-room behavior — not as a driver var. Persisted so a
+        # save written between the warning and the pit-fall roll
+        # restores into "already warned" (next move triggers the
+        # roll, not another warning).
+        warned_room(): int
+        set_warned_room(room: int)
+        clear_warning()
+
     machine:
 
         $Active {
@@ -558,6 +641,10 @@
                     })
                 @@:({"verdict": "pass", "event": event})
             }
+
+            warned_room(): int             { @@:(self.warned_room_id) }
+            set_warned_room(room: int)     { self.warned_room_id = room }
+            clear_warning()                { self.warned_room_id = -1 }
         }
 
     domain:
@@ -565,6 +652,11 @@
         # needed but makes the aspect's behavior observable
         # without reading dispatch logs.
         consumed_count: int = 0
+
+        # V1.2 Phase 0.5 — which room the player has already been
+        # warned about. -1 = no active warning. Reset when the
+        # player leaves a dark room (driver calls clear_warning).
+        warned_room_id: int = -1
 }
 
 
@@ -1262,8 +1354,8 @@
         # crossing.
         treasure_deposited()
 
-        # Per-turn tick. Decrements the closing timer when in
-        # $Closing.
+        # Per-turn tick. Decrements the closing timer in any
+        # $Closing* state.
         tick()
 
         # Trigger the explosion in the repository. Drives
@@ -1271,9 +1363,10 @@
         detonate()
 
         # Canon panic (advent.for STMT 2): when the player tries
-        # to leave the cave during $Closing, msg #130 fires and
+        # to leave the cave during $Closing*, msg #130 fires and
         # CLOCK2 is capped at 15. Subsequent attempts don't
-        # re-cap (PANIC latch). No-op outside $Closing.
+        # re-cap (PANIC latch). No-op outside the closing
+        # cascade.
         panic()
 
         # Queries for the orchestrator
@@ -1285,12 +1378,21 @@
         treasures_count(): int
         closing_timer(): float
 
+        # V1.2 Phase 0.3 — closing-warning crescendo as substates.
+        # Each substate's $>() entry sets pending_warning_threshold
+        # to its threshold (25/15/5); driver reads, prints the
+        # canon msg, and clears. Reading-without-clearing is
+        # idempotent.
+        pending_warning_threshold(): int
+        clear_pending_warning()
+
     machine:
 
         # ------------------------------------------------------------
         # $Active — normal play. treasure_deposited() counts up
         # toward the trigger threshold; on crossing, transition
-        # to $Closing.
+        # to $Closing (no warning yet — first warning lands when
+        # the timer drops to 25).
         # ------------------------------------------------------------
         $Active {
             treasure_deposited() {
@@ -1298,15 +1400,10 @@
                 if self.treasures >= self.TREASURES_TO_TRIGGER:
                     -> $Closing
             }
-            tick() {
-                # No-op. Timers are state-local.
-            }
-            detonate() {
-                # No-op outside the repository.
-            }
-            panic() {
-                # No-op — panic only meaningful in $Closing.
-            }
+            tick()              { }
+            detonate()          { }
+            panic()             { }
+            clear_pending_warning() { }
             get_state(): String         { @@:("active") }
             is_closing(): bool          { @@:(false) }
             in_repository(): bool       { @@:(false) }
@@ -1314,57 +1411,158 @@
             is_panicked(): bool         { @@:(false) }
             treasures_count(): int      { @@:(self.treasures) }
             closing_timer(): float      { @@:(0.0) }
+            pending_warning_threshold(): int { @@:(0) }
         }
 
         # ------------------------------------------------------------
-        # $Closing — the cave is closing. State-variable timer
-        # ticks down; warning messages get emitted at thresholds
-        # (driver picks them up via closing_timer() and decides
-        # what to print).
+        # $Closing — cave-closing armed, no warning emitted yet.
+        # The timer ticks down from CLOSING_DURATION (30). At
+        # timer <= 25 we transition to $ClosingT25 which fires
+        # the first warning. Timer and panicked latch live on
+        # Endgame's domain so they survive substate transitions.
         # ------------------------------------------------------------
         $Closing {
-            $.timer: float = 0.0
-            $.panicked: bool = false
-
             $>() {
-                $.timer = self.CLOSING_DURATION
+                self.timer = self.CLOSING_DURATION
             }
-
             treasure_deposited() {
                 # Still counts (for final score) but doesn't
                 # re-trigger anything.
                 self.treasures = self.treasures + 1
             }
-
             tick() {
-                $.timer = $.timer - 1.0
-                if $.timer <= 0.0:
-                    -> $InRepository
+                self.timer = self.timer - 1.0
+                if self.timer <= 25.0:
+                    -> $ClosingT25
             }
-
-            detonate() {
-                # No-op until in repository.
-            }
-
+            detonate() { }
             panic() {
-                # Canon advent.for STMT 2: first attempt to leave
-                # the cave during $Closing caps CLOCK2 at 15
-                # ticks. The PANIC latch prevents further caps —
-                # subsequent attempts emit msg #130 (driver-side)
-                # but don't shorten the timer further.
-                if not $.panicked:
-                    $.panicked = true
-                    if $.timer > 15.0:
-                        $.timer = 15.0
+                # Canon advent.for STMT 2 PANIC latch.
+                if not self.panicked:
+                    self.panicked = true
+                    if self.timer > 15.0:
+                        self.timer = 15.0
             }
-
+            clear_pending_warning() {
+                self.pending_warning = 0
+            }
             get_state(): String         { @@:("closing") }
             is_closing(): bool          { @@:(true) }
             in_repository(): bool       { @@:(false) }
             is_won(): bool              { @@:(false) }
-            is_panicked(): bool         { @@:($.panicked) }
+            is_panicked(): bool         { @@:(self.panicked) }
             treasures_count(): int      { @@:(self.treasures) }
-            closing_timer(): float      { @@:($.timer) }
+            closing_timer(): float      { @@:(self.timer) }
+            pending_warning_threshold(): int { @@:(self.pending_warning) }
+        }
+
+        # ------------------------------------------------------------
+        # $ClosingT25 — first sepulchral-voice warning has fired
+        # (canon msg #129). Timer continues down toward 15 where
+        # the second warning lands. pending_warning is set on
+        # entry so the driver can pick it up next tick; the
+        # driver clears it after printing.
+        # ------------------------------------------------------------
+        $ClosingT25 {
+            $>() {
+                self.pending_warning = 25
+            }
+            treasure_deposited() {
+                self.treasures = self.treasures + 1
+            }
+            tick() {
+                self.timer = self.timer - 1.0
+                if self.timer <= 15.0:
+                    -> $ClosingT15
+            }
+            detonate() { }
+            panic() {
+                if not self.panicked:
+                    self.panicked = true
+                    if self.timer > 15.0:
+                        self.timer = 15.0
+            }
+            clear_pending_warning() {
+                self.pending_warning = 0
+            }
+            get_state(): String         { @@:("closing") }
+            is_closing(): bool          { @@:(true) }
+            in_repository(): bool       { @@:(false) }
+            is_won(): bool              { @@:(false) }
+            is_panicked(): bool         { @@:(self.panicked) }
+            treasures_count(): int      { @@:(self.treasures) }
+            closing_timer(): float      { @@:(self.timer) }
+            pending_warning_threshold(): int { @@:(self.pending_warning) }
+        }
+
+        # ------------------------------------------------------------
+        # $ClosingT15 — second sepulchral-voice warning has fired.
+        # Timer drops toward 5 where the third (final) warning
+        # lands.
+        # ------------------------------------------------------------
+        $ClosingT15 {
+            $>() {
+                self.pending_warning = 15
+            }
+            treasure_deposited() {
+                self.treasures = self.treasures + 1
+            }
+            tick() {
+                self.timer = self.timer - 1.0
+                if self.timer <= 5.0:
+                    -> $ClosingT5
+            }
+            detonate() { }
+            panic() {
+                if not self.panicked:
+                    self.panicked = true
+            }
+            clear_pending_warning() {
+                self.pending_warning = 0
+            }
+            get_state(): String         { @@:("closing") }
+            is_closing(): bool          { @@:(true) }
+            in_repository(): bool       { @@:(false) }
+            is_won(): bool              { @@:(false) }
+            is_panicked(): bool         { @@:(self.panicked) }
+            treasures_count(): int      { @@:(self.treasures) }
+            closing_timer(): float      { @@:(self.timer) }
+            pending_warning_threshold(): int { @@:(self.pending_warning) }
+        }
+
+        # ------------------------------------------------------------
+        # $ClosingT5 — final "this exit is closed" recording has
+        # fired. Timer drops to 0 then transitions to
+        # $InRepository.
+        # ------------------------------------------------------------
+        $ClosingT5 {
+            $>() {
+                self.pending_warning = 5
+            }
+            treasure_deposited() {
+                self.treasures = self.treasures + 1
+            }
+            tick() {
+                self.timer = self.timer - 1.0
+                if self.timer <= 0.0:
+                    -> $InRepository
+            }
+            detonate() { }
+            panic() {
+                if not self.panicked:
+                    self.panicked = true
+            }
+            clear_pending_warning() {
+                self.pending_warning = 0
+            }
+            get_state(): String         { @@:("closing") }
+            is_closing(): bool          { @@:(true) }
+            in_repository(): bool       { @@:(false) }
+            is_won(): bool              { @@:(false) }
+            is_panicked(): bool         { @@:(self.panicked) }
+            treasures_count(): int      { @@:(self.treasures) }
+            closing_timer(): float      { @@:(self.timer) }
+            pending_warning_threshold(): int { @@:(self.pending_warning) }
         }
 
         # ------------------------------------------------------------
@@ -1377,18 +1575,10 @@
             detonate() {
                 -> $Won
             }
-            tick() {
-                # No timer in the repository. Player has all the
-                # time they want to figure the puzzle out.
-            }
-            treasure_deposited() {
-                # Shouldn't happen — there's nowhere to deposit
-                # a treasure inside the repository. Defensive
-                # no-op.
-            }
-            panic() {
-                # No-op — already past $Closing.
-            }
+            tick()                  { }
+            treasure_deposited()    { }
+            panic()                 { }
+            clear_pending_warning() { }
             get_state(): String         { @@:("in_repository") }
             is_closing(): bool          { @@:(false) }
             in_repository(): bool       { @@:(true) }
@@ -1396,16 +1586,18 @@
             is_panicked(): bool         { @@:(false) }
             treasures_count(): int      { @@:(self.treasures) }
             closing_timer(): float      { @@:(0.0) }
+            pending_warning_threshold(): int { @@:(0) }
         }
 
         # ------------------------------------------------------------
         # $Won — terminal. Player has escaped successfully.
         # ------------------------------------------------------------
         $Won {
-            tick() {}
-            treasure_deposited() {}
-            detonate() {}
-            panic() {}
+            tick()                  { }
+            treasure_deposited()    { }
+            detonate()              { }
+            panic()                 { }
+            clear_pending_warning() { }
             get_state(): String         { @@:("won") }
             is_closing(): bool          { @@:(false) }
             in_repository(): bool       { @@:(false) }
@@ -1413,6 +1605,7 @@
             is_panicked(): bool         { @@:(false) }
             treasures_count(): int      { @@:(self.treasures) }
             closing_timer(): float      { @@:(0.0) }
+            pending_warning_threshold(): int { @@:(0) }
         }
 
     domain:
@@ -1424,6 +1617,17 @@
         CLOSING_DURATION: float = 30.0    # turns
 
         treasures: int = 0
+        # V1.2 Phase 0.3 — moved from $Closing state-vars to
+        # domain so they remain accessible across the four
+        # closing substates ($Closing → $ClosingT25 → $ClosingT15
+        # → $ClosingT5) without HSM-style state-var inheritance.
+        timer: float = 0.0
+        panicked: bool = false
+        # 0 = no warning queued; 25/15/5 = which warning the
+        # driver should print this turn. Set by each closing
+        # substate's $>() entry handler; cleared by the driver
+        # via clear_pending_warning().
+        pending_warning: int = 0
 }
 
 
@@ -1481,6 +1685,15 @@
         is_offered(): bool
         get_streak(): int
 
+        # V1.2 Phase 0.4 — "has the canon Y/N prompt been shown
+        # for this hint?" — distinct from $Offered (which means
+        # the hint text has been delivered after a YES). After
+        # a NO answer, prompt_shown stays true (player won't be
+        # re-asked) but state stays $Eligible. Persisted so the
+        # one-time-per-save-game prompt rule survives restores.
+        mark_offered()
+        has_been_offered(): bool
+
     machine:
 
         $Pending {
@@ -1495,10 +1708,12 @@
             request_hint(text_if_eligible: String): String {
                 @@:("OK")
             }
+            mark_offered()                  { self.offered = true }
             get_state(): String     { @@:("pending") }
             is_eligible(): bool     { @@:(false) }
             is_offered(): bool      { @@:(false) }
             get_streak(): int       { @@:(self.streak) }
+            has_been_offered(): bool { @@:(self.offered) }
         }
 
         $Eligible {
@@ -1513,10 +1728,12 @@
                 -> $Offered
                 @@:(text_if_eligible)
             }
+            mark_offered()                  { self.offered = true }
             get_state(): String     { @@:("eligible") }
             is_eligible(): bool     { @@:(true) }
             is_offered(): bool      { @@:(false) }
             get_streak(): int       { @@:(self.streak) }
+            has_been_offered(): bool { @@:(self.offered) }
         }
 
         $Offered {
@@ -1524,15 +1741,19 @@
             request_hint(text_if_eligible: String): String {
                 @@:("OK")
             }
+            mark_offered()                  { self.offered = true }
             get_state(): String     { @@:("offered") }
             is_eligible(): bool     { @@:(false) }
             is_offered(): bool      { @@:(true) }
             get_streak(): int       { @@:(self.streak) }
+            has_been_offered(): bool { @@:(self.offered) }
         }
 
     domain:
         threshold: int = threshold
         streak: int = 0
+        # V1.2 Phase 0.4 — see interface comment.
+        offered: bool = false
 }
 
 
@@ -2718,6 +2939,187 @@
 
 
 # ------------------------------------------------------------
+# PromptDispatcher — modal Y/N prompt coordinator
+# ------------------------------------------------------------
+# CCA has five canonical modal Y/N prompts that interrupt the
+# normal verb dispatch and wait for "yes"/"no" before accepting
+# any other input:
+#
+#   quit     — QUIT confirmation (advent.for msg #22)
+#   suspend  — SUSPEND save-and-exit (advent.for STMT 8300, msg #200)
+#   oyster   — READ OYSTER reveals msg #193 for 10 points (msg #192)
+#   revive   — death revive ladder (msg #81 / #83 / #85 → #82 / #84 / #86)
+#   hint     — auto-offered or requested hint cost / payload (per-hint msg)
+#
+# Before V1.2 these were five `bool _xxx_pending` driver vars +
+# five `if _xxx_pending:` branches in _process_input. That was a
+# hand-rolled mini-FSM with the standard hand-rolled-FSM bugs:
+# silent ambiguity when two latches were set, scattered
+# YES/NO/cancel semantics, no save-time invariant about modal
+# state. This system replaces them with one explicit FSM whose
+# state IS the active prompt.
+#
+# Design call — session-scoped, not persisted in practice:
+# Adventure does NOT compose PromptDispatcher on its domain.
+# The driver instantiates a fresh PromptDispatcher in _ready
+# and discards it at shutdown. Restore_state on Adventure
+# therefore can't touch the dispatcher — by construction, no
+# modal prompt state survives a save/restore boundary. The
+# reasoning:
+#
+#   1. Modal interaction state shouldn't survive a save/restore
+#      boundary. If a saved $AwaitingRevive landed in a fresh
+#      session, the driver would have no context to feed it.
+#   2. Re-detection after restore is trivial: the driver looks
+#      at fsm.player_state() (== "dead") and re-issues
+#      offer_revive(). Same for any other prompt the world is
+#      genuinely waiting on. Nothing is lost.
+#
+# Framec note: the save/load decorators below exist only to
+# satisfy framec's E814 (file-level @@[persist] currently
+# applies to all systems in a multi-system .fgd). The driver
+# does NOT call save_state() or restore_state() on
+# PromptDispatcher; the methods are dead code by intent. When
+# framec gains per-system opt-out (RFC-0012 amendment or
+# similar), drop the decorators.
+#
+# Cancel semantics: four of the five prompts cancel on any
+# non-yes/no input (the player just typed a different verb;
+# canon falls through to normal processing). $AwaitingRevive
+# alone does NOT cancel — canon re-prompts with "Please answer
+# the question." until the player commits to yes or no. The
+# accepts_only_yes_no() query exposes this distinction to the
+# driver.
+# ------------------------------------------------------------
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
+@@system PromptDispatcher : RefCounted {
+
+    interface:
+        # Driver calls these when a verb triggers a prompt.
+        offer_quit()
+        offer_suspend()
+        offer_oyster()
+        offer_revive()
+        offer_hint(name: String)
+
+        # Driver calls these when player answers.
+        confirm()                       # YES path
+        decline()                       # NO path
+        cancel()                        # any other input (no-op while $AwaitingRevive)
+
+        # Driver queries before / after answering.
+        is_active(): bool
+        current_prompt(): String        # "quit"|"suspend"|"oyster"|"revive"|"hint"|""
+        current_hint_name(): String     # meaningful only while current_prompt() == "hint"
+        accepts_only_yes_no(): bool     # true while $AwaitingRevive
+
+    machine:
+
+        # ----- $Idle — nothing being prompted. Every offer_*
+        # transitions out. confirm / decline / cancel are no-ops
+        # so a stray driver call won't crash.
+        $Idle {
+            offer_quit()              { -> $AwaitingQuitConfirm }
+            offer_suspend()           { -> $AwaitingSuspendConfirm }
+            offer_oyster()            { -> $AwaitingOyster }
+            offer_revive()            { -> $AwaitingRevive }
+            offer_hint(name: String)  {
+                self._hint_name = name
+                -> $AwaitingHint
+            }
+            confirm() { }
+            decline() { }
+            cancel()  { }
+            is_active(): bool             { @@:(false) }
+            current_prompt(): String      { @@:("") }
+            current_hint_name(): String   { @@:("") }
+            accepts_only_yes_no(): bool   { @@:(false) }
+        }
+
+        # ----- $AwaitingQuitConfirm — canon msg #22. Any answer
+        # closes the prompt; driver branches on confirm vs.
+        # decline vs. cancel.
+        $AwaitingQuitConfirm {
+            confirm() { -> $Idle }
+            decline() { -> $Idle }
+            cancel()  { -> $Idle }
+            is_active(): bool             { @@:(true) }
+            current_prompt(): String      { @@:("quit") }
+            current_hint_name(): String   { @@:("") }
+            accepts_only_yes_no(): bool   { @@:(false) }
+        }
+
+        # ----- $AwaitingSuspendConfirm — canon msg #200 ("Is
+        # this acceptable?"). YES saves, NO cancels.
+        $AwaitingSuspendConfirm {
+            confirm() { -> $Idle }
+            decline() { -> $Idle }
+            cancel()  { -> $Idle }
+            is_active(): bool             { @@:(true) }
+            current_prompt(): String      { @@:("suspend") }
+            current_hint_name(): String   { @@:("") }
+            accepts_only_yes_no(): bool   { @@:(false) }
+        }
+
+        # ----- $AwaitingOyster — canon msg #192. YES costs 10pts
+        # and reveals msg #193; NO cancels.
+        $AwaitingOyster {
+            confirm() { -> $Idle }
+            decline() { -> $Idle }
+            cancel()  { -> $Idle }
+            is_active(): bool             { @@:(true) }
+            current_prompt(): String      { @@:("oyster") }
+            current_hint_name(): String   { @@:("") }
+            accepts_only_yes_no(): bool   { @@:(false) }
+        }
+
+        # ----- $AwaitingHint — auto-offered or requested hint.
+        # The hint name is carried in the domain so the driver
+        # can look it up via current_hint_name() and dispatch to
+        # fsm.request_hint(name) on confirm.
+        $AwaitingHint {
+            confirm() {
+                self._hint_name = ""
+                -> $Idle
+            }
+            decline() {
+                self._hint_name = ""
+                -> $Idle
+            }
+            cancel() {
+                self._hint_name = ""
+                -> $Idle
+            }
+            is_active(): bool             { @@:(true) }
+            current_prompt(): String      { @@:("hint") }
+            current_hint_name(): String   { @@:(self._hint_name) }
+            accepts_only_yes_no(): bool   { @@:(false) }
+        }
+
+        # ----- $AwaitingRevive — death prompt. The ONLY prompt
+        # that doesn't cancel on unrelated input: canon emits
+        # "Please answer the question." and re-prompts. The
+        # accepts_only_yes_no() query tells the driver this.
+        $AwaitingRevive {
+            confirm() { -> $Idle }
+            decline() { -> $Idle }
+            cancel()  { }                # no-op — stay in state
+            is_active(): bool             { @@:(true) }
+            current_prompt(): String      { @@:("revive") }
+            current_hint_name(): String   { @@:("") }
+            accepts_only_yes_no(): bool   { @@:(true) }
+        }
+
+    domain:
+        # Name of the hint awaiting confirmation. Meaningful only
+        # while $AwaitingHint; cleared on transition out.
+        _hint_name: String = ""
+}
+
+
+# ------------------------------------------------------------
 # Adventure (top-level orchestrator)
 # ------------------------------------------------------------
 # Holds the world: bus + aspects + player + lamp (so far).
@@ -2771,10 +3173,67 @@
         player_state(): String
         room_is_dark_now(): bool
         darkness_consumed_count(): int
+        # V1.2 Phase 0.5 — driver-side _dark_warned_room latch
+        # moved onto DarknessGate. Adventure forwards.
+        dark_warned_room(): int
+        set_dark_warned_room(room: int)
+        clear_dark_warning()
+
+        # V1.2 Phase 0.6 — lamp-warning variant selection. The
+        # Lamp FSM emits the bare canon dim/out warning via
+        # last_message; canon STMT 12000/12200 then fans that
+        # out to one of four variants based on the
+        # batteries-item state and whether the vending machine
+        # has dispensed yet. That selection touches three
+        # sub-systems (Lamp / Item / VendingMachine), so it
+        # belongs on the orchestrator, not the driver. Returns
+        # "" when there's no warning to print this turn.
+        # Side effect: if the player is carrying batteries,
+        # auto-replaces them (canon msg #188).
+        lamp_warning_text(): String
+
+        # Canon STMT 12600 — "lamp out + wandered aboveground"
+        # is a one-way force-quit condition. Adventure can
+        # answer the predicate; the driver still owns the actual
+        # scene-tree quit + the prose.
+        lamp_out_aboveground(): bool
+
         backpack_blocked_count(): int
         magic_transforms_count(): int
         score(): int
         commands_seen(): int
+
+        # Canon BACK history (advent.for STMT 20-25, vars OLDLOC
+        # and OLDLC2). On a successful move, set_old_loc2 ←
+        # get_old_loc, then set_old_loc ← previous-room. BACK
+        # uses get_old_loc unless that equals current LOC (just
+        # came from there), in which case get_old_loc2.
+        get_old_loc(): int
+        get_old_loc2(): int
+        set_old_loc(loc: int)
+        set_old_loc2(loc: int)
+
+        # Canon BRIEF flag (advent.for STMT 8260 sets ABBNUM=10000
+        # to disable long-form room descriptions on revisit). The
+        # port flattens canon's ABBNUM counter into a boolean —
+        # once typed, BRIEF stays on for the rest of the session.
+        is_brief_mode(): bool
+        enable_brief_mode()
+
+        # Canon DETAIL counter (advent.for STMT 30). Tracks
+        # consecutive LOOKs in the same room — after three, the
+        # parser emits msg #15 ("Sorry, but I am not allowed to
+        # give more detail.") and stops describing.
+        get_look_detail_count(): int
+        bump_look_detail()
+        reset_look_detail()
+
+        # Canon IWEST counter (advent.for line 901). Number of
+        # times the player has typed WEST. Used by the witts hint
+        # trigger (msg #181, "If you prefer, simply type W rather
+        # than WEST.").
+        get_iwest_count(): int
+        bump_iwest()
 
         # NPC queries
         bird_state(): String
@@ -2878,9 +3337,48 @@
         endgame_panic()                       # canon CLOCK2 cap on PANIC
         endgame_panicked(): bool
 
-        # Hints (parameterized × 3 parallel)
+        # V1.2 Phase 0.3 — closing-warning crescendo via Endgame
+        # substates ($ClosingT25 / $ClosingT15 / $ClosingT5). Each
+        # substate's $>() entry sets pending_warning to its
+        # threshold; driver reads, prints the canon msg, and
+        # clears. Adventure delegates to its Endgame instance.
+        pending_warning_threshold(): int
+        clear_pending_warning()
+
+        # Hints (parameterized × 6 parallel)
         request_hint(name: String): String
         hint_state(name: String): String
+        # V1.2 Phase 0.4 — "has the canon Y/N prompt been shown
+        # for this hint?" — Adventure dispatches to the named
+        # Hint instance. Distinct from hint_state(name)==
+        # "offered", which means the hint text has been delivered.
+        # mark_hint_offered + hint_has_been_offered replace the
+        # driver's _hint_prompted Dictionary.
+        mark_hint_offered(name: String)
+        hint_has_been_offered(name: String): bool
+
+        # V1.2 Phase 0.4 — canon chest-only-outstanding hint
+        # (advent.for STMT 6020, msg #186). One-shot per game;
+        # previously a driver bool, now persisted Adventure
+        # state so it survives save/restore.
+        is_chest_hint_done(): bool
+        mark_chest_hint_done()
+
+        # V1.2 Phase 0.9 — canon msg #3 first-dwarf-encounter
+        # narration latch (advent.for STMT 6000, DFLAG 1→2). One-
+        # shot per game; was a driver bool, now persisted Adventure
+        # state so a save+restore mid-run doesn't re-narrate the
+        # intro.
+        is_dwarf_first_encounter_done(): bool
+        mark_dwarf_first_encounter_done()
+
+        # V1.2 Phase 0.11 — canon msg #193 oyster-clue reveal latch
+        # (advent.dat msgs #192/193/194). Was a driver bool; on
+        # Adventure now so it survives save/restore — a saved game
+        # mid-puzzle doesn't re-prompt the player and let them
+        # double-dip the -10pt cost.
+        is_oyster_revealed(): bool
+        mark_oyster_revealed()
 
         # Dragon (multi-turn parser dialog)
         dragon_state(): String
@@ -3089,6 +3587,39 @@
             player_state(): String            { @@:(self.player.get_state()) }
             room_is_dark_now(): bool          { @@:(self._room_is_dark(self.player.get_room())) }
             darkness_consumed_count(): int    { @@:(self.darkness.consumed_count) }
+            dark_warned_room(): int           { @@:(self.darkness.warned_room()) }
+            set_dark_warned_room(room: int)   { self.darkness.set_warned_room(room) }
+            clear_dark_warning()              { self.darkness.clear_warning() }
+
+            lamp_warning_text(): String {
+                # Canon STMT 12000/12200 — lamp-dim warning fans
+                # out to four variants by world state. The Lamp
+                # FSM's last_message() is the trigger; we
+                # substitute the correct canon variant here.
+                var base: String = self.lamp.last_message()
+                if base == "":
+                    @@:return("")
+                if self.player.carrying(self.BATTERIES_ID):
+                    # Canon msg #188 — auto-replace.
+                    self.lamp.refresh()
+                    self.batteries_item.consume()
+                    self.player.drop(self.BATTERIES_ID)
+                    @@:return("Your lamp is getting dim. I'm taking the liberty of replacing the batteries.")
+                if self.batteries_item.get_state() == "consumed":
+                    # Canon msg #189 — batteries used.
+                    @@:return("Your lamp is getting dim, and you're out of spare batteries. You'd best start wrapping this up.")
+                if self.vending.is_loaded():
+                    # Canon msg #183 — vending still loaded
+                    # (default Lamp FSM message).
+                    @@:return(base)
+                # Canon msg #187 — batteries dispensed and exist
+                # somewhere in the world but not in inventory.
+                @@:("Your lamp is getting dim. You'd best go back for those batteries.")
+            }
+
+            lamp_out_aboveground(): bool {
+                @@:(self.lamp.get_state() == "out" and self.player.get_room() <= 8)
+            }
             backpack_blocked_count(): int     { @@:(self.backpack.consumed_count) }
             magic_transforms_count(): int     { @@:(self.magic.transforms_count) }
             score(): int                      { @@:(self.real_score) }
@@ -3097,6 +3628,22 @@
             hint_penalty(): int               { @@:(self.score_hints) }
             endgame_score(): int              { @@:(self.score_endgame) }
             commands_seen(): int              { @@:(self.score_ledger.commands_seen()) }
+
+            get_old_loc(): int                { @@:(self.old_loc) }
+            get_old_loc2(): int               { @@:(self.old_loc2) }
+            set_old_loc(loc: int)             { self.old_loc = loc }
+            set_old_loc2(loc: int)            { self.old_loc2 = loc }
+
+            is_brief_mode(): bool             { @@:(self.brief_mode) }
+            enable_brief_mode()               { self.brief_mode = true }
+
+            get_look_detail_count(): int      { @@:(self.look_detail_count) }
+            bump_look_detail()                { self.look_detail_count = self.look_detail_count + 1 }
+            reset_look_detail()               { self.look_detail_count = 0 }
+
+            get_iwest_count(): int            { @@:(self.iwest_count) }
+            bump_iwest()                      { self.iwest_count = self.iwest_count + 1 }
+
             bird_state(): String              { @@:(self.bird.get_state()) }
             bird_location(): int              { @@:(self.bird.get_location()) }
             snake_state(): String             { @@:(self.snake.get_state()) }
@@ -3362,6 +3909,8 @@
             endgame_timer(): float    { @@:(self.endgame.closing_timer()) }
             endgame_panic()           { self.endgame.panic() }
             endgame_panicked(): bool  { @@:(self.endgame.is_panicked()) }
+            pending_warning_threshold(): int { @@:(self.endgame.pending_warning_threshold()) }
+            clear_pending_warning()   { self.endgame.clear_pending_warning() }
 
             request_hint(name: String): String {
                 # Each hint has different text. The Hint system
@@ -3430,6 +3979,47 @@
                     @@:return(self.witts_hint.get_state())
                 @@:("unknown")
             }
+
+            mark_hint_offered(name: String) {
+                # V1.2 Phase 0.4 — replaces driver `_hint_prompted[n] = true`.
+                if name == "bird":
+                    self.bird_hint.mark_offered()
+                elif name == "cave":
+                    self.cave_hint.mark_offered()
+                elif name == "snake":
+                    self.snake_hint.mark_offered()
+                elif name == "maze":
+                    self.maze_hint.mark_offered()
+                elif name == "plover":
+                    self.plover_hint.mark_offered()
+                elif name == "witts":
+                    self.witts_hint.mark_offered()
+            }
+
+            hint_has_been_offered(name: String): bool {
+                if name == "bird":
+                    @@:return(self.bird_hint.has_been_offered())
+                elif name == "cave":
+                    @@:return(self.cave_hint.has_been_offered())
+                elif name == "snake":
+                    @@:return(self.snake_hint.has_been_offered())
+                elif name == "maze":
+                    @@:return(self.maze_hint.has_been_offered())
+                elif name == "plover":
+                    @@:return(self.plover_hint.has_been_offered())
+                elif name == "witts":
+                    @@:return(self.witts_hint.has_been_offered())
+                @@:(false)
+            }
+
+            is_chest_hint_done(): bool { @@:(self.chest_hint_done) }
+            mark_chest_hint_done()     { self.chest_hint_done = true }
+
+            is_dwarf_first_encounter_done(): bool { @@:(self.dwarf_first_encounter_done) }
+            mark_dwarf_first_encounter_done()     { self.dwarf_first_encounter_done = true }
+
+            is_oyster_revealed(): bool { @@:(self.oyster_revealed) }
+            mark_oyster_revealed()     { self.oyster_revealed = true }
 
             dragon_state(): String  { @@:(self.dragon.get_state()) }
             dragon_alive(): bool    { @@:(self.dragon.is_alive()) }
@@ -5643,6 +6233,42 @@
         # the driver.
         turns: int = 0
 
+        # ----- Canon scalars (advent.for OLDLOC / OLDLC2 / ABBNUM
+        # / DETAIL / IWEST) -----
+        #
+        # These five fields previously lived on the driver as
+        # plain `var` declarations. Moved onto Adventure's domain
+        # in V1.2 Phase 0.1 because they're canon-derived world
+        # state that must round-trip via @@[persist] — driver-side
+        # vars were a port-shortcut that wouldn't survive save /
+        # restore correctly. The canon names are in each field's
+        # comment for cross-reference to advent.for.
+
+        # Canon OLDLOC + OLDLC2 (advent.for STMT 20-25). Two-deep
+        # location history backing the BACK / RETREAT verbs. On
+        # a successful move, old_loc2 ← old_loc, then old_loc ←
+        # previous-room. BACK uses old_loc unless it equals
+        # current LOC (player just came from there), in which
+        # case old_loc2.
+        old_loc: int = -1
+        old_loc2: int = -1
+
+        # Canon ABBNUM (advent.for STMT 8260) — the port flattens
+        # the original counter to a boolean: once typed, BRIEF
+        # stays on for the rest of the session and revisits show
+        # the short room name only.
+        brief_mode: bool = false
+
+        # Canon DETAIL (advent.for STMT 30) — consecutive LOOK
+        # counter. After three LOOKs in the same room the parser
+        # emits msg #15 and stops describing.
+        look_detail_count: int = 0
+
+        # Canon IWEST (advent.for line 901) — count of WEST
+        # commands typed. Trips the witts hint at 10 (msg #181
+        # "If you prefer, simply type W rather than WEST.").
+        iwest_count: int = 0
+
         # Scoring — running totals. Each component is
         # incremented at the right transition (deposit,
         # first-visit, hint, endgame), never decremented
@@ -5681,6 +6307,25 @@
         # across save/restore so a restored late-endgame run doesn't
         # re-teleport.
         repository_teleport_done: bool = false
+
+        # V1.2 Phase 0.4 — canon msg #186 chest-only-outstanding
+        # hint is a one-shot per game (fires once when the player
+        # has 14/15 deposited and is missing only the chest). Was
+        # a driver bool; persisted now so it survives save/restore.
+        chest_hint_done: bool = false
+
+        # V1.2 Phase 0.9 — canon msg #3 first-dwarf-encounter
+        # narration (advent.for STMT 6000 — the DFLAG 1→2 "A little
+        # dwarf just walked around a corner..." beat). One-shot
+        # per game.
+        dwarf_first_encounter_done: bool = false
+
+        # V1.2 Phase 0.11 — canon msg #193 oyster-clue reveal latch
+        # (advent.dat msgs #192/193/194). Once the player pays
+        # the -10pt cost to read the clue, this flips true; future
+        # READ OYSTER hits the canon "same thing it did before"
+        # response (msg #194) instead of re-prompting.
+        oyster_revealed: bool = false
         # Canon dwarf-awakening counter — tracks ticks the player
         # has spent in the deep cave (room 14-130). Once it crosses
         # DWARF_WAKE_THRESHOLD the dwarves auto-wake (mirroring

@@ -1,15 +1,14 @@
 # CCA — TODO
 
-Pending non-canon work. **The authoritative canon-fidelity gap inventory
-is now [`CANON_FULL_AUDIT.md`](CANON_FULL_AUDIT.md), and the
-implementation roadmap is [`CANON_FULL_PLAN.md`](CANON_FULL_PLAN.md)** —
-both built on top of `cca/canon/ADVENT_FOR_INVENTORY.md` and
-`cca/canon/ADVENT_DAT_INVENTORY.md` (the full canon source-of-truth
-references).
-
-Older delta docs (`CANON_DELTAS.md`, the conditional-row dashboard at
-[`tests/test_cca_conditional.gd`](tests/test_cca_conditional.gd)) remain as
-historical record and live coverage probes.
+Pending non-canon work. **The authoritative canon-fidelity status
+post-V1 is now [`V1_REVIEW.md`](V1_REVIEW.md)**, with the
+architectural follow-on tracked in [`V1_2_PLAN.md`](V1_2_PLAN.md).
+The pre-V1 planning docs (`CANON_FULL_AUDIT.md`,
+`CANON_FULL_PLAN.md`, `CANON_DELTAS.md`) were archived to
+[`docs/historical/`](docs/historical/) in V1.2 as historical record;
+the live coverage probe at
+[`tests/test_cca_conditional.gd`](tests/test_cca_conditional.gd)
+remains in-place.
 
 ---
 

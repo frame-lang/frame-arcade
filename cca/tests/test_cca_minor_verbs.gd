@@ -74,7 +74,7 @@ func _init():
     var l4: Array = H.capture(d3, "brief")
     _expect_any_match("BRIEF emits canon ack 'first time'",
         l4, "first time")
-    _expect("BRIEF sets _brief_mode",         d3._brief_mode, true)
+    _expect("BRIEF sets brief_mode on FSM",   d3.fsm.is_brief_mode(), true)
     # Visit a room, leave, come back — second visit should suppress
     # description in brief mode.
     d3.fsm.player.move_to(33)
@@ -128,7 +128,7 @@ func _init():
                 seen_msg = true
                 break
     _expect("WEST counter eventually fired",  seen_msg, true)
-    _expect("WEST counter ended at exactly 10", d7._iwest_count >= 10, true)
+    _expect("WEST counter ended at exactly 10", d7.fsm.get_iwest_count() >= 10, true)
 
     # ----- Phase 6: Y2 PLUGH whisper -----
     print("Phase 6: Y2 PLUGH whisper — 25% per visit, room 33 only")

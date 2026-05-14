@@ -37,7 +37,6 @@ ARCADE = REPO_ROOT / "arcade" / "godot" / "scripts" / "cca_main.gd"
 EXPECTED_DIVERGENCES = {
     "_build_ui":               "arcade adds the ExitDialog overlay to the UI tree",
     "_check_player_death":     "arcade calls Arcade.return_to_menu(); standalone calls get_tree().quit()",
-    "_format_inventory":       "small phrasing drift on a couple of item labels; flagged for canonization in V1.2",
     "_handle_movement":        "arcade's bumper chain has the ExitDialog cancel path inserted",
     "_handle_ui_verb":         "arcade routes QUIT through ExitDialog instead of the inline yes/no prompt",
     "_intercept_take_scenery": "arcade has a couple of arcade-specific scenery items",

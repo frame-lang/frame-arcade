@@ -80,7 +80,7 @@ func _init():
     var l1: Array = H.capture(d1, "north")
     _expect_no_match("no msg #186 with 0 treasures deposited",
         l1, "Shiver me timbers")
-    _expect("hint latch still false",     d1._chest_hint_done,    false)
+    _expect("hint latch still false",     d1.fsm.is_chest_hint_done(),    false)
 
     # ----- Phase 2: 14 deposited, chest still missing → hint fires -----
     print("Phase 2: 14 deposited + chest missing → msg #186 fires")
@@ -93,7 +93,7 @@ func _init():
         l2, "Shiver me timbers")
     _expect_any_match("msg #186 mentions the maze",
         l2, "maze to hide me chest")
-    _expect("hint latch armed",           d2._chest_hint_done,    true)
+    _expect("hint latch armed",           d2.fsm.is_chest_hint_done(),    true)
 
     # ----- Phase 3: re-fire suppressed by latch -----
     print("Phase 3: subsequent turns don't re-fire")

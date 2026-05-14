@@ -39,8 +39,9 @@ func _expect_any_match(label: String, lines: Array, needle: String) -> void:
     failures += 1
 
 func _make_driver() -> H.CapturedDriver:
-    # Skip _ready entirely — we only need `fsm`, `_dark_warned_room`,
-    # and the `_check_dark_pit_hazard` method. Don't add to the
+    # Skip _ready entirely — we only need `fsm`, the dark-warning
+    # storage (now on DarknessGate via fsm.dark_warned_room()), and
+    # the `_check_dark_pit_hazard` method. Don't add to the
     # SceneTree so no UI bootstrap fires.
     var d := H.CapturedDriver.new()
     d.fsm = H.Cca.new()
@@ -62,7 +63,7 @@ func _init():
     _expect("dark now?",           d.fsm.room_is_dark_now(), false)
     var fired1 := d._check_dark_pit_hazard()
     _expect("hazard fired in lit room",  fired1, false)
-    _expect("warned-room marker",        d._dark_warned_room, -1)
+    _expect("warned-room marker",        d.fsm.dark_warned_room(), -1)
     _expect("buffer empty",              d.captured.size(),   0)
 
     # 2. Move into a dark cave room (debris, room 11) without
@@ -75,7 +76,7 @@ func _init():
 
     var fired2 := d._check_dark_pit_hazard()
     _expect("first attempt fires (warning)", fired2, true)
-    _expect("warned room marker set",        d._dark_warned_room, 11)
+    _expect("warned room marker set",        d.fsm.dark_warned_room(), 11)
     _expect_any_match("warning message captured",
         d.captured, "pitch dark")
     _expect("player still alive",  d.fsm.player_state(), "alive")
@@ -104,7 +105,7 @@ func _init():
     _expect("lamp lit?",           d.fsm.is_lit(),       true)
     var fired3 := d._check_dark_pit_hazard()
     _expect("hazard skipped while lit",   fired3, false)
-    _expect("warned-room marker cleared", d._dark_warned_room, -1)
+    _expect("warned-room marker cleared", d.fsm.dark_warned_room(), -1)
 
     # 5. Extinguish, move to a *different* dark room — warning
     #    must fire again because the marker is per-room.
@@ -114,7 +115,7 @@ func _init():
     var pre_count: int = d.captured.size()
     var fired4 := d._check_dark_pit_hazard()
     _expect("first attempt at new dark room warns", fired4, true)
-    _expect("warned-room marker = 13", d._dark_warned_room, 13)
+    _expect("warned-room marker = 13", d.fsm.dark_warned_room(), 13)
     var fresh_lines: Array = d.captured.slice(pre_count)
     _expect_any_match("new warning emitted", fresh_lines, "pitch dark")
 

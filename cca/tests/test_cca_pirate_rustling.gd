@@ -85,16 +85,25 @@ func _init():
         d3._check_pirate_rustle()
     _expect("surface room emits 0 rustles", _count_rustles(d3), 0)
 
-    # ----- Phase 4: post-steal latch suppresses rustling -----
-    print("Phase 4: _pirate_already_stole latch suppresses rustling")
+    # ----- Phase 4: post-steal Pirate state suppresses rustling -----
+    # V1.2 Phase 0.10 — _pirate_already_stole driver latch was
+    # removed in favor of the Pirate FSM's $Stalking → $Vanished
+    # transition. Force a successful steal via try_steal()'s
+    # seeded RNG (~25%/turn) — guaranteed to hit within a few
+    # iterations under any seed.
+    print("Phase 4: post-steal Pirate state ($Vanished) suppresses rustling")
     seed(0xBEACEFEE)
     var d4 := H.make_driver()
     _force_stalking(d4)
     d4.fsm.player.move_to(15)
-    d4._pirate_already_stole = true
+    for _i in 100:
+        if d4.fsm.pirate.try_steal():
+            break
+    _expect("pirate vanished after forced steal", d4.fsm.pirate_state(), "vanished")
+    var pre_count: int = _count_rustles(d4)
     for _i in 200:
         d4._check_pirate_rustle()
-    _expect("post-steal latch emits 0 rustles", _count_rustles(d4), 0)
+    _expect("post-vanished state emits 0 rustles", _count_rustles(d4) - pre_count, 0)
 
     if failures == 0:
         print("PASS — pirate rustling honors canon msg #127")

@@ -169,64 +169,47 @@ const DARK_PIT_PCT := 35
 # Runtime
 # ------------------------------------------------------------
 var fsm
+# Modal Y/N prompt coordinator (V1.2 Phase 0.2). Replaces five
+# driver booleans (_quit_pending / _suspend_pending / _oyster_prompt_active
+# / _awaiting_revive / _hint_pending) with a single FSM whose
+# state IS the active prompt. Instantiated at declaration time
+# so headless tests (which bypass _ready) still get a live FSM;
+# fresh every session, nothing about its state survives
+# save/restore (see the FSM header comment in cca.fgd for the
+# design rationale).
+var prompts = CcaFSM.PromptDispatcher.new()
 var output: RichTextLabel
 var input: LineEdit
 var _last_room: int = -1
-# Tracks whether the player has already been warned about the
-# darkness in their current room. Canon CCA gives one free turn —
-# the warning fires, and only on the *next* move attempt does the
-# pit-fall roll happen.
-var _dark_warned_room: int = -1
+# (V1.2 Phase 0.5) _dark_warned_room moved onto DarknessGate.
+# Driver accesses via fsm.dark_warned_room() /
+# fsm.set_dark_warned_room(room) / fsm.clear_dark_warning().
 var _save_path: String = "user://cca_save.dat"
 
-# Pirate-stalking starts only after the player has carried
-# treasures past a threshold. We track that the pirate has
-# stolen this run so we don't double-steal.
-var _pirate_already_stole: bool = false
+# V1.2 Phase 0.10 — _pirate_already_stole driver var deleted.
+# Equivalent state lives on the Pirate FSM: a successful steal
+# transitions $Stalking → $Vanished, so fsm.pirate_state() is
+# the source of truth ("vanished" == "already stole this run").
 
-# Resurrection-prompt state. When the player dies (bear
-# mauling, dwarf axe), the FSM transitions Player → $Dead.
-# The driver detects this on the next post-command check,
-# prints the resurrection prompt, and pauses normal verb
-# processing until the player answers yes/no.
-var _awaiting_revive: bool = false
-# Canon QUIT confirmation latch (msg #22 "DO YOU REALLY WANT TO
-# QUIT NOW?"). Set when QUIT is typed; the next yes/no answer
-# either exits the game or cancels.
-var _quit_pending: bool = false
-# Canon SUSPEND confirmation latch (msg #200 "IS THIS ACCEPTABLE?").
-# Advent.for STMT 8300 prompts after the "I can suspend..." spiel;
-# YES saves and exits, NO cancels.
-var _suspend_pending: bool = false
+# Resurrection / quit / suspend prompt latches used to live here
+# as three separate driver booleans. V1.2 Phase 0.2 consolidated
+# them (plus the oyster and hint prompts below) into the
+# PromptDispatcher FSM (var `prompts` above). Each setter site
+# now calls prompts.offer_revive() / offer_quit() / offer_suspend();
+# answers flow through the single dispatcher block at the top of
+# _process_input.
 
-# Canon BRIEF flag (advent.for STMT 8260 sets ABBNUM=10000 to
-# suppress long-form descriptions after the first visit).
-# Port interpretation: when brief_mode is true, revisits to
-# rooms already in _visited_rooms skip the full description
-# (the player just sees the next prompt). Typing LOOK still
-# works to re-display.
-var _brief_mode: bool = false
+# Canon BRIEF / IWEST / DETAIL / OLDLOC / OLDLC2 used to live
+# here as driver vars; V1.2 Phase 0.1 moved them onto the
+# Adventure FSM domain (see cca/frame/cca.fgd). Driver now
+# reads/writes via fsm.is_brief_mode() / fsm.enable_brief_mode(),
+# fsm.get_iwest_count() / fsm.bump_iwest(), fsm.get_look_detail_count()
+# / fsm.bump_look_detail() / fsm.reset_look_detail(), and
+# fsm.get_old_loc() / fsm.set_old_loc() / fsm.get_old_loc2() /
+# fsm.set_old_loc2(). The motion in canon (OLDLC2 ← OLDLOC ←
+# previous-room) stays at the driver call-sites — only the
+# storage moved.
 var _visited_rooms: Dictionary = {}
-
-# Canon IWEST counter (advent.for line 901). When the player
-# types "WEST" instead of "W" ten times, msg #17 fires once
-# ("If you prefer, simply type W rather than WEST.").
-var _iwest_count: int = 0
-
-# Canon LOOK detail counter (advent.for STMT 30, var DETAIL).
-# Canon prints msg #15 ("Sorry, but I am not allowed to give
-# more detail.") on each of the first 3 LOOKs; subsequent
-# LOOKs silently re-display the long-form room description.
-var _look_detail_count: int = 0
-
-# Canon BACK history (advent.for STMT 20-25, vars OLDLOC and
-# OLDLC2). On a successful move, _old_loc2 ← _old_loc, then
-# _old_loc ← previous-room. BACK uses _old_loc unless that
-# room is forced-motion, in which case it falls back to
-# _old_loc2 — matches canon's "if you BACK from a forced room,
-# you go two rooms back."
-var _old_loc: int = -1
-var _old_loc2: int = -1
 
 # Typed-input recall (Up/Down arrow keys at the prompt) and
 # scrollback paging (PgUp/PgDn). Session-only ergonomic state —
@@ -239,14 +222,10 @@ var _old_loc2: int = -1
 var _input_history: Array = []
 var _input_history_idx: int = -1
 
-# Canon msg #3 first-dwarf-encounter latch (advent.for STMT
-# 6000). Canon narrates msg #3 on the DFLAG 1→2 transition: "A
-# little dwarf just walked around a corner, saw you, threw a
-# little axe at you which missed, cursed, and ran away." The port
-# wakes the dwarves once at `_ready`, so we fire msg #3 the first
-# time the player enters a room where a stalking dwarf is — same
-# narrative beat, simpler trigger.
-var _dwarf_first_encounter_done: bool = false
+# Canon msg #3 first-dwarf-encounter latch (advent.for STMT 6000)
+# moved onto Adventure's domain in V1.2 Phase 0.9 — driver reads
+# via fsm.is_dwarf_first_encounter_done() / writes via
+# fsm.mark_dwarf_first_encounter_done().
 
 # Canon dwarf movement RNG. Each turn, every stalking dwarf
 # walks one step along the canon section-3 travel graph. We
@@ -257,13 +236,10 @@ var _dwarf_walk_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 # Canon OYSTER hint chain (advent.dat msgs #192/193/194). READ
 # OYSTER on the in-place oyster (post-clam-break) costs 10 points
-# but reveals the magic-words hint. Canon flow:
-#   READ OYSTER (first time)  → msg #192 prompt (Y/N, 10-pt cost)
-#   YES                        → msg #193 reveal + 10-pt deduction
-#   NO                         → cancel, no penalty
-#   READ OYSTER (after reveal) → msg #194 ("same thing")
-var _oyster_prompt_active: bool = false
-var _oyster_revealed: bool = false
+# but reveals the magic-words hint. The Y/N prompt flows through
+# PromptDispatcher (offer_oyster()); the already-revealed latch
+# moved onto Adventure's domain in V1.2 Phase 0.11
+# (fsm.is_oyster_revealed() / fsm.mark_oyster_revealed()).
 
 # Canon hint Y/N flow (advent.for STMT 6020 + msgs #18/#20/#62/
 # #176/#178/#180). When a hint becomes eligible (player has been
@@ -290,21 +266,21 @@ const HINT_PROMPT_MSGS: Dictionary = {
     "witts":  "Do you need help getting out of here?",
 }
 const HINT_NAMES: Array = ["cave", "bird", "snake", "maze", "plover", "witts"]
-var _hint_prompted: Dictionary = {}    # name -> true once auto-offered
-var _hint_pending: String = ""         # name of hint awaiting YES/NO, "" if none
+# (V1.2 Phase 0.4) the "hint already auto-offered?" tracking
+# moved onto each Hint FSM (as Hint.offered) and is dispatched
+# via Adventure's mark_hint_offered(name) / hint_has_been_offered(name).
+# (V1.2 Phase 0.2) the "hint awaiting yes/no" latch moved onto
+# PromptDispatcher's $AwaitingHint state. Driver queries
+# prompts.current_hint_name() to retrieve the active name.
 
 # Canon chest-only-outstanding hint latch (advent.for STMT 6020,
-# canon msg #186). When the player has 14 of 15 treasures
-# deposited and the chest is the only one missing — and the
-# chest is still in the pirate's stash, not yet in inventory —
-# the canon "spotted pirate" message fires once, pointing the
-# player toward the maze.
-var _chest_hint_done: bool = false
+# canon msg #186) moved onto Adventure's domain in V1.2 Phase 0.4
+# (see fsm.is_chest_hint_done() / fsm.mark_chest_hint_done()).
 
 # Canon forced-motion rooms (cond=2 per advent.for line 393).
 # These rooms auto-bounce on entry; BACK from a non-forced
 # room into one of these would re-fire the bounce, so canon
-# skips them and uses _old_loc2 instead.
+# skips them and uses old_loc2 (fsm.get_old_loc2()) instead.
 const FORCED_ROOMS := [16, 22, 26, 32, 40, 59, 79, 89, 90, 113]
 
 # 5-character-truncated verb-synonym lookup. Derived from
@@ -319,6 +295,9 @@ func _ready() -> void:
     fsm = CcaFSM.new()
     fsm.setup_default_aspects()
     fsm.wake_dwarves()
+    # `prompts` is initialized at var-declaration time so headless
+    # tests get a live FSM without going through _ready(); see
+    # var prompts above.
     _build_verb_synonyms_5()
     _build_ui()
     _print_welcome()
@@ -498,8 +477,8 @@ func _process_input(text: String) -> void:
     # one-shot. The word "w" doesn't trigger.
     var raw_first: String = text.strip_edges().split(" ", false)[0] if not text.strip_edges().is_empty() else ""
     if raw_first == "west":
-        _iwest_count = _iwest_count + 1
-        if _iwest_count == 10:
+        fsm.bump_iwest()
+        if fsm.get_iwest_count() == 10:
             _println("If you prefer, simply type W rather than WEST.")
 
     var parsed := _parse(text)
@@ -511,121 +490,90 @@ func _process_input(text: String) -> void:
         _println("I'm afraid I don't understand.")
         return
 
-    # Resurrection prompt has top priority — the only input we
-    # accept while the player is dead is yes/no. (We don't go
-    # through the normal verb dispatcher because the dragon
-    # also uses yes/no and we don't want a state collision.)
-    if _quit_pending:
+    # ----- Modal Y/N prompt dispatcher (V1.2 Phase 0.2) -----
+    # PromptDispatcher FSM holds "which prompt is open" as state.
+    # Driver captures the prompt name BEFORE confirm/decline (which
+    # transition $Idle), then branches on the name to invoke the
+    # right side effect. Four of the five prompts cancel on any
+    # non-yes/no input; $AwaitingRevive (accepts_only_yes_no=true)
+    # re-prompts with canon "Please answer the question."
+    if prompts.is_active():
+        var prompt_name: String = prompts.current_prompt()
+        var hint_name: String = prompts.current_hint_name()    # only meaningful when prompt_name == "hint"
         if verb == "yes":
-            _quit_pending = false
-            _println("Goodbye.")
-            await get_tree().create_timer(0.5).timeout
-            get_tree().quit()
-            return
-        if verb == "no":
-            _quit_pending = false
-            _println("OK.")
-            return
-        _quit_pending = false
-        # Fall through to normal processing — canon: any non-yes
-        # answer cancels the quit prompt.
-
-    # Canon SUSPEND Y/N flow (advent.for STMT 8300, msg #200).
-    # YES saves and ends the session; NO cancels with msg #54.
-    if _suspend_pending:
-        if verb == "yes":
-            _suspend_pending = false
-            _println("OK")
-            _save_game()
-            return
-        if verb == "no":
-            _suspend_pending = false
-            _println("OK")
-            return
-        _suspend_pending = false
-        # Fall through to normal processing for any other input.
-
-    # Canon hint Y/N flow. YES emits the payload + deducts the
-    # per-hint cost (handled inside fsm.request_hint); NO emits
-    # canon msg #54 ("OK"). Any other verb cancels the prompt and
-    # falls through to normal processing.
-    if _hint_pending != "":
-        var hint_name: String = _hint_pending
-        _hint_pending = ""
-        if verb == "yes":
-            _println(fsm.request_hint(hint_name))
-            return
-        if verb == "no":
-            # Canon msg #54.
-            _println("OK")
-            return
-        # Fall through to normal verb processing.
-
-    # Canon oyster-clue Y/N prompt (advent.dat msg #192). Player
-    # has READ OYSTER on the in-place oyster; answering YES costs
-    # 10 points and reveals msg #193, NO cancels with no penalty.
-    if _oyster_prompt_active:
-        if verb == "yes":
-            _oyster_prompt_active = false
-            _oyster_revealed = true
-            _println("It says, \"There is something strange about this place, such that one")
-            _println("of the words I've always known now has a new effect.\"")
-            # Canon 10-point cost for the oyster clue (advent.for
-            # SPK=192/193 chain). Hits both the per-component
-            # ledger and the aggregate score so the score line
-            # remains consistent.
-            fsm.score_hints = fsm.score_hints - 10
-            fsm.real_score = fsm.real_score - 10
-            return
-        if verb == "no":
-            _oyster_prompt_active = false
-            _println("OK.")
-            return
-        _oyster_prompt_active = false
-        # Any other answer cancels the prompt and falls through.
-
-    if _awaiting_revive:
-        if verb == "yes":
-            # Canon advent.for STMT 16100: revive-text varies by
-            # death count via msg #82/#84 (msg #86 covers the
-            # final out-of-magic case as the prompt itself).
-            var prior_deaths: int = fsm.player.get_deaths()
-            fsm.player.revive()
-            _awaiting_revive = false
-            if prior_deaths == 1:
-                # Canon msg #82.
-                _println("[color=#88dd88]All right. But don't blame me if something goes wr......")
-                _println("                --- POOF!! ---")
-                _println("You are engulfed in a cloud of orange smoke. Coughing and gasping,")
-                _println("you emerge from the smoke and find....[/color]")
-            elif prior_deaths == 2:
-                # Canon msg #84.
-                _println("[color=#88dd88]Okay, now where did I put my orange smoke?....   >POOF!<")
-                _println("Everything disappears in a dense cloud of orange smoke.[/color]")
-            else:
-                # 3rd revive — out of orange smoke; canon
-                # transitions to msg #86 (handled in $Permadead
-                # branch). Defensive: still revive if reached.
-                _println("[color=#88dd88]OK[/color]")
-            _last_room = -1   # force room re-print
-            _print_room()
-            return
-        if verb == "no":
-            _awaiting_revive = false
-            # Canon msg #86 — same line as the "out of smoke"
-            # giving-up text from the player declining help.
-            _println("[color=#cc4444]Okay, if you're so smart, do it yourself! I'm leaving![/color]")
-            # is_inside_tree guard: headless tests instantiate the
-            # driver bare (no scene tree); skip the dramatic pause +
-            # quit there so the test can keep running.
-            if is_inside_tree():
-                await get_tree().create_timer(2.0).timeout
-                get_tree().quit()
-            return
-        # advent.for FORMAT(/' Please answer the question.') — canon
-        # prose for ambiguous yes/no input during the revive prompt.
-        _println("Please answer the question.")
-        return
+            prompts.confirm()
+            match prompt_name:
+                "quit":
+                    _println("Goodbye.")
+                    await get_tree().create_timer(0.5).timeout
+                    get_tree().quit()
+                    return
+                "suspend":
+                    _println("OK")
+                    _save_game()
+                    return
+                "oyster":
+                    fsm.mark_oyster_revealed()
+                    _println("It says, \"There is something strange about this place, such that one")
+                    _println("of the words I've always known now has a new effect.\"")
+                    # Canon 10-point cost (advent.for SPK=192/193).
+                    # Hit per-component ledger AND aggregate score
+                    # so the score line stays consistent.
+                    fsm.score_hints = fsm.score_hints - 10
+                    fsm.real_score = fsm.real_score - 10
+                    return
+                "revive":
+                    # Canon advent.for STMT 16100 — revive prose moved
+                    # onto Player in V1.2 Phase 0.8. FSM picks the right
+                    # canon variant by death count; driver wraps with
+                    # BBCode color.
+                    var revive_prose: String = fsm.player.get_revive_response()
+                    fsm.player.revive()
+                    _println("[color=#88dd88]%s[/color]" % revive_prose)
+                    _last_room = -1
+                    _print_room()
+                    return
+                "hint":
+                    _println(fsm.request_hint(hint_name))
+                    return
+        elif verb == "no":
+            prompts.decline()
+            match prompt_name:
+                "quit":
+                    _println("OK.")
+                    return
+                "suspend":
+                    _println("OK")
+                    return
+                "oyster":
+                    _println("OK.")
+                    return
+                "hint":
+                    # Canon msg #54.
+                    _println("OK")
+                    return
+                "revive":
+                    # Canon msg #86 — Player FSM owns the prose (V1.2
+                    # Phase 0.8). Driver wraps with BBCode color.
+                    _println("[color=#cc4444]%s[/color]" % fsm.player.get_permadeath_msg())
+                    # is_inside_tree guard: headless tests instantiate
+                    # the driver bare (no scene tree); skip the
+                    # dramatic pause + quit there so the test can keep
+                    # running.
+                    if is_inside_tree():
+                        await get_tree().create_timer(2.0).timeout
+                        get_tree().quit()
+                    return
+        else:
+            # Non-yes/no input. $AwaitingRevive re-prompts; the
+            # other four cancel and fall through to normal verb
+            # processing.
+            if prompts.accepts_only_yes_no():
+                # advent.for FORMAT(/' Please answer the question.')
+                _println("Please answer the question.")
+                return
+            prompts.cancel()
+            # Fall through.
 
     # ----- UI-only verbs (driver-handled, never reach the FSM) -----
     # Every turn-taking intercept routes through _post_intercept_tick
@@ -847,15 +795,15 @@ func _dwarf_state(idx: int) -> String:
 # eligibility on the same hint stays silent — the player still
 # has the explicit HINT verb if they want to ask later.
 func _check_hint_prompts() -> void:
-    if _hint_pending != "":
+    if prompts.is_active():
         return
     for n in HINT_NAMES:
-        if _hint_prompted.get(n, false):
+        if fsm.hint_has_been_offered(n):
             continue
         if fsm.hint_state(n) != "eligible":
             continue
-        _hint_prompted[n] = true
-        _hint_pending = n
+        fsm.mark_hint_offered(n)
+        prompts.offer_hint(n)
         _println(HINT_PROMPT_MSGS[n])
         return  # only one prompt per turn
 
@@ -882,7 +830,7 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
             # Canon msg #22 verbatim — standard QUIT confirmation.
             # (Canon also has msg #143 "Do you indeed wish to quit now?"
             # for the closing-cave variant; #22 fires for normal QUIT.)
-            _quit_pending = true
+            prompts.offer_quit()
             _println("Do you really want to quit now?")
             return true
         "score":
@@ -911,7 +859,7 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
             _println("you will have to wait at least 45 minutes before continuing.")
             # Canon msg #200 — confirmation prompt.
             _println("Is this acceptable?")
-            _suspend_pending = true
+            prompts.offer_suspend()
             return true
         "hint":
             var hint_name: String = noun if noun != "" else "bird"
@@ -1022,7 +970,7 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
         "brief":
             # Canon BRIEF (advent.for STMT 8260). Sets ABBNUM=10000
             # so room descriptions after the first visit are short.
-            _brief_mode = true
+            fsm.enable_brief_mode()
             _println("Okay, from now on I'll only describe a place in full the first time")
             _println("you come to it. To get the full description, say LOOK.")
             return true
@@ -1069,9 +1017,9 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
         "look":
             # Canon LOOK (advent.for STMT 30). msg #15 first 3
             # times, then re-display normally.
-            if _look_detail_count < 3:
+            if fsm.get_look_detail_count() < 3:
                 _println("Sorry, but I am not allowed to give more detail. I will repeat the long description of your location.")
-                _look_detail_count = _look_detail_count + 1
+                fsm.bump_look_detail()
             _last_room = -1                    # force re-print
             _visited_rooms.erase(fsm.player_room())
             _print_room()
@@ -1088,9 +1036,9 @@ func _handle_ui_verb(verb: String, noun: String) -> bool:
             if "back" in bk_exits:
                 _handle_movement("back")
                 return true
-            var k: int = _old_loc
+            var k: int = fsm.get_old_loc()
             if k in FORCED_ROOMS:
-                k = _old_loc2
+                k = fsm.get_old_loc2()
             # Canon msg #91 — OLDLOC invalid / unset (first move) OR
             # OLDLOC equals current LOC (player came from same room).
             if k < 0 or k == bk_current:
@@ -1381,13 +1329,13 @@ func _intercept_scenery_read(verb: String, noun: String) -> bool:
         _println("\"This is not the maze where the pirate leaves his treasure chest.\"")
         return true
     # OYSTER hint chain (object 15) — msgs #192/193/194 with Y/N
-    # prompt + 10pt cost. Driver _oyster_prompt_active latch
-    # picks up the YES/NO answer at top of _process_input.
+    # prompt + 10pt cost. PromptDispatcher's $AwaitingOyster
+    # handles the YES/NO answer at top of _process_input.
     if noun == "oyster" and fsm.oyster_item.is_in_room(er):
-        if _oyster_revealed:
+        if fsm.is_oyster_revealed():
             _println("It says the same thing it did before.")
             return true
-        _oyster_prompt_active = true
+        prompts.offer_oyster()
         _println("Hmmm, this looks like a clue, which means it'll cost you 10 points to")
         _println("read it. Should I go ahead and read it anyway?")
         return true
@@ -1600,8 +1548,8 @@ func _handle_movement(direction: String) -> void:
     # gates look/examine; CCA-canon: you CAN move in the dark,
     # but you might fall in a pit).
     # Capture BACK history before the move fires.
-    _old_loc2 = _old_loc
-    _old_loc = current
+    fsm.set_old_loc2(fsm.get_old_loc())
+    fsm.set_old_loc(current)
     var response: String = fsm.do_command("move", str(dest))
     # We use our own room descriptions (via FSM's look) rather
     # than the FSM's move-response — it's more atmospheric.
@@ -1739,8 +1687,8 @@ func _try_bumper_rule(bg: Dictionary) -> bool:
 # (e.g. canon 14:down with gold → room 20 death).
 func _walk_to_dest(dest_room: int) -> void:
     # Capture BACK history before the move fires.
-    _old_loc2 = _old_loc
-    _old_loc = fsm.player_room()
+    fsm.set_old_loc2(fsm.get_old_loc())
+    fsm.set_old_loc(fsm.player_room())
     var resp: String = fsm.do_command("move", str(dest_room))
     _println(resp)
     # Canon STMT 6010 — bumper-walks still advance the dwarf turn
@@ -1774,16 +1722,16 @@ func _check_dark_pit_hazard() -> bool:
         # Either it's a sunlit room or the lamp is on — no hazard.
         # _room_is_dark already accounts for both. Reset the marker
         # so the warning fires fresh next time the player enters dark.
-        if _dark_warned_room != -1:
-            _dark_warned_room = -1
+        if fsm.dark_warned_room() != -1:
+            fsm.clear_dark_warning()
         return false
-    if current != _dark_warned_room:
+    if current != fsm.dark_warned_room():
         # First attempted move while in this dark room. Canon msg #16
         # verbatim. Returning true blocks the move so the warning
         # stands alone — the player can retreat by lighting the lamp
         # or moving back the way they came on the *next* turn.
         _println("It is now pitch dark. If you proceed you will likely fall into a pit.")
-        _dark_warned_room = current
+        fsm.set_dark_warned_room(current)
         return true
     # Already warned in this room — pit-fall roll.
     if (randi() % 100) < DARK_PIT_PCT:
@@ -1814,8 +1762,10 @@ func _dwarf_at_room(room: int) -> bool:
 # Per-turn consequences
 # ============================================================
 func _check_pirate_steal() -> void:
-    if _pirate_already_stole:
-        return
+    # V1.2 Phase 0.10 — the "pirate already stole this run" check
+    # is `pirate_state() != "stalking"` (Pirate transitions to
+    # $Vanished on a successful steal). Driver no longer caches
+    # this; the FSM is the source of truth.
     if fsm.pirate_state() != "stalking":
         return
     # The FSM does the cross-cutting work: rolls the steal, picks
@@ -1823,7 +1773,6 @@ func _check_pirate_steal() -> void:
     # room (room 18). Driver just renders.
     var msg: String = fsm.pirate_attempt_steal()
     if msg != "":
-        _pirate_already_stole = true
         _println("[color=#cc8855][i]%s[/color][/i]" % msg)
         return
     _check_pirate_rustle()
@@ -1836,9 +1785,9 @@ func _check_pirate_steal() -> void:
 # tests can exercise the rustle path independently from the
 # steal-roll → $Vanished transition.
 func _check_pirate_rustle() -> void:
+    # V1.2 Phase 0.10 — `pirate_state() != "stalking"` covers both
+    # "not yet activated" ($Dormant) and "already stole" ($Vanished).
     if fsm.pirate_state() != "stalking":
-        return
-    if _pirate_already_stole:
         return
     if fsm.player_room() < 15:
         return
@@ -1846,45 +1795,18 @@ func _check_pirate_rustle() -> void:
         _println("[color=#cc8855][i]There are faint rustling noises from the darkness behind you.[/i][/color]")
 
 func _check_lamp_warnings() -> void:
-    var msg: String = fsm.get_lamp_message()
+    # V1.2 Phase 0.6 — the canon STMT 12000/12200 variant
+    # selection (which lamp-dim message to print based on
+    # batteries state + vending state) moved onto Adventure.
+    # Driver renders whatever the FSM hands back.
+    var msg: String = fsm.lamp_warning_text()
     if msg != "":
-        # Canon STMT 12000/12200 — the lamp-dim warning fans out
-        # to four canon variants by player + world state. The
-        # Lamp FSM emits msg #183 by default; we substitute the
-        # correct variant per canon STMT 12200:
-        #   SPK = 187 by default
-        #   PLACE(BATTER) == 0 (batteries never dispensed) → 183
-        #   PROP(BATTER) == 1 (batteries depleted)        → 189
-        #   carrying batteries (canon 12000)               → 188
-        if fsm.player.carrying(BATTERIES_ID):
-            # Canon msg #188 — auto-replace.
-            fsm.refresh_lamp()
-            fsm.batteries_item.consume()
-            fsm.player.drop(BATTERIES_ID)
-            msg = "Your lamp is getting dim. I'm taking the liberty of replacing the batteries."
-        elif fsm.batteries_item.get_state() == "consumed":
-            # Canon msg #189 — batteries used (PROP(BATTER)=1).
-            msg = "Your lamp is getting dim, and you're out of spare batteries. You'd best start wrapping this up."
-        elif fsm.vending_loaded():
-            # Canon msg #183 — vending still loaded (PLACE(BATTER)=0).
-            # Msg already set by Lamp FSM; no substitution needed.
-            pass
-        else:
-            # Canon msg #187 — batteries dispensed and exist
-            # somewhere in the world but the player isn't carrying
-            # them. Canonical actionable advice: go retrieve them.
-            msg = "Your lamp is getting dim. You'd best go back for those batteries."
         _println("[color=#ddaa66]%s[/color]" % msg)
-    # Canon msg #185 (advent.for STMT 12600): if the lamp is
-    # out and the player has wandered above-ground (canon
-    # `LIMIT<0 AND LOC<=8`), force the game to end. Above-ground
-    # in canon = rooms 1..8; with no lamp, the player has no
-    # way back into the cave to find batteries, so canon
-    # mercy-quits with msg #185 + final score.
-    if fsm.lamp.get_state() == "out" and fsm.player_room() <= 8:
+    # Canon msg #185 (advent.for STMT 12600): lamp out +
+    # aboveground → force-quit. Adventure answers the predicate;
+    # driver owns the prose + the scene-tree quit.
+    if fsm.lamp_out_aboveground():
         _println("[color=#cc7777][b]There's not much point in wandering around out here, and you can't explore the cave without a lamp. So let's just call it a day.[/b][/color]")
-        # Guard the scene-tree call for headless tests where
-        # the Driver node isn't actually in a tree.
         if is_inside_tree():
             await get_tree().create_timer(2.0).timeout
             get_tree().quit()
@@ -1923,12 +1845,12 @@ func _check_dwarf_axe() -> void:
     fsm.dwarf_threw_and_missed()
     if dtotal == 0:
         return
-    if not _dwarf_first_encounter_done:
+    if not fsm.is_dwarf_first_encounter_done():
         # First-encounter narration (msg #3 set by observe_player_move
         # path runs only on the player's first walk-into; here we
         # latch the flag so the per-turn count msgs don't double
         # up with that intro.
-        _dwarf_first_encounter_done = true
+        fsm.mark_dwarf_first_encounter_done()
     if dtotal == 1:
         _println("[color=#cc7777][i]There is a threatening little dwarf in the room with you![/i][/color]")
     else:
@@ -1963,7 +1885,7 @@ func _check_dwarf_axe() -> void:
 # non-chest treasures and the chest is still missing — pointing
 # them toward the maze where the pirate has hidden it.
 func _check_chest_hint() -> void:
-    if _chest_hint_done:
+    if fsm.is_chest_hint_done():
         return
     if fsm.chest.is_deposited():
         return
@@ -1971,7 +1893,7 @@ func _check_chest_hint() -> void:
         return
     if fsm.treasures_deposited() < 14:
         return
-    _chest_hint_done = true
+    fsm.mark_chest_hint_done()
     _println("There are faint rustling noises from the darkness behind you. As you")
     _println("turn toward them, the beam of your lamp falls across a bearded pirate.")
     _println("He is carrying a large chest. \"Shiver me timbers!\" he cries, \"I've")
@@ -1979,7 +1901,7 @@ func _check_chest_hint() -> void:
     _println("With that, he vanishes into the gloom.")
 
 func _check_player_death() -> void:
-    if _awaiting_revive:
+    if prompts.is_active():
         return
     var s: String = fsm.player_state()
     if s == "dead":
@@ -1992,38 +1914,24 @@ func _check_player_death() -> void:
                 await get_tree().create_timer(2.0).timeout
                 get_tree().quit()
             return
-        _awaiting_revive = true
-        # Canon advent.for STMT 16000: prompt text varies by death
-        # count via the msg #81/#83/#85 ladder.
-        var deaths: int = fsm.player.get_deaths()
-        if deaths == 1:
-            # Canon msg #81 verbatim.
-            _println("[color=#cc4444]Oh dear, you seem to have gotten yourself killed. I might be able to")
-            _println("help you out, but I've never really done this before. Do you want me")
-            _println("to try to reincarnate you?[/color]")
-        elif deaths == 2:
-            # Canon msg #83 verbatim.
-            _println("[color=#cc4444]You clumsy oaf, you've done it again! I don't know how long I can")
-            _println("keep this up. Do you want me to try reincarnating you again?[/color]")
-        else:
-            # Canon msg #85 verbatim — last shot.
-            _println("[color=#cc4444]Now you've really done it! I'm out of orange smoke! You don't expect")
-            _println("me to do a decent reincarnation without any orange smoke, do you?[/color]")
+        prompts.offer_revive()
+        # Canon advent.for STMT 16000 — prompt prose (msg #81/#83/#85)
+        # moved onto Player in V1.2 Phase 0.8. Driver wraps with BBCode.
+        _println("[color=#cc4444]%s[/color]" % fsm.player.get_revive_prompt())
     elif s == "permadead":
-        # Canon msg #86 verbatim.
-        _println("[color=#cc4444][b]Okay, if you're so smart, do it yourself! I'm leaving![/b][/color]")
+        # Canon msg #86 — Player FSM owns the prose.
+        _println("[color=#cc4444][b]%s[/b][/color]" % fsm.player.get_permadeath_msg())
         if is_inside_tree():
             await get_tree().create_timer(2.0).timeout
             get_tree().quit()
 
 var _last_endgame_state: String = "active"
-# Track which closing-warning thresholds have already fired so
-# we emit each one exactly once. Canon CCA escalates the warning
-# text three times during the closing phase rather than printing
-# a single message at the start.
-var _closing_warned_25: bool = false
-var _closing_warned_15: bool = false
-var _closing_warned_5:  bool = false
+# (V1.2 Phase 0.3) The three closing-warning latches
+# (_closing_warned_25/15/5) moved into the Endgame FSM as
+# substates $ClosingT25 / $ClosingT15 / $ClosingT5. Each
+# substate's $>() entry sets pending_warning_threshold; the
+# driver reads it via fsm.pending_warning_threshold() and
+# drains via fsm.clear_pending_warning().
 
 func _check_endgame_phase_change() -> void:
     var s: String = fsm.endgame_state()
@@ -2043,22 +1951,18 @@ func _check_endgame_phase_change() -> void:
         elif s == "won":
             _println("[color=#88dd88][b]There is a loud explosion, and a twenty-foot hole appears in the far wall, burying the dwarves in the rubble. You march through the hole and find yourself in the main office, where a cheering band of friendly elves carry the conquering adventurer off into the sunset. (Final score: %d)[/b][/color]" % fsm.total_score())
 
-    # Closing-phase crescendo. Canon msg #129 is the single
-    # cave-closing warning; the t=15 and t=5 escalations below are
-    # port-only flavor to keep tension building (canon has just one
-    # alert and then $Closed). They use distinct prose so they
-    # don't duplicate the canon opening text.
-    if s == "closing":
-        var t: float = fsm.endgame_timer()
-        if t <= 25.0 and not _closing_warned_25:
-            _closing_warned_25 = true
-            _println("[color=#cc7777][i]A sepulchral voice reverberating through the cave, says, \"Cave closing soon. All adventurers exit immediately through main office.\"[/i][/color]")
-        if t <= 15.0 and not _closing_warned_15:
-            _closing_warned_15 = true
-            _println("[color=#cc7777][i]A sepulchral voice reverberating through the cave, says, \"Cave closing soon. All adventurers exit immediately through main office.\"[/i][/color]")
-        if t <= 5.0 and not _closing_warned_5:
-            _closing_warned_5 = true
-            _println("[color=#cc7777][b]A mysterious recorded voice groans into life and announces: \"This exit is closed. Please leave via main office.\"[/b][/color]")
+    # Closing-phase crescendo via Endgame substates (V1.2 Phase 0.3).
+    # $ClosingT25 / $ClosingT15 / $ClosingT5 each queue a warning
+    # ID (25/15/5) on entry. Canon msg #129 is the single canon
+    # cave-closing warning; T-15 and T-5 are port-only flavor to
+    # keep tension building.
+    var w: int = fsm.pending_warning_threshold()
+    if w == 25 or w == 15:
+        _println("[color=#cc7777][i]A sepulchral voice reverberating through the cave, says, \"Cave closing soon. All adventurers exit immediately through main office.\"[/i][/color]")
+        fsm.clear_pending_warning()
+    elif w == 5:
+        _println("[color=#cc7777][b]A mysterious recorded voice groans into life and announces: \"This exit is closed. Please leave via main office.\"[/b][/color]")
+        fsm.clear_pending_warning()
 
 func _maybe_print_room_after_move() -> void:
     var current: int = fsm.player_room()
@@ -2066,7 +1970,7 @@ func _maybe_print_room_after_move() -> void:
         _last_room = current
         # Canon BRIEF: skip the long room display on revisit.
         # The player can always type LOOK to re-display.
-        if _brief_mode and _visited_rooms.has(current):
+        if fsm.is_brief_mode() and _visited_rooms.has(current):
             return
         _visited_rooms[current] = true
         _print_room()
@@ -2086,8 +1990,8 @@ func _print_room() -> void:
     # Canon msg #3 first-dwarf-encounter (advent.for STMT 6000).
     # Fires once when the player first arrives in a room with a
     # stalking dwarf — canon's DFLAG 1→2 transition narration.
-    if not _dwarf_first_encounter_done and _dwarf_at_room(_last_room):
-        _dwarf_first_encounter_done = true
+    if not fsm.is_dwarf_first_encounter_done() and _dwarf_at_room(_last_room):
+        fsm.mark_dwarf_first_encounter_done()
         _println("A little dwarf just walked around a corner, saw you, threw a little")
         _println("axe at you which missed, cursed, and ran away.")
 
@@ -2172,12 +2076,19 @@ func _resolve_object_id(noun: String) -> int:
 # Inventory
 # ============================================================
 func _format_inventory() -> String:
-    # Canon-aligned inventory, mirroring the arcade driver's
-    # Don Woods 1977 short-name strings. One item per line under
-    # the canon msg #99 "You are currently holding the following:"
-    # header. Bird + cage compound to canon msg #8 "Little bird
-    # in cage" when both are held.
+    # Canon-aligned inventory (Don Woods 1977 short-name strings,
+    # one item per line, "You are currently holding the following:"
+    # header). Item-name strings are taken verbatim from the
+    # canonical INVENTORY output where they exist; the few items
+    # without a canon counterpart (statuette is port-only) keep
+    # the port label.
     var items: Array = []
+
+    # Bird + cage compound: canon shows "Little bird in cage" as
+    # one entry when both are held, instead of listing the bare
+    # cage and the bird separately. The cage stays in the
+    # player's inventory after a release, so once the bird is
+    # gone the player still carries the wicker cage.
     var has_bird: bool = fsm.player.carrying(BIRD_ID)
     var has_cage: bool = fsm.player.carrying(CAGE_ID)
     if has_bird and has_cage:
@@ -2187,17 +2098,18 @@ func _format_inventory() -> String:
     elif has_cage:
         items.append("  Wicker cage")
 
+    # The two black rods. Canon shows them with the same short
+    # name on purpose (the player has to WAVE to tell them apart);
+    # we keep the distinguishing tail so saves stay legible
+    # without forcing the player to remember which they took.
     if fsm.player.carrying(ROD_ID):
         items.append("  Black rod with a rusty star on the end")
     if fsm.player.carrying(MARK_ROD_ID):
         items.append("  Black rod with a rusty mark on the end")
+
     if fsm.player.carrying(KEYS_ID):     items.append("  Set of keys")
     if fsm.player.carrying(BOTTLE_ID):
         # Canon obj#20/21/22: bottle label varies with contents.
-        # Empty → "Small bottle", with water → "Water in the bottle",
-        # with oil → "Oil in the bottle". Advent.dat distinguishes
-        # the prop=0/2/4 forms; the port reads bottle state via the
-        # FSM getters.
         if fsm.bottle.has_water():
             items.append("  Water in the bottle")
         elif fsm.bottle.has_oil():
@@ -2208,15 +2120,17 @@ func _format_inventory() -> String:
     if fsm.player.carrying(PILLOW_ID):   items.append("  Velvet pillow")
     if fsm.player.carrying(AXE_ID):      items.append("  Dwarf's axe")
     if fsm.player.carrying(CLAM_ID):     items.append("  Giant clam")
-    if fsm.player.carrying(OYSTER_ID):   items.append("  Giant oyster")
     if fsm.player.carrying(MAGAZINE_ID): items.append("  \"Spelunker Today\" magazine")
     if fsm.player.carrying(BATTERIES_ID): items.append("  Fresh batteries")
 
+    # Treasures (canon names exactly).
     if fsm.player.carrying(GOLD_ID):     items.append("  Large gold nugget")
     if fsm.player.carrying(SILVER_ID):   items.append("  Bars of silver")
     if fsm.player.carrying(DIAMONDS_ID): items.append("  Several diamonds")
     if fsm.player.carrying(JEWELRY_ID):  items.append("  Precious jewelry")
     if fsm.player.carrying(PEARL_ID):    items.append("  Glistening pearl")
+    # Vase has a $Broken state — show the canon "Worthless shards
+    # of pottery" line in that case rather than the intact label.
     if fsm.player.carrying(VASE_ID):
         if fsm.vase.is_broken():
             items.append("  Worthless shards of pottery")
@@ -2245,7 +2159,7 @@ func _format_inventory() -> String:
 ## crashing when restore_state hits a now-required field. Bump
 ## the magic ("CCA2", "CCA3", ...) whenever the FSM domain layout
 ## changes in a way that would break old saves.
-static var _SAVE_MAGIC: PackedByteArray = PackedByteArray([67, 67, 65, 49])  # "CCA1"
+static var _SAVE_MAGIC: PackedByteArray = PackedByteArray([67, 67, 65, 50])  # "CCA2"
 
 func _save_game() -> void:
     var bytes: PackedByteArray = fsm.save_state()
