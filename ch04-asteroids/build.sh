@@ -7,16 +7,19 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-if ! command -v framec >/dev/null 2>&1; then
-    echo "error: framec not found on PATH"
-    echo "install with:  cargo install framec"
+FRAMEC="${FRAMEC:-framec}"
+
+if ! command -v "$FRAMEC" >/dev/null 2>&1; then
+    echo "error: '$FRAMEC' not found"
+    echo "set FRAMEC env var to the binary path, e.g.:"
+    echo "  FRAMEC=/path/to/framec ./build.sh"
     exit 1
 fi
 
 mkdir -p generated godot/scripts
 
-echo "==> framec compile frame/asteroids.fgd"
-framec compile frame/asteroids.fgd --language gdscript -o generated/
+echo "==> $FRAMEC compile frame/asteroids.fgd"
+"$FRAMEC" compile frame/asteroids.fgd --language gdscript -o generated/
 
 echo "==> copying generated/asteroids.gd -> godot/scripts/asteroids.gd"
 cp generated/asteroids.gd godot/scripts/asteroids.gd

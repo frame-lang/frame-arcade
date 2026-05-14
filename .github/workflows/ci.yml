@@ -29,14 +29,24 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin/framec
-          key: ${{ runner.os }}-framec-${{ hashFiles('**/build.sh') }}
+          # Include the framec version in the cache key so a
+          # version bump in the Install step actually triggers
+          # a fresh install (otherwise the stale binary persists).
+          key: ${{ runner.os }}-framec-4.1.1
           restore-keys: |
             ${{ runner.os }}-framec-
 
       - name: Install framec
+        # framec 4.1.1: ships RFC-0014 (@@[main]), RFC-0015
+        # (@@[persist]/@@[save]/@@[load] system-level form),
+        # RFC-0012 amendment (@@[no_persist] per-field), and the
+        # GDScript backend's var_to_bytes save format (which fixes
+        # the Array<int>→Array<float> JSON deserialization bug
+        # reported as framec _scratch/FRAMEC_BUGS.md Issue #4).
+        # All required by the V1.2 CCA source.
         run: |
           if ! command -v framec >/dev/null 2>&1; then
-            cargo install framec --version 0.20.0 --locked
+            cargo install framec --version 4.1.1 --locked
           fi
           framec --version
 
