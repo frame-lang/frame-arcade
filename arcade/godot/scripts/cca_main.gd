@@ -819,7 +819,11 @@ func _run_per_turn_checks() -> void:
 # the canon section-3 travel graph; if the dwarf has SEEN the
 # player and the player is still in the deep cave, it snaps
 # to the player's room.
-var _dwarf_walk_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+# V1.3 Phase 0.9 follow-on — the shared `_dwarf_walk_rng` was
+# replaced by each Dwarf / Pirate FSM's own seeded PRNG
+# (deterministic per save_state). See Dwarf.pick_destination
+# in cca/frame/cca.fgd. Driver now only supplies the candidate
+# exits from canon section-3; the FSM filters + picks.
 
 func _step_dwarves() -> void:
     var player_room: int = fsm.player_room()
@@ -828,9 +832,9 @@ func _step_dwarves() -> void:
         if d_state != "stalking":
             continue
         var cur: int = fsm.dwarf_room_of(i)
-        var prev: int = fsm.dwarf_prev_room_of(i)
         var was_seen: bool = fsm.dwarf_is_seen(i)
-        var new_room: int = _pick_dwarf_destination(cur, prev, false)
+        var new_room: int = fsm.dwarf_pick_destination(
+            i, _candidate_exits(cur), FORCED_ROOMS)
         fsm.dwarf_step_to(i, new_room)
         var now_at: int = fsm.dwarf_room_of(i)
         var now_prev: int = fsm.dwarf_prev_room_of(i)
@@ -843,9 +847,9 @@ func _step_dwarves() -> void:
     # Canon dwarf #6 — the pirate. Same movement loop once active.
     if fsm.pirate.is_stalking():
         var p_cur: int = fsm.pirate_room()
-        var p_prev: int = fsm.pirate_prev_room()
         var p_was_seen: bool = fsm.pirate_is_seen()
-        var p_new: int = _pick_dwarf_destination(p_cur, p_prev, true)
+        var p_forbidden: Array = FORCED_ROOMS + FORBIDDEN_PIRATE_ROOMS
+        var p_new: int = fsm.pirate_pick_destination(_candidate_exits(p_cur), p_forbidden)
         fsm.pirate_step_to(p_new)
         var p_at: int = fsm.pirate_room()
         var p_pat: int = fsm.pirate_prev_room()
@@ -856,22 +860,12 @@ func _step_dwarves() -> void:
         elif player_room < 15:
             fsm.pirate_unsee()
 
-func _pick_dwarf_destination(cur: int, prev: int, is_pirate: bool) -> int:
-    var candidates: Array = []
+func _candidate_exits(cur: int) -> Array:
+    var out: Array = []
     for dest in room_exits.get(cur, {}).values():
-        if dest == cur or dest == prev:
-            continue
-        if dest < 15 or dest > 130:
-            continue
-        if is_pirate and dest in FORBIDDEN_PIRATE_ROOMS:
-            continue
-        if dest in FORCED_ROOMS:
-            continue
-        if not candidates.has(dest):
-            candidates.append(dest)
-    if candidates.is_empty():
-        return prev if prev != -1 else cur
-    return candidates[_dwarf_walk_rng.randi() % candidates.size()]
+        if not out.has(dest):
+            out.append(dest)
+    return out
 
 const FORBIDDEN_PIRATE_ROOMS: Array = [101, 117, 122]
 
@@ -1787,7 +1781,7 @@ func _format_inventory() -> String:
 # Save / load
 # ============================================================
 ## Save-file magic — see cca/godot/scripts/driver.gd for full doc.
-static var _SAVE_MAGIC: PackedByteArray = PackedByteArray([67, 67, 65, 50])  # "CCA2"
+static var _SAVE_MAGIC: PackedByteArray = PackedByteArray([67, 67, 65, 51])  # "CCA3"
 
 func _save_game() -> void:
     var bytes: PackedByteArray = fsm.save_state()

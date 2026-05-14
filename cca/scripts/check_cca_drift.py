@@ -46,7 +46,6 @@ EXPECTED_DIVERGENCES = {
     "_print_welcome":          "arcade adds the Cabinet keys footer + arcade-specific Continue hint",
     "_process_input":          "arcade routes Esc through ExitDialog; standalone does inline quit prompt",
     "_ready":                  "arcade instantiates ExitDialog and auto-Continues on save-present launch",
-    "_run_per_turn_checks":    "arcade tick also pings the Arcade autoload for cabinet UI updates",
 }
 
 # Functions that exist only in the arcade driver — these are

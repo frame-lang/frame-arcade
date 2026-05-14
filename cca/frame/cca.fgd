@@ -1175,6 +1175,14 @@
         step_to(new_room: int)
         snap_to_player(at_room: int)          # canon "DSEEN=true → DLOC=LOC"
         mark_unseen()                         # canon "DSEEN=false when player exits cave"
+        # V1.3 Phase 0.9 follow-on. Driver supplies the candidate
+        # exits from canon section-3 (`room_exits` topology) plus
+        # the canon "forced-motion" / pirate-forbidden room set;
+        # the FSM applies its own no-backtrack + deep-cave-bound
+        # filters and picks deterministically from its seeded
+        # PRNG. Returns prev_room (or room) when no candidates
+        # remain — the canon "no alternative" fallback.
+        pick_destination(candidates: Array, forbidden: Array): int
         get_state(): String
         get_room(): int
         get_prev_room(): int
@@ -1182,6 +1190,7 @@
         get_seed(): int
         get_step(): int
         get_attack_step(): int
+        get_pick_step(): int
 
     machine:
 
@@ -1194,6 +1203,9 @@
             try_throw_axe(anger: int): bool {
                 @@:(false)             # not yet on the field
             }
+            pick_destination(candidates: Array, forbidden: Array): int {
+                @@:(-1)                # not on field; driver shouldn't call
+            }
             get_state(): String      { @@:("hidden") }
             get_room(): int          { @@:(-1) }
             get_prev_room(): int     { @@:(-1) }
@@ -1201,6 +1213,7 @@
             get_seed(): int          { @@:(self.seed) }
             get_step(): int          { @@:(self.step) }
             get_attack_step(): int   { @@:(self.attack_step) }
+            get_pick_step(): int     { @@:(self.pick_step) }
         }
 
         $Stalking {
@@ -1260,6 +1273,40 @@
             flee() {
                 -> $Hidden
             }
+            pick_destination(candidates: Array, forbidden: Array): int {
+                # Filter candidates: drop self-loop, prev_room (no
+                # backtrack), rooms outside the deep cave (canon
+                # `LOC >= 15 AND LOC <= 130` — surface and beyond-
+                # cave repository), forced-motion rooms, and any
+                # caller-supplied forbidden ones (pirate uses this).
+                var filtered: Array = []
+                for c in candidates:
+                    if c == self.room or c == self.prev_room:
+                        continue
+                    if c < 15 or c > 130:
+                        continue
+                    if forbidden.has(c):
+                        continue
+                    if not filtered.has(c):
+                        filtered.append(c)
+                # Canon "no alternative" fallback: backtrack to prev,
+                # or stay put if even prev is unset (first wake).
+                if filtered.is_empty():
+                    if self.prev_room == -1:
+                        @@:return(self.room)
+                    @@:return(self.prev_room)
+                # Deterministic seeded PRNG — third stream
+                # alongside attack() and try_throw_axe(). Pinning
+                # constants chosen so it doesn't alias the other
+                # two streams (different multipliers, different
+                # XOR shift order).
+                self.pick_step = self.pick_step + 1
+                var x: int = self.seed * 134775813 + self.pick_step * 22695477
+                x = ((x >> 16) ^ x) * 1664525
+                x = x & 0xffffffff
+                var idx: int = x % filtered.size()
+                @@:(filtered[idx])
+            }
             get_state(): String      { @@:("stalking") }
             get_room(): int          { @@:(self.room) }
             get_prev_room(): int     { @@:(self.prev_room) }
@@ -1267,12 +1314,16 @@
             get_seed(): int          { @@:(self.seed) }
             get_step(): int          { @@:(self.step) }
             get_attack_step(): int   { @@:(self.attack_step) }
+            get_pick_step(): int     { @@:(self.pick_step) }
         }
 
         $Dead {
             # Terminal. The player's axe-throw connected.
             try_throw_axe(anger: int): bool {
                 @@:(false)
+            }
+            pick_destination(candidates: Array, forbidden: Array): int {
+                @@:(-1)
             }
             get_state(): String      { @@:("dead") }
             get_room(): int          { @@:(-1) }
@@ -1281,6 +1332,7 @@
             get_seed(): int          { @@:(self.seed) }
             get_step(): int          { @@:(self.step) }
             get_attack_step(): int   { @@:(self.attack_step) }
+            get_pick_step(): int     { @@:(self.pick_step) }
         }
 
     domain:
@@ -1296,6 +1348,12 @@
         seen: bool = false
         step: int = 0
         attack_step: int = 0
+        # V1.3 Phase 0.9 follow-on — third deterministic-PRNG
+        # counter, used by pick_destination. Kept separate from
+        # `step` (attack rolls) and `attack_step` (throw rolls)
+        # so the three streams don't alias each other; that lets
+        # a save+restore replay all three deterministically.
+        pick_step: int = 0
 }
 
 
@@ -2784,11 +2842,17 @@
         step_to(new_room: int)
         snap_to_player(at_room: int)
         mark_unseen()
+        # V1.3 Phase 0.9 follow-on — same canon-filter destination
+        # picker as Dwarf. Driver passes the candidate exits plus
+        # the combined FORCED_ROOMS + FORBIDDEN_PIRATE_ROOMS set;
+        # pirate filters + picks deterministically from its seed.
+        pick_destination(candidates: Array, forbidden: Array): int
         get_room(): int
         get_prev_room(): int
         is_seen(): bool
         get_state(): String
         is_stalking(): bool
+        get_pick_step(): int
 
     machine:
 
@@ -2807,11 +2871,15 @@
             }
             snap_to_player(at_room: int) {}
             mark_unseen() {}
+            pick_destination(candidates: Array, forbidden: Array): int {
+                @@:(-1)
+            }
             get_room(): int      { @@:(-1) }
             get_prev_room(): int { @@:(-1) }
             is_seen(): bool      { @@:(false) }
             get_state(): String  { @@:("dormant") }
             is_stalking(): bool  { @@:(false) }
+            get_pick_step(): int { @@:(self.pick_step) }
         }
 
         $Stalking {
@@ -2844,11 +2912,38 @@
             mark_unseen() {
                 self.seen = false
             }
+            pick_destination(candidates: Array, forbidden: Array): int {
+                # Same filter / PRNG shape as Dwarf.pick_destination.
+                # The driver passes FORCED_ROOMS + FORBIDDEN_PIRATE_ROOMS
+                # combined; we run identical no-backtrack +
+                # deep-cave-bound filtering on top.
+                var filtered: Array = []
+                for c in candidates:
+                    if c == self.room or c == self.prev_room:
+                        continue
+                    if c < 15 or c > 130:
+                        continue
+                    if forbidden.has(c):
+                        continue
+                    if not filtered.has(c):
+                        filtered.append(c)
+                if filtered.is_empty():
+                    if self.prev_room == -1:
+                        @@:return(self.room)
+                    @@:return(self.prev_room)
+                self.pick_step = self.pick_step + 1
+                var x: int = self.seed * 134775813 + self.pick_step * 22695477
+                x = ((x >> 16) ^ x) * 1664525
+                x = x & 0xffffffff
+                var idx: int = x % filtered.size()
+                @@:(filtered[idx])
+            }
             get_room(): int      { @@:(self.room) }
             get_prev_room(): int { @@:(self.prev_room) }
             is_seen(): bool      { @@:(self.seen) }
             get_state(): String  { @@:("stalking") }
             is_stalking(): bool  { @@:(true) }
+            get_pick_step(): int { @@:(self.pick_step) }
         }
 
         $Vanished {
@@ -2859,11 +2954,15 @@
             step_to(new_room: int) {}
             snap_to_player(at_room: int) {}
             mark_unseen() {}
+            pick_destination(candidates: Array, forbidden: Array): int {
+                @@:(-1)
+            }
             get_room(): int      { @@:(self.room) }
             get_prev_room(): int { @@:(self.prev_room) }
             is_seen(): bool      { @@:(false) }
             get_state(): String  { @@:("vanished") }
             is_stalking(): bool  { @@:(false) }
+            get_pick_step(): int { @@:(self.pick_step) }
         }
 
     domain:
@@ -2876,6 +2975,9 @@
         prev_room: int = -1
         seen: bool = false
         ACTIVATION_THRESHOLD: int = 3
+        # V1.3 Phase 0.9 follow-on — third deterministic-PRNG
+        # counter for pick_destination (same structure as Dwarf).
+        pick_step: int = 0
 }
 
 
@@ -3301,6 +3403,15 @@
         dwarf_is_seen(idx: int): bool
         dwarf_snap_to_player(idx: int)        # canon DSEEN=true → DLOC=LOC
         dwarf_unsee(idx: int)                 # canon player drops below LOC 15
+        # V1.3 Phase 0.9 follow-on — canon destination filter
+        # (no-backtrack, deep-cave bound, forced-motion exclusion,
+        # plus the pirate-only forbidden set) moved off the driver
+        # into the Dwarf / Pirate FSMs. The driver supplies the
+        # candidate exits (it owns the room_exits topology) and
+        # the forbidden-room set; the FSM filters + picks
+        # deterministically via its seeded PRNG. Returns -1 if
+        # the dwarf isn't in $Stalking (defensive).
+        dwarf_pick_destination(idx: int, candidates: Array, forbidden: Array): int
         # Pirate is canon dwarf #6 — same movement primitives as the
         # other five. Driver picks the destination per the canon
         # section-3 filter and calls these. The pirate-specific
@@ -3312,6 +3423,7 @@
         pirate_is_seen(): bool
         pirate_snap_to_player()
         pirate_unsee()
+        pirate_pick_destination(candidates: Array, forbidden: Array): int
 
         # Endgame
         deposit_treasure()
@@ -3853,6 +3965,14 @@
                 elif idx == 5: @@:return(self.dwarf5.is_seen())
                 @@:(false)
             }
+            dwarf_pick_destination(idx: int, candidates: Array, forbidden: Array): int {
+                if idx == 1: @@:return(self.dwarf1.pick_destination(candidates, forbidden))
+                elif idx == 2: @@:return(self.dwarf2.pick_destination(candidates, forbidden))
+                elif idx == 3: @@:return(self.dwarf3.pick_destination(candidates, forbidden))
+                elif idx == 4: @@:return(self.dwarf4.pick_destination(candidates, forbidden))
+                elif idx == 5: @@:return(self.dwarf5.pick_destination(candidates, forbidden))
+                @@:(-1)
+            }
             pirate_step_to(new_room: int) {
                 self.pirate.step_to(new_room)
             }
@@ -3865,6 +3985,9 @@
             pirate_room(): int      { @@:(self.pirate.get_room()) }
             pirate_prev_room(): int { @@:(self.pirate.get_prev_room()) }
             pirate_is_seen(): bool  { @@:(self.pirate.is_seen()) }
+            pirate_pick_destination(candidates: Array, forbidden: Array): int {
+                @@:(self.pirate.pick_destination(candidates, forbidden))
+            }
 
             deposit_treasure() {
                 self.endgame.treasure_deposited()
