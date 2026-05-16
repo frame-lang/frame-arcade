@@ -408,6 +408,18 @@ func _on_input_gui_input(event: InputEvent) -> void:
         KEY_PAGEDOWN:
             _scroll_output(1)
             input.accept_event()
+        KEY_F5:
+            # Quick-save (Half-Life / Skyrim convention). The
+            # arcade chapter binds the same key via its own
+            # _input handler — see arcade/godot/scripts/cca_main.gd.
+            # The standalone uses gui_input because the LineEdit
+            # owns focus permanently here.
+            _save_game()
+            input.accept_event()
+        KEY_F9:
+            # Quick-load — companion to F5.
+            _load_game()
+            input.accept_event()
 
 func _history_recall(direction: int) -> void:
     if _input_history.is_empty():

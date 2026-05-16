@@ -435,6 +435,18 @@ func _on_input_gui_input(event: InputEvent) -> void:
         KEY_PAGEDOWN:
             _scroll_output(1)
             input.accept_event()
+        KEY_F5:
+            # Quick-save (Half-Life / Skyrim convention). The
+            # arcade chapter binds the same key via its own
+            # _input handler — see arcade/godot/scripts/cca_main.gd.
+            # The standalone uses gui_input because the LineEdit
+            # owns focus permanently here.
+            _save_game()
+            input.accept_event()
+        KEY_F9:
+            # Quick-load — companion to F5.
+            _load_game()
+            input.accept_event()
 
 # Walk the recall pointer by `direction` (-1 = older, +1 = newer)
 # and replace the LineEdit text with the recalled command. Going
@@ -2302,8 +2314,11 @@ func _on_meta_clicked(meta: Variant) -> void:
         OS.shell_open(meta)
 
 func _print_help() -> void:
-    # Canon msg #51 verbatim — Don Woods 1977 HELP output.
+    # Canon msg #51 verbatim — Don Woods 1977 HELP output. Port-
+    # only footer below tells the player about F5/F9 quick-save /
+    # quick-load (added V1.3 — see _on_input_gui_input).
     _println("I know of places, actions, and things. Most of my vocabulary describes places and is used to move you there. To move, try words like FOREST, BUILDING, DOWNSTREAM, ENTER, EAST, WEST, NORTH, SOUTH, UP, or DOWN. I know about a few special objects, like a black rod hidden in the cave. These objects can be manipulated using some of the action words that I know. Usually you will need to give both the object and action words (in either order), but sometimes I can infer the object from the verb alone. Some objects also imply verbs; in particular, \"INVENTORY\" implies \"TAKE INVENTORY\", which causes me to give you a list of what you're carrying. The objects have side effects; for instance, the rod scares the bird. Usually people having trouble moving just need to try a few more words. Usually people trying unsuccessfully to manipulate an object are attempting something beyond their (or my!) capabilities and should try a completely different tack. To speed the game you can sometimes move long distances with a single word. For example, \"BUILDING\" usually gets you to the building from anywhere above ground except when lost in the forest. Also, note that cave passages turn a lot, and that leaving a room to the north does not guarantee entering the next from the south. Good luck!")
+    _println("[b]Keyboard shortcuts:[/b] [b]F5[/b] quick-save, [b]F9[/b] quick-load.")
 
 func _print_info() -> void:
     # Canon msg #142 verbatim — Don Woods 1977 INFO output.

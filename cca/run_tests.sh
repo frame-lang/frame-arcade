@@ -56,7 +56,14 @@ for t in "${TESTS[@]}"; do
     # OR an absolute one. We pass an absolute path and the
     # --path flag pointed at the godot project.
     abs="$(cd "$(dirname "$t")" && pwd)/$(basename "$t")"
-    if out=$(timeout 60 godot --headless --path godot/ --script "$abs" 2>&1); then
+    # Per-test timeout: 120s. Most tests finish in <10s; the
+    # monkey fuzzer runs 10000 PRNG-driven commands and takes
+    # 75–90s on a quiet machine, longer under CI / pre-commit
+    # load. A 60s cap (the V1.0 default) consistently killed
+    # the monkey test under load even though the test was
+    # actually passing — bumping to 120s buys headroom without
+    # making real deadlocks too painful to detect.
+    if out=$(timeout 120 godot --headless --path godot/ --script "$abs" 2>&1); then
         verdict=$(echo "$out" | grep -E "^PASS|^FAIL|FAIL —|PASS —" | head -1)
         echo "$verdict"
         if echo "$verdict" | grep -q "^PASS"; then
