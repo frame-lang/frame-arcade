@@ -78,13 +78,20 @@ func _init():
     var driver = Driver.new()
     driver.fsm = Cca.new()
     driver.fsm.setup_default_aspects()
-    # NOTE: do NOT call wake_dwarves() here. Production gameplay
-    # uses the canonical auto-wake (player must spend ~13 turns in
-    # the deep cave before dwarves activate), and the canonical
-    # journey through Stage 3 stays under that threshold. Forcing
-    # them awake at turn 1 blocks the snake-room approach with a
-    # dwarf at room 15 and the journey can't proceed. Stages 4+
-    # WILL cross the threshold naturally; handle those when added.
+    # Test-only: suppress dwarf wake. Stage 4 navigation through
+    # the Bedquilt area would cross the canon 13-deep-cave-turn
+    # threshold, after which dwarves auto-wake and walk the cave
+    # blocking paths. The canonical journey can't be deterministic
+    # with probabilistic dwarf encounters, so we pre-set
+    # `dwarves_auto_woken = true` to short-circuit the conditional
+    # in Adventure's tick handler (cca.fgd ~line 3666). Dwarves
+    # remain in $Dormant and don't interfere with navigation.
+    #
+    # In production gameplay the threshold fires normally and the
+    # player has to handle dwarves with the axe-throw-back mechanic.
+    # That's covered by the existing test_cca_multi_dwarf and
+    # related FSM-level tests — not in this canonical journey.
+    driver.fsm.dwarves_auto_woken = true
     # PromptDispatcher is already initialized at var declaration in
     # driver.gd; no need to set it manually.
 
@@ -131,6 +138,7 @@ func _init():
         var post_text: String = driver.output.get_parsed_text()
         var delta: String = post_text.substr(pre_len)
         pre_len = post_text.length()
+
 
 
         # Assertion: player_room.

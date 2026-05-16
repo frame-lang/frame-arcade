@@ -609,7 +609,6 @@ func _process_input(text: String) -> void:
         # _handle_movement runs its own per-turn chain via _run_per_turn_checks.
         _handle_movement(verb)
         return
-
     # ----- Canon verb intercepts (order is canon-significant) -----
     if _intercept_break_mirror(verb, noun): _post_intercept_tick(); return
     if _intercept_drop_bird(verb, noun): _post_intercept_tick(); return
@@ -625,6 +624,21 @@ func _process_input(text: String) -> void:
     if _intercept_eat(verb, noun): _post_intercept_tick(); return
     if _intercept_feed(verb, noun): _post_intercept_tick(); return
     if _intercept_scenery_read(verb, noun): _post_intercept_tick(); return
+
+    # Custom motion aliases — canonical CCA accepts NE/SW/SE/NW,
+    # OVER/ACROSS, CLIMB, FORK, BARREN, BEDQUILT, etc. wherever the
+    # current room's exits dictionary keys them. These aren't in
+    # DIRECTIONS (which gates the canon "no way that direction"
+    # rebuff for unknown verbs); we still want them to walk when
+    # the current room actually defines them as an exit. Placed
+    # AFTER intercepts so verbs with side effects (e.g. plover
+    # dropping the emerald) fire first — otherwise a verb that's
+    # also a magic-word-exit would be eaten by movement before the
+    # side-effect handler ran (caught by test_cca_plover_emerald
+    # during canonical journey development).
+    if verb in room_exits.get(fsm.player_room(), {}):
+        _handle_movement(verb)
+        return
 
     # ----- FSM dispatch + unknown-verb prose mix -----
     _dispatch_to_fsm(verb, noun)
@@ -1465,7 +1479,11 @@ func _handle_movement(direction: String) -> void:
     # Gated exits — snake at room 7 east, troll at room 10 east,
     # crystal-bridge at the fissure (room 24 east).
     var gate_key: String = "%d:%s" % [current, direction]
-    if gate_key in gated_exits:
+    if gate_key in gated_exits and not (gated_exits[gate_key] is Array):
+        # Single-rule gates (Dictionary). Multi-rule chains (Array)
+        # were already handled by _dispatch_bumper before we got
+        # here — if none of those rules fired, the chain's silent
+        # fall-through means the move proceeds normally below.
         var gate: Dictionary = gated_exits[gate_key]
         if gate.check == "snake" and fsm.snake.is_blocking():
             _println(gate.msg)

@@ -192,7 +192,7 @@
         }
 
         $SnakeGone {
-            advance() { -> $Done }
+            advance() { -> $DragonCanyon }
             is_done(): bool { @@:(false) }
             state_name(): String { @@:("SnakeGone") }
             commands_from_previous(): Array { @@:(["release bird"]) }
@@ -202,13 +202,138 @@
         }
 
         # ----------------------------------------------------------
-        # STAGES 4-5 — TODO
+        # STAGE 4 — Dragon, Troll Bridge, Bear, First Big Treasures
         # ----------------------------------------------------------
-        # Dragon canyon, troll bridge, bear, treasure collection,
-        # deposit loop, endgame. Requires per-room topology walks
-        # that I haven't fully mapped yet. The FSM terminates after
-        # Stage 3 for now; future commits will replace $Done's
-        # advance with the next milestone.
+        # Paths derived via BFS over topology.gd using ONLY direction
+        # commands the driver accepts (DIRECTIONS + MOTION_VERBS).
+        #
+        # Note: by the time the player reaches the dragon area, the
+        # canonical 13-turn deep-cave threshold will be exceeded and
+        # dwarves auto-wake. Encounters are probabilistic. If a
+        # dwarf blocks a destination room, the test will fail with
+        # a player_room mismatch. First-attempt encoding accepts
+        # this risk; mitigation (deterministic dwarf seeds or
+        # encounter-handling) is a follow-up if it bites.
+        # ----------------------------------------------------------
+
+        # Snake room (19) → Dragon canyon (119), 6 steps via:
+        # 19→28→36→65→68→69→119
+        # (n, down, bedquilt, slab, up, s)
+        # Uses canonical motion aliases bedquilt/slab now that the
+        # driver dispatches them to _handle_movement via the
+        # room-exit-key check.
+        $DragonCanyon {
+            advance() { -> $DragonDead }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("DragonCanyon") }
+            commands_from_previous(): Array { @@:(["n", "down", "bedquilt", "slab", "up", "s"]) }
+            expected_room(): int { @@:(119) }
+            expected_in_log(): Array { @@:(["dragon bars the way"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # Canon dragon kill: ATTACK DRAGON prompts "with what? your
+        # bare hands?" — answer YES to commit the bare-handed kill.
+        # Response is canon msg #49: "Congratulations! You have just
+        # vanquished a dragon with your bare hands!"
+        $DragonDead {
+            advance() { -> $RugTaken }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("DragonDead") }
+            commands_from_previous(): Array { @@:(["attack dragon", "yes"]) }
+            expected_room(): int { @@:(119) }
+            expected_in_log(): Array { @@:(["vanquished a dragon"]) }
+            expected_not_in_log(): Array { @@:(["bounces harmlessly"]) }
+        }
+
+        # The rug is the dragon's treasure — takeable once the
+        # dragon is slain.
+        $RugTaken {
+            advance() { -> $TrollBridge }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("RugTaken") }
+            commands_from_previous(): Array { @@:(["take rug"]) }
+            expected_room(): int { @@:(119) }
+            expected_in_log(): Array { @@:(["OK"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # Dragon canyon (119) → Troll bridge (117), 8 steps via:
+        # 119→69→68→65→66→97→72→118→117
+        # (n, down, n, w, oriental, w, sw, up)
+        $TrollBridge {
+            advance() { -> $TrollPaid }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("TrollBridge") }
+            commands_from_previous(): Array { @@:(["n", "down", "n", "w", "oriental", "w", "sw", "up"]) }
+            expected_room(): int { @@:(117) }
+            expected_in_log(): Array { @@:(["troll", "bridge"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # Canon troll mechanic: THROW a treasure at the troll to
+        # appease him — he catches it and scurries off. DROP at
+        # the troll bridge would only put the treasure on the
+        # ground (the troll wouldn't take it). The chain has its
+        # own drop-at-troll-with-bear-following path (canon msg
+        # #163), but for the rug we use the canonical throw.
+        $TrollPaid {
+            advance() { -> $BearChamber }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("TrollPaid") }
+            commands_from_previous(): Array { @@:(["throw rug"]) }
+            expected_room(): int { @@:(117) }
+            expected_in_log(): Array { @@:(["troll catches", "scurries away"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # Troll bridge (117) → Bear chamber (130), 6 steps via:
+        # 117→122→123→124→128→129→130
+        # (over, ne, e, se, s, e)
+        $BearChamber {
+            advance() { -> $BearFed }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("BearChamber") }
+            commands_from_previous(): Array { @@:(["over", "ne", "e", "se", "s", "e"]) }
+            expected_room(): int { @@:(130) }
+            expected_in_log(): Array { @@:(["bear"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # Canon bear-tame mechanic: FEED BEAR with the tasty viands
+        # transitions the bear from $Hungry to $Tame. The bear is
+        # still chained at this point — chain comes free in the
+        # next state via canon UNLOCK CHAIN with the keys, or
+        # alternatively via the simpler TAKE CHAIN once tame.
+        $BearFed {
+            advance() { -> $ChainTaken }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("BearFed") }
+            commands_from_previous(): Array { @@:(["feed bear"]) }
+            expected_room(): int { @@:(130) }
+            expected_in_log(): Array { @@:([]) }
+            expected_not_in_log(): Array { @@:(["mauled"]) }
+        }
+
+        # Take chain — the 15th canonical treasure. Note this also
+        # canonically un-tethers the bear (Bear FSM transitions to
+        # $Following). Subsequent moves bring the bear along.
+        $ChainTaken {
+            advance() { -> $Done }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("ChainTaken") }
+            commands_from_previous(): Array { @@:(["take chain"]) }
+            expected_room(): int { @@:(130) }
+            expected_in_log(): Array { @@:(["OK"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # ----------------------------------------------------------
+        # STAGE 5 — Deposit-loop + Endgame (TODO)
+        # ----------------------------------------------------------
+        # Lead bear back across troll bridge (canon: troll flees),
+        # recover the rug, walk every treasure to room 3, drive
+        # endgame timer to closing, BLAST in repository.
         # ----------------------------------------------------------
 
         $Done {
