@@ -6,7 +6,7 @@
 # ============================================================
 extends Node2D
 
-const PlayerFSM = preload("res://scripts/platformer.gd")
+const PlatformerFSM = preload("res://scripts/platformer.gd")
 
 # --- Court ---
 @export var court_size: Vector2 = Vector2(800, 480)
@@ -45,7 +45,7 @@ var label_help: Label
 
 # ============================================================
 func _ready() -> void:
-    fsm = PlayerFSM.new()
+    fsm = PlatformerFSM.new()
     _build_level()
     _build_ui()
     _spawn_player()

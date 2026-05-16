@@ -55,10 +55,10 @@ func _ready() -> void:
     # Create the four ghosts with their parameters.
     # target_kind: 0=direct, 1=ahead4, 2=mixed, 3=shy
     var GhostClass = PacManFSM.Ghost
-    var b = GhostClass.new("blinky", Vector2(court_size.x - 24, 24), 0)
-    var p = GhostClass.new("pinky",  Vector2(24, 24), 1)
-    var i = GhostClass.new("inky",   Vector2(court_size.x - 24, court_size.y - 24), 2)
-    var c = GhostClass.new("clyde",  Vector2(24, court_size.y - 24), 3)
+    var b = GhostClass._create("blinky", Vector2(court_size.x - 24, 24), 0)
+    var p = GhostClass._create("pinky",  Vector2(24, 24), 1)
+    var i = GhostClass._create("inky",   Vector2(court_size.x - 24, court_size.y - 24), 2)
+    var c = GhostClass._create("clyde",  Vector2(24, court_size.y - 24), 3)
     fsm.add_ghost(b)
     fsm.add_ghost(p)
     fsm.add_ghost(i)

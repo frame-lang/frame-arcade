@@ -6,7 +6,7 @@
 # ============================================================
 extends Node2D
 
-const PlayerFSM = preload("res://scripts/platformer.gd")
+const PlatformerFSM = preload("res://scripts/platformer.gd")
 
 # --- Court ---
 @export var court_size: Vector2 = Vector2(800, 600)
@@ -42,10 +42,15 @@ var _jump_down: bool = false
 # --- UI ---
 var label_hud: Label
 var label_help: Label
+var label_leave_prompt: Label
+
+# Leave-game overlay. Esc opens the prompt; while open, physics
+# freezes and Enter returns to the menu / Esc resumes.
+var _leave_prompt_active: bool = false
 
 # ============================================================
 func _ready() -> void:
-    fsm = PlayerFSM.new()
+    fsm = PlatformerFSM.new()
     _build_level()
     _build_ui()
     _spawn_player()
@@ -84,6 +89,17 @@ func _build_ui() -> void:
     canvas.add_child(label_help)
     label_help.text = "Arrows/WASD = move, Shift = run, Space = jump, R = reset pickups"
 
+    label_leave_prompt = Label.new()
+    label_leave_prompt.add_theme_font_size_override("font_size", 24)
+    label_leave_prompt.add_theme_color_override("font_color", Color(1.0, 0.95, 0.4))
+    label_leave_prompt.position = Vector2(0, court_size.y * 0.5 - 40)
+    label_leave_prompt.size = Vector2(court_size.x, 80)
+    label_leave_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    label_leave_prompt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    label_leave_prompt.text = "LEAVE GAME?\n\n[Enter] Return to menu    [Esc] Resume"
+    label_leave_prompt.visible = false
+    canvas.add_child(label_leave_prompt)
+
 func _spawn_player() -> void:
     player_pos = Vector2(60, court_size.y - 80)
     player_vel = Vector2.ZERO
@@ -91,6 +107,8 @@ func _spawn_player() -> void:
 
 # ============================================================
 func _physics_process(delta: float) -> void:
+    if _leave_prompt_active:
+        return
     _handle_input()
 
     # Tick the FSM so jumping's $.jump_held_time advances,
@@ -328,7 +346,23 @@ func _draw_flower(at: Vector2) -> void:
 # Cabinet integration: Esc returns to the menu.
 # ------------------------------------------------------------
 func _input(event: InputEvent) -> void:
-    if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-        print("[arcade] Esc pressed in ", get_tree().current_scene.scene_file_path, " — returning to menu")
+    if not (event is InputEventKey and event.pressed):
+        return
+    if _leave_prompt_active:
         get_viewport().set_input_as_handled()
-        Arcade.return_to_menu()
+        if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
+            Arcade.return_to_menu()
+        elif event.keycode == KEY_ESCAPE:
+            _hide_leave_prompt()
+        return
+    if event.keycode == KEY_ESCAPE:
+        get_viewport().set_input_as_handled()
+        _show_leave_prompt()
+
+func _show_leave_prompt() -> void:
+    _leave_prompt_active = true
+    label_leave_prompt.visible = true
+
+func _hide_leave_prompt() -> void:
+    _leave_prompt_active = false
+    label_leave_prompt.visible = false

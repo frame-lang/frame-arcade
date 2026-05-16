@@ -12,7 +12,7 @@
 #                fiery. Changes rarely (only on pickup/hit)
 #                and independently of motion.
 #
-#   Player     — orchestrator. Owns both FSMs. Translates
+#   Platformer — orchestrator. Owns both FSMs. Translates
 #                events from the Godot driver ("mushroom
 #                picked up", "hit enemy") into the appropriate
 #                calls on each sub-system.
@@ -415,17 +415,25 @@
 
 
 # ------------------------------------------------------------
-# Player
+# Platformer
 # ------------------------------------------------------------
 # Owns both Locomotion and PowerUp. The driver talks only to
-# Player; Player routes events to whichever sub-system cares.
+# Platformer; Platformer routes events to whichever sub-system
+# cares.
 #
-# Player is a single-state FSM — there's nothing in the
+# Platformer is a single-state FSM — there's nothing in the
 # combined top-level state that's genuinely modal. The two
 # sub-FSMs ARE the state.
+#
+# Named "Platformer" rather than "Player" so it doesn't collide
+# with the inner `@@system Player` declarations in other arcade
+# chapters (invaders, shooter, cca). GDScript's `class_name`
+# registry is global per Godot project; the chapter's `@@[main]`
+# emits `class_name Platformer`, and every chapter's inner
+# `class Player` stays scoped to its own file.
 # ------------------------------------------------------------
 @@[main]
-@@system Player : RefCounted {
+@@system Platformer : RefCounted {
 
     interface:
         tick(dt: float)

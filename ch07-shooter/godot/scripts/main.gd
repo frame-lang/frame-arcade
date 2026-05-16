@@ -182,7 +182,7 @@ func _spawn_enemy(kind: int, at: Vector2) -> void:
             hp = 2;  rate = 2.5;  points = 150   # swoop
 
     var EnemyClass = ShooterFSM.Enemy
-    var enemy = EnemyClass.new(kind, hp, rate, points)
+    var enemy = EnemyClass._create(kind, hp, rate, points)
     fsm.add_enemy(enemy)
 
     enemy_data[enemy] = {

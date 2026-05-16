@@ -63,6 +63,11 @@ var _last_top_state: String = ""
 # --- UI ---
 var label_hud: Label
 var label_center: Label
+var label_leave_prompt: Label
+
+# Leave-game overlay. Esc opens the prompt; while open, physics
+# freezes and Enter returns to the menu / Esc resumes.
+var _leave_prompt_active: bool = false
 
 # ============================================================
 func _ready() -> void:
@@ -92,11 +97,24 @@ func _build_ui() -> void:
     label_center.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     canvas.add_child(label_center)
 
+    label_leave_prompt = Label.new()
+    label_leave_prompt.add_theme_font_size_override("font_size", 24)
+    label_leave_prompt.add_theme_color_override("font_color", Color(1.0, 0.95, 0.4))
+    label_leave_prompt.position = Vector2(0, court_size.y * 0.4)
+    label_leave_prompt.size = Vector2(court_size.x, 120)
+    label_leave_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    label_leave_prompt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    label_leave_prompt.text = "LEAVE GAME?\n\n[Enter] Return to menu    [Esc] Resume"
+    label_leave_prompt.visible = false
+    canvas.add_child(label_leave_prompt)
+
 func _reset_player() -> void:
     player_pos = Vector2(80, court_size.y * 0.5)
 
 # ============================================================
 func _physics_process(delta: float) -> void:
+    if _leave_prompt_active:
+        return
     _handle_input()
 
     var state: String = fsm.get_state()
@@ -197,7 +215,7 @@ func _spawn_enemy(kind: int, at: Vector2) -> void:
             hp = 2;  rate = 2.5;  points = 150   # swoop
 
     var EnemyClass = ShooterFSM.Enemy
-    var enemy = EnemyClass.new(kind, hp, rate, points)
+    var enemy = EnemyClass._create(kind, hp, rate, points)
     fsm.add_enemy(enemy)
 
     enemy_data[enemy] = {
@@ -542,7 +560,23 @@ func _draw_explosion(at: Vector2) -> void:
 # Cabinet integration: Esc returns to the menu.
 # ------------------------------------------------------------
 func _input(event: InputEvent) -> void:
-    if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-        print("[arcade] Esc pressed in ", get_tree().current_scene.scene_file_path, " — returning to menu")
+    if not (event is InputEventKey and event.pressed):
+        return
+    if _leave_prompt_active:
         get_viewport().set_input_as_handled()
-        Arcade.return_to_menu()
+        if event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER:
+            Arcade.return_to_menu()
+        elif event.keycode == KEY_ESCAPE:
+            _hide_leave_prompt()
+        return
+    if event.keycode == KEY_ESCAPE:
+        get_viewport().set_input_as_handled()
+        _show_leave_prompt()
+
+func _show_leave_prompt() -> void:
+    _leave_prompt_active = true
+    label_leave_prompt.visible = true
+
+func _hide_leave_prompt() -> void:
+    _leave_prompt_active = false
+    label_leave_prompt.visible = false
