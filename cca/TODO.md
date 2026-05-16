@@ -132,3 +132,49 @@ this section just notes session-level milestones.)
   (canon rows 15:150022 + 14:150020); canonical playthrough
   reordered to bird→snake→gold; conditional-row coverage
   43→44/62.
+
+---
+
+## Open — Player UX
+
+### Driver: `"exit"` → `"quit"` mapping is surprising
+
+Reported during canonical-journey play-testing (Stage 4
+development, 2026-05-16). The verb_synonyms table at
+[`cca/godot/scripts/driver.gd:97`](godot/scripts/driver.gd#L97)
+maps `"exit"` to `"quit"` — typing `exit` at any room triggers
+the quit confirmation dialog rather than walking through a
+room-defined "exit" alias.
+
+This IS canon (Crowther/Woods 1977 word table 7 was EXIT and
+mapped to QUIT), but modern IF players overwhelmingly expect
+"exit" to mean "leave this room." Most modern ports of CCA
+drop this mapping.
+
+**Fix**: drop the `"exit": "quit"` line. Players will still
+quit via `quit` / `q`. Typing `exit` at a room with an "exit"
+key in topology will walk; otherwise it falls through to
+"I don't know that word" which is the right rebuff for a
+non-canonical verb.
+
+### Driver: LineEdit loses focus during gameplay
+
+Reported during arcade play-testing (Stage 4 development,
+2026-05-16). After certain commands the LineEdit no longer
+holds keyboard focus and the player has to click the input
+field before typing again.
+
+The driver sets `keep_editing_on_text_submit = true` and calls
+`input.call_deferred("grab_focus")` after each submit, so the
+basic path should work. Possible culprits:
+
+- Y/N prompt flows (`prompts.is_active()` branch): after a YES
+  or NO answer, the driver returns immediately without going
+  through the standard submit-and-regrab path.
+- F5/F9 quick-save path I added (V1.3) uses `input.accept_event()`
+  but doesn't re-grab focus.
+- Window-focus interactions in the arcade cabinet (window blur
+  on overlay show, etc.).
+
+**Investigation needed**: identify exact reproducer (which
+command sequence loses focus), then targeted fix.

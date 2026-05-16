@@ -141,6 +141,7 @@ func _init():
 
 
 
+
         # Assertion: player_room.
         var expected_room: int = journey.expected_room()
         if expected_room >= 0:

@@ -5071,11 +5071,14 @@
                 self.player.take(self.MARK_ROD_ID)
                 return "OK"
             if noun == "chain":
-                # Two paths:
-                #   1) at the bear's home — bear is still chained.
-                #      Hungry → mauls, Tame → take and bear follows.
-                #   2) elsewhere (e.g. troll bridge after the bear
-                #      bolted) — chain is just lying as a treasure.
+                # Three paths:
+                #   1) at the bear's home, bear hungry — mauls.
+                #   2) at the bear's home, bear tame — take and
+                #      bear follows.
+                #   3) anywhere else, or bear-home but bear already
+                #      released (chain lying loose on the floor) —
+                #      treat chain as a regular treasure carry via
+                #      the Treasure FSM's try_take.
                 var room: int = self.player.get_room()
                 if room == self.BEAR_HOME_ROOM:
                     var bs: String = self.bear.get_state()
@@ -5099,10 +5102,14 @@
                         self.chain.try_take(room)
                         self.player.take(self.CHAIN_ID)
                         return "OK"
-                    return "OK"
-                # Off-bear-room: chain might be lying as a treasure
-                # (e.g. dropped at the troll bridge). Use the
-                # standard treasure take pathway.
+                    # Bear $Released / $Following / etc. at home:
+                    # chain may be lying loose (the player dropped
+                    # it to release the bear). Fall through to the
+                    # standard treasure-take path below.
+                # Standard treasure take — chain lying as a treasure
+                # at the bear's room (post-release) or at the troll
+                # bridge (after the bear scared the troll off) or
+                # anywhere else.
                 if self.chain.try_take(room):
                     self.player.take(self.CHAIN_ID)
                     return "OK"
