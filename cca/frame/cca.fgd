@@ -3639,10 +3639,15 @@
                 self.snake_hint.observe(
                     r == self.SNAKE_ROOM and self.snake.is_blocking())
                 # Canon hint #62/#63: cave-entry hint fires when
-                # the player has wandered the surface (rooms 1-9)
-                # without finding a way in. The grate-and-keys
-                # combo is the canonical answer.
-                self.cave_hint.observe(r >= 1 and r <= 9)
+                # the player has wandered the surface looking for
+                # a way in. Excludes the well-house (room 3) — the
+                # player is gathering items there, not searching
+                # for the cave. Excludes rooms 8/9 (depression /
+                # below grate) — by then the grate is in view or
+                # the player is already inside. Threshold is 10
+                # turns of wandering rooms 1/2/4/5/6/7; the canon
+                # answer is keys + unlock grate.
+                self.cave_hint.observe((r >= 1 and r <= 7) and r != 3)
                 # Canon hint #176/177: maze hint when in the
                 # twisty-passage rooms — first maze (50-57) or
                 # second maze (131-139).
@@ -4897,6 +4902,9 @@
             if self.keys_item.is_in_room(r):
                 # Canon obj #1 KEYS prop=0.
                 base = base + " There are some keys on the ground here."
+            if self.lamp_item.is_in_room(r):
+                # Canon obj #2 LAMP prop=0.
+                base = base + " There is a shiny brass lamp nearby."
             if self.bottle_item.is_in_room(r):
                 # Canon obj #20 BOTTLE prop=0 (water) / prop=100 (empty).
                 if self.bottle.has_water():
@@ -4986,6 +4994,13 @@
                 if not self.keys_item.try_take(self.player.get_room()):
                     return "You can't be serious!"
                 self.player.take(self.KEYS_ID)
+                return "OK"
+            if noun == "lamp" or noun == "lantern":
+                if self.lamp_item.is_carried():
+                    return "You are already carrying it!"
+                if not self.lamp_item.try_take(self.player.get_room()):
+                    return "You can't be serious!"
+                self.player.take(self.LAMP_ID)
                 return "OK"
             if noun == "bottle":
                 if self.bottle_item.is_carried():
@@ -5114,6 +5129,12 @@
                     return "You aren't carrying it!"
                 self.keys_item.try_drop(self.player.get_room())
                 self.player.drop(self.KEYS_ID)
+                return "OK"
+            if noun == "lamp" or noun == "lantern":
+                if not self.lamp_item.is_carried():
+                    return "You aren't carrying it!"
+                self.lamp_item.try_drop(self.player.get_room())
+                self.player.drop(self.LAMP_ID)
                 return "OK"
             if noun == "bottle":
                 if not self.bottle_item.is_carried():
@@ -6126,7 +6147,7 @@
         #    9      20       -3    #180    #181    witts
         # Thresholds reduced from canon to keep the smoke tests
         # snappy (the eligibility ratchet still works the same).
-        cave_hint   = @@Hint(4)
+        cave_hint   = @@Hint(10)
         bird_hint   = @@Hint(3)
         snake_hint  = @@Hint(3)
         maze_hint   = @@Hint(5)
@@ -6324,6 +6345,12 @@
         # End (canon 108). Reading it just yields a flavor joke.
         MAGAZINE_ID: int = 140
         MAGAZINE_HOME_ROOM: int = 106     # Anteroom — canon 106
+        # LAMP: canon obj #2 (brass lantern). Lives in the well
+        # house (canon 3) and must be taken before it can be lit.
+        # The Lamp FSM above models battery / brightness lifecycle;
+        # LAMP_ID + lamp_item track location and carriedness.
+        LAMP_ID: int = 142
+        LAMP_HOME_ROOM: int = 3       # well house — canon 3
         WITTS_END_ROOM: int = 108         # Witt's End — canon 108
         PLOVER_ROOM: int = 100            # Plover Room — canon 100
 
@@ -6337,6 +6364,13 @@
         # "the keys", etc.
         rod_item       = @@Item(11)    # debris room (canon 11)
         keys_item      = @@Item(3)     # well house (canon 3)
+        # The brass lantern. Canon obj #2 lives in the well house
+        # alongside the keys / bottle / food. The `lamp` FSM above
+        # models the lifecycle ($Off/$Bright/$Dim/$Out, battery);
+        # `lamp_item` is the location-tracking dimension so the
+        # player can SEE it in room 3 and TAKE it like any other
+        # starter item. Both round-trip via @@[persist] independently.
+        lamp_item      = @@Item(3)     # well house (canon 3)
         bottle_item    = @@Item(3)     # well house — carry only; contents FSM stays separate
         cage_item      = @@Item(10)    # cobble crawl (canon 10)
         food_item      = @@Item(3)     # well house (canon 3); consume() on FEED BEAR

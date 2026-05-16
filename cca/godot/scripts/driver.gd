@@ -68,6 +68,7 @@ const OYSTER_ID := 138
 const BATTERIES_ID := 139
 const MAGAZINE_ID := 140
 const MARK_ROD_ID := 141
+const LAMP_ID := 142
 
 # ------------------------------------------------------------
 # Maze topology — see topology.gd for the room map and design
@@ -2023,6 +2024,7 @@ func _object_in_room(obj_id: int, room: int) -> bool:
         ROD_ID:         return fsm.rod_item.is_in_room(room)
         MARK_ROD_ID:    return fsm.mark_rod_item.is_in_room(room)
         KEYS_ID:        return fsm.keys_item.is_in_room(room)
+        LAMP_ID:        return fsm.lamp_item.is_in_room(room)
         BOTTLE_ID:      return fsm.bottle_item.is_in_room(room)
         CAGE_ID:        return fsm.cage_item.is_in_room(room)
         FOOD_ID:        return fsm.food_item.is_in_room(room)
@@ -2060,6 +2062,7 @@ func _resolve_object_id(noun: String) -> int:
     if n in ["coins"]:                  return COINS_ID
     if n in ["rod"]:                    return ROD_ID
     if n in ["keys"]:                   return KEYS_ID
+    if n in ["lamp", "lantern"]:        return LAMP_ID
     if n in ["bottle"]:                 return BOTTLE_ID
     if n in ["cage"]:                   return CAGE_ID
     if n in ["food"]:                   return FOOD_ID
@@ -2107,6 +2110,7 @@ func _format_inventory() -> String:
         items.append("  Black rod with a rusty mark on the end")
 
     if fsm.player.carrying(KEYS_ID):     items.append("  Set of keys")
+    if fsm.player.carrying(LAMP_ID):     items.append("  Brass lantern")
     if fsm.player.carrying(BOTTLE_ID):
         # Canon obj#20/21/22: bottle label varies with contents.
         if fsm.bottle.has_water():
