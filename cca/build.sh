@@ -40,6 +40,16 @@ for name in aspects cca; do
     fi
 done
 
+# canonical_journey.fgd is a TEST scaffold — Frame state machine
+# describing the canonical CCA happy path that the FSM-driven
+# journey test (tests/test_cca_canonical_journey.gd) walks. NOT
+# mirrored to the arcade; the arcade has no need for the test
+# scaffold and we don't want it shipping in the cabinet build.
+echo "==> $FRAMEC compile frame/canonical_journey.fgd"
+"$FRAMEC" compile "frame/canonical_journey.fgd" --language gdscript -o generated/
+echo "==> copying generated/canonical_journey.gd -> godot/scripts/canonical_journey.gd"
+cp "generated/canonical_journey.gd" "godot/scripts/canonical_journey.gd"
+
 # topology.gd is hand-written canon data (140 rooms + 75 gates),
 # not framec-generated, but it MUST also stay in sync between
 # the standalone and arcade copies — both `driver.gd` and

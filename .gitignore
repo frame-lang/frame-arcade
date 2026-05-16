@@ -49,6 +49,7 @@ ch07-shooter/godot/scripts/shooter.gd
 ch08-stealth/godot/scripts/stealth.gd
 cca/godot/scripts/aspects.gd
 cca/godot/scripts/cca.gd
+cca/godot/scripts/canonical_journey.gd
 
 # end-user packaging — published on itch.io, not in repo
 arcade/Run Arcade.app/

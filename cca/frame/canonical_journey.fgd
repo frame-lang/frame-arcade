@@ -1,0 +1,161 @@
+# ============================================================
+# CanonicalJourney — Frame state machine describing the
+# canonical CCA happy path as discrete milestone states.
+# ============================================================
+# This is a TEST scaffold, not gameplay. Each state declares,
+# in pure Frame:
+#
+#   - `commands_from_previous()` — the commands a real player
+#     would type to ARRIVE at this state from the previous one.
+#     The test harness reads this and pipes each command through
+#     the Driver's `_process_input` exactly as if the player had
+#     typed it (parser, FSM dispatch, per-turn tick — all of it).
+#
+#   - `expected_room()` — what `Adventure.player_room()` should
+#     return after the commands fire. -1 means "don't check".
+#
+#   - `expected_in_log()` — substrings that MUST appear in the
+#     driver's log output produced by THIS state's commands.
+#
+#   - `expected_not_in_log()` — substrings that MUST NOT appear.
+#     Catches premature hints, "I don't know how" responses,
+#     misfired prompts, anything the player shouldn't see yet.
+#
+# The point: assertions live in the FSM, the harness is a small
+# loop that walks states, sends commands via the real Driver,
+# diffs the log, and reports per-state pass/fail. This catches
+# player-UX bugs the FSM-direct `do_command` tests can't see.
+#
+# Stage 1 (cave entry) ships first — it surfaces the lamp /
+# premature-hint issues that motivated this test. Subsequent
+# stages (early cave, magic-words, endgame) layer on as
+# additional states pointing past $WellHouseStocked.
+#
+# Build with:
+#   framec compile frame/canonical_journey.fgd --language gdscript -o generated/
+# ============================================================
+
+@@[target("gdscript")]
+
+@@system CanonicalJourney : RefCounted {
+
+    interface:
+        # Advance to the next milestone. No-op once $Done.
+        advance()
+
+        # True only in $Done.
+        is_done(): bool
+
+        # Human-readable state name (used in test output).
+        state_name(): String
+
+        # Commands the player would type to reach THIS state from
+        # the previous one. Empty for $AtRoad (start state — no
+        # commands yet, driver just printed the welcome / room).
+        commands_from_previous(): Array
+
+        # Expected room id after commands fire. -1 = don't check.
+        expected_room(): int
+
+        # Substrings that MUST appear in the log delta produced by
+        # this state's commands. Order doesn't matter; each is
+        # checked independently.
+        expected_in_log(): Array
+
+        # Substrings that MUST NOT appear in the log delta. The
+        # bug-discovery assertions live here.
+        expected_not_in_log(): Array
+
+    machine:
+
+        # ------------------------------------------------------------
+        # $AtRoad — start state. No commands; the Driver's _ready
+        # equivalent printed the welcome and the room 1 description.
+        # ------------------------------------------------------------
+        $AtRoad {
+            advance() { -> $WellHouseGather }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("AtRoad") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(1) }
+            expected_in_log(): Array { @@:(["END OF A ROAD"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # ------------------------------------------------------------
+        # $WellHouseGather — player walks east into the well-house.
+        # Canonical room 3 description should mention all four
+        # starting items: keys, lamp, food, bottle.
+        #
+        # CATCHES BUG 1: lamp missing from room 3 description.
+        #   The "lamp" substring assertion fails because the port
+        #   models Lamp as a state-only FSM with no `location_room`
+        #   field — there's no `lamp_item` Item like there is for
+        #   keys/food/bottle. Canon CCA places the brass lantern
+        #   in the well-house alongside the other starter items.
+        #
+        # CATCHES BUG 2 (early version): cave hint should NOT have
+        #   fired yet. The hint condition is "player is in surface
+        #   rooms 1..9 for N consecutive turns" with N=4. By the
+        #   time the player has typed "e", only 1 turn of surface
+        #   wandering has elapsed — well below threshold. If the
+        #   hint fires here, the streak counting is wrong.
+        # ------------------------------------------------------------
+        $WellHouseGather {
+            advance() { -> $WellHouseStocked }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("WellHouseGather") }
+            commands_from_previous(): Array { @@:(["e"]) }
+            expected_room(): int { @@:(3) }
+            expected_in_log(): Array { @@:(["WELL HOUSE", "keys", "lamp", "bottle", "food"]) }
+            expected_not_in_log(): Array { @@:(["trying to get into the cave"]) }
+        }
+
+        # ------------------------------------------------------------
+        # $WellHouseStocked — player takes all four starter items.
+        # Each `take X` should respond with "OK" (or a canon
+        # acknowledgement), and the player should have keys + food
+        # + bottle in inventory afterwards.
+        #
+        # CATCHES BUG 1 (the harder symptom): `take lamp` produces
+        #   "I don't know how to apply that word here." because the
+        #   lamp isn't a placed item the parser can resolve. This
+        #   string MUST NOT appear after a canonical four-take.
+        #
+        # CATCHES BUG 2: by the time the player has typed
+        #   `e` + `take keys` + `take lamp` + `take food` +
+        #   `take bottle`, five turns of surface-wandering have
+        #   elapsed (assuming the hint observe() fires per turn).
+        #   That crosses the 4-turn threshold and the canon Y/N
+        #   prompt "Are you trying to get into the cave?" appears.
+        #   The streak should ONLY count turns where the player
+        #   is plausibly trying to enter the cave — not turns spent
+        #   loading inventory in the well-house. So the prompt
+        #   substring MUST NOT appear in this state's log delta.
+        # ------------------------------------------------------------
+        $WellHouseStocked {
+            advance() { -> $Done }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("WellHouseStocked") }
+            commands_from_previous(): Array { @@:(["take keys", "take lamp", "take food", "take bottle"]) }
+            expected_room(): int { @@:(3) }
+            expected_in_log(): Array { @@:([]) }
+            expected_not_in_log(): Array { @@:(["I don't know how to apply", "trying to get into the cave"]) }
+        }
+
+        # ------------------------------------------------------------
+        # $Done — terminal. The harness loop exits when is_done().
+        # Stage 1 ends here. Stage 2 (cave entry: depression →
+        # grate → descent → light lamp) replaces this transition
+        # with the next milestone.
+        # ------------------------------------------------------------
+        $Done {
+            advance() {}
+            is_done(): bool { @@:(true) }
+            state_name(): String { @@:("Done") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(-1) }
+            expected_in_log(): Array { @@:([]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+}
