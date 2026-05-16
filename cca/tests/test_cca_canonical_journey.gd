@@ -68,7 +68,7 @@ func _expect_not_contains(label: String, haystack: String, needle: String) -> vo
         _fail(label, "unexpectedly present: '%s'" % needle)
 
 func _init():
-    print("=== CCA canonical journey — FSM-driven player UX (Stage 1) ===")
+    print("=== CCA canonical journey — FSM-driven player UX ===")
 
     # ----- Build a headless Driver -----
     # Driver extends Control; in production its _ready() builds the
@@ -78,7 +78,13 @@ func _init():
     var driver = Driver.new()
     driver.fsm = Cca.new()
     driver.fsm.setup_default_aspects()
-    driver.fsm.wake_dwarves()
+    # NOTE: do NOT call wake_dwarves() here. Production gameplay
+    # uses the canonical auto-wake (player must spend ~13 turns in
+    # the deep cave before dwarves activate), and the canonical
+    # journey through Stage 3 stays under that threshold. Forcing
+    # them awake at turn 1 blocks the snake-room approach with a
+    # dwarf at room 15 and the journey can't proceed. Stages 4+
+    # WILL cross the threshold naturally; handle those when added.
     # PromptDispatcher is already initialized at var declaration in
     # driver.gd; no need to set it manually.
 
@@ -126,6 +132,7 @@ func _init():
         var delta: String = post_text.substr(pre_len)
         pre_len = post_text.length()
 
+
         # Assertion: player_room.
         var expected_room: int = journey.expected_room()
         if expected_room >= 0:
@@ -147,7 +154,7 @@ func _init():
 
     print("")
     if failures == 0:
-        print("PASS — canonical journey Stage 1 complete (%d states, 0 failures)" % state_count)
+        print("PASS — canonical journey complete (%d states, 0 failures)" % state_count)
         quit(0)
     else:
         print("FAIL — %d/%d assertions failed across %d states" % [failures, failures, state_count])

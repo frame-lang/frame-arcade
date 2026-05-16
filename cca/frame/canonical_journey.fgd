@@ -2,34 +2,20 @@
 # CanonicalJourney — Frame state machine describing the
 # canonical CCA happy path as discrete milestone states.
 # ============================================================
-# This is a TEST scaffold, not gameplay. Each state declares,
-# in pure Frame:
+# Companion doc: CANONICAL_JOURNEY.md.
 #
-#   - `commands_from_previous()` — the commands a real player
-#     would type to ARRIVE at this state from the previous one.
-#     The test harness reads this and pipes each command through
-#     the Driver's `_process_input` exactly as if the player had
-#     typed it (parser, FSM dispatch, per-turn tick — all of it).
+# Each state declares, in pure Frame:
+#   - `commands_from_previous(): Array` — typed commands to
+#     reach this state from the previous one.
+#   - `expected_room(): int` — `Adventure.player_room()` after
+#     commands fire. -1 = don't check.
+#   - `expected_in_log(): Array` — substrings that MUST appear.
+#   - `expected_not_in_log(): Array` — substrings that MUST NOT
+#     appear (bug-discovery assertions).
 #
-#   - `expected_room()` — what `Adventure.player_room()` should
-#     return after the commands fire. -1 means "don't check".
-#
-#   - `expected_in_log()` — substrings that MUST appear in the
-#     driver's log output produced by THIS state's commands.
-#
-#   - `expected_not_in_log()` — substrings that MUST NOT appear.
-#     Catches premature hints, "I don't know how" responses,
-#     misfired prompts, anything the player shouldn't see yet.
-#
-# The point: assertions live in the FSM, the harness is a small
-# loop that walks states, sends commands via the real Driver,
-# diffs the log, and reports per-state pass/fail. This catches
-# player-UX bugs the FSM-direct `do_command` tests can't see.
-#
-# Stage 1 (cave entry) ships first — it surfaces the lamp /
-# premature-hint issues that motivated this test. Subsequent
-# stages (early cave, magic-words, endgame) layer on as
-# additional states pointing past $WellHouseStocked.
+# The test harness pipes each command through the real Driver
+# (parser + FSM dispatch + per-turn tick + log buffer), then
+# diffs the log to validate per-state contracts.
 #
 # Build with:
 #   framec compile frame/canonical_journey.fgd --language gdscript -o generated/
@@ -40,38 +26,20 @@
 @@system CanonicalJourney : RefCounted {
 
     interface:
-        # Advance to the next milestone. No-op once $Done.
         advance()
-
-        # True only in $Done.
         is_done(): bool
-
-        # Human-readable state name (used in test output).
         state_name(): String
-
-        # Commands the player would type to reach THIS state from
-        # the previous one. Empty for $AtRoad (start state — no
-        # commands yet, driver just printed the welcome / room).
         commands_from_previous(): Array
-
-        # Expected room id after commands fire. -1 = don't check.
         expected_room(): int
-
-        # Substrings that MUST appear in the log delta produced by
-        # this state's commands. Order doesn't matter; each is
-        # checked independently.
         expected_in_log(): Array
-
-        # Substrings that MUST NOT appear in the log delta. The
-        # bug-discovery assertions live here.
         expected_not_in_log(): Array
 
     machine:
 
-        # ------------------------------------------------------------
-        # $AtRoad — start state. No commands; the Driver's _ready
-        # equivalent printed the welcome and the room 1 description.
-        # ------------------------------------------------------------
+        # ----------------------------------------------------------
+        # STAGE 1 — Cave Entry (shipped, locked in)
+        # ----------------------------------------------------------
+
         $AtRoad {
             advance() { -> $WellHouseGather }
             is_done(): bool { @@:(false) }
@@ -82,25 +50,6 @@
             expected_not_in_log(): Array { @@:([]) }
         }
 
-        # ------------------------------------------------------------
-        # $WellHouseGather — player walks east into the well-house.
-        # Canonical room 3 description should mention all four
-        # starting items: keys, lamp, food, bottle.
-        #
-        # CATCHES BUG 1: lamp missing from room 3 description.
-        #   The "lamp" substring assertion fails because the port
-        #   models Lamp as a state-only FSM with no `location_room`
-        #   field — there's no `lamp_item` Item like there is for
-        #   keys/food/bottle. Canon CCA places the brass lantern
-        #   in the well-house alongside the other starter items.
-        #
-        # CATCHES BUG 2 (early version): cave hint should NOT have
-        #   fired yet. The hint condition is "player is in surface
-        #   rooms 1..9 for N consecutive turns" with N=4. By the
-        #   time the player has typed "e", only 1 turn of surface
-        #   wandering has elapsed — well below threshold. If the
-        #   hint fires here, the streak counting is wrong.
-        # ------------------------------------------------------------
         $WellHouseGather {
             advance() { -> $WellHouseStocked }
             is_done(): bool { @@:(false) }
@@ -111,30 +60,8 @@
             expected_not_in_log(): Array { @@:(["trying to get into the cave"]) }
         }
 
-        # ------------------------------------------------------------
-        # $WellHouseStocked — player takes all four starter items.
-        # Each `take X` should respond with "OK" (or a canon
-        # acknowledgement), and the player should have keys + food
-        # + bottle in inventory afterwards.
-        #
-        # CATCHES BUG 1 (the harder symptom): `take lamp` produces
-        #   "I don't know how to apply that word here." because the
-        #   lamp isn't a placed item the parser can resolve. This
-        #   string MUST NOT appear after a canonical four-take.
-        #
-        # CATCHES BUG 2: by the time the player has typed
-        #   `e` + `take keys` + `take lamp` + `take food` +
-        #   `take bottle`, five turns of surface-wandering have
-        #   elapsed (assuming the hint observe() fires per turn).
-        #   That crosses the 4-turn threshold and the canon Y/N
-        #   prompt "Are you trying to get into the cave?" appears.
-        #   The streak should ONLY count turns where the player
-        #   is plausibly trying to enter the cave — not turns spent
-        #   loading inventory in the well-house. So the prompt
-        #   substring MUST NOT appear in this state's log delta.
-        # ------------------------------------------------------------
         $WellHouseStocked {
-            advance() { -> $Done }
+            advance() { -> $BackToRoad }
             is_done(): bool { @@:(false) }
             state_name(): String { @@:("WellHouseStocked") }
             commands_from_previous(): Array { @@:(["take keys", "take lamp", "take food", "take bottle"]) }
@@ -143,12 +70,147 @@
             expected_not_in_log(): Array { @@:(["I don't know how to apply", "trying to get into the cave"]) }
         }
 
-        # ------------------------------------------------------------
-        # $Done — terminal. The harness loop exits when is_done().
-        # Stage 1 ends here. Stage 2 (cave entry: depression →
-        # grate → descent → light lamp) replaces this transition
-        # with the next milestone.
-        # ------------------------------------------------------------
+        # ----------------------------------------------------------
+        # STAGE 2 — Descent + Cobble Crawl
+        # ----------------------------------------------------------
+        # Path: well-house (3) → end-of-road (1) → valley (4) →
+        # slit (7) → depression (8) → unlock + down → below grate
+        # (9, dark) → light lamp → cobble crawl (10).
+        # ----------------------------------------------------------
+
+        $BackToRoad {
+            advance() { -> $AtDepression }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("BackToRoad") }
+            commands_from_previous(): Array { @@:(["w"]) }
+            expected_room(): int { @@:(1) }
+            expected_in_log(): Array { @@:(["END OF A ROAD"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        $AtDepression {
+            advance() { -> $BelowGrate }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("AtDepression") }
+            commands_from_previous(): Array { @@:(["s", "s", "s"]) }
+            expected_room(): int { @@:(8) }
+            expected_in_log(): Array { @@:(["DEPRESSION", "GRATE"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # Note: canon msg #16 ("It is now pitch dark...") fires on
+        # the player's FIRST movement-attempt inside a dark room,
+        # not on entry. So at $BelowGrate the player has just
+        # descended; no warning yet. We assert the descent landed
+        # safely (no "broke every bone" pit-fall) and move on to
+        # $LampLit before any movement-in-dark would fire.
+        $BelowGrate {
+            advance() { -> $LampLit }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("BelowGrate") }
+            commands_from_previous(): Array { @@:(["unlock grate", "down"]) }
+            expected_room(): int { @@:(9) }
+            expected_in_log(): Array { @@:([]) }
+            expected_not_in_log(): Array { @@:(["broke every bone"]) }
+        }
+
+        $LampLit {
+            advance() { -> $CobbleCrawl }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("LampLit") }
+            commands_from_previous(): Array { @@:(["light lamp"]) }
+            expected_room(): int { @@:(9) }
+            expected_in_log(): Array { @@:([]) }
+            expected_not_in_log(): Array { @@:(["pitch dark"]) }
+        }
+
+        $CobbleCrawl {
+            advance() { -> $DebrisRoom }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("CobbleCrawl") }
+            commands_from_previous(): Array { @@:(["w"]) }
+            expected_room(): int { @@:(10) }
+            expected_in_log(): Array { @@:(["CRAWLING OVER COBBLES", "cage"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # ----------------------------------------------------------
+        # STAGE 3 — Magic Words + Bird/Snake (partial coverage)
+        # ----------------------------------------------------------
+        # Best-effort canonical paths through topology.gd. Where a
+        # path can't be derived cleanly, the state is marked TODO
+        # and the harness skips assertions.
+        # ----------------------------------------------------------
+
+        # Walk past debris (11) and small chamber (12) without
+        # taking the rod — canon msg #26: rod-with-star scares the
+        # bird, so the player must NOT be carrying it when taking
+        # the bird at the chamber. Rod gets collected later for
+        # the BREAK CLAM puzzle and endgame DETONATE.
+        $DebrisRoom {
+            advance() { -> $BirdChamber }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("DebrisRoom") }
+            commands_from_previous(): Array { @@:(["take cage", "w"]) }
+            expected_room(): int { @@:(11) }
+            expected_in_log(): Array { @@:(["DEBRIS ROOM", "XYZZY", "rod"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # Path 11 → 12 → 13 (bird chamber). Topology shows
+        # 11:{west:12} and 12:{west:13}.
+        $BirdChamber {
+            advance() { -> $BirdCaptured }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("BirdChamber") }
+            commands_from_previous(): Array { @@:(["w", "w"]) }
+            expected_room(): int { @@:(13) }
+            expected_in_log(): Array { @@:(["bird"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        $BirdCaptured {
+            advance() { -> $SnakeRoom }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("BirdCaptured") }
+            commands_from_previous(): Array { @@:(["take bird"]) }
+            expected_room(): int { @@:(13) }
+            expected_in_log(): Array { @@:([]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # Path 13 → 14 (west) → 15 (down, Hall of Mists) → 19
+        # (north, Hall of Mt King with snake).
+        $SnakeRoom {
+            advance() { -> $SnakeGone }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("SnakeRoom") }
+            commands_from_previous(): Array { @@:(["w", "down", "n"]) }
+            expected_room(): int { @@:(19) }
+            expected_in_log(): Array { @@:(["snake"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        $SnakeGone {
+            advance() { -> $Done }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("SnakeGone") }
+            commands_from_previous(): Array { @@:(["release bird"]) }
+            expected_room(): int { @@:(19) }
+            expected_in_log(): Array { @@:(["bird attacks", "drives the snake away"]) }
+            expected_not_in_log(): Array { @@:(["devoured"]) }
+        }
+
+        # ----------------------------------------------------------
+        # STAGES 4-5 — TODO
+        # ----------------------------------------------------------
+        # Dragon canyon, troll bridge, bear, treasure collection,
+        # deposit loop, endgame. Requires per-room topology walks
+        # that I haven't fully mapped yet. The FSM terminates after
+        # Stage 3 for now; future commits will replace $Done's
+        # advance with the next milestone.
+        # ----------------------------------------------------------
+
         $Done {
             advance() {}
             is_done(): bool { @@:(true) }
