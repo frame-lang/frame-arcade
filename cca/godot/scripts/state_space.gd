@@ -234,6 +234,47 @@ func _enumerate_actions(driver) -> Array:
             elif _item_in_room(driver, id, current):
                 actions.append("take " + name)
 
+    # State-changing verbs gated on preconditions. Each fires
+    # only when its target is plausibly present; rebuffs at
+    # other rooms are OK (no state change, just a wasted action
+    # — not a correctness issue).
+    var fsm = driver.fsm
+    if fsm.player.carrying(fsm.LAMP_ID):
+        if not fsm.lamp.is_lit():
+            actions.append("light lamp")
+        else:
+            actions.append("extinguish lamp")
+    if fsm.player.carrying(fsm.KEYS_ID) and (current == 8 or current == 9):
+        actions.append("unlock grate")
+    if fsm.player.carrying(fsm.ROD_ID):
+        # Wave-rod-at-fissure is the canonical crystal-bridge
+        # builder; fires at rooms 17 (east bank) or 27 (west).
+        actions.append("wave rod")
+    # NPC interaction verbs — gated by the NPC being canonically
+    # at the current room (we approximate with hard-coded canon
+    # rooms; cheaper than querying every NPC's location).
+    if current == 119 and fsm.dragon_alive():
+        actions.append("attack dragon")
+    if current == 19 and fsm.snake.is_blocking():
+        actions.append("attack snake")
+        actions.append("release bird") if fsm.player.carrying(fsm.BIRD_ID) else null
+    if current == 130:
+        # Bear room — feed / take chain are the canon mechanics.
+        if fsm.player.carrying(fsm.FOOD_ID):
+            actions.append("feed bear")
+    # Bird-cage capture
+    if current == 13 and fsm.bird.get_state() == "free":
+        actions.append("take bird")
+    # Break clam → pearl (at any room with clam carried or in room)
+    if fsm.player.carrying(fsm.CLAM_ID) and fsm.player.carrying(fsm.ROD_ID):
+        actions.append("break clam")
+    # Bottle fluid interactions
+    if fsm.player.carrying(fsm.BOTTLE_ID):
+        if fsm.bottle.has_water():
+            actions.append("pour water")
+        elif fsm.bottle.has_oil():
+            actions.append("pour oil")
+
     return actions
 
 # Best-effort check whether item `id` is visible in `room`. The
@@ -305,18 +346,44 @@ func _check_invariants(driver, path: Array) -> Array:
             "reason": "lamp battery %d out of [0..%d]" % [battery, fsm.lamp.MAX_BATTERY],
         })
 
-    # Endgame phase monotonicity: state strings are
-    # "active" / "closing" / "in_repository" / "won" / "permadead".
-    # Valid forward transitions are encoded in the Endgame FSM
-    # itself — we just check the state string is one of the known
-    # ones (catches typos / new states that the search reaches
-    # before this invariant is updated).
+    # Endgame phase: state strings are "active" / "closing" /
+    # "in_repository" / "won" / "permadead". Catches typos and
+    # any new state the search reaches before this is updated.
     var es: String = fsm.endgame_state()
     if not (es in ["active", "closing", "in_repository", "won", "permadead"]):
         failures.append({
             "hash": hash, "path": path.duplicate(),
             "reason": "unknown endgame state '%s'" % es,
         })
+
+    # Treasure deposit count never exceeds canon 15.
+    var deposits: int = fsm.treasures_deposited()
+    if deposits < 0 or deposits > 15:
+        failures.append({
+            "hash": hash, "path": path.duplicate(),
+            "reason": "treasures_deposited %d out of [0..15]" % deposits,
+        })
+
+    # Inventory consistency: every item the Player FSM thinks is
+    # carried must agree with the corresponding _item FSM.
+    # Mismatch indicates a take/drop path that updates one side
+    # but not the other.
+    var item_checks: Array = [
+        [fsm.ROD_ID, fsm.rod_item], [fsm.KEYS_ID, fsm.keys_item],
+        [fsm.BOTTLE_ID, fsm.bottle_item], [fsm.CAGE_ID, fsm.cage_item],
+        [fsm.FOOD_ID, fsm.food_item], [fsm.PILLOW_ID, fsm.pillow_item],
+        [fsm.AXE_ID, fsm.axe_item], [fsm.CLAM_ID, fsm.clam_item],
+        [fsm.MAGAZINE_ID, fsm.magazine_item], [fsm.LAMP_ID, fsm.lamp_item],
+    ]
+    for pair in item_checks:
+        var player_thinks: bool = fsm.player.carrying(pair[0])
+        var item_thinks: bool = pair[1].is_carried()
+        if player_thinks != item_thinks:
+            failures.append({
+                "hash": hash, "path": path.duplicate(),
+                "reason": "inventory inconsistency for id %d: player=%s, item=%s" % [
+                    pair[0], player_thinks, item_thinks],
+            })
 
     return failures
 

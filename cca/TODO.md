@@ -161,3 +161,40 @@ those flow back through `_on_text_submitted`'s deferred regrab.
 
 (For reference, the original investigation hypotheses:)
 command sequence loses focus), then targeted fix.
+
+### Inventory inconsistency on player death
+
+Surfaced 2026-05-17 by the RFC-0001 state-space search (B+
+widening, sweep 2 + sweep 3). After action sequences ending in
+a death-causing verb (`jump` at a death-room exit is the typical
+reproducer; canon also has dragon-bites and bridge-collapse
+paths), the Player FSM transitions to `$Dead` and its
+`carrying()` returns false for every item. But the individual
+`_item` FSMs (keys_item, lamp_item, bottle_item, food_item,
+rod_item, ...) stay in `$Carried` — they're never told they're
+no longer being carried.
+
+Two views disagree:
+- `player.carrying(KEYS_ID)` → false (player is dead)
+- `keys_item.is_carried()` → true (item FSM still thinks so)
+
+Canon behavior should be: on death, every carried item drops at
+the death room. Both views return false after death, and
+`keys_item.is_in_room(death_room)` is true.
+
+**Reproducers**:
+- `plugh; west; jump` (well-house → Y2 → room 35 → jump death)
+- `xyzzy; plugh; west; jump` (variant from debris room start)
+- Likely many others involving canon-37/110/etc. jump rooms.
+
+**Fix path**: at every `self.player.die()` call-site in
+`cca.fgd` (line ~2325 / 3049 / 4035 / 4038 currently), iterate
+the player's inventory and call the matching `_item.try_drop(
+self.player.get_room())` before the Player FSM transitions. Or
+add a cross-FSM "death drops items" coordination in Adventure's
+`_check_player_death` orchestration. The latter is cleaner — one
+choke point instead of 5+.
+
+Until fixed, `test_cca_state_space.gd` reports the divergence
+count but doesn't gate the suite on it (would block the rest of
+the search's coverage value behind a single known bug).
