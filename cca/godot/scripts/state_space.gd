@@ -274,6 +274,32 @@ func _enumerate_actions(driver) -> Array:
             actions.append("pour water")
         elif fsm.bottle.has_oil():
             actions.append("pour oil")
+        else:
+            # Empty bottle — fill at canon water sources (rooms
+            # with a stream / spring per canon section-9 ITEM 0
+            # — well house pool, fissure pool, etc.).
+            if current in [3, 23, 79]:
+                actions.append("fill bottle")
+    # Read oyster — canon msg #192/193/194 chain. State change:
+    # `is_oyster_revealed()` flips on first read. Fires when the
+    # oyster is in the current room (post-break-clam) or carried.
+    if (fsm.player.carrying(fsm.OYSTER_ID)
+            or fsm.oyster_item.is_in_room(current)):
+        actions.append("read oyster")
+    # Throw axe — when axe is in inventory and a hostile NPC is
+    # canonically at the current room (dragon at 119, dwarves
+    # are dormant so not enumerated). The throw transitions the
+    # axe FSM ($Carried → $InRoom at the throw room).
+    if fsm.player.carrying(fsm.AXE_ID):
+        if current == 119 and fsm.dragon_alive():
+            actions.append("throw axe")
+    # Attack bear in bear-room — different prose depending on
+    # bear state; doesn't transition the bear (canon msg #165-167).
+    if current == 130:
+        actions.append("attack bear")
+    # Attack bird (no-op rebuff but exercises the verb)
+    if current == 13 and fsm.bird.get_state() == "free":
+        actions.append("attack bird")
 
     return actions
 
