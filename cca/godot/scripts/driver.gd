@@ -94,7 +94,12 @@ var verb_synonyms: Dictionary = {
     "kill": "attack", "fight": "attack",
     "hurl": "throw",
     "y": "yes",                            # n is north; "no" must be typed
-    "quit": "quit", "exit": "quit",
+    "quit": "quit",
+    # NOTE: `exit` is NOT mapped to `quit`, despite canon CCA 1977
+    # accepting EXIT in its word table as a quit synonym. Modern
+    # IF players type "exit" expecting "leave this room" — making
+    # it kill-the-game-immediately is a player-UX surprise. The
+    # `quit` / `q` verbs remain the canonical quit handles.
     "save": "save", "restore": "load", "load": "load",
     # SUSPEND / PAUSE route to a canon-flavored handler that
     # narrates the original 1977 PDP-10 latency warning and
@@ -2354,4 +2359,4 @@ func _print_info() -> void:
 func _notification(what: int) -> void:
     if what == NOTIFICATION_APPLICATION_FOCUS_IN:
         if input != null:
-            input.grab_focus()
+            input.call_deferred("grab_focus")

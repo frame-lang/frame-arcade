@@ -137,44 +137,27 @@ this section just notes session-level milestones.)
 
 ## Open — Player UX
 
-### Driver: `"exit"` → `"quit"` mapping is surprising
+### Driver: `"exit"` → `"quit"` mapping is surprising — **DONE 2026-05-17**
 
-Reported during canonical-journey play-testing (Stage 4
-development, 2026-05-16). The verb_synonyms table at
-[`cca/godot/scripts/driver.gd:97`](godot/scripts/driver.gd#L97)
-maps `"exit"` to `"quit"` — typing `exit` at any room triggers
-the quit confirmation dialog rather than walking through a
-room-defined "exit" alias.
+Dropped the `"exit": "quit"` synonym from both driver.gd and
+cca_main.gd. Players quit via `quit` / `q`. Typing `exit` at a
+room with an "exit" key in topology walks via that exit;
+otherwise falls through to "I don't know that word." Replaced
+with an inline NOTE comment explaining the canon-vs-modern-UX
+tradeoff so a future reader sees why the mapping was removed.
 
-This IS canon (Crowther/Woods 1977 word table 7 was EXIT and
-mapped to QUIT), but modern IF players overwhelmingly expect
-"exit" to mean "leave this room." Most modern ports of CCA
-drop this mapping.
+### Driver: LineEdit loses focus during gameplay — **DONE 2026-05-17**
 
-**Fix**: drop the `"exit": "quit"` line. Players will still
-quit via `quit` / `q`. Typing `exit` at a room with an "exit"
-key in topology will walk; otherwise it falls through to
-"I don't know that word" which is the right rebuff for a
-non-canonical verb.
+Root cause: synchronous `input.grab_focus()` in
+`cca_main.gd:_hide_exit_dialog` and both drivers' `_notification`
+focus-in handlers. Per the comment already in `_on_text_submitted`,
+synchronous grab inside an _input signal handler doesn't stick on
+every Godot 4.x version — the deferred version does.
 
-### Driver: LineEdit loses focus during gameplay
+Switched both regrab sites to `input.call_deferred("grab_focus")`,
+matching the working pattern already used after text submit.
+Verified the Y/N prompt and F5/F9 paths weren't the culprit —
+those flow back through `_on_text_submitted`'s deferred regrab.
 
-Reported during arcade play-testing (Stage 4 development,
-2026-05-16). After certain commands the LineEdit no longer
-holds keyboard focus and the player has to click the input
-field before typing again.
-
-The driver sets `keep_editing_on_text_submit = true` and calls
-`input.call_deferred("grab_focus")` after each submit, so the
-basic path should work. Possible culprits:
-
-- Y/N prompt flows (`prompts.is_active()` branch): after a YES
-  or NO answer, the driver returns immediately without going
-  through the standard submit-and-regrab path.
-- F5/F9 quick-save path I added (V1.3) uses `input.accept_event()`
-  but doesn't re-grab focus.
-- Window-focus interactions in the arcade cabinet (window blur
-  on overlay show, etc.).
-
-**Investigation needed**: identify exact reproducer (which
+(For reference, the original investigation hypotheses:)
 command sequence loses focus), then targeted fix.

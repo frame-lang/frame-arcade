@@ -104,7 +104,11 @@ var verb_synonyms: Dictionary = {
     "kill": "attack", "fight": "attack",
     "hurl": "throw",
     "y": "yes",                            # n is north; "no" must be typed
-    "quit": "quit", "exit": "quit",
+    "quit": "quit",
+    # NOTE: `exit` is NOT mapped to `quit`. Modern IF players type
+    # "exit" expecting "leave this room"; making it kill-the-game
+    # is a player-UX surprise. `quit` / `q` remain the canonical
+    # quit handles.
     "save": "save", "restore": "load", "load": "load",
     # SUSPEND / PAUSE route to a canon-flavored handler that
     # narrates the original 1977 PDP-10 latency warning and
@@ -2029,7 +2033,10 @@ func _show_exit_dialog() -> void:
 func _hide_exit_dialog() -> void:
     label_exit_dialog.visible = false
     if input != null:
-        input.grab_focus()
+        # Defer the regrab — synchronous grab_focus() inside the
+        # _input signal handler doesn't stick on every Godot 4.x
+        # version (same pattern as _on_text_submitted at line ~387).
+        input.call_deferred("grab_focus")
 
 # When the application window regains focus (alt-tab back, click
 # on a different app and return, etc.), Godot doesn't restore
@@ -2039,4 +2046,4 @@ func _hide_exit_dialog() -> void:
 func _notification(what: int) -> void:
     if what == NOTIFICATION_APPLICATION_FOCUS_IN:
         if input != null:
-            input.grab_focus()
+            input.call_deferred("grab_focus")
