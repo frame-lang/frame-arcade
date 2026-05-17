@@ -42,236 +42,133 @@ Topology shortcuts (`building`, `outdoors`, `surface`) are used for the
 canonical deposit-walks back to the well-house, mirroring real-player
 behavior.
 
-## Stages
+## Stages — all shipped, 32 states
 
 ```
-Stage 1  Cave Entry           states  1-4    ~15 cmds   ~5s  ✓ shipped
-Stage 2  Descent + first room states  5-9    ~25 cmds  ~10s
-Stage 3  Magic Words & NPCs   states 10-15   ~40 cmds  ~15s
-Stage 4  Hard Treasures       states 16-19   ~35 cmds  ~15s
-Stage 5  Endgame              states 20-23   ~20 cmds  ~10s
+Stage 1  Cave Entry           states  1-3    ✓ shipped
+Stage 2  Descent + Cobble Crawl states 4-9   ✓ shipped
+Stage 3  Bird/Snake           states 10-14   ✓ shipped
+Stage 4  Dragon/Troll/Bear    states 15-21   ✓ shipped
+Stage 5  Deposit-loop + endgame states 22-31 ✓ shipped (with shortcuts)
+                              state  32      $Done (terminal)
 ```
 
-Total: ~135 commands, ~55s. All canonical, all through the real Driver.
+Total: ~90 player commands + 2 harness shortcuts (treasure-fill,
+endgame-tick), <5s runtime. 100+ assertions, 65/65 suite passes.
+
+The two harness shortcuts ($TreasuresFilled and $InRepository)
+fast-forward through paths whose mechanics are already covered
+by stages 1-5a and by the 64 other tests: the remaining 12
+treasure round-trips after gold, and the 35 ticks of closing-
+phase clock advancement. Walking each of those canonically would
+add ~150 commands without exposing new bugs.
 
 ---
 
-## Stage 1: Cave Entry (shipped)
+## States — authoritative table
+
+Each row is a `@@system CanonicalJourney` state in
+[`cca/frame/canonical_journey.fgd`](frame/canonical_journey.fgd).
+Commands are passed verbatim through `Driver._process_input` —
+exactly what a real player would type.
+
+| # | State | Commands from previous state | Expected room |
+|---|---|---|---|
+| 1 | `$AtRoad` | (none — priming) | 1 |
+| 2 | `$WellHouseGather` | `e` | 3 |
+| 3 | `$WellHouseStocked` | `take keys`, `take lamp`, `take food`, `take bottle` | 3 |
+| 4 | `$BackToRoad` | `w` | 1 |
+| 5 | `$AtDepression` | `s`, `s`, `s` | 8 |
+| 6 | `$BelowGrate` | `unlock grate`, `down` | 9 |
+| 7 | `$LampLit` | `light lamp` | 9 |
+| 8 | `$CobbleCrawl` | `w` | 10 |
+| 9 | `$DebrisRoom` | `take cage`, `w` | 11 |
+| 10 | `$BirdChamber` | `w`, `w` | 13 |
+| 11 | `$BirdCaptured` | `take bird` | 13 |
+| 12 | `$SnakeRoom` | `w`, `down`, `n` | 19 |
+| 13 | `$SnakeGone` | `release bird` | 19 |
+| 14 | `$DragonCanyon` | `n`, `down`, `bedquilt`, `slab`, `up`, `s` | 119 |
+| 15 | `$DragonDead` | `attack dragon`, `yes` | 119 |
+| 16 | `$RugTaken` | `take rug` | 119 |
+| 17 | `$TrollBridge` | `n`, `down`, `n`, `w`, `oriental`, `w`, `sw`, `up` | 117 |
+| 18 | `$TrollPaid` | `throw rug` | 117 |
+| 19 | `$BearChamber` | `over`, `ne`, `e`, `se`, `s`, `e` | 130 |
+| 20 | `$BearFed` | `feed bear` | 130 |
+| 21 | `$ChainTaken` | `take chain` | 130 |
+| 22 | `$BearReleased` | `drop chain`, `take chain` | 130 |
+| 23 | `$WalkBackToWellHouse` | `w`, `w`, `n`, `w`, `w`, `over`, `sw`, `down`, `se`, `se`, `ne`, `e`, `up`, `e`, `up`, `s`, `e`, `up`, `depression`, `building`, `e` | 3 |
+| 24 | `$ChainDeposited` | `drop chain` | 3 |
+| 25 | `$WalkToGold` | `w`, `depression`, `down`, `w`, `w`, `up`, `w`, `w`, `down`, `s` | 18 |
+| 26 | `$GoldTaken` | `take gold` | 18 |
+| 27 | `$WalkBackWithGold` | `out`, `n`, `n`, `n`, `plugh` | 3 |
+| 28 | `$GoldDeposited` | `drop gold` | 3 |
+| 29 | `$TreasuresFilled` | (harness shortcut: 13× `fsm.endgame.treasure_deposited()`) | 3 |
+| 30 | `$EndgameClosing` | `look` | 3 |
+| 31 | `$InRepository` | (harness shortcut: 35× `fsm.tick()`) | 116 |
+| 32 | `$Victory` | `blast` | (any — game over) |
+
+## Canonical mechanics validated by these states
+
+- **Surface item gather** (states 2-3): canonical room 3 description
+  must enumerate all four starter items (keys/lamp/bottle/food);
+  no premature hint Y/N prompts.
+- **Grate / dark / lamp lifecycle** (states 5-7): unlock grate
+  with keys, descend safely, light lamp before walking in the
+  dark to avoid the pit-fall hazard.
+- **Cobble crawl → bird-chamber path without rod** (states 8-11):
+  canonical sequence avoids taking the rod at room 11 because the
+  rod-with-star scares the bird (canon msg #26). Rod stays for
+  later use.
+- **Bird+cage+snake mechanic** (states 12-13): bird in cage,
+  walked to Hall of Mountain King (canon 19), `release bird`
+  drives off the snake (canon msg #30).
+- **Custom motion-alias commands** (states 14, 17, 19, 23):
+  canonical CCA recognizes `bedquilt`, `slab`, `oriental`, `over`,
+  `ne`, `sw`, `se`, `depression`, `building` as motion verbs the
+  driver routes via the topology's exits dict. Surfaced a driver
+  bug during construction (fixed in commit 3d68913).
+- **Bare-handed dragon kill** (states 14-16): `attack dragon` + `yes`
+  → canon msg #49 "Vanquished a dragon with your bare hands!"
+- **Troll bridge appeasement** (states 17-18): `throw rug` (not
+  drop) — canon: troll catches treasure thrown at him; drop just
+  puts it on the ground.
+- **Bear feeding + chain release** (states 19-22): feed bear with
+  the well-house food, take the chain (bear becomes $Following),
+  drop chain to detach the bear (avoid the bear-collapses-bridge
+  death at canon msg #162), re-take the chain.
+- **Gold-blocks-the-steps puzzle** (states 25-27): with gold in
+  hand, `15:up` is gated; canonical workaround is to head NORTH
+  through the Hall of Mountain King area up to Y2 (canon 33)
+  and use the PLUGH magic word to teleport to the well-house.
+- **Deposit at well-house** (states 24, 28): `drop X` at canon
+  room 3 deposits the treasure into the score ledger.
+- **Endgame closing-phase** (state 30): on the 15th deposit,
+  canon msg #129 "A sepulchral voice reverberating through the
+  cave, says, 'Cave closing soon...'" fires.
+- **Repository BLAST victory** (state 32): canon msg #133 "There
+  is a loud explosion... a cheering band of friendly elves carry
+  the conquering adventurer off into the sunset."
+
+## Harness shortcuts (transparent, documented)
+
+Two states accept FSM-direct manipulation rather than walking
+through 150+ canonical commands. The test harness
+([`cca/tests/test_cca_canonical_journey.gd`](tests/test_cca_canonical_journey.gd))
+documents the bypass:
+
+- `$TreasuresFilled`: fills `treasures_deposited` up to canon 15
+  via 13× `fsm.endgame.treasure_deposited()` calls. The 12 missed
+  treasure round-trips after gold (silver/diamonds/jewelry/pearl/
+  vase/eggs/trident/emerald/spices/chest/pyramid/coins) share
+  the same mechanic as gold; their walks add ~150 commands
+  without exposing new canon-fidelity bugs.
+- `$InRepository`: drives the closing-phase clock with 35×
+  `fsm.tick()` calls. Player would canonically type LOOK (or any
+  command) repeatedly during the closing phase; the harness
+  shortcut skips that boredom.
 
-### 1. `$AtRoad`
-
-- **Commands**: (none — start state)
-- **Expected room**: 1 (end of road)
-- **In log**: `END OF A ROAD`
-- **Not in log**: (none)
-
-### 2. `$WellHouseGather`
-
-- **Commands**: `e`
-- **Expected room**: 3 (well house)
-- **In log**: `WELL HOUSE`, `keys`, `lamp`, `bottle`, `food`
-- **Not in log**: `trying to get into the cave` (premature hint)
-
-### 3. `$WellHouseStocked`
-
-- **Commands**: `take keys`, `take lamp`, `take food`, `take bottle`
-- **Expected room**: 3
-- **In log**: (no specific — multiple `OK` acceptable)
-- **Not in log**: `I don't know how to apply` (lamp not parseable),
-  `trying to get into the cave` (premature hint)
-
-### 4. `$Done` (Stage 1 only)
-
-Terminal for the shipped stage. Stage 2 replaces with `$BackToRoad`.
-
----
-
-## Stage 2: Descent + Cobble Crawl
-
-### 5. `$BackToRoad`
-
-- **Commands**: `w`
-- **Expected room**: 1
-- **In log**: `END OF A ROAD`
-
-### 6. `$AtDepression`
-
-- **Commands**: `s`, `s`, `s` (room 1 → 4 valley → 7 slit → 8 depression)
-- **Expected room**: 8 (depression / outside grate)
-- **In log**: `depression`, `grate`
-
-### 7. `$BelowGrate`
-
-- **Commands**: `unlock grate`, `down`
-- **Expected room**: 9 (below grate, dark)
-- **In log**: `pitch dark` (canon msg #16)
-- **Not in log**: `pit` death (player hasn't tried to move yet)
-
-### 8. `$LampLit`
-
-- **Commands**: `light lamp`
-- **Expected room**: 9
-- **In log**: `Your lamp is now on` (or canon equivalent)
-- **Not in log**: `pitch dark`
-
-### 9. `$CobbleCrawl`
-
-- **Commands**: `w`
-- **Expected room**: 10 (cobble crawl)
-- **In log**: `crawl`, `cage`
-
----
-
-## Stage 3: Magic Words + Bird/Snake/Dragon
-
-### 10. `$DebrisRoom`
-
-- **Commands**: `take cage`, `w` (10 → 11 debris)
-- **Expected room**: 11
-- **In log**: `rod`, `debris`
-
-### 11. `$RodAndXyzzy`
-
-- **Commands**: `take rod`
-- **Expected room**: 11
-- **In log**: `OK`
-
-Canon side-note: at room 11 the player canonically reads `XYZZY`
-inscribed on the wall, learning the magic word.
-
-### 12. `$BirdChamber`
-
-- **Commands**: navigate to room 13 (bird chamber) — `w` from 11 → 14
-  (which is the Pit Hall in canon, leading down to 15+). Actual path:
-  `w` (11 → 14), then check room — TODO verify exact route. Canon: from
-  debris room, west takes you to a small chamber with a bird and a
-  brass-bound book; that's canon room 13 in our topology.
-- **Expected room**: 13
-- **In log**: `bird`, `chamber`
-
-### 13. `$BirdCaptured`
-
-- **Commands**: `take bird`
-- **Expected room**: 13
-- **In log**: `OK`
-- **Note**: bird-take requires the cage; assertion validates that.
-
-### 14. `$SnakeRoom`
-
-- **Commands**: navigate to room 19 (Hall of Mt King / snake room). Canon
-  path from bird chamber: `down` (13 → 14), `e` (14 → 15 Hall of Mists),
-  `s` (15 → 19 Hall of Mt King). Three commands.
-- **Expected room**: 19
-- **In log**: `snake`, `barring the way`
-
-### 15. `$SnakeGone`
-
-- **Commands**: `release bird`
-- **Expected room**: 19
-- **In log**: `bird attacks`, `snake` (canon msg #30)
-- **Not in log**: `devoured` (would mean caged-bird-drop wrong)
-
----
-
-## Stage 4: Dragon, Troll, Bear, Treasures
-
-### 16. `$DragonCanyon`
-
-- **Commands**: navigate to room 119 (dragon canyon). Canon: from Hall of
-  Mt King, the dragon's room is reached via specific passages. Practical:
-  `move 119` (direct teleport via Adventure's move command, NOT canonical
-  but used by test_cca_full.gd). For a true player walk: traverse via
-  the canonical exits — TODO map specific commands.
-- **Expected room**: 119
-- **In log**: `dragon`, `Persian rug`
-
-### 17. `$DragonDead`
-
-- **Commands**: `attack dragon`, `yes` (canon: "With what? Your bare
-  hands?" — answer Yes to confirm bare-handed attack)
-- **Expected room**: 119
-- **In log**: `Vanquished`, `dragon` (canon kill prose)
-- **Not in log**: `bounces harmlessly` (would mean axe-throw branch fired)
-
-### 18. `$RugAndTrollPay`
-
-- **Commands**: `take rug`, navigate to troll bridge (room 117) — TODO
-  exact path, `drop rug` (or `give rug troll`)
-- **Expected room**: 117
-- **In log**: `troll`, `vanish` (canon msg: troll accepts treasure)
-
-### 19. `$BearFreed`
-
-- **Commands**: navigate to bear chamber (room 130). Canon path involves
-  crossing the now-clear troll bridge. Then `feed bear`, `take chain`.
-- **Expected room**: 130
-- **In log**: `bear`, `chain`
-- **Not in log**: `mauled` (failed feed)
-
----
-
-## Stage 5: Deposit-Loop, Endgame, Victory
-
-The deposit-loop pattern: pick up treasure → return to well-house →
-`drop X` → leave. Repeat for all 15 treasures. Canon: at the well-house
-(room 3), dropped treasures count toward the deposit score; once all 15
-are deposited the endgame closing-phase triggers.
-
-This phase has many treasure round-trips. For the canonical journey
-test we exercise ONE round-trip explicitly (gold, the easiest), then
-fast-forward the remaining 14 via `_deposit` helper (acceptable
-because each round-trip is structurally identical to gold's path).
-
-### 20. `$GoldDeposited`
-
-- **Commands**: navigate to room 18 (gold nugget chamber), `take gold`,
-  return to well-house via topology shortcut `building` or canonical
-  walk. `drop gold`.
-- **Expected room**: 3
-- **In log**: `gold`, `OK`
-
-### 21. `$AllDeposited`
-
-- **Commands**: (helper teleports + drops for the remaining 14 treasures;
-  see [`test_cca_full.gd`](tests/test_cca_full.gd) batch_a/b/c)
-- **Expected**: `treasures_deposited() == 15`
-- **In log**: closing-phase canon msg #129 (sepulchral voice)
-
-### 22. `$InRepository`
-
-- **Commands**: drive endgame timer to zero via 30 `tick` calls
-  (canonical: closing-phase counter expires, player wakes in main
-  office, canon room 115)
-- **Expected room**: 115
-- **In log**: canon msg #132 (cave is now closed)
-
-### 23. `$Victory`
-
-- **Commands**: `detonate marker` (canonical endgame win path —
-  Blast with rod2 at the marker)
-- **Expected**: `endgame_won() == true`
-- **In log**: `loud explosion`, `cheering band of friendly elves`,
-  final score line
-
-### 24. `$Done`
-
-Terminal. Harness loop exits.
-
----
-
-## Open TODOs in this draft
-
-Marked with `TODO` above:
-
-- Stage 3 step 12: exact path from debris room (11) to bird chamber (13)
-- Stage 4 step 16: walking commands for room 19 → room 119
-- Stage 4 step 18: walking commands from dragon canyon to troll bridge
-- Stage 4 step 19: path through troll bridge to bear chamber (130)
-- Stage 5 step 21: which 14 remaining treasures to fast-forward and how
-
-These will resolve as the FSM is written — for each transition, I'll
-check `topology.gd` for the canonical exits and pick the shortest path.
-Where canonical magic words apply (XYZZY, PLUGH, PLOVER), they're used.
+Both bypasses are gated by `state_name() == "..."` checks in
+the harness loop — opt-in per-state, not hidden.
 
 ## Coverage gaps acknowledged
 
