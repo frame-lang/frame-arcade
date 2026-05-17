@@ -364,6 +364,24 @@ func _check_invariants(driver, path: Array) -> Array:
             "reason": "treasures_deposited %d out of [0..15]" % deposits,
         })
 
+    # Treasure-count consistency: the deposits counter must match
+    # the number of treasure FSMs actually in their $Deposited state.
+    # Catches the "score incremented but FSM never transitioned" bug
+    # class — a real risk on persist-restore paths.
+    var actual_deposited: int = 0
+    for t in [fsm.gold, fsm.silver, fsm.diamonds, fsm.jewelry,
+              fsm.pearl, fsm.vase, fsm.eggs, fsm.trident,
+              fsm.emerald, fsm.spices, fsm.chest, fsm.pyramid,
+              fsm.rug, fsm.coins, fsm.chain]:
+        if t.get_state() == "deposited":
+            actual_deposited += 1
+    if actual_deposited != deposits:
+        failures.append({
+            "hash": hash, "path": path.duplicate(),
+            "reason": "deposit-count mismatch: counter=%d, treasure FSMs=%d" % [
+                deposits, actual_deposited],
+        })
+
     # Inventory consistency: every item the Player FSM thinks is
     # carried must agree with the corresponding _item FSM.
     # Mismatch indicates a take/drop path that updates one side

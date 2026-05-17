@@ -43,7 +43,7 @@ func _sweep_surface() -> void:
     print("--- Sweep 1: surface only (no items, grate locked) ---")
     var s = StateSpace.new()
     s.seed = 42
-    s.max_states = 100
+    s.max_states = 2000
     s.run()
     s.report()
     total_failures += s.violations.size()
@@ -60,7 +60,7 @@ func _sweep_above_grate() -> void:
     print("--- Sweep 2: starter items (keys+lamp+food+bottle) ---")
     var s = StateSpace.new()
     s.seed = 42
-    s.max_states = 500
+    s.max_states = 2000
     var driver = s.prepare_driver()
 
     # Prep: place player at well-house, give them starter items.
@@ -91,7 +91,7 @@ func _sweep_deep_cave() -> void:
     print("--- Sweep 3: deep cave with rod ---")
     var s = StateSpace.new()
     s.seed = 42
-    s.max_states = 500
+    s.max_states = 2000
     var driver = s.prepare_driver()
 
     var fsm = driver.fsm
