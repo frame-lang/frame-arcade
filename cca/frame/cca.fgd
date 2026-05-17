@@ -60,127 +60,14 @@ const Bottle = preload("res://scripts/puzzles.gd").Bottle
 const Plant = preload("res://scripts/puzzles.gd").Plant
 
 
-# ------------------------------------------------------------
-# AspectBus
-# ------------------------------------------------------------
-# Same definition as aspects.fgd's bus. See that file's
-# header comment for the design rationale (priority-ordered
-# listener metadata, $Idle/$Dispatching states for queue-
-# during-dispatch, why we hold names not @@system refs).
-# ------------------------------------------------------------
-@@[persist(PackedByteArray)]
-@@[save(save_state)]
-@@[load(restore_state)]
-@@system AspectBus : RefCounted {
 
-    interface:
-        register(name: String, priority: int)
-        unregister(name: String)
-        is_registered(name: String): bool
-        begin_dispatch()
-        end_dispatch()
-        ordered_names(): Array
+# AspectBus is reused from aspects.fgd — same priority-ordered
+# listener registry, same $Idle/$Dispatching states, same hold-
+# names-not-refs design. Pulled via Oceans Model preload so we
+# don't carry a duplicate definition. aspects.fgd's @@[main] is
+# Conductor; AspectBus is an inner class accessed via the dot.
+const AspectBus = preload("res://scripts/aspects.gd").AspectBus
 
-    machine:
-
-        $Idle {
-            register(name: String, priority: int) {
-                self._add_or_replace(name, priority)
-            }
-            unregister(name: String) {
-                self._remove(name)
-            }
-            begin_dispatch() {
-                -> $Dispatching
-            }
-            end_dispatch() {}
-            is_registered(name: String): bool { @@:(self._has(name)) }
-            ordered_names(): Array            { @@:(self._names_sorted()) }
-        }
-
-        $Dispatching {
-            register(name: String, priority: int) {
-                self.pending_register.append({
-                    "name": name,
-                    "priority": priority,
-                })
-            }
-            unregister(name: String) {
-                self.pending_unregister.append(name)
-            }
-            begin_dispatch() {}
-            end_dispatch() {
-                self._apply_pending()
-                -> $Idle
-            }
-            is_registered(name: String): bool { @@:(self._has(name)) }
-            ordered_names(): Array            { @@:(self._names_sorted()) }
-        }
-
-    actions:
-
-        _add_or_replace(name: String, priority: int) {
-            var i: int = 0
-            while i < self.listeners.size():
-                if self.listeners[i].name == name:
-                    self.listeners[i].priority = priority
-                    return
-                i = i + 1
-            self.listeners.append({"name": name, "priority": priority})
-        }
-
-        _remove(name: String) {
-            var i: int = 0
-            while i < self.listeners.size():
-                if self.listeners[i].name == name:
-                    self.listeners.remove_at(i)
-                    return
-                i = i + 1
-        }
-
-        _has(name: String): bool {
-            var i: int = 0
-            while i < self.listeners.size():
-                if self.listeners[i].name == name:
-                    return true
-                i = i + 1
-            return false
-        }
-
-        _names_sorted(): Array {
-            var pairs: Array = []
-            var i: int = 0
-            while i < self.listeners.size():
-                pairs.append([self.listeners[i].priority, self.listeners[i].name])
-                i = i + 1
-            pairs.sort_custom(func(a, b): return a[0] > b[0])
-            var names: Array = []
-            i = 0
-            while i < pairs.size():
-                names.append(pairs[i][1])
-                i = i + 1
-            return names
-        }
-
-        _apply_pending() {
-            var i: int = 0
-            while i < self.pending_unregister.size():
-                self._remove(self.pending_unregister[i])
-                i = i + 1
-            self.pending_unregister = []
-            i = 0
-            while i < self.pending_register.size():
-                var p: Dictionary = self.pending_register[i]
-                self._add_or_replace(p.name, p.priority)
-                i = i + 1
-            self.pending_register = []
-        }
-
-    domain:
-        listeners: Array = []
-        pending_register: Array = []
-        pending_unregister: Array = []
-}
 
 
 # ------------------------------------------------------------
