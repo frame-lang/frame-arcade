@@ -51,7 +51,9 @@ cca/godot/scripts/aspects.gd
 cca/godot/scripts/cca.gd
 cca/godot/scripts/canonical_journey.gd
 cca/godot/scripts/npcs.gd
+cca/godot/scripts/puzzles.gd
 arcade/godot/scripts/npcs.gd
+arcade/godot/scripts/puzzles.gd
 
 # end-user packaging — published on itch.io, not in repo
 arcade/Run Arcade.app/

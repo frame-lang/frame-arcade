@@ -23,18 +23,9 @@ mkdir -p generated godot/scripts
 
 ARCADE_DIR="$SCRIPT_DIR/../arcade/godot/scripts"
 
-for name in aspects npcs cca; do
+for name in aspects npcs puzzles cca; do
     echo "==> $FRAMEC compile frame/$name.fgd"
     "$FRAMEC" compile "frame/$name.fgd" --language gdscript -o generated/
-
-    # WORKAROUND for framec RFC-0022 review item #3: framec emits
-    # @@import paths as `res://<file>.gd` without knowing the
-    # Godot project's scripts/ subdirectory. The .gd files actually
-    # live at `res://scripts/<file>.gd`. We sed-fix the path in
-    # the generated output until framec supports a project-root
-    # config (project.godot lives one dir up from scripts/).
-    sed -i.bak 's|preload("res://\([a-z_]*\)\.gd")|preload("res://scripts/\1.gd")|g' "generated/$name.gd"
-    rm -f "generated/$name.gd.bak"
 
     echo "==> copying generated/$name.gd -> godot/scripts/$name.gd"
     cp "generated/$name.gd" "godot/scripts/$name.gd"
