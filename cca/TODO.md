@@ -162,7 +162,28 @@ those flow back through `_on_text_submitted`'s deferred regrab.
 (For reference, the original investigation hypotheses:)
 command sequence loses focus), then targeted fix.
 
-### Inventory inconsistency on player death
+### Inventory inconsistency on player death — **DONE 2026-05-17**
+
+Fixed by two changes to the driver:
+
+1. `_check_player_death` now drops every carried `_item` /
+   Treasure FSM at the death room (the player's current room
+   at time of death) before offering the revive prompt or
+   ending the game. Mirrored in driver.gd and cca_main.gd.
+
+2. `_handle_movement` calls `_check_player_death` after the
+   move-FSM dispatch. Some death paths (`jump` at canon rooms
+   35/88/110, landing at canon 20/21 — "you fell into a pit
+   and broke every bone") trigger `player.die()` inside
+   `_verb_move`. Without this added call, the post-turn
+   cleanup chain never ran for those paths.
+
+After the fix the RFC-0001 state-space test goes 0-violations
+across all three sweeps; sweep 2 state count dropped from 500
+(hitting cap with phantom-inventory states) to 77 (correct
+bounded space). Filed under RFC-0001 below.
+
+(Original report retained for context:)
 
 Surfaced 2026-05-17 by the RFC-0001 state-space search (B+
 widening, sweep 2 + sweep 3). After action sequences ending in

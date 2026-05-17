@@ -27,20 +27,12 @@ func _init():
     _sweep_deep_cave()
 
     print("")
-    # The inventory-consistency invariant currently surfaces a
-    # known divergence on death paths (`player.die()` clears the
-    # Player FSM's inventory but the `_item` FSMs stay $Carried;
-    # the dead-state `carrying()` returns false → mismatch). The
-    # underlying fix — drop carried items at the death room
-    # before transitioning to $Dead — is filed in TODO.md.
-    # Until the fix lands, this test reports findings but doesn't
-    # gate the suite (would block the rest of the search's value
-    # behind a known bug). Once fixed, change to quit(total_failures).
-    # run_tests.sh's verdict regex greps for ^PASS|^FAIL. Print
-    # PASS to keep the suite green; carry the divergence count
-    # in the prefix so the suite output still surfaces the find.
-    print("PASS — state-space search complete (%d known invariant divergences logged in TODO.md)" % total_failures)
-    quit(0)
+    if total_failures == 0:
+        print("PASS — all sweeps complete, no invariant violations")
+        quit(0)
+    else:
+        print("FAIL — %d invariant violations across sweeps" % total_failures)
+        quit(total_failures)
 
 # ----- Sweep 1: surface only ---------------------------------------
 # Canonical start state — no items, grate locked. The search

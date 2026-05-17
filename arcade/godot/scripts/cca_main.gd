@@ -1356,6 +1356,10 @@ func _handle_movement(direction: String) -> void:
     _check_lamp_warnings()
     _check_endgame_phase_change()
     _check_chest_hint()
+    # Canon: rooms 20 and 21 fire `player.die()` inside _verb_move
+    # on landing. Run death-cleanup here so items drop and the
+    # revive prompt fires.
+    _check_player_death()
     _print_room()
 
 # ============================================================
@@ -1588,6 +1592,13 @@ func _check_player_death() -> void:
     if prompts.is_active():
         return
     var s: String = fsm.player_state()
+    if s == "dead" or s == "permadead":
+        # Canon: every carried item drops at the death room. The
+        # Player FSM's $Dead state returns false for carrying()
+        # but the individual _item / Treasure FSMs need an
+        # explicit transition (the inventory-consistency
+        # divergence RFC-0001's state-space search caught).
+        _drop_inventory_at_death_room()
     if s == "dead":
         # Canon msg #131 — death during the closing-cave phase is
         # final. End the game instead of offering revive.
@@ -1606,6 +1617,26 @@ func _check_player_death() -> void:
         _println("[color=#cc4444][b]%s[/b][/color]" % fsm.player.get_permadeath_msg())
         await get_tree().create_timer(2.0).timeout
         Arcade.return_to_menu()
+
+# Drop every carried Item / Treasure FSM at the player's current
+# room. Called from _check_player_death; see driver.gd's matching
+# function for the design rationale (RFC-0001 inventory-on-death
+# fix).
+func _drop_inventory_at_death_room() -> void:
+    var here: int = fsm.player.get_room()
+    for it in [fsm.rod_item, fsm.keys_item, fsm.bottle_item,
+               fsm.cage_item, fsm.food_item, fsm.pillow_item,
+               fsm.axe_item, fsm.clam_item, fsm.oyster_item,
+               fsm.batteries_item, fsm.magazine_item,
+               fsm.mark_rod_item, fsm.lamp_item]:
+        if it.is_carried():
+            it.try_drop(here)
+    for t in [fsm.gold, fsm.silver, fsm.diamonds, fsm.jewelry,
+              fsm.pearl, fsm.vase, fsm.eggs, fsm.trident,
+              fsm.emerald, fsm.spices, fsm.chest, fsm.pyramid,
+              fsm.rug, fsm.coins, fsm.chain]:
+        if t.is_carried():
+            t.try_drop(here)
 
 var _last_endgame_state: String = "active"
 # (V1.2 Phase 0.3) Closing-warning latches moved into Endgame

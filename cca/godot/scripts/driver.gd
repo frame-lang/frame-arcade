@@ -1595,6 +1595,12 @@ func _handle_movement(direction: String) -> void:
     _check_lamp_warnings()
     _check_endgame_phase_change()
     _check_chest_hint()
+    # Canon: rooms 20 and 21 are death-on-arrival ("you fell into
+    # a pit and broke every bone..."). `_verb_move` fires
+    # `player.die()` directly for those landings; we need to run
+    # the death-cleanup chain here so items drop and the revive
+    # prompt fires.
+    _check_player_death()
     _print_room()
 
 # ============================================================
@@ -1941,6 +1947,16 @@ func _check_player_death() -> void:
     if prompts.is_active():
         return
     var s: String = fsm.player_state()
+    if s == "dead" or s == "permadead":
+        # Canon: every carried item drops at the death room. The
+        # Player FSM's $Dead state returns false for carrying()
+        # universally, but the individual _item / Treasure FSMs
+        # need an explicit transition or they stay $Carried —
+        # the inventory-consistency divergence RFC-0001's
+        # state-space search surfaced. Idempotent (each item's
+        # try_drop is safe to call repeatedly; later checks find
+        # is_carried() == false and do nothing).
+        _drop_inventory_at_death_room()
     if s == "dead":
         # Canon msg #131 — death during the closing-cave phase is
         # final (no resurrection because the cave is already winding
@@ -1961,6 +1977,32 @@ func _check_player_death() -> void:
         if is_inside_tree():
             await get_tree().create_timer(2.0).timeout
             get_tree().quit()
+
+# Drop every carried Item / Treasure FSM at the player's current
+# room. Called from _check_player_death when the Player FSM has
+# just transitioned to $Dead or $Permadead. Without this hook the
+# individual _item / Treasure FSMs stay $Carried (Player.die only
+# transitions the Player FSM; nothing tells the items they were
+# released) — the inventory-consistency divergence the RFC-0001
+# state-space search caught. Items remain at the death room after
+# revive; player is moved back to START_ROOM with empty inventory.
+func _drop_inventory_at_death_room() -> void:
+    var here: int = fsm.player.get_room()
+    # Items (non-treasure carriables)
+    for it in [fsm.rod_item, fsm.keys_item, fsm.bottle_item,
+               fsm.cage_item, fsm.food_item, fsm.pillow_item,
+               fsm.axe_item, fsm.clam_item, fsm.oyster_item,
+               fsm.batteries_item, fsm.magazine_item,
+               fsm.mark_rod_item, fsm.lamp_item]:
+        if it.is_carried():
+            it.try_drop(here)
+    # Treasures
+    for t in [fsm.gold, fsm.silver, fsm.diamonds, fsm.jewelry,
+              fsm.pearl, fsm.vase, fsm.eggs, fsm.trident,
+              fsm.emerald, fsm.spices, fsm.chest, fsm.pyramid,
+              fsm.rug, fsm.coins, fsm.chain]:
+        if t.is_carried():
+            t.try_drop(here)
 
 var _last_endgame_state: String = "active"
 # (V1.2 Phase 0.3) The three closing-warning latches
