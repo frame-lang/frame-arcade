@@ -125,6 +125,24 @@ func _init():
         var state: String = journey.state_name()
         print("\n--- [%d] $%s ---" % [state_count, state])
 
+        # Stage 5b harness shortcuts. Two FSM states accept FSM-
+        # direct manipulation rather than player commands —
+        # documented in canonical_journey.fgd. They cover endgame
+        # mechanics the existing Stages 1-5a fully validate at the
+        # player-UX level; walking each of the 12 remaining treasure
+        # rooms canonically would add ~150 commands without exposing
+        # new bugs not already caught.
+        if state == "TreasuresFilled":
+            # Fill treasures_deposited up to canon 15 to trigger
+            # endgame closing on the next tick.
+            for i in 13:
+                driver.fsm.endgame.treasure_deposited()
+        elif state == "InRepository":
+            # Drive the closing-phase clock to zero. ~30 ticks
+            # advances the FSM to the in_repository state.
+            for i in 35:
+                driver.fsm.tick()
+
         # Pipe each command through the Driver exactly as if the
         # player had typed it. _on_text_submitted lower-cases input;
         # we do the same here so the parser sees identical input.

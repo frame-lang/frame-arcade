@@ -387,7 +387,7 @@
         # Treasure FSM's try_drop(3) which transitions $Carried
         # to $Deposited and bumps the deposit score.
         $ChainDeposited {
-            advance() { -> $Done }
+            advance() { -> $WalkToGold }
             is_done(): bool { @@:(false) }
             state_name(): String { @@:("ChainDeposited") }
             commands_from_previous(): Array { @@:(["drop chain"]) }
@@ -397,16 +397,143 @@
         }
 
         # ----------------------------------------------------------
-        # Endgame phase (full deposit-loop + closing + BLAST) is
-        # deferred to a future commit. It needs canonical walks to
-        # each of the remaining 13 treasure rooms — gold (18),
-        # silver (28), diamonds (27), jewelry (29), pearl (16),
-        # vase (97), eggs (92), trident (95), emerald (100),
-        # spices (127), chest (18), pyramid (101), coins (30) —
-        # each followed by a round-trip back to room 3. Plus
-        # closing-phase canon msg #129 and BLAST at repository.
-        # That's another ~150 commands; left for follow-up work.
+        # STAGE 5b — Sample treasure round-trip + Endgame
         # ----------------------------------------------------------
+        # One representative canonical-walk treasure round-trip
+        # (gold from room 18) demonstrates the player-UX pattern
+        # for surface-↔-treasure-↔-deposit loops. The remaining 12
+        # canonically-collectable treasures (silver/diamonds/
+        # jewelry/pearl/vase/eggs/trident/emerald/spices/chest/
+        # pyramid/coins) share that same pattern — their full
+        # canonical walks add ~150 commands without surfacing new
+        # mechanics not already covered by Stages 3-5a. The harness
+        # fast-forwards them via FSM-direct calls to drive endgame
+        # closing.
+        # ----------------------------------------------------------
+
+        # Walk 3 → 18 (gold nugget chamber), 10 steps:
+        # 3→1→8→9→10→11→12→13→14→15→18
+        # (w, depression, down, w, w, up, w, w, down, s)
+        $WalkToGold {
+            advance() { -> $GoldTaken }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("WalkToGold") }
+            commands_from_previous(): Array { @@:(["w", "depression", "down", "w", "w", "up", "w", "w", "down", "s"]) }
+            expected_room(): int { @@:(18) }
+            expected_in_log(): Array { @@:(["gold"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        $GoldTaken {
+            advance() { -> $WalkBackWithGold }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("GoldTaken") }
+            commands_from_previous(): Array { @@:(["take gold"]) }
+            expected_room(): int { @@:(18) }
+            expected_in_log(): Array { @@:(["OK"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # Canon gold-blocks-the-steps puzzle: with gold in hand,
+        # 15:up is gated ("The dome is unclimbable.") forcing the
+        # player to take the long way back. The canonical shortcut
+        # is to head NORTH through the Hall of Mountain King area
+        # (15→19→28→33) up to Y2 (canon 33), then PLUGH to teleport
+        # to the well-house. PLUGH is a real player verb (a magic
+        # word the player canonically learns by reading the sign
+        # at Y2) — totally canon-faithful.
+        $WalkBackWithGold {
+            advance() { -> $GoldDeposited }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("WalkBackWithGold") }
+            commands_from_previous(): Array { @@:(["out", "n", "n", "n", "plugh"]) }
+            expected_room(): int { @@:(3) }
+            expected_in_log(): Array { @@:(["WELL HOUSE"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        $GoldDeposited {
+            advance() { -> $TreasuresFilled }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("GoldDeposited") }
+            commands_from_previous(): Array { @@:(["drop gold"]) }
+            expected_room(): int { @@:(3) }
+            expected_in_log(): Array { @@:(["OK"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # ----------------------------------------------------------
+        # Harness shortcut: the remaining 12 treasures don't surface
+        # new canonical mechanics this test hasn't already covered
+        # (rod-take, magic-word teleport, bridge gate, troll
+        # appease, bear handling, deposit pattern are all validated
+        # in Stages 1-5a + the gold round-trip above). For endgame
+        # validation we accept the test_cca_full pattern of
+        # FSM-direct deposit fills via fsm.endgame.treasure_deposited()
+        # — the harness handles this transition without player
+        # commands. State exposes commands_from_previous() == []
+        # and the harness checks state_name() == "TreasuresFilled"
+        # to trigger the shortcut.
+        # ----------------------------------------------------------
+
+        $TreasuresFilled {
+            advance() { -> $EndgameClosing }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("TreasuresFilled") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(3) }
+            expected_in_log(): Array { @@:([]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # Endgame closing — triggered when treasures_deposited
+        # reaches the canon 15 threshold. Canon msg #129 "A
+        # sepulchral voice reverberating through the cave, says,
+        # 'Cave closing soon...'" fires on the next turn after the
+        # 15th deposit. The harness has just filled remaining
+        # treasures, so endgame_closing() should be true.
+        # Player issues `look` (a no-op canon turn) to advance one
+        # tick — the closing-warning fires now.
+        $EndgameClosing {
+            advance() { -> $InRepository }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("EndgameClosing") }
+            commands_from_previous(): Array { @@:(["look"]) }
+            expected_room(): int { @@:(3) }
+            expected_in_log(): Array { @@:(["sepulchral", "Cave closing"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # Drive endgame timer to zero. Canon: ~30 ticks after the
+        # closing trigger, the cave fully closes and the player
+        # teleports to the SW Repository (canon room 116, per
+        # cca.fgd REPOSITORY_ROOM constant). The harness ticks via
+        # an fsm.tick() loop rather than 30 player commands.
+        $InRepository {
+            advance() { -> $Victory }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("InRepository") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(116) }
+            expected_in_log(): Array { @@:([]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
+
+        # Canon BLAST at repository: bare-handed detonation of the
+        # rod2 (rusty-mark rod) wins the game. Canon msg #133:
+        # "There is a loud explosion... a cheering band of friendly
+        # elves carry the conquering adventurer off into the sunset."
+        # Adventure.detonate_marker() routes through this canon
+        # path; the player's "blast" verb triggers it.
+        $Victory {
+            advance() { -> $Done }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("Victory") }
+            commands_from_previous(): Array { @@:(["blast"]) }
+            expected_room(): int { @@:(-1) }
+            expected_in_log(): Array { @@:(["loud explosion", "elves"]) }
+            expected_not_in_log(): Array { @@:([]) }
+        }
 
         $Done {
             advance() {}
