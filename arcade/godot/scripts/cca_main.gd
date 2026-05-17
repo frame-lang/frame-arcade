@@ -168,6 +168,11 @@ const DARK_PIT_PCT := 35
 # Runtime
 # ------------------------------------------------------------
 var fsm
+# Driver-side RNG for probabilistic events (Witt's End 95/5,
+# Bedquilt random-walk bumpers, dark-pit-fall, Y2 hollow-voice,
+# unknown-verb msg distribution). Production calls randomize();
+# tests inject a known seed for reproducibility. See RFC-0001.
+var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var output: RichTextLabel
 var input: LineEdit
 var _last_room: int = -1
@@ -261,6 +266,8 @@ func _ready() -> void:
     fsm.setup_default_aspects()
     fsm.wake_dwarves()
     # `prompts` is initialized at var-declaration time (see top).
+    # Seed the driver-side RNG from system time for production play.
+    rng.randomize()
     exit_dialog = ExitDialogScript.new()
     _build_verb_synonyms_5()
     _build_ui()
@@ -814,8 +821,8 @@ func _dispatch_bumper(verb: String) -> bool:
 func _dispatch_to_fsm(verb: String, noun: String) -> void:
     var response: String = fsm.do_command(verb, noun)
     if response.begins_with("I don't know how to '"):
-        var roll1: int = randi() % 100
-        var roll2: int = randi() % 100
+        var roll1: int = rng.randi() % 100
+        var roll2: int = rng.randi() % 100
         if roll2 < 20:
             response = "I don't understand that!"   # canon msg #13
         elif roll1 < 20:
@@ -1374,7 +1381,7 @@ func _try_bumper_rule(bg: Dictionary) -> bool:
             return true
         return false
     if bg.check == "probability":
-        if (randi() % 100) < bg.pct:
+        if (rng.randi() % 100) < bg.pct:
             if "dest" in bg:
                 _walk_to_dest(int(bg.dest))
             else:
@@ -1462,7 +1469,7 @@ func _check_dark_pit_hazard() -> bool:
         _println("It is now pitch dark. If you proceed you will likely fall into a pit.")
         fsm.set_dark_warned_room(current)
         return true
-    if (randi() % 100) < DARK_PIT_PCT:
+    if (rng.randi() % 100) < DARK_PIT_PCT:
         _println("You fell into a pit and broke every bone in your body!")
         fsm.player.die()
         return true
@@ -1508,7 +1515,7 @@ func _check_pirate_rustle() -> void:
         return
     if fsm.player_room() < 15:
         return
-    if (randi() % 100) < 20:
+    if (rng.randi() % 100) < 20:
         _println("[color=#cc8855][i]There are faint rustling noises from the darkness behind you.[/i][/color]")
 
 func _check_lamp_warnings() -> void:
@@ -1649,7 +1656,7 @@ func _print_room() -> void:
     _println("[color=#aabbcc][b]%s[/b][/color]" % desc)
     # Canon Y2 whisper (advent.for line 808): 25% chance per
     # visit to room 33 prints msg #8.
-    if _last_room == 33 and not fsm.endgame_closing() and (randi() % 100) < 25:
+    if _last_room == 33 and not fsm.endgame_closing() and (rng.randi() % 100) < 25:
         _println("A hollow voice says \"PLUGH\".")
     # Canon msg #3 first-dwarf-encounter (advent.for STMT 6000).
     if not fsm.is_dwarf_first_encounter_done() and _dwarf_at_room(_last_room):

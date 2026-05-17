@@ -184,6 +184,16 @@ var fsm
 # save/restore (see the FSM header comment in cca.fgd for the
 # design rationale).
 var prompts = CcaFSM.PromptDispatcher.new()
+# Driver-side probabilistic events (Witt's End 95/5, Bedquilt
+# random-walk bumpers, dark-pit-fall 35%, Y2 hollow-voice 25%,
+# unknown-verb msg #60/61/13 distribution) route through this
+# RNG instead of bare `randi()`. Production calls `randomize()`
+# in `_ready()` to seed from system time; tests inject a known
+# seed via `driver.rng.seed = N` for reproducible runs (the
+# prerequisite for RFC-0001's state-space search).
+# Per-NPC RNG (Dwarf / Pirate seeds) is separate — those live
+# on the FSM side and are already deterministic by construction.
+var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var output: RichTextLabel
 var input: LineEdit
 var _last_room: int = -1
@@ -303,6 +313,10 @@ func _ready() -> void:
     # `prompts` is initialized at var-declaration time so headless
     # tests get a live FSM without going through _ready(); see
     # var prompts above.
+    # Seed the driver-side RNG from system time for production
+    # play. Tests bypass _ready() entirely and set `rng.seed` to
+    # a known value before issuing commands.
+    rng.randomize()
     _build_verb_synonyms_5()
     _build_ui()
     _print_welcome()
@@ -693,8 +707,8 @@ func _dispatch_bumper(verb: String) -> bool:
 func _dispatch_to_fsm(verb: String, noun: String) -> void:
     var response: String = fsm.do_command(verb, noun)
     if response.begins_with("I don't know how to '"):
-        var roll1: int = randi() % 100
-        var roll2: int = randi() % 100
+        var roll1: int = rng.randi() % 100
+        var roll2: int = rng.randi() % 100
         if roll2 < 20:
             response = "I don't understand that!"   # canon msg #13
         elif roll1 < 20:
@@ -1629,7 +1643,7 @@ func _try_bumper_rule(bg: Dictionary) -> bool:
     # Witt's End (msg-only) and the 19:sw 35% dragon-canyon
     # shortcut (dest=74).
     if bg.check == "probability":
-        if (randi() % 100) < bg.pct:
+        if (rng.randi() % 100) < bg.pct:
             if "dest" in bg:
                 _walk_to_dest(int(bg.dest))
             else:
@@ -1757,7 +1771,7 @@ func _check_dark_pit_hazard() -> bool:
         fsm.set_dark_warned_room(current)
         return true
     # Already warned in this room — pit-fall roll.
-    if (randi() % 100) < DARK_PIT_PCT:
+    if (rng.randi() % 100) < DARK_PIT_PCT:
         _println("You fell into a pit and broke every bone in your body!")
         fsm.player.die()
         return true
@@ -1814,7 +1828,7 @@ func _check_pirate_rustle() -> void:
         return
     if fsm.player_room() < 15:
         return
-    if (randi() % 100) < 20:
+    if (rng.randi() % 100) < 20:
         _println("[color=#cc8855][i]There are faint rustling noises from the darkness behind you.[/i][/color]")
 
 func _check_lamp_warnings() -> void:
@@ -2008,7 +2022,7 @@ func _print_room() -> void:
     # Canon Y2 whisper (advent.for line 808): at canon room 33,
     # 25% chance per visit to print msg #8 ("a hollow voice
     # says 'PLUGH'"). Doesn't fire during closing.
-    if _last_room == 33 and not fsm.endgame_closing() and (randi() % 100) < 25:
+    if _last_room == 33 and not fsm.endgame_closing() and (rng.randi() % 100) < 25:
         _println("A hollow voice says \"PLUGH\".")
     # Canon msg #3 first-dwarf-encounter (advent.for STMT 6000).
     # Fires once when the player first arrives in a room with a
