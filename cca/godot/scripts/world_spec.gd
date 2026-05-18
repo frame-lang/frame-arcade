@@ -103,6 +103,64 @@ const ITEM_SPEC: Dictionary = {
                  "immobile": true},
 }
 
+# ----- NPC spec (Layer 3) ------------------------------------------
+# Per-NPC canon expectations: home room, initial state name, plus
+# a wandering flag for NPCs that don't anchor anywhere (dwarves,
+# pirate). Drawn from canon advent.dat/advent.for plus the
+# Adventure FSM's `BIRD_HOME_ROOM` / `SNAKE_ROOM` / `TROLL_ROOM` /
+# `DRAGON_ROOM` constants which already cite canon.
+#
+# Two consumers:
+#   1. tests/test_cca_npc_spec.gd — fresh-FSM init check verifies
+#      every NPC starts in the spec'd state.
+#   2. (Future) probe-side anchor check — fixed NPCs should never
+#      get observed at non-canon rooms. Deferred until any NPC
+#      gains a location query that's non-trivial.
+const NPC_SPEC: Dictionary = {
+    "bird": {
+        "home_room":     13,
+        "initial_state": "free",
+        "wandering":     false,
+        "notes":         "lives at bird chamber; gets caged when player has cage and takes",
+    },
+    "snake": {
+        "home_room":     19,
+        "initial_state": "blocking",
+        "wandering":     false,
+        "notes":         "fixed at Hall of Mountain King; vanishes when bird released",
+    },
+    "bear": {
+        "home_room":     130,
+        "initial_state": "hungry",
+        "wandering":     false,
+        "notes":         "fixed at Barren Room with chain; tames on FEED BEAR if food carried",
+    },
+    "troll": {
+        "home_room":     117,
+        "initial_state": "demanding",
+        "wandering":     false,
+        "notes":         "fixed at troll bridge canon 117/122; demands a treasure to cross",
+    },
+    "dragon": {
+        "home_room":     119,
+        "initial_state": "alive",
+        "wandering":     false,
+        "notes":         "fixed at Secret Canyon; dies on ATTACK DRAGON with bare hands",
+    },
+    "pirate": {
+        "home_room":     -1,
+        "initial_state": "dormant",
+        "wandering":     true,
+        "notes":         "wanders the cave; transitions $Dormant -> $Stalking on treasure-count threshold",
+    },
+    "plant": {
+        "home_room":     71,
+        "initial_state": "tiny",
+        "wandering":     false,
+        "notes":         "fixed at West Side of Twopit Room; grows on POUR WATER",
+    },
+}
+
 # ----- Accessors ---------------------------------------------------
 
 # Return the current location of `noun` per the FSM. Treasures use
@@ -228,4 +286,48 @@ static func check_no_limbo(fsm) -> Array:
             "noun":   noun,
             "reason": "non-spawn, non-consumable item in limbo (location=%d)" % observed,
         })
+    return violations
+
+# ----- NPC spec checks ---------------------------------------------
+
+# Returns the NPC's current state-name as reported by its FSM.
+# Different NPC FSMs took slightly different shapes during V1.2's
+# aspect-machine split, but every one of them exposes get_state()
+# returning a String. Dragon's "alive" is a synthesised label —
+# canon Dragon has a Sleeping/Dying/Dead progression and we map
+# the pre-Dying states to "alive" for spec-comparison purposes.
+static func observed_npc_state(fsm, name: String) -> String:
+    match name:
+        "bird":   return fsm.bird.get_state()
+        "snake":  return fsm.snake.get_state()
+        "bear":   return fsm.bear.get_state()
+        "troll":  return fsm.troll.get_state()
+        "dragon":
+            # Map the pre-death dragon states to a single "alive"
+            # label for spec-purposes. Canon dragon has more than
+            # one alive state (Sleeping in advent.for terms); we
+            # collapse them here.
+            var s: String = fsm.dragon.get_state()
+            if s == "dead":
+                return "dead"
+            return "alive"
+        "pirate": return fsm.pirate.get_state()
+        "plant":  return fsm.plant.get_state()
+    return ""
+
+# Returns Array of {npc, expected, observed} for every NPC whose
+# initial state disagrees with the spec. Empty array = fresh FSM
+# matches canon NPC anchoring.
+static func check_initial_npc_states(fsm) -> Array:
+    var violations: Array = []
+    for name in NPC_SPEC.keys():
+        var spec: Dictionary = NPC_SPEC[name]
+        var expected: String = spec.initial_state
+        var observed: String = observed_npc_state(fsm, name)
+        if observed != expected:
+            violations.append({
+                "npc":      name,
+                "expected": expected,
+                "observed": observed,
+            })
     return violations
