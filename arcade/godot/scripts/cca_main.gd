@@ -1353,8 +1353,13 @@ func _handle_movement(direction: String) -> void:
     fsm.set_old_loc2(fsm.get_old_loc())
     fsm.set_old_loc(current)
     var response: String = fsm.do_command("move", str(dest))
-    # We use our own room descriptions (via FSM's look) rather
-    # than the FSM's move-response — it's more atmospheric.
+    # When the move succeeded, prefer the driver's own room
+    # display. When the FSM had a rebuff (player didn't move),
+    # MUST print the response — otherwise canon prose (e.g.
+    # clam-carry msg #118 at canon 103) is silently lost.
+    # Mirrors the fix in cca/godot/scripts/driver.gd.
+    if fsm.player_room() == current and response != "":
+        _println(response)
     fsm.tick()
     _check_pirate_steal()
     _check_lamp_warnings()

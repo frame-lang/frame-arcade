@@ -1600,7 +1600,15 @@ func _handle_movement(direction: String) -> void:
     fsm.set_old_loc(current)
     var response: String = fsm.do_command("move", str(dest))
     # We use our own room descriptions (via FSM's look) rather
-    # than the FSM's move-response — it's more atmospheric.
+    # than the FSM's move-response when the move succeeded —
+    # it's more atmospheric. But when the FSM had a rebuff (e.g.
+    # clam-carry at canon 103 → msg #118, oyster-carry → #119),
+    # the player didn't actually move and we MUST print the FSM's
+    # response — otherwise the canon prose is silently lost.
+    # Surfaced 2026-05-18 by test_cca_canon_conditional_rows.gd
+    # while closing the Phase C conditional-row gap.
+    if fsm.player_room() == current and response != "":
+        _println(response)
     fsm.tick()
     _check_pirate_steal()
     _check_lamp_warnings()
