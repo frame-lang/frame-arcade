@@ -308,8 +308,43 @@ func report() -> void:
     print("=== State-space search report ===")
     print("Seed:           %d" % seed)
     print("States visited: %d  (cap: %d%s)" % [states_visited, max_states, " — HIT" if hit_cap else ""])
+    # Per-location breakdown. A "state" is (room + inventory +
+    # NPC states); a "location" is just the canon room number.
+    # 140 canon locations total. Many states usually map to the
+    # same location (e.g. "at room 5 empty-handed" vs "at room 5
+    # carrying keys"). Reporting both numbers distinguishes
+    # "how much of the world map did we reach" from "how many
+    # world configurations did we enumerate".
+    var states_per_location: Dictionary = {}
+    for h in visited.keys():
+        # Hash format: "r=N|i=...|d=...|e=...|n=..."
+        var room: int = int(h.substr(2).get_slice("|", 0))
+        states_per_location[room] = states_per_location.get(room, 0) + 1
+    var locations: Array = states_per_location.keys()
+    locations.sort()
+    print("Locations:      %d  / 140 canon rooms" % locations.size())
     print("Actions tried:  %d" % actions_tried)
     print("Violations:     %d" % violations.size())
+    if not locations.is_empty():
+        print("")
+        print("--- Locations reached (sorted) ---")
+        print("  %s" % str(locations))
+        var missing: Array = []
+        for r in range(1, 141):
+            if not states_per_location.has(r):
+                missing.append(r)
+        print("")
+        print("--- Unreached locations (%d/140) ---" % missing.size())
+        if missing.size() <= 30:
+            print("  %s" % str(missing))
+        else:
+            print("  %s ...(+%d more)" % [str(missing.slice(0, 30)), missing.size() - 30])
+        print("")
+        print("--- Top 10 locations by state count ---")
+        var by_count: Array = locations.duplicate()
+        by_count.sort_custom(func(a, b): return states_per_location[a] > states_per_location[b])
+        for r in by_count.slice(0, 10):
+            print("  room %d: %d states" % [r, states_per_location[r]])
     if violations.size() > 0:
         print("")
         print("--- Violation detail ---")
