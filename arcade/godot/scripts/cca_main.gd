@@ -1245,7 +1245,11 @@ func _build_verb_synonyms_5() -> void:
                        "bedquilt", "oriental", "cavern", "barren",
                        "secret", "office", "cobbles", "awkward",
                        "outdoors", "downstream", "upstream",
-                       "entrance", "surface", "reservoir"]:
+                       "entrance", "surface", "reservoir",
+                       # Surfaced 2026-05-17 by the world-graph
+                       # topology audit (probe.gd in the cca/ tree).
+                       # Mirrors the fix in cca/godot/scripts/driver.gd.
+                       "forest", "broken", "canyon", "debris"]:
         _verb_synonyms_5[_truncate5(canon_verb)] = canon_verb
 
 # ============================================================
@@ -1631,11 +1635,15 @@ func _drop_inventory_at_death_room() -> void:
                fsm.mark_rod_item, fsm.lamp_item]:
         if it.is_carried():
             it.try_drop(here)
+    # Treasure FSMs use get_state() == "carried" rather than the
+    # _item is_carried() boolean (the two FSM families took
+    # different shapes during the V1.2 split). Mirrors the fix
+    # in cca/godot/scripts/driver.gd.
     for t in [fsm.gold, fsm.silver, fsm.diamonds, fsm.jewelry,
               fsm.pearl, fsm.vase, fsm.eggs, fsm.trident,
               fsm.emerald, fsm.spices, fsm.chest, fsm.pyramid,
               fsm.rug, fsm.coins, fsm.chain]:
-        if t.is_carried():
+        if t.get_state() == "carried":
             t.try_drop(here)
 
 var _last_endgame_state: String = "active"
@@ -1694,6 +1702,154 @@ func _print_room() -> void:
         fsm.mark_dwarf_first_encounter_done()
         _println("A little dwarf just walked around a corner, saw you, threw a little")
         _println("axe at you which missed, cursed, and ran away.")
+
+# ============================================================
+# Introspection — list_actions_here()
+# ============================================================
+# Mirrors cca/godot/scripts/driver.gd's list_actions_here(). See
+# the standalone driver for the full design rationale (LFU
+# coverage walker, wild verb × visible noun emission, etc).
+# Kept in lockstep so the pre-commit drift check stays clean and
+# probe.gd works against either driver shell.
+# ============================================================
+func list_actions_here() -> Array:
+    var actions: Array = []
+    var room: int = fsm.player_room()
+
+    for direction in room_exits.get(room, {}):
+        actions.append({
+            "input": direction,
+            "key": "move:" + direction,
+            "kind": "move",
+        })
+
+    actions.append({"input": "look", "key": "look", "kind": "verb"})
+
+    for pair in _PROBE_CARRIABLES:
+        var id: int = pair[0]
+        var noun: String = pair[1]
+        if fsm.player.carrying(id):
+            actions.append({
+                "input": "drop " + noun,
+                "key": "drop:" + noun,
+                "kind": "drop",
+            })
+        elif _object_in_room(id, room):
+            actions.append({
+                "input": "take " + noun,
+                "key": "take:" + noun,
+                "kind": "take",
+            })
+
+    if fsm.player.carrying(LAMP_ID):
+        if fsm.lamp.is_lit():
+            actions.append({"input": "extinguish lamp", "key": "extinguish:lamp", "kind": "verb"})
+        else:
+            actions.append({"input": "light lamp", "key": "light:lamp", "kind": "verb"})
+
+    if fsm.player.carrying(ROD_ID):
+        actions.append({"input": "wave rod", "key": "wave:rod", "kind": "verb"})
+
+    if fsm.player.carrying(KEYS_ID) and (room == 8 or room == 9):
+        if fsm.grate_locked():
+            actions.append({"input": "unlock grate", "key": "unlock:grate", "kind": "verb"})
+        else:
+            actions.append({"input": "lock grate", "key": "lock:grate", "kind": "verb"})
+
+    if fsm.player.carrying(BIRD_ID):
+        actions.append({"input": "release bird", "key": "release:bird", "kind": "verb"})
+
+    if room == 19 and fsm.snake.is_blocking():
+        actions.append({"input": "attack snake", "key": "attack:snake", "kind": "verb"})
+    if room == 119 and fsm.dragon_alive():
+        actions.append({"input": "attack dragon", "key": "attack:dragon", "kind": "verb"})
+        if fsm.player.carrying(AXE_ID):
+            actions.append({"input": "throw axe", "key": "throw:axe", "kind": "verb"})
+    if room == 130:
+        actions.append({"input": "attack bear", "key": "attack:bear", "kind": "verb"})
+        if fsm.player.carrying(FOOD_ID):
+            actions.append({"input": "feed bear", "key": "feed:bear", "kind": "verb"})
+        if fsm.player.carrying(KEYS_ID) and fsm.bear.get_state() == "tame":
+            actions.append({"input": "unlock chain", "key": "unlock:chain", "kind": "verb"})
+
+    if fsm.player.carrying(FOOD_ID):
+        actions.append({"input": "eat food", "key": "eat:food", "kind": "verb"})
+
+    if fsm.player.carrying(BOTTLE_ID):
+        if fsm.bottle.has_water():
+            actions.append({"input": "pour water", "key": "pour:water", "kind": "verb"})
+            actions.append({"input": "drink water", "key": "drink:water", "kind": "verb"})
+        elif fsm.bottle.has_oil():
+            actions.append({"input": "pour oil", "key": "pour:oil", "kind": "verb"})
+        else:
+            if room in [3, 23, 79]:
+                actions.append({"input": "fill bottle", "key": "fill:bottle", "kind": "verb"})
+
+    if fsm.player.carrying(CLAM_ID) and fsm.player.carrying(ROD_ID):
+        actions.append({"input": "break clam", "key": "break:clam", "kind": "verb"})
+    if fsm.player.carrying(OYSTER_ID) or fsm.oyster_item.is_in_room(room):
+        actions.append({"input": "read oyster", "key": "read:oyster", "kind": "verb"})
+    if fsm.player.carrying(MAGAZINE_ID) or fsm.magazine_item.is_in_room(room):
+        actions.append({"input": "read magazine", "key": "read:magazine", "kind": "verb"})
+
+    if room in [1, 11]:
+        actions.append({"input": "xyzzy", "key": "magic:xyzzy", "kind": "magic"})
+    if room in [3, 33]:
+        actions.append({"input": "plugh", "key": "magic:plugh", "kind": "magic"})
+    if room in [33, 100]:
+        actions.append({"input": "plover", "key": "magic:plover", "kind": "magic"})
+    if room == 13 or room == 121:
+        actions.append({"input": "fee", "key": "magic:fee", "kind": "magic"})
+        actions.append({"input": "fie", "key": "magic:fie", "kind": "magic"})
+        actions.append({"input": "foe", "key": "magic:foe", "kind": "magic"})
+        actions.append({"input": "foo", "key": "magic:foo", "kind": "magic"})
+    if fsm.endgame_state() == "in_repository":
+        actions.append({"input": "blast", "key": "verb:blast", "kind": "verb"})
+
+    # Wild verb × visible-noun cross.
+    var nouns_here: Array = []
+    for pair in _PROBE_CARRIABLES:
+        var id: int = pair[0]
+        var noun: String = pair[1]
+        if fsm.player.carrying(id) or _object_in_room(id, room):
+            nouns_here.append(noun)
+    if room == 19 and fsm.snake.is_blocking():
+        nouns_here.append("snake")
+    if room == 119 and fsm.dragon_alive():
+        nouns_here.append("dragon")
+    if room == 130:
+        nouns_here.append("bear")
+    if fsm.bird.get_location() == room and not fsm.player.carrying(BIRD_ID):
+        nouns_here.append("bird")
+
+    for verb in _PROBE_WILD_VERBS:
+        for n in nouns_here:
+            actions.append({
+                "input": verb + " " + n,
+                "key": "wild:%s:%s" % [verb, n],
+                "kind": "wild",
+            })
+
+    return actions
+
+const _PROBE_WILD_VERBS: Array = [
+    "examine", "attack", "kill", "wave", "throw", "hurl",
+    "eat", "drink", "light", "extinguish", "feed", "release",
+    "read", "break", "pour", "fill", "rub", "find",
+]
+
+const _PROBE_CARRIABLES: Array = [
+    [100, "bird"], [101, "chain"],
+    [110, "gold"], [111, "silver"], [112, "diamonds"],
+    [113, "jewelry"], [114, "pearl"], [115, "vase"],
+    [116, "eggs"], [117, "trident"], [118, "emerald"],
+    [119, "spices"], [120, "chest"], [121, "pyramid"],
+    [122, "rug"], [123, "coins"],
+    [130, "rod"], [131, "keys"], [132, "bottle"],
+    [133, "cage"], [134, "food"], [135, "pillow"],
+    [136, "axe"], [137, "clam"], [138, "oyster"],
+    [139, "batteries"], [140, "magazine"], [142, "lamp"],
+]
 
 # Returns true if `obj_id` is visible in `room` — canon AT(OBJ).
 # Used by FIND to fire msg #94 when the player asks for an

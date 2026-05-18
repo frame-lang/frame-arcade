@@ -347,7 +347,18 @@ func _build_verb_synonyms_5() -> void:
                        "bedquilt", "oriental", "cavern", "barren",
                        "secret", "office", "cobbles", "awkward",
                        "outdoors", "downstream", "upstream",
-                       "entrance", "surface", "reservoir"]:
+                       "entrance", "surface", "reservoir",
+                       # Surfaced 2026-05-17 by the world-graph
+                       # topology audit (probe.gd): topology.gd lists
+                       # these as canon motion aliases at multiple
+                       # rooms, but the 5-char truncation mangled
+                       # "forest" → "fores" / "broken" → "broke" /
+                       # "canyon" → "canyo" / "debris" → "debri",
+                       # which then failed the room_exits.has(verb)
+                       # check at the custom-motion-alias dispatch
+                       # site. 154 stayed-put audit hits at room 1
+                       # alone for "forest" were the smoking gun.
+                       "forest", "broken", "canyon", "debris"]:
         _verb_synonyms_5[_truncate5(canon_verb)] = canon_verb
 
 func _build_ui() -> void:
@@ -1996,12 +2007,14 @@ func _drop_inventory_at_death_room() -> void:
                fsm.mark_rod_item, fsm.lamp_item]:
         if it.is_carried():
             it.try_drop(here)
-    # Treasures
+    # Treasures. Treasure FSMs use get_state() == "carried"
+    # rather than the _item FSM's is_carried() boolean (the two
+    # FSM families took different shapes during the V1.2 split).
     for t in [fsm.gold, fsm.silver, fsm.diamonds, fsm.jewelry,
               fsm.pearl, fsm.vase, fsm.eggs, fsm.trident,
               fsm.emerald, fsm.spices, fsm.chest, fsm.pyramid,
               fsm.rug, fsm.coins, fsm.chain]:
-        if t.is_carried():
+        if t.get_state() == "carried":
             t.try_drop(here)
 
 var _last_endgame_state: String = "active"
@@ -2073,6 +2086,273 @@ func _print_room() -> void:
         fsm.mark_dwarf_first_encounter_done()
         _println("A little dwarf just walked around a corner, saw you, threw a little")
         _println("axe at you which missed, cursed, and ran away.")
+
+# ============================================================
+# Introspection — list_actions_here()
+# ============================================================
+# Enumerates the actions a player could plausibly attempt from
+# the current world state. Used by the LFU coverage walker
+# (probe.gd) and the BFS state-space search (state_space.gd) so
+# both share one definition of "what's doable here?"
+#
+# Each entry is a Dictionary with three fields:
+#   input — text the player would type; passed verbatim to the
+#           driver parser. Multi-word forms ("light lamp") match
+#           canon vocabulary.
+#   key   — stable identifier for coverage counting. Format is
+#           "<verb>:<object>" or "<verb>" for unparameterised
+#           verbs. Stable across runs (no FSM state encoded).
+#   kind  — category label for reporting: "move" / "take" /
+#           "drop" / "verb" / "magic". Lets reports group by
+#           category without re-parsing keys.
+#
+# Action preconditions are evaluated here rather than relying on
+# the FSM to no-op rejected verbs. The reason is coverage-quality:
+# emitting `feed bear` at every room would flood the LFU counter
+# with no-op rebuffs and starve coverage of actually-meaningful
+# (room, action) pairs. By gating on "the bear is here AND food
+# is carried", a coverage hit on `130:feed:bear` means the canon
+# mechanic was actually exercised.
+#
+# UI verbs (save/load/quit/help/score/hint/info/wizard/maint/
+# brief/find/say/rub/map/cave/hours) are deliberately excluded.
+# They don't change world state; exposing them to the prober
+# either wastes coverage budget or triggers modal Y/N prompts
+# the walker isn't equipped to answer.
+# ============================================================
+func list_actions_here() -> Array:
+    var actions: Array = []
+    var room: int = fsm.player_room()
+
+    # Movement: every key in the current room's exit table.
+    # Aliases (north + n + forest + hill at the same room) each
+    # get their own coverage bucket — canon treats them as
+    # distinct typed verbs and we want the report to reflect
+    # which aliases got exercised.
+    for direction in room_exits.get(room, {}):
+        actions.append({
+            "input": direction,
+            "key": "move:" + direction,
+            "kind": "move",
+        })
+
+    # LOOK fires the per-room canon prose + observation triggers.
+    # Idempotent for most world state but increments turn count
+    # (canon LOOK costs a turn). Always available.
+    actions.append({"input": "look", "key": "look", "kind": "verb"})
+
+    # Take/drop. _object_in_room is the canonical "is this object
+    # visible in this room?" predicate (mirrors canon's AT(OBJ)
+    # test). MARK_ROD_ID is intentionally omitted from the table —
+    # canon spawns it post-explosion in the endgame and the prober
+    # picks it up via the same "rod" noun anyway.
+    for pair in _PROBE_CARRIABLES:
+        var id: int = pair[0]
+        var noun: String = pair[1]
+        if fsm.player.carrying(id):
+            actions.append({
+                "input": "drop " + noun,
+                "key": "drop:" + noun,
+                "kind": "drop",
+            })
+        elif _object_in_room(id, room):
+            actions.append({
+                "input": "take " + noun,
+                "key": "take:" + noun,
+                "kind": "take",
+            })
+
+    # Lamp on/off — preconditioned on carrying. The state-aware
+    # split (light when off, extinguish when lit) keeps coverage
+    # entries semantically distinct.
+    if fsm.player.carrying(LAMP_ID):
+        if fsm.lamp.is_lit():
+            actions.append({"input": "extinguish lamp", "key": "extinguish:lamp", "kind": "verb"})
+        else:
+            actions.append({"input": "light lamp", "key": "light:lamp", "kind": "verb"})
+
+    # Wave rod — canonically only meaningful at the fissure (canon
+    # rooms 17/27 for the crystal-bridge builder), but we emit
+    # whenever the rod is carried; bridge-building side effects
+    # gate themselves on location inside the FSM. The (room,
+    # wave:rod) coverage entry tells us which rooms the player
+    # actually waved the rod at.
+    if fsm.player.carrying(ROD_ID):
+        actions.append({"input": "wave rod", "key": "wave:rod", "kind": "verb"})
+
+    # Unlock/lock grate — canon rooms 8 (Outside Grate) and 9
+    # (Below the Grate). Direction matters: locking from below
+    # is a canon edge-case worth covering.
+    if fsm.player.carrying(KEYS_ID) and (room == 8 or room == 9):
+        if fsm.grate_locked():
+            actions.append({"input": "unlock grate", "key": "unlock:grate", "kind": "verb"})
+        else:
+            actions.append({"input": "lock grate", "key": "lock:grate", "kind": "verb"})
+
+    # Release bird — the snake-charm puzzle at canon 19. Emitting
+    # only when bird is carried means coverage entries record where
+    # the player released it (the right room vs. wasted releases).
+    if fsm.player.carrying(BIRD_ID):
+        actions.append({"input": "release bird", "key": "release:bird", "kind": "verb"})
+
+    # NPC interactions — gated by canon room + creature state. The
+    # rooms hard-coded here mirror canon's NPC anchoring (snake at
+    # 19 = Hall of Mountain King, dragon at 119, bear at 130).
+    if room == 19 and fsm.snake.is_blocking():
+        actions.append({"input": "attack snake", "key": "attack:snake", "kind": "verb"})
+    if room == 119 and fsm.dragon_alive():
+        actions.append({"input": "attack dragon", "key": "attack:dragon", "kind": "verb"})
+        if fsm.player.carrying(AXE_ID):
+            actions.append({"input": "throw axe", "key": "throw:axe", "kind": "verb"})
+    if room == 130:
+        # Bear chamber. ATTACK BEAR is the canon rebuff at every
+        # bear state; FEED BEAR transitions $Hungry → $Tame iff
+        # food is carried; UNLOCK CHAIN releases a tame bear.
+        actions.append({"input": "attack bear", "key": "attack:bear", "kind": "verb"})
+        if fsm.player.carrying(FOOD_ID):
+            actions.append({"input": "feed bear", "key": "feed:bear", "kind": "verb"})
+        if fsm.player.carrying(KEYS_ID) and fsm.bear.get_state() == "tame":
+            actions.append({"input": "unlock chain", "key": "unlock:chain", "kind": "verb"})
+
+    # Eat food — canon msg #72 rebuff at most rooms; one-shot
+    # consume in the few rooms where canon allows.
+    if fsm.player.carrying(FOOD_ID):
+        actions.append({"input": "eat food", "key": "eat:food", "kind": "verb"})
+
+    # Bottle interactions. Canon obj #20 (bottle) has three
+    # states: empty / water / oil. POUR side-effects depend on
+    # location (water → plant at canon 32, oil → rusty door at
+    # canon 94); we emit whenever the bottle has content and
+    # let the FSM handle the location dispatch.
+    if fsm.player.carrying(BOTTLE_ID):
+        if fsm.bottle.has_water():
+            actions.append({"input": "pour water", "key": "pour:water", "kind": "verb"})
+            actions.append({"input": "drink water", "key": "drink:water", "kind": "verb"})
+        elif fsm.bottle.has_oil():
+            actions.append({"input": "pour oil", "key": "pour:oil", "kind": "verb"})
+        else:
+            # Empty — fill only at canon liquid sources (well-house
+            # pool 3, fissure pool 23, oil pipe 79 per canon
+            # section-9 ITEM 0 / FIXED-OBJ table).
+            if room in [3, 23, 79]:
+                actions.append({"input": "fill bottle", "key": "fill:bottle", "kind": "verb"})
+
+    # Clam + rod → break into oyster (canon mechanic at the
+    # oyster room). Emit when carrying both; the FSM handles
+    # the "wrong room" rebuff.
+    if fsm.player.carrying(CLAM_ID) and fsm.player.carrying(ROD_ID):
+        actions.append({"input": "break clam", "key": "break:clam", "kind": "verb"})
+    # Read oyster — canon msg #192/193/194 hint chain. Fires when
+    # the oyster is in inventory or in the current room (post-
+    # break-clam the oyster gets dropped).
+    if fsm.player.carrying(OYSTER_ID) or fsm.oyster_item.is_in_room(room):
+        actions.append({"input": "read oyster", "key": "read:oyster", "kind": "verb"})
+    # Read magazine — flavor read at canon 95 (Witt's End).
+    if fsm.player.carrying(MAGAZINE_ID) or fsm.magazine_item.is_in_room(room):
+        actions.append({"input": "read magazine", "key": "read:magazine", "kind": "verb"})
+
+    # Magic-word teleports — gated to canon anchor rooms. The
+    # in-port words are always parseable, but emitting them only
+    # at canonical sources keeps coverage entries focused on
+    # meaningful tests (XYZZY at the road room doesn't mean the
+    # same thing as XYZZY at the well-house).
+    if room in [1, 11]:
+        actions.append({"input": "xyzzy", "key": "magic:xyzzy", "kind": "magic"})
+    if room in [3, 33]:
+        actions.append({"input": "plugh", "key": "magic:plugh", "kind": "magic"})
+    if room in [33, 100]:
+        actions.append({"input": "plover", "key": "magic:plover", "kind": "magic"})
+    # FEE-FIE-FOE-FOO eggs-incantation chain. Canonically meaningful
+    # at the bird-chamber-to-troll-bridge path (eggs returned via
+    # FOO from the troll's pocket). Restrict to canon 13 (bird
+    # chamber, where the words are heard) + canon 121 (Plover Room
+    # variant) to keep coverage focused.
+    if room == 13 or room == 121:
+        actions.append({"input": "fee", "key": "magic:fee", "kind": "magic"})
+        actions.append({"input": "fie", "key": "magic:fie", "kind": "magic"})
+        actions.append({"input": "foe", "key": "magic:foe", "kind": "magic"})
+        actions.append({"input": "foo", "key": "magic:foo", "kind": "magic"})
+    # BLAST — endgame-only. Canon advent.for STMT 9280 rebuffs
+    # with msg #12 ("Blasting requires dynamite") unless the
+    # player is in the repository carrying the mark-rod dynamite.
+    # We emit only after the endgame transition so the (room,
+    # blast) coverage entries are meaningful.
+    if fsm.endgame_state() == "in_repository":
+        actions.append({"input": "blast", "key": "verb:blast", "kind": "verb"})
+
+    # ----- Wild verb × noun combinations -----
+    # The precondition-gated emissions above are deliberately
+    # narrow: `light lamp` only when carrying the lamp, `wave rod`
+    # only at the fissure, etc. That keeps coverage cells
+    # semantically meaningful but leaves a coverage gap: parser
+    # paths for *unexpected* combinations (ATTACK CHEST, WAVE FOOD,
+    # READ KEYS, EXAMINE SNAKE) never get exercised, and any
+    # verb-dispatch bug that only surfaces on a weird combo stays
+    # invisible. The literature on count-based exploration says
+    # wider action emission is strictly better for surfacing
+    # parser/dispatch bugs.
+    #
+    # The "wild" pass below crosses a vocabulary of generic verbs
+    # with every noun currently in scope (carried items + visible
+    # items at this room). Each combo gets its own coverage bucket
+    # via a "wild:<verb>:<noun>" key, distinct from the canon-
+    # gated buckets so the report can group separately.
+    var nouns_here: Array = []
+    for pair in _PROBE_CARRIABLES:
+        var id: int = pair[0]
+        var noun: String = pair[1]
+        if fsm.player.carrying(id) or _object_in_room(id, room):
+            nouns_here.append(noun)
+    # NPC nouns when the NPC is plausibly present. Same rooms as
+    # the gated attack emissions above.
+    if room == 19 and fsm.snake.is_blocking():
+        nouns_here.append("snake")
+    if room == 119 and fsm.dragon_alive():
+        nouns_here.append("dragon")
+    if room == 130:
+        nouns_here.append("bear")
+    if fsm.bird.get_location() == room and not fsm.player.carrying(BIRD_ID):
+        nouns_here.append("bird")
+
+    for verb in _PROBE_WILD_VERBS:
+        for n in nouns_here:
+            actions.append({
+                "input": verb + " " + n,
+                "key": "wild:%s:%s" % [verb, n],
+                "kind": "wild",
+            })
+
+    return actions
+
+# Verbs the wild emission crosses with every locally-visible noun.
+# Chosen to exercise the canon section-5 examine prose, section-7
+# read prose, the attack-rebuff system, and the throw/feed/wave
+# dispatch tables. KILL is a separate canon verb from ATTACK
+# despite the synonym mapping; both go through the same FSM event
+# but the parser path differs. Same for HURL vs THROW.
+const _PROBE_WILD_VERBS: Array = [
+    "examine", "attack", "kill", "wave", "throw", "hurl",
+    "eat", "drink", "light", "extinguish", "feed", "release",
+    "read", "break", "pour", "fill", "rub", "find",
+]
+
+# Carriable obj-id → canonical noun for take/drop enumeration.
+# Names match _resolve_object_id() (single-word form). MARK_ROD_ID
+# (141) is omitted — it spawns in the endgame and the noun "rod"
+# matches both via _resolve_object_id, so the prober picks it up
+# transparently without a separate coverage bucket.
+const _PROBE_CARRIABLES: Array = [
+    [100, "bird"], [101, "chain"],
+    [110, "gold"], [111, "silver"], [112, "diamonds"],
+    [113, "jewelry"], [114, "pearl"], [115, "vase"],
+    [116, "eggs"], [117, "trident"], [118, "emerald"],
+    [119, "spices"], [120, "chest"], [121, "pyramid"],
+    [122, "rug"], [123, "coins"],
+    [130, "rod"], [131, "keys"], [132, "bottle"],
+    [133, "cage"], [134, "food"], [135, "pillow"],
+    [136, "axe"], [137, "clam"], [138, "oyster"],
+    [139, "batteries"], [140, "magazine"], [142, "lamp"],
+]
 
 # Returns true if the object identified by `obj_id` is visible
 # in the given room (canon AT(OBJ) test). Used by FIND to fire
