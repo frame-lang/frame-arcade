@@ -44,6 +44,20 @@ var max_states: int = 1000
 # detection. ~30ms per state.
 var check_save_restore: bool = true
 
+# RFC-0002 milestone seeding. If non-empty, the BFS starts from
+# the FSM state encoded in these bytes (via fsm.restore_state)
+# instead of the canonical start. Use case: walk the canonical
+# journey up to a milestone like LampLit-past-grate, snapshot,
+# then BFS from there. Subsequent BFS reaches the deep-cave
+# graph the cold-start BFS couldn't penetrate within its
+# action-ordering budget.
+var seed_bytes: PackedByteArray = PackedByteArray()
+
+# Optional label for the seed snapshot (e.g. "canonical_journey:
+# LampLit"). Printed in the report for traceability. No
+# functional effect.
+var seed_label: String = ""
+
 # ----- Results -----------------------------------------------------
 
 var visited: Dictionary = {}
@@ -94,9 +108,16 @@ func prepare_driver():
     driver.rng.seed = seed
     return driver
 
-# Convenience: build + run from the canonical start state.
+# Convenience: build + run. If `seed_bytes` is non-empty, the
+# driver's FSM is restored to that snapshot first — the BFS then
+# explores the reachable graph FROM the seeded state, not from
+# canonical start. Use this for RFC-0002 milestone-seeded
+# coverage: drive the canonical_journey FSM to a milestone,
+# snapshot, feed bytes here.
 func run() -> void:
     var driver = prepare_driver()
+    if not seed_bytes.is_empty():
+        driver.fsm.restore_state(seed_bytes)
     run_from(driver)
 
 # Search from the driver's current state. BFS frontier-expansion
@@ -307,6 +328,8 @@ func _check_invariants(driver, path: Array) -> Array:
 func report() -> void:
     print("=== State-space search report ===")
     print("Seed:           %d" % seed)
+    if seed_label != "":
+        print("Seed snapshot:  %s" % seed_label)
     print("States visited: %d  (cap: %d%s)" % [states_visited, max_states, " — HIT" if hit_cap else ""])
     # Per-location breakdown. A "state" is (room + inventory +
     # NPC states); a "location" is just the canon room number.
