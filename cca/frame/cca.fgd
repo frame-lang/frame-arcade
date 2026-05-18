@@ -2291,35 +2291,90 @@ const AspectBus = preload("res://scripts/aspects.gd").AspectBus
                 dtotal = dtotal + 1
                 if self.dwarf1.get_prev_room() == room:
                     attack = attack + 1
-                    self.axe_item.place(room)
+                    # Guard: only place the axe if the player
+                    # isn't already carrying one. Without this
+                    # check the dwarf-attack handler clobbered
+                    # axe_item to $InRoom while player still
+                    # registered as carrying — surfaced 2026-05-18
+                    # by milestone-seeded BFS (192 inventory-
+                    # inconsistency violations at SnakeGone seed).
+                    # Canon-correct: canon CCA has one Persian
+                    # axe; subsequent dwarf attacks throw knives
+                    # (msg #6) which don't materialize as items.
+                    if not self.player.carrying(self.AXE_ID):
+                        self.axe_item.place(room)
                     if self.dwarf1.try_throw_axe(self.dwarf_anger):
                         stick = stick + 1
             if self.dwarf2.get_state() == "stalking" and self.dwarf2.get_room() == room:
                 dtotal = dtotal + 1
                 if self.dwarf2.get_prev_room() == room:
                     attack = attack + 1
-                    self.axe_item.place(room)
+                    # Guard: only place the axe if the player
+                    # isn't already carrying one. Without this
+                    # check the dwarf-attack handler clobbered
+                    # axe_item to $InRoom while player still
+                    # registered as carrying — surfaced 2026-05-18
+                    # by milestone-seeded BFS (192 inventory-
+                    # inconsistency violations at SnakeGone seed).
+                    # Canon-correct: canon CCA has one Persian
+                    # axe; subsequent dwarf attacks throw knives
+                    # (msg #6) which don't materialize as items.
+                    if not self.player.carrying(self.AXE_ID):
+                        self.axe_item.place(room)
                     if self.dwarf2.try_throw_axe(self.dwarf_anger):
                         stick = stick + 1
             if self.dwarf3.get_state() == "stalking" and self.dwarf3.get_room() == room:
                 dtotal = dtotal + 1
                 if self.dwarf3.get_prev_room() == room:
                     attack = attack + 1
-                    self.axe_item.place(room)
+                    # Guard: only place the axe if the player
+                    # isn't already carrying one. Without this
+                    # check the dwarf-attack handler clobbered
+                    # axe_item to $InRoom while player still
+                    # registered as carrying — surfaced 2026-05-18
+                    # by milestone-seeded BFS (192 inventory-
+                    # inconsistency violations at SnakeGone seed).
+                    # Canon-correct: canon CCA has one Persian
+                    # axe; subsequent dwarf attacks throw knives
+                    # (msg #6) which don't materialize as items.
+                    if not self.player.carrying(self.AXE_ID):
+                        self.axe_item.place(room)
                     if self.dwarf3.try_throw_axe(self.dwarf_anger):
                         stick = stick + 1
             if self.dwarf4.get_state() == "stalking" and self.dwarf4.get_room() == room:
                 dtotal = dtotal + 1
                 if self.dwarf4.get_prev_room() == room:
                     attack = attack + 1
-                    self.axe_item.place(room)
+                    # Guard: only place the axe if the player
+                    # isn't already carrying one. Without this
+                    # check the dwarf-attack handler clobbered
+                    # axe_item to $InRoom while player still
+                    # registered as carrying — surfaced 2026-05-18
+                    # by milestone-seeded BFS (192 inventory-
+                    # inconsistency violations at SnakeGone seed).
+                    # Canon-correct: canon CCA has one Persian
+                    # axe; subsequent dwarf attacks throw knives
+                    # (msg #6) which don't materialize as items.
+                    if not self.player.carrying(self.AXE_ID):
+                        self.axe_item.place(room)
                     if self.dwarf4.try_throw_axe(self.dwarf_anger):
                         stick = stick + 1
             if self.dwarf5.get_state() == "stalking" and self.dwarf5.get_room() == room:
                 dtotal = dtotal + 1
                 if self.dwarf5.get_prev_room() == room:
                     attack = attack + 1
-                    self.axe_item.place(room)
+                    # Guard: only place the axe if the player
+                    # isn't already carrying one. Without this
+                    # check the dwarf-attack handler clobbered
+                    # axe_item to $InRoom while player still
+                    # registered as carrying — surfaced 2026-05-18
+                    # by milestone-seeded BFS (192 inventory-
+                    # inconsistency violations at SnakeGone seed).
+                    # Canon-correct: canon CCA has one Persian
+                    # axe; subsequent dwarf attacks throw knives
+                    # (msg #6) which don't materialize as items.
+                    if not self.player.carrying(self.AXE_ID):
+                        self.axe_item.place(room)
                     if self.dwarf5.try_throw_axe(self.dwarf_anger):
                         stick = stick + 1
             self.dwarf_total_in_room = dtotal
