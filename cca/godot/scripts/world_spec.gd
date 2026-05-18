@@ -161,6 +161,311 @@ const NPC_SPEC: Dictionary = {
     },
 }
 
+# ----- Verb-effect spec (Layer 4) ----------------------------------
+# Per canon mechanic, declare:
+#   id           — stable identifier for the spec entry (used in
+#                  reports and test outputs)
+#   setup        — fresh-FSM mutation to put the world in the
+#                  pre-condition state: player_room, carrying list,
+#                  lamp state, etc.
+#   input        — the typed command (or array of commands for the
+#                  multi-step entries — e.g. ATTACK DRAGON followed
+#                  by Y to "with bare hands?")
+#   expect       — post-input invariants to verify. Each key names
+#                  a queryable predicate; the verifier iterates
+#                  every key. Supported keys: player_room, carrying,
+#                  grate_locked, bridge_built, lamp_lit, dragon_alive,
+#                  bear_state, snake_blocking, treasures_deposited,
+#                  score_delta (signed).
+#   notes        — documentation (canon advent.dat row reference
+#                  when known).
+#
+# This is the meat of the model-based testing layer. The other
+# specs (item placement, NPC anchoring, treasure values) cover
+# *static* canon invariants. This one covers *behaviour* — what
+# canon says should happen when the player does X under condition
+# Y at room Z.
+#
+# The initial set focuses on ~15 high-signal mechanics. The pattern
+# scales linearly: more entries means more behavioural coverage.
+const VERB_EFFECTS: Array = [
+    # ----- Magic words -----
+    {
+        "id":     "xyzzy_house_to_debris",
+        "setup":  {"player_room": 3},
+        "input":  ["xyzzy"],
+        "expect": {"player_room": 11},
+        "notes":  "canon magic-word teleport well-house → debris room",
+    },
+    {
+        "id":     "xyzzy_debris_to_house",
+        "setup":  {"player_room": 11},
+        "input":  ["xyzzy"],
+        "expect": {"player_room": 3},
+        "notes":  "canon magic-word teleport debris → well-house (palindromic)",
+    },
+    {
+        "id":     "plugh_house_to_y2",
+        "setup":  {"player_room": 3},
+        "input":  ["plugh"],
+        "expect": {"player_room": 33},
+        "notes":  "canon magic-word teleport well-house → Y2",
+    },
+    {
+        "id":     "plugh_y2_to_house",
+        "setup":  {"player_room": 33},
+        "input":  ["plugh"],
+        "expect": {"player_room": 3},
+        "notes":  "canon magic-word teleport Y2 → well-house (palindromic)",
+    },
+    # ----- Lamp on/off -----
+    {
+        "id":     "light_lamp",
+        "setup":  {"player_room": 3, "carrying": ["lamp"]},
+        "input":  ["light lamp"],
+        "expect": {"lamp_lit": true},
+        "notes":  "canon obj#2 light verb transitions lamp $Off → $Lit",
+    },
+    {
+        "id":     "extinguish_lit_lamp",
+        "setup":  {"player_room": 3, "carrying": ["lamp"], "lamp": "lit"},
+        "input":  ["extinguish lamp"],
+        "expect": {"lamp_lit": false},
+        "notes":  "canon extinguish reverses light",
+    },
+    # ----- Grate (canon obj#3 with keys) -----
+    {
+        "id":     "unlock_grate_with_keys",
+        "setup":  {"player_room": 8, "carrying": ["keys"]},
+        "input":  ["unlock grate"],
+        "expect": {"grate_locked": false},
+        "notes":  "canon: keys unlock the grate at the depression (room 8)",
+    },
+    {
+        "id":     "lock_grate_again",
+        "setup":  {"player_room": 8, "carrying": ["keys"], "grate": "unlocked"},
+        "input":  ["lock grate"],
+        "expect": {"grate_locked": true},
+        "notes":  "lock-with-keys reverses unlock; standard canon symmetry",
+    },
+    # ----- Crystal bridge -----
+    {
+        "id":     "wave_rod_at_fissure",
+        "setup":  {"player_room": 17, "carrying": ["rod"]},
+        "input":  ["wave rod"],
+        "expect": {"bridge_built": true},
+        "notes":  "canon: WAVE ROD at room 17 (east fissure) builds the crystal bridge",
+    },
+    # ----- Bear chamber -----
+    {
+        "id":     "feed_bear_tames_it",
+        "setup":  {"player_room": 130, "carrying": ["food"]},
+        "input":  ["feed bear"],
+        "expect": {"bear_state": "tame"},
+        "notes":  "canon: FEED BEAR with food in inventory transitions $Hungry → $Tame",
+    },
+    # ----- Snake clearance -----
+    # The Bird FSM transitions $Free → $Caged only when "take bird"
+    # fires with the cage present. Force-take alone leaves the Bird
+    # in $Free, so release-bird short-circuits. setup_steps drives
+    # the canonical pickup chain via real driver commands, with
+    # explicit teleports between rooms (walking via direction
+    # commands would be brittle here).
+    {
+        "id":     "release_bird_clears_snake",
+        "setup":  {
+            "setup_steps": [
+                {"goto": 10}, {"cmd": "take cage"},
+                {"goto": 13}, {"cmd": "take bird"},
+                {"goto": 19},
+            ],
+        },
+        "input":  ["release bird"],
+        "expect": {"snake_blocking": false},
+        "notes":  "canon: RELEASE BIRD at canon 19 charms snake → vanishes",
+    },
+    # ----- Dragon -----
+    {
+        "id":     "attack_dragon_kills_it",
+        "setup":  {"player_room": 119},
+        "input":  ["attack dragon", "yes"],
+        "expect": {"dragon_alive": false},
+        "notes":  "canon: ATTACK DRAGON + Y for 'with bare hands' kills dragon",
+    },
+    # ----- Bottle -----
+    {
+        "id":     "fill_empty_bottle_at_pool",
+        "setup":  {"player_room": 3, "carrying": ["bottle"]},
+        "input":  ["fill bottle"],
+        "expect": {"bottle_has_water": true},
+        "notes":  "canon: FILL BOTTLE at well-house (canon 3) gets water from pool",
+    },
+    # ----- Clam → oyster transformation -----
+    # Canon (cca.gd::_verb_break, msg #120): clam must NOT be
+    # carried — player must drop it first, then BREAK CLAM with
+    # the rod in hand. The clam starts at canon 103 (Shell Room),
+    # so the test setup just leaves the clam in place and gives
+    # the player the rod.
+    {
+        "id":     "break_clam_creates_oyster",
+        "setup":  {"player_room": 103, "carrying": ["rod"]},
+        "input":  ["break clam"],
+        "expect": {"clam_consumed": true, "oyster_exists": true},
+        "notes":  "canon: BREAK CLAM at oyster room (clam in-room, rod carried) consumes clam, spawns oyster + pearl",
+    },
+]
+
+# ----- Setup / verify helpers --------------------------------------
+
+# Apply a verb-effect entry's `setup` field to a fresh driver. The
+# helper translates declarative spec dictionaries into the FSM
+# mutations needed to land the world in the pre-condition state.
+#
+# Supported setup keys:
+#   player_room  — teleport the player to this room
+#   carrying     — list of canon nouns to force into inventory
+#   lamp         — "lit" / "off"
+#   grate        — "locked" / "unlocked"
+static func apply_setup(driver, setup: Dictionary) -> void:
+    var fsm = driver.fsm
+    if setup.has("player_room"):
+        fsm.player.move_to(setup.player_room)
+    if setup.has("carrying"):
+        for noun in setup.carrying:
+            _force_take(fsm, noun)
+    if setup.has("lamp"):
+        if setup.lamp == "lit" and not fsm.lamp.is_lit():
+            fsm.lamp.light()
+        elif setup.lamp == "off" and fsm.lamp.is_lit():
+            fsm.lamp.extinguish()
+    if setup.has("grate"):
+        if setup.grate == "unlocked" and fsm.grate_locked():
+            fsm.grate.unlock(true)   # have_keys=true
+        elif setup.grate == "locked" and not fsm.grate_locked():
+            fsm.grate.lock()
+    # Multi-step setup via real driver commands. Used for mechanics
+    # whose FSM transitions are tightly coupled — taking the bird at
+    # canon 13 needs the cage present to fire $Free → $Caged, so
+    # the spec issues "take cage" / "take bird" before re-positioning.
+    # After pre_commands, the spec can re-set player_room with
+    # `then_player_room` to teleport without firing any per-turn
+    # effects of walking there.
+    if setup.has("pre_commands"):
+        for cmd in setup.pre_commands:
+            driver._process_input(cmd)
+    # Most flexible: setup_steps interleaves teleports and commands
+    # in order. Each step is either {"goto": room_id} (direct
+    # move_to, no walk side-effects) or {"cmd": "input string"}
+    # (real driver _process_input). Used for chains that span
+    # multiple rooms — like "go to canon 10, take cage, go to canon
+    # 13, take bird" where walking the path via direction commands
+    # would be brittle and slow.
+    if setup.has("setup_steps"):
+        for step in setup.setup_steps:
+            if step.has("goto"):
+                fsm.player.move_to(step.goto)
+            elif step.has("cmd"):
+                driver._process_input(step.cmd)
+    if setup.has("then_player_room"):
+        fsm.player.move_to(setup.then_player_room)
+
+# Force a single noun into the player's inventory regardless of
+# where the item currently is. The player's logical position is
+# preserved — we briefly teleport to the item's location for the
+# canonical try_take, then teleport back.
+#
+# For dynamic-spawn items (axe, batteries, oyster, mark_rod, pearl,
+# chest), we reappear()/soft-drop at the player's current room
+# first; the item has no canonical pre-spawn location.
+static func _force_take(fsm, noun: String) -> void:
+    if not ITEM_SPEC.has(noun):
+        return
+    var spec: Dictionary = ITEM_SPEC[noun]
+    var player_room: int = fsm.player.get_room()
+    if spec.kind == "treasure":
+        var t = _resolve_treasure(fsm, noun)
+        if t == null:
+            return
+        t.reappear(player_room)   # makes the treasure available here
+        t.try_take(player_room)
+    else:
+        var it = _resolve_item_instance(fsm, noun)
+        if it == null:
+            return
+        if spec.dynamic_spawn:
+            # Item has no reappear; soft-drop at player's room first.
+            it.try_drop(player_room)
+            it.try_take(player_room)
+        else:
+            # Static-spawn item: teleport player to the item's
+            # canonical room, take it, teleport back. try_take
+            # only fires the transition when at_room matches the
+            # item's location_room.
+            var item_room: int = spec.initial_room
+            fsm.player.move_to(item_room)
+            it.try_take(item_room)
+            fsm.player.move_to(player_room)
+    fsm.player.take(spec.id)
+
+static func _resolve_treasure(fsm, noun: String):
+    match noun:
+        "gold":     return fsm.gold
+        "silver":   return fsm.silver
+        "diamonds": return fsm.diamonds
+        "jewelry":  return fsm.jewelry
+        "pearl":    return fsm.pearl
+        "vase":     return fsm.vase
+        "eggs":     return fsm.eggs
+        "trident":  return fsm.trident
+        "emerald":  return fsm.emerald
+        "spices":   return fsm.spices
+        "chest":    return fsm.chest
+        "pyramid":  return fsm.pyramid
+        "rug":      return fsm.rug
+        "coins":    return fsm.coins
+        "chain":    return fsm.chain
+    return null
+
+static func _resolve_item_instance(fsm, noun: String):
+    return _item_instance(fsm, noun)
+
+# Verify a verb-effect entry's `expect` field against a post-input
+# FSM. Returns an Array of failure strings (empty = all good).
+#
+# Supported expect keys:
+#   player_room       — int
+#   lamp_lit          — bool
+#   grate_locked      — bool
+#   bridge_built      — bool
+#   dragon_alive      — bool
+#   bear_state        — String
+#   snake_blocking    — bool
+#   bottle_has_water  — bool
+#   clam_consumed     — bool (clam FSM in $Broken / $Consumed)
+#   oyster_exists    — bool (oyster_item is now somewhere non-limbo)
+static func verify_expect(fsm, expected: Dictionary) -> Array:
+    var fails: Array = []
+    for key in expected.keys():
+        var want = expected[key]
+        var got = _query(fsm, key)
+        if got != want:
+            fails.append("%s: expected %s, observed %s" % [key, str(want), str(got)])
+    return fails
+
+static func _query(fsm, key: String):
+    match key:
+        "player_room":      return fsm.player_room()
+        "lamp_lit":         return fsm.lamp.is_lit()
+        "grate_locked":     return fsm.grate_locked()
+        "bridge_built":     return fsm.bridge_built()
+        "dragon_alive":     return fsm.dragon_alive()
+        "bear_state":       return fsm.bear.get_state()
+        "snake_blocking":   return fsm.snake.is_blocking()
+        "bottle_has_water": return fsm.bottle.has_water()
+        "clam_consumed":    return fsm.clam_item.get_state() != "in_room" and not fsm.player.carrying(137)
+        "oyster_exists":    return fsm.oyster_item.is_in_room(103) or fsm.player.carrying(138)
+    return null
+
 # ----- Accessors ---------------------------------------------------
 
 # Return the current location of `noun` per the FSM. Treasures use

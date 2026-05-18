@@ -506,26 +506,89 @@ Current state: **0 spec violations across 34 walk-end checks** at
 default probe settings. The Phase C scaffolding is in place; bugs
 will surface here when item-handling code drifts away from canon.
 
-### What this layer does NOT cover
+### Phase C Layers 3 + 4 + treasure-value all landed
 
-- **NPC anchoring** (Layer 3): which rooms each NPC anchors at, what
-  conditions trigger their state transitions. Some NPC presence
-  inferred via `_object_in_room` for the bird, snake, dragon, bear
-  but not spec-asserted.
-- **Verb-effect tables** (Layer 4): for `(room, verb, precondition)
-  → expected_effect`, declare what canon does. Drawn from
-  `advent.for` STMT tables. ~50–100 entries cover the bulk of CCA
-  mechanics. The valuable one; not built yet.
-- **Score-on-deposit cross-check**: the spec carries a `value` field
-  per treasure (14 each in canon), but no test currently asserts
-  that depositing each treasure increments the score by exactly its
-  spec'd value.
+After Layer 2 proved the spec-as-data architecture, the remaining
+three Phase C deliverables followed naturally:
 
-These are clean follow-ons. The architecture is proven: the spec is
-data, the checks are functions consuming the data, and both the
-init test and the probe runtime consult the same source of truth.
+**Treasure-value cross-check** (`test_cca_treasure_values.gd`).
+For each of the 15 canon treasures: build a fresh FSM, force-take
+the treasure (reappear()-ing dynamic spawns like pearl/chest), drop
+at the canon DEPOSIT_ROOM, assert the score delta equals the spec's
+`value` field. All 15 pass at +14 each (matching canon's 210-point
+treasure-score ceiling).
 
-## What's next: Phase C Layers 3-4 (or call it done)
+**Layer 3 — NPC anchoring** (`NPC_SPEC` in `world_spec.gd` plus
+`test_cca_npc_spec.gd`). Declares each of 7 NPCs' home_room and
+initial_state. Found one spec error during development: pirate's
+initial state is `dormant`, not `hidden` (the latter is the dwarves'
+pre-wake state). Fixed; all 7 NPCs now match canon on fresh init.
+
+**Layer 4 — verb-effect tables** (`VERB_EFFECTS` array plus
+`test_cca_verb_effects.gd`). The behavioral half. For each canon
+mechanic, declare:
+- `setup` — fresh-FSM mutation to land in the pre-condition state.
+  Supports `player_room`, `carrying`, `lamp`/`grate` state, plus
+  `setup_steps` (a list interleaving `{goto: room}` teleports and
+  `{cmd: input}` real driver commands for multi-step setups like
+  "go to canon 10, take cage, go to canon 13, take bird").
+- `input` — array of typed commands run through real Driver.
+- `expect` — post-input predicates verified against the FSM
+  (`player_room`, `lamp_lit`, `grate_locked`, `bridge_built`,
+  `bear_state`, `snake_blocking`, `dragon_alive`, `clam_consumed`,
+  `oyster_exists`, etc.).
+
+Initial set of 14 entries covers magic-word teleports (XYZZY, PLUGH
+× both directions), lamp on/off, grate lock/unlock, crystal bridge,
+bear taming, snake clearance, dragon slaying, bottle filling, and
+clam→oyster transformation. All 14 pass.
+
+The pattern of failures during development was instructive: of 5
+initial failures, **all 5 were spec-setup bugs**, not FSM bugs.
+Specifically:
+1. `unlock_grate_with_keys` setup called `grate.unlock()` without
+   the required `have_keys: bool` parameter.
+2. `wave_rod_at_fissure`, `feed_bear_tames_it` — the spec's
+   `carrying` shortcut force-took items via `try_take(player_room)`,
+   but the item wasn't at the player's room. Fixed by extending
+   `_force_take` to teleport-take-teleport-back for static-spawn
+   items.
+3. `release_bird_clears_snake` — the Bird FSM transitions
+   `$Free → $Caged` only when "take bird" fires with the cage
+   present, so force-take alone left the Bird in `$Free` and
+   release-bird short-circuited. Fixed by introducing `setup_steps`
+   (interleaved goto/cmd).
+4. `break_clam_creates_oyster` — canon requires the clam NOT
+   carried (the player must put it down first). Spec was giving
+   the player the clam, defeating the canon prerequisite. Fixed
+   by leaving the clam in-room.
+
+**This is the value the spec layer adds.** Every failure surfaced
+either a canon-mechanic detail the spec author got wrong (the clam
+NOT-carried prerequisite is the kind of thing easy to miss) or a
+test-infrastructure gap (the force-take/cage dependency for the
+bird). Both are exactly the bugs hand-written unit tests miss
+because the test author writes both the setup *and* the canon
+expectation from the same flawed mental model. The spec
+externalises the canon expectation, so spec author and code author
+can disagree visibly.
+
+### Final test count
+
+71 tests pass after Phase C completes:
+- 4 new tests added in Phase C
+  (`test_cca_world_spec`, `test_cca_treasure_values`,
+   `test_cca_npc_spec`, `test_cca_verb_effects`)
+- 67 pre-existing tests still pass
+
+The spec database is the artifact. The 4 new tests are
+verifications-against-spec at each layer:
+- item placement on fresh init
+- NPC initial state on fresh init
+- treasure deposit values
+- verb effects via real driver
+
+## What's next
 
 The probe builds a learned model of CCA's behavior (the world
 graph). Phase C inverts the relationship: declare a model of what
