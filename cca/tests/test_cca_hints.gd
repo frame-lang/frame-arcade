@@ -39,12 +39,15 @@ func _init():
     _expect("snake_hint state", adv.hint_state("snake"), "pending")
     _expect("bird_hint streak", adv.bird_hint.get_streak(), 0)
 
-    print("Player in bird room (13) for 3 turns — bird_hint becomes eligible:")
+    print("Player in bird room (13) for 5 turns — bird_hint becomes eligible:")
+    # Canon advent.dat section-11 threshold for bird = 5 turns
+    # (was earlier hard-coded to 3 under the lowered-threshold
+    # dev shortcut; restored 2026-05-18).
     adv.player.move_to(13)
-    for i in 3:
+    for i in 5:
         adv.do_command("look", "")    # tick fires (driver pattern: do_command then tick)
         adv.tick()
-    _expect("bird_hint streak", adv.bird_hint.get_streak(), 3)
+    _expect("bird_hint streak", adv.bird_hint.get_streak(), 5)
     _expect("bird_hint state",  adv.hint_state("bird"),  "eligible")
     # Other hints unaffected — they observe their own conditions
     _expect("cave_hint state",  adv.hint_state("cave"),  "pending")
@@ -79,25 +82,30 @@ func _init():
     _expect("not eligible",        r3.contains("OK"), true)
 
     print("Save mid-streak, mutate, restore:")
+    # Canon snake threshold = 8 (advent.dat section 11). Save at
+    # streak 7 (one short), mutate post-save tick → 8 = eligible,
+    # restore → still at 7, replay tick → eligible. The pre-save
+    # streak was 2 under the lowered-threshold draft; updated
+    # 2026-05-18 to canon.
     var adv2 = Cca.new()
     adv2.setup_default_aspects()
     adv2.player.move_to(19)             # snake room (canon 19 — Hall of Mt King)
     # snake_hint observes (room == SNAKE_ROOM and snake.is_blocking())
-    adv2.tick()
-    adv2.tick()
-    _expect("snake_hint streak",   adv2.snake_hint.get_streak(), 2)
+    for _i in 7:
+        adv2.tick()
+    _expect("snake_hint streak",   adv2.snake_hint.get_streak(), 7)
     _expect("snake_hint state",    adv2.hint_state("snake"), "pending")
 
     var bytes = adv2.save_state()
 
-    # Mutate post-save — push snake_hint to eligible
+    # Mutate post-save — push snake_hint to eligible at streak 8
     adv2.tick()
     _expect("post-save eligible",  adv2.hint_state("snake"), "eligible")
 
     var adv3 = Cca.new()
     adv3.restore_state(bytes)
     _expect("restored state",      adv3.hint_state("snake"), "pending")
-    _expect("restored streak",     adv3.snake_hint.get_streak(), 2)
+    _expect("restored streak",     adv3.snake_hint.get_streak(), 7)
 
     # Replay the same tick — same outcome
     adv3.tick()

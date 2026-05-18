@@ -2003,21 +2003,35 @@ const AspectBus = preload("res://scripts/aspects.gd").AspectBus
                 # Adventure provides the message at request
                 # time. Detect was-eligible-now-offered by
                 # comparing state pre/post call; if a hint was
-                # actually delivered, charge the canonical -2
-                # score penalty.
+                # actually delivered, charge the canon section-11
+                # penalty.
+                #
+                # Per-hint canon costs (advent.dat section 11
+                # column 3 — "cost"):
+                #   cave   = 2     bird   = 2     snake  = 2
+                #   maze   = 4     plover = 5     witts  = 3
+                # Earlier draft charged a flat -2 for every hint;
+                # surfaced 2026-05-18 by test_cca_score_system.gd.
                 var was_eligible: bool = false
+                var cost: int = 0
                 if name == "bird":
                     was_eligible = self.bird_hint.is_eligible()
+                    cost = 2
                 elif name == "cave":
                     was_eligible = self.cave_hint.is_eligible()
+                    cost = 2
                 elif name == "snake":
                     was_eligible = self.snake_hint.is_eligible()
+                    cost = 2
                 elif name == "maze":
                     was_eligible = self.maze_hint.is_eligible()
+                    cost = 4
                 elif name == "plover":
                     was_eligible = self.plover_hint.is_eligible()
+                    cost = 5
                 elif name == "witts":
                     was_eligible = self.witts_hint.is_eligible()
+                    cost = 3
                 var response: String = "No hint by that name."
                 if name == "bird":
                     # Canon msg #19 verbatim.
@@ -2044,8 +2058,8 @@ const AspectBus = preload("res://scripts/aspects.gd").AspectBus
                     response = self.witts_hint.request_hint(
                         "Don't go west.")
                 if was_eligible:
-                    self.score_hints = self.score_hints - 2
-                    self.real_score = self.real_score - 2
+                    self.score_hints = self.score_hints - cost
+                    self.real_score = self.real_score - cost
                 @@:(response)
             }
 
@@ -4109,14 +4123,24 @@ const AspectBus = preload("res://scripts/aspects.gd").AspectBus
         #    7      75       -4    #176    #177    maze
         #    8      25       -5    #178    #179    plover
         #    9      20       -3    #180    #181    witts
-        # Thresholds reduced from canon to keep the smoke tests
-        # snappy (the eligibility ratchet still works the same).
-        cave_hint   = @@Hint(10)
-        bird_hint   = @@Hint(3)
-        snake_hint  = @@Hint(3)
-        maze_hint   = @@Hint(5)
-        plover_hint = @@Hint(4)
-        witts_hint  = @@Hint(4)
+        # Canon advent.dat section-11 thresholds. Per canon CCA,
+        # hints fire only after the player has been in the trigger
+        # condition for the listed number of turns — never sooner.
+        #
+        # Earlier draft used reduced values (10/3/3/5/4/4) "to keep
+        # smoke tests snappy", which meant the shipping game was
+        # NEVER actually tested at canon thresholds. Restored
+        # 2026-05-18 per the canon-fidelity discipline (tests
+        # accommodate the game, not the other way around). If a
+        # test needs the hint eligible fast, it should call
+        # observe() in a loop — that's bounded, fast, and doesn't
+        # corrupt the shipping behaviour.
+        cave_hint   = @@Hint(4)
+        bird_hint   = @@Hint(5)
+        snake_hint  = @@Hint(8)
+        maze_hint   = @@Hint(75)
+        plover_hint = @@Hint(25)
+        witts_hint  = @@Hint(20)
 
         # Dragon — small but iconic. Multi-turn parser dialog
         # encoded as state. The "ATTACK / WITH WHAT? / YES"

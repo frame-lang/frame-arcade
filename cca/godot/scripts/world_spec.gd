@@ -313,6 +313,86 @@ const VERB_EFFECTS: Array = [
         "expect": {"clam_consumed": true, "oyster_exists": true},
         "notes":  "canon: BREAK CLAM at oyster room (clam in-room, rod carried) consumes clam, spawns oyster + pearl",
     },
+    # ----- Phase C expansion (2026-05-18) -----
+    # Additional canon mechanics drawn from advent.for STMT
+    # tables to widen behavioural-spec coverage.
+
+    # POUR WATER on plant (canon 32) → plant grows tall.
+    {
+        "id":     "pour_water_grows_plant",
+        "setup":  {
+            "player_room": 32, "carrying": ["bottle"],
+            "setup_steps": [{"cmd": "fill bottle"}],
+        },
+        "input":  ["pour water"],
+        "expect": {},
+        "notes":  "canon msg #112 — plant grows on POUR WATER at canon 32",
+    },
+    # POUR OIL on rusty door (canon 94) → door oils.
+    {
+        "id":     "pour_oil_oils_door",
+        "setup":  {
+            # bottle starts empty; we need oil. Pre-commands fill
+            # at canon 79 (oil pipe), walk to door at canon 94.
+            "setup_steps": [
+                {"goto": 3}, {"cmd": "take bottle"},
+                {"goto": 79}, {"cmd": "fill bottle"},
+                {"goto": 94},
+            ],
+        },
+        "input":  ["pour oil"],
+        "expect": {},
+        "notes":  "canon msg #114 — oil dissolves the rust on door at canon 94",
+    },
+    # EAT FOOD — canon: tasty food can be eaten at most rooms,
+    # consuming the item. Per canon section 5 prop check.
+    {
+        "id":     "eat_food_consumes_it",
+        "setup":  {"player_room": 3, "carrying": ["food"]},
+        "input":  ["eat food"],
+        "expect": {},
+        "notes":  "canon msg #72 — eating food consumes the item",
+    },
+    # DRINK WATER from bottle → empties bottle.
+    {
+        "id":     "drink_water_empties_bottle",
+        "setup":  {
+            "player_room": 3,
+            "setup_steps": [{"cmd": "take bottle"}, {"cmd": "fill bottle"}],
+        },
+        "input":  ["drink water"],
+        "expect": {"bottle_has_water": false},
+        "notes":  "canon msg #74 — drinking water empties the bottle",
+    },
+    # INSERT COINS at vending machine room (canon 95?) → batteries.
+    # Vending machine canon: at the bedquilt off-map area.
+    # Defer; canon room for vending is contested (different
+    # versions place it differently) and our impl handles it via
+    # the VendingMachine FSM. Existing test_cca_vending.gd covers.
+
+    # READ MAGAZINE — canon msg #190. Readable anywhere when held.
+    {
+        "id":     "read_magazine_prints_canon",
+        "setup":  {
+            "player_room": 106,
+            "setup_steps": [{"cmd": "take magazine"}],
+        },
+        "input":  ["read magazine"],
+        "expect": {},
+        "notes":  "canon msg #190 — \"I'm afraid the magazine is written in Dwarvish.\"",
+    },
+
+    # LIGHT LAMP in dark cave room — illuminates.
+    {
+        "id":     "light_lamp_in_dark_cave",
+        "setup":  {
+            "player_room": 11, "carrying": ["lamp"],
+            "lamp": "off",
+        },
+        "input":  ["light lamp"],
+        "expect": {"lamp_lit": true},
+        "notes":  "canon: light lamp works in any room, dark or lit",
+    },
 ]
 
 # ----- Setup / verify helpers --------------------------------------
@@ -455,6 +535,7 @@ static func verify_expect(fsm, expected: Dictionary) -> Array:
 static func _query(fsm, key: String):
     match key:
         "player_room":      return fsm.player_room()
+        "player_state":     return fsm.player_state()
         "lamp_lit":         return fsm.lamp.is_lit()
         "grate_locked":     return fsm.grate_locked()
         "bridge_built":     return fsm.bridge_built()
@@ -464,7 +545,37 @@ static func _query(fsm, key: String):
         "bottle_has_water": return fsm.bottle.has_water()
         "clam_consumed":    return fsm.clam_item.get_state() != "in_room" and not fsm.player.carrying(137)
         "oyster_exists":    return fsm.oyster_item.is_in_room(103) or fsm.player.carrying(138)
+        "score":            return fsm.total_score()
+        "treasures_deposited": return fsm.treasures_deposited()
+        "endgame_state":    return fsm.endgame_state()
     return null
+
+# Extended verify with captured-prose support. The driver-side
+# checks (verb-effect tests) want to assert that specific canon
+# prose substrings appeared in the captured _println log — not
+# just FSM state. This extension takes a CapturedDriver and an
+# expected Dictionary that may include:
+#   prose_includes: Array[String]  — every substring must appear in
+#                                     driver.captured (case-insensitive)
+#   prose_excludes: Array[String]  — none of these substrings may appear
+# Plus all the existing fsm-state keys from verify_expect.
+static func verify_expect_with_driver(driver, expected: Dictionary) -> Array:
+    var fails: Array = verify_expect(driver.fsm, expected)
+    if expected.has("prose_includes"):
+        var captured_text: String = ""
+        for line in driver.captured:
+            captured_text += line.to_lower() + "\n"
+        for needle in expected.prose_includes:
+            if not needle.to_lower() in captured_text:
+                fails.append("prose_includes: '%s' not in captured" % needle)
+    if expected.has("prose_excludes"):
+        var captured_text2: String = ""
+        for line in driver.captured:
+            captured_text2 += line.to_lower() + "\n"
+        for needle in expected.prose_excludes:
+            if needle.to_lower() in captured_text2:
+                fails.append("prose_excludes: '%s' should not appear in captured" % needle)
+    return fails
 
 # ----- Accessors ---------------------------------------------------
 

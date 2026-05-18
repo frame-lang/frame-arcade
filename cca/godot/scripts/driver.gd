@@ -1599,15 +1599,21 @@ func _handle_movement(direction: String) -> void:
     fsm.set_old_loc2(fsm.get_old_loc())
     fsm.set_old_loc(current)
     var response: String = fsm.do_command("move", str(dest))
-    # We use our own room descriptions (via FSM's look) rather
-    # than the FSM's move-response when the move succeeded —
-    # it's more atmospheric. But when the FSM had a rebuff (e.g.
-    # clam-carry at canon 103 → msg #118, oyster-carry → #119),
-    # the player didn't actually move and we MUST print the FSM's
-    # response — otherwise the canon prose is silently lost.
-    # Surfaced 2026-05-18 by test_cca_canon_conditional_rows.gd
-    # while closing the Phase C conditional-row gap.
-    if fsm.player_room() == current and response != "":
+    # Print the FSM's move-response when it carries canon prose
+    # that won't otherwise reach the player. Three cases:
+    #   1. The player didn't move (e.g. clam-carry rebuff at
+    #      canon 103 → msg #118).
+    #   2. The player just died at the destination (canon death
+    #      rooms 20/21 — msg #58 / msg #59 "you fell into a pit
+    #      and broke every bone in your body" / "you didn't make
+    #      it"). Without printing, the player only sees the room
+    #      description, missing the canon death prose itself.
+    # The "successful normal move" case (response starts with
+    # "You are <description>") is intentionally suppressed —
+    # _print_room below produces the atmospheric version.
+    # Surfaced 2026-05-18 by Phase-C death-path systematic tests.
+    if response != "" and (fsm.player_room() == current or
+                            fsm.player_state() == "dead"):
         _println(response)
     fsm.tick()
     _check_pirate_steal()
@@ -2049,7 +2055,14 @@ func _check_endgame_phase_change() -> void:
             _println("[color=#cc7777][b]The sepulchral voice entones, \"The cave is now closed.\" As the echoes fade, there is a blinding flash of light (and a small puff of orange smoke). . . . As your eyes refocus, you look around and find...[/b][/color]")
             _println("[color=#aaaaaa][i](Try DETONATE.)[/i][/color]")
         elif s == "won":
-            _println("[color=#88dd88][b]There is a loud explosion, and a twenty-foot hole appears in the far wall, burying the dwarves in the rubble. You march through the hole and find yourself in the main office, where a cheering band of friendly elves carry the conquering adventurer off into the sunset. (Final score: %d)[/b][/color]" % fsm.total_score())
+            # Final score uses fsm.score() (= real_score) which
+            # includes treasures + visit-score + hint penalties +
+            # endgame bonus. Earlier draft called total_score()
+            # which is treasures-only — surfaced 2026-05-18 by
+            # the score-system canon audit. The canon "Final
+            # score" prose is supposed to summarise the whole
+            # adventure, not just deposits.
+            _println("[color=#88dd88][b]There is a loud explosion, and a twenty-foot hole appears in the far wall, burying the dwarves in the rubble. You march through the hole and find yourself in the main office, where a cheering band of friendly elves carry the conquering adventurer off into the sunset. (Final score: %d)[/b][/color]" % fsm.score())
 
     # Closing-phase crescendo via Endgame substates (V1.2 Phase 0.3).
     # $ClosingT25 / $ClosingT15 / $ClosingT5 each queue a warning

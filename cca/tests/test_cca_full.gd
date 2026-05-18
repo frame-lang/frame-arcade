@@ -167,13 +167,17 @@ func _init():
     _expect("endgame component",       adv.endgame_score(),  50)
 
     print("Hint penalty (separate adventure):")
+    # Canon bird threshold = 5 turns (advent.dat section 11).
+    # Earlier draft used 4 ticks under the lowered-threshold
+    # shortcut; restored 2026-05-18.
     var adv2 = Cca.new()
     adv2.setup_default_aspects()
     adv2.player.move_to(13)             # bird chamber
-    for i in 4:
+    for i in 5:
         adv2.tick()
     _expect("bird_hint eligible",      adv2.hint_state("bird"), "eligible")
     adv2.request_hint("bird")
+    # Canon advent.dat section-11 cost for bird = 2 (matches).
     _expect("hint penalty",            adv2.hint_penalty(),  -2)
 
     print()

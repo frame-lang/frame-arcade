@@ -1353,12 +1353,14 @@ func _handle_movement(direction: String) -> void:
     fsm.set_old_loc2(fsm.get_old_loc())
     fsm.set_old_loc(current)
     var response: String = fsm.do_command("move", str(dest))
-    # When the move succeeded, prefer the driver's own room
-    # display. When the FSM had a rebuff (player didn't move),
-    # MUST print the response — otherwise canon prose (e.g.
-    # clam-carry msg #118 at canon 103) is silently lost.
+    # Print FSM response when it carries canon prose otherwise
+    # lost: (a) player didn't move (rebuff like clam-carry at
+    # canon 103, msg #118); (b) player moved and died (canon
+    # death rooms 20/21, msg #58 / msg #59). Successful normal
+    # moves use _print_room below for atmospheric display.
     # Mirrors the fix in cca/godot/scripts/driver.gd.
-    if fsm.player_room() == current and response != "":
+    if response != "" and (fsm.player_room() == current or
+                            fsm.player_state() == "dead"):
         _println(response)
     fsm.tick()
     _check_pirate_steal()
@@ -1670,7 +1672,11 @@ func _check_endgame_phase_change() -> void:
             _println("[color=#cc7777][b]The sepulchral voice entones, \"The cave is now closed.\" As the echoes fade, there is a blinding flash of light (and a small puff of orange smoke). . . . As your eyes refocus, you look around and find...[/b][/color]")
             _println("[color=#aaaaaa][i](Try DETONATE.)[/i][/color]")
         elif s == "won":
-            _println("[color=#88dd88][b]There is a loud explosion, and a twenty-foot hole appears in the far wall, burying the dwarves in the rubble. You march through the hole and find yourself in the main office, where a cheering band of friendly elves carry the conquering adventurer off into the sunset. (Final score: %d)[/b][/color]" % fsm.total_score())
+            # fsm.score() (=real_score) is the full breakdown
+            # — treasures + visits + hints + endgame bonus.
+            # Earlier draft used total_score() = treasures-only,
+            # surfaced 2026-05-18 by the score-system audit.
+            _println("[color=#88dd88][b]There is a loud explosion, and a twenty-foot hole appears in the far wall, burying the dwarves in the rubble. You march through the hole and find yourself in the main office, where a cheering band of friendly elves carry the conquering adventurer off into the sunset. (Final score: %d)[/b][/color]" % fsm.score())
 
     # Closing-phase crescendo via Endgame substates (V1.2 Phase 0.3).
     # T-15 and T-5 are port-only flavor (canon has just msg #129).
