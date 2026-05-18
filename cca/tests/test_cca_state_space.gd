@@ -3,108 +3,52 @@ extends SceneTree
 # ============================================================
 # test_cca_state_space.gd
 # ============================================================
-# Deterministic state-space search over CCA's reachable state
-# graph. See cca/docs/rfcs/rfc-0001.md for the design.
+# Single-sweep canonical-start BFS over the reachable state
+# graph. Every state in `visited` is *player-reachable* — arrived
+# at by some sequence of Driver._process_input calls from the
+# canonical start.
 #
-# Three sub-runs cover different sectors of the cave by varying
-# the initial state — direction-only BFS is bounded by gates
-# (grate locked / dark / troll blocking / etc.), so each run
-# starts with the items needed to push past the prior gates.
-# Each is its own opt-in sweep against shared invariants and
-# the save/restore round-trip check.
+# Rewritten 2026-05-18 from the earlier three-sweep approach:
+#
+#   OLD: three sweeps with FSM teleport between (surface,
+#        well-house-with-items, debris-with-rod). Each sweep
+#        proved FSM-reachability per its teleported start, but
+#        not player-reachability — a state was in `visited`
+#        because we teleported to it, regardless of whether
+#        canonical play could reach it.
+#
+#   NEW: one sweep from canonical start, BFS-expanding via the
+#        Driver._process_input pipeline. Player-reachability is
+#        proven by construction. States the old sweeps reached
+#        via teleport that aren't player-reachable simply don't
+#        appear in `visited` — which is the correct answer.
+#
+# The action source is driver.list_actions_here() (shared with
+# probe.gd), filtered to non-wild actions because wild verbs
+# almost always produce self-loops in the state graph.
 # ============================================================
 
 const StateSpace = preload("res://scripts/state_space.gd")
 
-var total_failures: int = 0
-
 func _init():
-    print("=== CCA state-space search (RFC-0001 Phase B) ===")
+    print("=== CCA state-space search (canonical-start BFS) ===")
     print("")
 
-    _sweep_surface()
-    _sweep_above_grate()
-    _sweep_deep_cave()
-
-    print("")
-    if total_failures == 0:
-        print("PASS — all sweeps complete, no invariant violations")
-        quit(0)
-    else:
-        print("FAIL — %d invariant violations across sweeps" % total_failures)
-        quit(total_failures)
-
-# ----- Sweep 1: surface only ---------------------------------------
-# Canonical start state — no items, grate locked. The search
-# should reach exactly the 8 surface rooms (1-8 form the cluster
-# before descent). Bounded by the grate-locked gate at room 8.
-
-func _sweep_surface() -> void:
-    print("--- Sweep 1: surface only (no items, grate locked) ---")
     var s = StateSpace.new()
     s.seed = 42
-    s.max_states = 2000
+    # Cap raised from 2000 (legacy three-sweep total) — canonical-
+    # start BFS reaches more states from one seed because frontier
+    # expansion crosses gates the teleport sweeps had to skip via
+    # pre-staged inventory. Estimated reachable set is in the
+    # thousands; 10K is a safety ceiling, not an expected target.
+    s.max_states = 10000
     s.run()
     s.report()
-    total_failures += s.violations.size()
     print("")
 
-# ----- Sweep 2: surface + well-house items -------------------------
-# Player starts at the well-house carrying the canonical starter
-# items (keys/lamp/food/bottle). With keys the grate unlocks; with
-# lamp the dark cobble-crawl is navigable. The search reaches the
-# surface + early cave rooms (cobble crawl, debris, bird chamber,
-# Hall of Mists, Hall of Mountain King area).
-
-func _sweep_above_grate() -> void:
-    print("--- Sweep 2: starter items (keys+lamp+food+bottle) ---")
-    var s = StateSpace.new()
-    s.seed = 42
-    s.max_states = 2000
-    var driver = s.prepare_driver()
-
-    # Prep: place player at well-house, give them starter items.
-    var fsm = driver.fsm
-    fsm.player.move_to(3)
-    fsm.keys_item.try_take(3);    fsm.player.take(fsm.KEYS_ID)
-    fsm.lamp_item.try_take(3);    fsm.player.take(fsm.LAMP_ID)
-    fsm.food_item.try_take(3);    fsm.player.take(fsm.FOOD_ID)
-    fsm.bottle_item.try_take(3);  fsm.player.take(fsm.BOTTLE_ID)
-    # Light the lamp so dark-room search doesn't immediately
-    # die to the pit-fall hazard (a real canon mechanic the
-    # search shouldn't be tripping on at every state).
-    fsm.lamp.light()
-
-    s.run_from(driver)
-    s.report()
-    total_failures += s.violations.size()
-    print("")
-
-# ----- Sweep 3: deep cave with rod ---------------------------------
-# Player descended past the grate AND carrying the rod (canon
-# obj #5). The rod is required to wave at the fissure for the
-# crystal bridge — opens up rooms 27, 41, 42, 43+ (Hall of Mists
-# crossing, twisty-maze cluster, dark-room area). Different
-# state-space sector than sweep 2.
-
-func _sweep_deep_cave() -> void:
-    print("--- Sweep 3: deep cave with rod ---")
-    var s = StateSpace.new()
-    s.seed = 42
-    s.max_states = 2000
-    var driver = s.prepare_driver()
-
-    var fsm = driver.fsm
-    # Place at debris room (canon 11) with starter items + rod.
-    fsm.player.move_to(11)
-    fsm.keys_item.try_take(3);    fsm.player.take(fsm.KEYS_ID)
-    fsm.lamp_item.try_take(3);    fsm.player.take(fsm.LAMP_ID)
-    fsm.food_item.try_take(3);    fsm.player.take(fsm.FOOD_ID)
-    fsm.bottle_item.try_take(3);  fsm.player.take(fsm.BOTTLE_ID)
-    fsm.rod_item.try_take(11);    fsm.player.take(fsm.ROD_ID)
-    fsm.lamp.light()
-
-    s.run_from(driver)
-    s.report()
-    total_failures += s.violations.size()
-    print("")
+    if s.violations.is_empty():
+        print("PASS — canonical-start BFS clean")
+        quit(0)
+        return
+    print("FAIL — %d invariant violation(s) across reachable states" % s.violations.size())
+    quit(s.violations.size())

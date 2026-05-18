@@ -44,14 +44,6 @@ var max_states: int = 1000
 # detection. ~30ms per state.
 var check_save_restore: bool = true
 
-# Whether to enumerate take/drop interactions in addition to
-# directions. Significantly widens the search.
-var enumerate_items: bool = true
-
-# Whether to enumerate magic-word teleports at canonical source
-# rooms. Cheap (3 verbs max per state).
-var enumerate_magic_words: bool = true
-
 # ----- Results -----------------------------------------------------
 
 var visited: Dictionary = {}
@@ -78,14 +70,6 @@ const ITEM_IDS: Dictionary = {
     136: "axe",        137: "clam",      138: "oyster",
     139: "batteries",  140: "magazine",  141: "rod",       # mark_rod
     142: "lamp",
-}
-
-# Magic-word teleports — verbs and the rooms they're canonically
-# anchored to (any of the listed rooms makes the verb relevant).
-const MAGIC_WORDS: Dictionary = {
-    "xyzzy":  [1, 11],
-    "plugh":  [3, 33],
-    "plover": [33, 100],
 }
 
 # ----- Driver lifecycle --------------------------------------------
@@ -115,7 +99,26 @@ func run() -> void:
     var driver = prepare_driver()
     run_from(driver)
 
-# Search from the driver's current state.
+# Search from the driver's current state. BFS frontier-expansion
+# through real Driver commands.
+#
+# Coverage semantics (changed 2026-05-18): canonical-start BFS
+# proves player-reachability of every visited state. Earlier
+# version did three teleport-based sweeps; that only proved FSM-
+# reachability — a state could be in `visited` because we
+# teleported to it, even if no canonical command sequence reaches
+# it. The single-sweep version eliminates that ambiguity: every
+# state in `visited` was arrived at by some sequence of
+# Driver._process_input calls from the canonical start.
+#
+# Action source: driver.list_actions_here() — the same affordance
+# enumerator the probe uses. Filtered to non-wild actions in BFS
+# because wild verbs (examine X / wave Y at every visible noun)
+# almost always produce self-loops in the state graph (rebuff
+# prose, no state change). They're valuable for parser-coverage
+# tests (the probe's job) but waste BFS budget for reachability.
+# The probe handles the parser-path-breadth dimension; this
+# function handles the reachability dimension.
 func run_from(driver) -> void:
     var root_state: PackedByteArray = driver.fsm.save_state()
     var root_hash: String = _hash_state(driver)
@@ -149,19 +152,26 @@ func run_from(driver) -> void:
                     "reason": "save/restore round-trip diverged: %s → %s" % [node_hash, re_hash],
                 })
 
-        var actions: Array = _enumerate_actions(driver)
+        # Affordance enumeration via the driver's own
+        # introspection. Wild verbs are filtered because they
+        # don't expand the frontier (mostly self-loops); the
+        # probe.gd walker exercises them for parser coverage
+        # instead.
+        var actions: Array = driver.list_actions_here()
         for action in actions:
+            if action.kind == "wild":
+                continue
             actions_tried += 1
             driver.fsm.restore_state(node_state)
-            driver._process_input(String(action).to_lower())
-            var inv_failures = _check_invariants(driver, node_path + [action])
+            driver._process_input(action.input)
+            var inv_failures = _check_invariants(driver, node_path + [action.key])
             for f in inv_failures:
                 violations.append(f)
             var new_hash: String = _hash_state(driver)
             if not visited.has(new_hash):
                 visited[new_hash] = true
                 var new_path: Array = node_path.duplicate()
-                new_path.append(action)
+                new_path.append(action.key)
                 reproducer[new_hash] = new_path
                 queue.append({
                     "state": driver.fsm.save_state(),
@@ -205,145 +215,6 @@ func _npc_signature(driver) -> String:
         fsm.pirate.get_state(),
     ]
 
-# ----- Action enumeration ------------------------------------------
-
-func _enumerate_actions(driver) -> Array:
-    var actions: Array = []
-    var current: int = driver.fsm.player_room()
-
-    # Direction commands — all keys in the current room's exits.
-    var exits: Dictionary = Topology.ROOMS.get(current, {})
-    for direction in exits.keys():
-        actions.append(direction)
-
-    # Magic-word teleports if at a canonical source room.
-    if enumerate_magic_words:
-        for word in MAGIC_WORDS.keys():
-            if current in MAGIC_WORDS[word]:
-                actions.append(word)
-
-    # Object interactions — take items in the current room,
-    # drop items currently carried. EXAMINE / READ are no-ops
-    # for state, so we skip them in the action enumeration
-    # (they'd just waste BFS time without expanding coverage).
-    if enumerate_items:
-        for id in ITEM_IDS.keys():
-            var name: String = ITEM_IDS[id]
-            if driver.fsm.player.carrying(id):
-                actions.append("drop " + name)
-            elif _item_in_room(driver, id, current):
-                actions.append("take " + name)
-
-    # State-changing verbs gated on preconditions. Each fires
-    # only when its target is plausibly present; rebuffs at
-    # other rooms are OK (no state change, just a wasted action
-    # — not a correctness issue).
-    var fsm = driver.fsm
-    if fsm.player.carrying(fsm.LAMP_ID):
-        if not fsm.lamp.is_lit():
-            actions.append("light lamp")
-        else:
-            actions.append("extinguish lamp")
-    if fsm.player.carrying(fsm.KEYS_ID) and (current == 8 or current == 9):
-        actions.append("unlock grate")
-    if fsm.player.carrying(fsm.ROD_ID):
-        # Wave-rod-at-fissure is the canonical crystal-bridge
-        # builder; fires at rooms 17 (east bank) or 27 (west).
-        actions.append("wave rod")
-    # NPC interaction verbs — gated by the NPC being canonically
-    # at the current room (we approximate with hard-coded canon
-    # rooms; cheaper than querying every NPC's location).
-    if current == 119 and fsm.dragon_alive():
-        actions.append("attack dragon")
-    if current == 19 and fsm.snake.is_blocking():
-        actions.append("attack snake")
-        actions.append("release bird") if fsm.player.carrying(fsm.BIRD_ID) else null
-    if current == 130:
-        # Bear room — feed / take chain are the canon mechanics.
-        if fsm.player.carrying(fsm.FOOD_ID):
-            actions.append("feed bear")
-    # Bird-cage capture
-    if current == 13 and fsm.bird.get_state() == "free":
-        actions.append("take bird")
-    # Break clam → pearl (at any room with clam carried or in room)
-    if fsm.player.carrying(fsm.CLAM_ID) and fsm.player.carrying(fsm.ROD_ID):
-        actions.append("break clam")
-    # Bottle fluid interactions
-    if fsm.player.carrying(fsm.BOTTLE_ID):
-        if fsm.bottle.has_water():
-            actions.append("pour water")
-        elif fsm.bottle.has_oil():
-            actions.append("pour oil")
-        else:
-            # Empty bottle — fill at canon water sources (rooms
-            # with a stream / spring per canon section-9 ITEM 0
-            # — well house pool, fissure pool, etc.).
-            if current in [3, 23, 79]:
-                actions.append("fill bottle")
-    # Read oyster — canon msg #192/193/194 chain. State change:
-    # `is_oyster_revealed()` flips on first read. Fires when the
-    # oyster is in the current room (post-break-clam) or carried.
-    if (fsm.player.carrying(fsm.OYSTER_ID)
-            or fsm.oyster_item.is_in_room(current)):
-        actions.append("read oyster")
-    # Throw axe — when axe is in inventory and a hostile NPC is
-    # canonically at the current room (dragon at 119, dwarves
-    # are dormant so not enumerated). The throw transitions the
-    # axe FSM ($Carried → $InRoom at the throw room).
-    if fsm.player.carrying(fsm.AXE_ID):
-        if current == 119 and fsm.dragon_alive():
-            actions.append("throw axe")
-    # Attack bear in bear-room — different prose depending on
-    # bear state; doesn't transition the bear (canon msg #165-167).
-    if current == 130:
-        actions.append("attack bear")
-    # Attack bird (no-op rebuff but exercises the verb)
-    if current == 13 and fsm.bird.get_state() == "free":
-        actions.append("attack bird")
-
-    return actions
-
-# Best-effort check whether item `id` is visible in `room`. The
-# driver has a more comprehensive `_object_in_room` helper but it
-# requires matching on every concrete `_item` FSM; we approximate
-# by querying the most common ones. False positives just cause an
-# extra "take X" action that no-ops with "You can't be serious!" —
-# wasted action but not a correctness issue.
-func _item_in_room(driver, id: int, room: int) -> bool:
-    var fsm = driver.fsm
-    # Inline the most-common items. Others fall through to a
-    # generic try — if the FSM exposes is_in_room(room), use it.
-    match id:
-        100: return fsm.bird.get_location() == room
-        101: return fsm.chain.get_location() == room
-        110: return fsm.gold.get_location() == room
-        111: return fsm.silver.get_location() == room
-        112: return fsm.diamonds.get_location() == room
-        113: return fsm.jewelry.get_location() == room
-        114: return fsm.pearl.get_location() == room
-        115: return fsm.vase.get_location() == room
-        116: return fsm.eggs.get_location() == room
-        117: return fsm.trident.get_location() == room
-        118: return fsm.emerald.get_location() == room
-        119: return fsm.spices.get_location() == room
-        120: return fsm.chest.get_location() == room
-        121: return fsm.pyramid.get_location() == room
-        122: return fsm.rug.get_location() == room
-        123: return fsm.coins.get_location() == room
-        130: return fsm.rod_item.is_in_room(room)
-        131: return fsm.keys_item.is_in_room(room)
-        132: return fsm.bottle_item.is_in_room(room)
-        133: return fsm.cage_item.is_in_room(room)
-        134: return fsm.food_item.is_in_room(room)
-        135: return fsm.pillow_item.is_in_room(room)
-        136: return fsm.axe_item.is_in_room(room)
-        137: return fsm.clam_item.is_in_room(room)
-        138: return fsm.oyster_item.is_in_room(room)
-        139: return fsm.batteries_item.is_in_room(room)
-        140: return fsm.magazine_item.is_in_room(room)
-        141: return fsm.mark_rod_item.is_in_room(room)
-        142: return fsm.lamp_item.is_in_room(room)
-    return false
 
 # ----- Invariants --------------------------------------------------
 
