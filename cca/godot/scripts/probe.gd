@@ -48,6 +48,7 @@ const Cca = preload("res://scripts/cca.gd")
 const Driver = preload("res://scripts/driver.gd")
 const H = preload("res://scripts/_test_helpers.gd")
 const WorldGraph = preload("res://scripts/world_graph.gd")
+const WorldSpec = preload("res://scripts/world_spec.gd")
 
 # ----- Configuration -----------------------------------------------
 
@@ -205,6 +206,18 @@ var storm_size: int = 25               # max actions to fire per storm at target
 var routed_walks: int = 0              # walks that took the routed path
 var storm_actions: int = 0             # actions exercised via the storm primitive
 var routing_failures: int = 0          # routed walks where shortest_path returned empty
+
+# ----- Phase C: world-spec violation tracking ---------------------
+# When the probe observes an item drifting into limbo (location 0,
+# not carried) that the spec doesn't justify being there, that's
+# a canon-fidelity violation. Recorded here for the report.
+#
+# Each entry: {walk_idx, step, noun, room_at_observation, reason}.
+# We dedupe by (noun, reason) so a single bug doesn't flood the
+# report — first observation wins and counts increment.
+var spec_violations: Array = []
+var spec_violation_counts: Dictionary = {}  # "<noun>:<reason>" → count
+var spec_checks_run: int = 0           # total per-walk checks performed
 
 # Tiebreak RNG. Persists across walks so two structurally
 # identical walks at different points in the run pick different
@@ -375,6 +388,13 @@ func _walk(walk_idx: int) -> void:
             return
 
     step_cap_hits += 1
+    # Phase C spec check fires at walk end rather than per-step.
+    # The Item FSM's only public location predicate is is_in_room(r)
+    # which the check loops across 1..140 canon rooms; per-step
+    # that's 1800+ calls/step → infeasible. Per-walk-end gives us
+    # "by the end of this walk, item X was in unjustified limbo"
+    # which is actionable enough for canon-fidelity bug-finding.
+    _check_spec_violations_at_walk_end(driver, walk_idx)
 
 # ----- LFU action picker --------------------------------------------
 
@@ -562,6 +582,25 @@ func _routed_walk_phase(driver: H.CapturedDriver, walk_idx: int) -> int:
     actions_used += fired
     return actions_used
 
+# Phase C spec-violation check. Calls WorldSpec.check_no_limbo
+# against the driver's current FSM state; first observation of any
+# (noun, reason) pair gets archived, repeats just bump the count.
+# Walk-end timing is a cost compromise — see the call-site comment
+# in _walk for the per-step alternative we ruled out.
+func _check_spec_violations_at_walk_end(driver: H.CapturedDriver, walk_idx: int) -> void:
+    spec_checks_run += 1
+    var violations: Array = WorldSpec.check_no_limbo(driver.fsm)
+    for v in violations:
+        var key: String = "%s:%s" % [v.noun, v.reason]
+        spec_violation_counts[key] = spec_violation_counts.get(key, 0) + 1
+        if spec_violation_counts[key] == 1:
+            spec_violations.append({
+                "walk_idx": walk_idx,
+                "noun":     v.noun,
+                "reason":   v.reason,
+                "room_now": driver.fsm.player_room(),
+            })
+
 func _pick_lfu(available: Array, room: int) -> Dictionary:
     var min_count: int = 0x7fffffff
     var candidates: Array = []
@@ -633,6 +672,8 @@ func report() -> void:
     print("Routed walks:    %d  (BFS-routed to under-tested target cells)" % routed_walks)
     print("Routing fails:   %d  (target unreachable in graph; fell back to LFU)" % routing_failures)
     print("Storm actions:   %d  (save/restore-rewound permutations at target anchors)" % storm_actions)
+    print("Spec checks:     %d  (world_spec.gd in-limbo checks at walk-end)" % spec_checks_run)
+    print("Spec violations: %d  distinct (noun, reason) pairs" % spec_violations.size())
     if first_victory_walk >= 0:
         print("VICTORY:         walk #%d, %d-step trajectory" % [
             first_victory_walk, first_victory_steps])
@@ -667,6 +708,23 @@ func report_most_actuated(limit: int = 10) -> void:
     print("--- Most-actuated coverage cells ---")
     for k in sorted_keys.slice(0, limit):
         print("  %4d × %s" % [coverage[k], k])
+
+# Detail dump of Phase C spec violations. Each entry is a unique
+# (noun, reason) pair observed during walks, ordered by first
+# detection. The count tells you how often each kind recurred —
+# a violation with count 1 might be a one-off racy state; a
+# violation with count 100 is a robust bug.
+func report_spec_violations() -> void:
+    if spec_violations.is_empty():
+        print("--- Spec violations: NONE ---")
+        return
+    print("--- Spec violations (%d distinct, %d total checks) ---" % [
+        spec_violations.size(), spec_checks_run])
+    for v in spec_violations:
+        var key: String = "%s:%s" % [v.noun, v.reason]
+        var count: int = spec_violation_counts.get(key, 1)
+        print("  %d×  %s — %s  (first seen walk #%d, player at room %d)" % [
+            count, v.noun, v.reason, v.walk_idx, v.room_now])
 
 # Dump the winning trajectory if one was found. Each entry is the
 # action_key the walker chose at that step; the prefix portion

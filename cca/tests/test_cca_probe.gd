@@ -109,6 +109,11 @@ func _init():
     # so the run produces a replayable winning sequence.
     p.report_victory_trajectory(0)
     print("")
+    # Phase C model-based testing — items observed in unjustified
+    # limbo during walks. Empty list = canon item-placement
+    # invariants hold across the probe's coverage.
+    p.report_spec_violations()
+    print("")
 
     # Pass/fail: meet EITHER coverage threshold (rooms or cells)
     # plus no-stuck-walks. The dual threshold lets routed/storm

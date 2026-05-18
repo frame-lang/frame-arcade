@@ -476,7 +476,56 @@ three by construction.
 
 ---
 
-## What's next: Phase C — world model validation
+## Phase C — Layer 2 (item-placement spec) landed
+
+**Implementation:** `cca/godot/scripts/world_spec.gd` plus the
+dedicated init test `cca/tests/test_cca_world_spec.gd`. Per-walk
+in-limbo check wired into the probe.
+
+The spec declares per-item canon expectations: initial room,
+treasure value, kind (treasure vs. item), whether it's a dynamic-
+spawn (legitimately starts in limbo), and consumable flag. All 28
+carriable items are spec'd. Source: canon advent.dat section 7
+cross-referenced with the FSM init declarations (`Treasure._create`
+/ `Item._create` at the head of `puzzles.fgd`) where the
+implementation already cites canon room numbers in comments.
+
+Two consumers:
+- **Init check** (`test_cca_world_spec.gd`) — builds a fresh
+  `Cca()` and asserts every spec'd item is at the declared room.
+  Smallest possible scope for canon-fidelity verification: a
+  fresh world before any commands. Currently passes — implementation
+  matches canon for all 28 items.
+- **Per-walk in-limbo check** (in `probe._check_spec_violations_at_walk_end`)
+  — at each walk's end, scans every item; if any is in location 0
+  AND not carried AND not a dynamic-spawn item, flags it as a
+  violation. Catches the "item vanishes into nowhere mid-walk"
+  bug class.
+
+Current state: **0 spec violations across 34 walk-end checks** at
+default probe settings. The Phase C scaffolding is in place; bugs
+will surface here when item-handling code drifts away from canon.
+
+### What this layer does NOT cover
+
+- **NPC anchoring** (Layer 3): which rooms each NPC anchors at, what
+  conditions trigger their state transitions. Some NPC presence
+  inferred via `_object_in_room` for the bird, snake, dragon, bear
+  but not spec-asserted.
+- **Verb-effect tables** (Layer 4): for `(room, verb, precondition)
+  → expected_effect`, declare what canon does. Drawn from
+  `advent.for` STMT tables. ~50–100 entries cover the bulk of CCA
+  mechanics. The valuable one; not built yet.
+- **Score-on-deposit cross-check**: the spec carries a `value` field
+  per treasure (14 each in canon), but no test currently asserts
+  that depositing each treasure increments the score by exactly its
+  spec'd value.
+
+These are clean follow-ons. The architecture is proven: the spec is
+data, the checks are functions consuming the data, and both the
+init test and the probe runtime consult the same source of truth.
+
+## What's next: Phase C Layers 3-4 (or call it done)
 
 The probe builds a learned model of CCA's behavior (the world
 graph). Phase C inverts the relationship: declare a model of what
