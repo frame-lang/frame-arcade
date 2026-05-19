@@ -41,9 +41,10 @@ const ExtensionJourneyC = preload("res://scripts/extension_journey.gd")
 # full — exercises every BFS code path in pre-commit without
 # paying the asymptotic runtime.
 const SEEDS: Array = [
-    ["canonical_journey:SnakeGone",   7500, 1000],
-    ["canonical_journey:BearReleased", 7500, 1000],
-    ["PlantUnlock:PlantHugeGrown",    1000,  300],
+    ["canonical_journey:SnakeGone",     7500, 1000],
+    ["canonical_journey:BearReleased",  7500, 1000],
+    ["canonical_journey:InRepository",   500,  200],
+    ["PlantUnlock:PlantHugeGrown",      1000,  300],
 ]
 
 # PlantUnlock journey definition. Identical to the one in
@@ -73,7 +74,7 @@ const PLANT_UNLOCK_STEPS: Array = [
 # 130 rooms across the 3 seeds. Smoke-mode baseline: ~100.
 # As more extension journeys land, the full floor rises.
 static func _union_floor() -> int:
-    return 85 if OS.get_environment("CCA_SMOKE") == "1" else 128
+    return 85 if OS.get_environment("CCA_SMOKE") == "1" else 130
 
 # Select per-seed cap based on smoke vs full mode. Smoke-mode is
 # the 3rd column of each SEEDS entry, full-mode is the 2nd.
@@ -96,13 +97,21 @@ func _init():
         "PlantUnlock", "canonical_journey", "BearReleased",
         PLANT_UNLOCK_STEPS))
 
-    # Walk to each seed's milestone (JourneyTree resolves parents
-    # automatically; the deepest walk captures earlier ones).
-    # Walking to PlantHugeGrown covers all three.
-    if not tree.walk_to(driver, registry, "PlantUnlock:PlantHugeGrown"):
-        print("FAIL — couldn't reach PlantUnlock:PlantHugeGrown")
-        quit(1)
-        return
+    # Walk every seed milestone we need. The CanonicalJourneyAdapter
+    # walks from canonical-start each call, but it assumes the
+    # driver's FSM is also at canonical-start. Multiple walks
+    # against the same driver leave the FSM at the deepest
+    # milestone visited, so a second walk_to that re-runs the
+    # canonical adapter would re-record every milestone snapshot
+    # against a wrong start state — clobbering the good snapshots.
+    # Use a fresh driver per walk to keep snapshots clean.
+    for target in ["canonical_journey:InRepository",
+                   "PlantUnlock:PlantHugeGrown"]:
+        var d = _make_driver()
+        if not tree.walk_to(d, registry, target):
+            print("FAIL — couldn't reach %s" % target)
+            quit(1)
+            return
 
     var per_seed_reached: Dictionary = {}
     for entry in SEEDS:
