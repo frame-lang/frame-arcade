@@ -45,6 +45,7 @@ const SEEDS: Array = [
     ["canonical_journey:BearReleased",  7500, 1000],
     ["canonical_journey:InRepository",   500,  200],
     ["PlantUnlock:PlantHugeGrown",      1000,  300],
+    ["RustyDoorUnlock:AtCanon91",        500,  200],
 ]
 
 # PlantUnlock journey definition. Identical to the one in
@@ -70,11 +71,27 @@ const PLANT_UNLOCK_STEPS: Array = [
          "slab", "south", "down", "pour"]},
 ]
 
+# RustyDoorUnlock: branches off PlantHugeGrown. Walks plant
+# climb to canon 94, FSM-shortcuts oil into the bottle (same
+# pattern as canonical_journey TreasuresFilled), pours, walks
+# through to canon 95 then west to 91. See
+# test_cca_journey_tree_rusty_door.gd for the dedicated test.
+func _rusty_door_steps() -> Array:
+    return [
+        {"name": "AtRustyDoor",
+         "commands": ["climb", "east", "west", "north"]},
+        {"name": "RustyDoorOiled",
+         "fsm_pre": func(d): d.fsm.bottle.fill_oil(true),
+         "commands": ["pour"]},
+        {"name": "AtCanon91",
+         "commands": ["north", "west"]},
+    ]
+
 # Floor for UNION coverage. Full-cap baseline (2026-05-19):
 # 130 rooms across the 3 seeds. Smoke-mode baseline: ~100.
 # As more extension journeys land, the full floor rises.
 static func _union_floor() -> int:
-    return 85 if OS.get_environment("CCA_SMOKE") == "1" else 130
+    return 85 if OS.get_environment("CCA_SMOKE") == "1" else 132
 
 # Select per-seed cap based on smoke vs full mode. Smoke-mode is
 # the 3rd column of each SEEDS entry, full-mode is the 2nd.
@@ -96,6 +113,9 @@ func _init():
     tree.register(ExtensionJourneyC.new(
         "PlantUnlock", "canonical_journey", "BearReleased",
         PLANT_UNLOCK_STEPS))
+    tree.register(ExtensionJourneyC.new(
+        "RustyDoorUnlock", "PlantUnlock", "PlantHugeGrown",
+        _rusty_door_steps()))
 
     # Walk every seed milestone we need. The CanonicalJourneyAdapter
     # walks from canonical-start each call, but it assumes the
@@ -106,7 +126,7 @@ func _init():
     # against a wrong start state — clobbering the good snapshots.
     # Use a fresh driver per walk to keep snapshots clean.
     for target in ["canonical_journey:InRepository",
-                   "PlantUnlock:PlantHugeGrown"]:
+                   "RustyDoorUnlock:AtCanon91"]:
         var d = _make_driver()
         if not tree.walk_to(d, registry, target):
             print("FAIL — couldn't reach %s" % target)

@@ -21,10 +21,19 @@
 # ============================================================
 extends "res://scripts/journey.gd"
 
-# Each step is a Dictionary: { name: String, commands: Array }.
-# commands are executed in order via driver._process_input();
-# after the commands run, the journey is at `name` and a snapshot
-# is recorded under this journey's registry key.
+# Each step is a Dictionary:
+#   • name: String        — milestone name reached after this step
+#   • commands: Array     — player commands executed in order via
+#                            driver._process_input()
+#   • fsm_pre: Callable   — optional. Runs BEFORE the commands.
+#                            Mirrors the canonical_journey adapter's
+#                            FSM-shortcut handling (TreasuresFilled,
+#                            InRepository) — lets the journey set up
+#                            world state that would otherwise take a
+#                            long canonical walk (e.g. filling a
+#                            bottle with oil from the well-house pool
+#                            when the journey only cares about the
+#                            downstream gate).
 var steps: Array = []
 
 func _init(p_name: String, p_parent_journey: String,
@@ -42,6 +51,8 @@ func milestone_names() -> Array:
 
 func apply(driver, registry, stop_at: String = "") -> String:
     for step in steps:
+        if step.has("fsm_pre"):
+            step["fsm_pre"].call(driver)
         for cmd in step["commands"]:
             driver._process_input(String(cmd).to_lower())
         var state_name: String = String(step["name"])
