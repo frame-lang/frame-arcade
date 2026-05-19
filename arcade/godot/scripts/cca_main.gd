@@ -1793,7 +1793,14 @@ func list_actions_here() -> Array:
         elif fsm.bottle.has_oil():
             actions.append({"input": "pour oil", "key": "pour:oil", "kind": "verb"})
         else:
-            if room in [3, 23, 79]:
+            # Empty — fill at canon liquid sources. Water sources
+            # per Adventure._at_water_source() (advent.for LIQLOC +
+            # WATER bit in section 7): canon 1, 3, 4, 7, 38, 83, 84,
+            # 95, 113. Oil source per OIL_SOURCE_ROOM constant: 79.
+            # Keep this list in sync with the FSM-side predicate —
+            # an earlier mismatch (audit-flagged) advertised 23 as a
+            # water source when the FSM disagreed, wasting BFS turns.
+            if room in [1, 3, 4, 7, 38, 79, 83, 84, 95, 113]:
                 actions.append({"input": "fill bottle", "key": "fill:bottle", "kind": "verb"})
 
     if fsm.player.carrying(CLAM_ID) and fsm.player.carrying(ROD_ID):

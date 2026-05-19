@@ -14,14 +14,21 @@
 # always starts from the canonical-start state (AtRoad) — there's
 # no "resume from milestone N" path; the FSM is linear.
 #
-# Limitation: two milestones in canonical_journey are reached via
-# FSM-direct manipulation rather than player commands —
-# TreasuresFilled (13 endgame.treasure_deposited() calls) and
-# InRepository (35 fsm.tick() calls). The adapter executes
-# commands_from_previous() verbatim; tests that need to land on
-# those milestones still use the FSM-shortcut pattern documented
-# in test_cca_state_space_seeded_endgame.gd. A future revision
-# could attach optional fsm_shortcut callables to those steps.
+# Two milestones in canonical_journey are reached via FSM-direct
+# manipulation rather than player commands:
+#   • TreasuresFilled — endgame.treasure_deposited() ×13. The
+#     full deposit chain is 15 treasures; the journey covers the
+#     first 2 deposits (gold + something else) via real commands,
+#     then shortcuts the remaining 13 here. Canonically reachable
+#     via real play, just bypassed for runtime.
+#   • InRepository — fsm.tick() ×35. Drives the post-15-deposit
+#     endgame timer to zero so the cave-closes teleport fires
+#     and the player lands at canon 116 (Repository). Canonically
+#     reachable via 35 LOOK turns; shortcut keeps the journey
+#     bounded.
+# canonical_journey.gd's commands_from_previous() returns [] for
+# these milestones — the adapter dispatches the shortcut by name
+# before calling _process_input.
 # ============================================================
 extends "res://scripts/journey.gd"
 
@@ -46,6 +53,15 @@ func apply(driver, registry, stop_at: String = "") -> String:
     var last_reached: String = ""
     while not fsm.is_done():
         var state_name: String = fsm.state_name()
+        # FSM-shortcut milestones (see header comment). canonical_journey.gd
+        # returns [] for commands_from_previous on these states; the
+        # actual transition happens via FSM-direct manipulation.
+        if state_name == "TreasuresFilled":
+            for i in 13:
+                driver.fsm.endgame.treasure_deposited()
+        elif state_name == "InRepository":
+            for i in 35:
+                driver.fsm.tick()
         for cmd in fsm.commands_from_previous():
             driver._process_input(String(cmd).to_lower())
         registry.record(name, state_name, driver.fsm.save_state())
