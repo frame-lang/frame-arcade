@@ -58,6 +58,14 @@ var seed_bytes: PackedByteArray = PackedByteArray()
 # functional effect.
 var seed_label: String = ""
 
+# How often (in states-visited count) to emit a one-line BFS
+# progress print. Set to 0 to disable. Long BFS runs at high caps
+# can take several minutes; the progress line lets a watching
+# operator see "still alive, still expanding" rather than a silent
+# wait. Each print is cheap (one Dictionary walk over visited
+# hashes to count distinct rooms).
+var progress_every: int = 1000
+
 # ----- Results -----------------------------------------------------
 
 var visited: Dictionary = {}
@@ -118,7 +126,24 @@ func run() -> void:
     var driver = prepare_driver()
     if not seed_bytes.is_empty():
         driver.fsm.restore_state(seed_bytes)
+        _reset_driver_session_state(driver)
     run_from(driver)
+
+# PromptDispatcher state lives on the driver, not in fsm.save_state.
+# The architect's documented contract (cca.fgd PromptDispatcher block)
+# is that modal-prompt state does NOT survive a save/restore boundary
+# — the driver re-detects it from world state in a fresh session. The
+# BFS reuses one driver and rolls fsm back, so prompts state would
+# otherwise leak across branches: one branch dies → prompts goes to
+# $AwaitingRevive → all sibling branches inherit the prompt and find
+# every verb getting eaten by the modal Y/N dispatcher. Resetting
+# here mirrors the fresh-session semantics. Re-emit offer_revive() if
+# the restored world state has a dead player so the prompt is
+# correctly re-derived.
+func _reset_driver_session_state(driver) -> void:
+    driver.prompts = Cca.PromptDispatcher.new()
+    if driver.fsm.player.get_state() == "dead":
+        driver.prompts.offer_revive()
 
 # Search from the driver's current state. BFS frontier-expansion
 # through real Driver commands.
@@ -149,11 +174,19 @@ func run_from(driver) -> void:
     states_visited = 1
 
     var queue: Array = [{"state": root_state, "path": [], "hash": root_hash}]
+    var next_progress: int = progress_every
 
     while not queue.is_empty():
         if states_visited >= max_states:
             hit_cap = true
             break
+        if progress_every > 0 and states_visited >= next_progress:
+            var rooms_so_far: Dictionary = {}
+            for h in visited.keys():
+                rooms_so_far[int(h.substr(2).get_slice("|", 0))] = true
+            print("  [BFS] %d states, %d locations, queue=%d, actions=%d" % [
+                states_visited, rooms_so_far.size(), queue.size(), actions_tried])
+            next_progress += progress_every
 
         var node = queue.pop_front()
         var node_state: PackedByteArray = node["state"]
@@ -161,6 +194,7 @@ func run_from(driver) -> void:
         var node_hash: String = node["hash"]
 
         driver.fsm.restore_state(node_state)
+        _reset_driver_session_state(driver)
 
         if check_save_restore:
             var re_state = driver.fsm.save_state()
@@ -184,6 +218,7 @@ func run_from(driver) -> void:
                 continue
             actions_tried += 1
             driver.fsm.restore_state(node_state)
+            _reset_driver_session_state(driver)
             driver._process_input(action.input)
             var inv_failures = _check_invariants(driver, node_path + [action.key])
             for f in inv_failures:

@@ -56,17 +56,16 @@ for t in "${TESTS[@]}"; do
     # OR an absolute one. We pass an absolute path and the
     # --path flag pointed at the godot project.
     abs="$(cd "$(dirname "$t")" && pwd)/$(basename "$t")"
-    # Per-test timeout: 300s. Most tests finish in <10s; the
-    # monkey fuzzer (~75-90s) and the milestone-seeded BFS
-    # tests (~110-180s, esp. multi-seed at deep milestones)
-    # legitimately take longer. Bumped from 120s in 2026-05-18
-    # after the multi-seed BFS test was being truncated to
-    # fit the budget rather than the budget being raised to
-    # fit the test — the same canon-fidelity anti-pattern
-    # that earlier surfaced lowered hint thresholds. Tests
-    # should be honest about their cost; the harness
+    # Per-test timeout: 600s. Most tests finish in <10s; the
+    # monkey fuzzer (~75-90s), the milestone-seeded BFS tests
+    # (~110-180s), and the LampLit-seeded BFS (~3:40 at cap
+    # 10000 once the prompts-state-leak fix landed and the
+    # graph fully expands) legitimately take longer. Bumped
+    # from 120s → 300s → 600s as the BFS reaches more of the
+    # cave per the same canon-fidelity-over-budget principle:
+    # tests should be honest about their cost; the harness
     # accommodates.
-    if out=$(timeout 300 godot --headless --path godot/ --script "$abs" 2>&1); then
+    if out=$(timeout 600 godot --headless --path godot/ --script "$abs" 2>&1); then
         verdict=$(echo "$out" | grep -E "^PASS|^FAIL|FAIL —|PASS —" | head -1)
         echo "$verdict"
         if echo "$verdict" | grep -q "^PASS"; then

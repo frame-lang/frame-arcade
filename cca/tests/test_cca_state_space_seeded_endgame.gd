@@ -85,7 +85,7 @@ func _walk_journey_to_deepest(registry, targets: Array) -> bool:
     var driver = Driver.new()
     driver.fsm = Cca.new()
     driver.fsm.setup_default_aspects()
-    driver.fsm.wake_dwarves()
+    driver.fsm.dwarves_auto_woken = true    # short-circuit auto-wake; dwarves stay dormant
     driver.prompts = Cca.PromptDispatcher.new()
     driver.output = RichTextLabel.new()
     driver.output.bbcode_enabled = true

@@ -49,10 +49,14 @@ const DEEP_MILESTONE: String = "BearReleased"
 const PER_SEED_CAP: int = 5000   # high enough to exhaust from
                                   # BearReleased; ~2-3 min runtime
 
-# Coverage threshold for pass/fail. Current baseline is 32 rooms
-# reached at the cap=1500 level; with cap=5000 we expect more.
-# As Phases 2-3 land more journeys, this floor can rise.
-const FLOOR_ROOMS: int = 32
+# Coverage threshold for pass/fail. Baseline history:
+#   • 32 rooms — pre-fix; revive-prompt state leak in the BFS driver
+#     was eating every non-yes/no verb once any branch died (see
+#     state_space.gd _reset_driver_session_state docstring).
+#   • 104 rooms — post-fix at cap=5000 (BFS hit cap). Big jump
+#     because the leak had been masking most of the cave graph.
+# As Phases 2-3 land more journey extensions, this floor rises.
+const FLOOR_ROOMS: int = 95
 
 func _init():
     print("=== Journey-tree gap audit (Phase 1) ===")
@@ -81,6 +85,9 @@ func _init():
     print("BFS:            %d states, %d locations (cap %d%s)" % [
         s.states_visited, reached.size(), PER_SEED_CAP,
         " — HIT" if s.hit_cap else ""])
+    var reached_sorted: Array = reached.keys()
+    reached_sorted.sort()
+    print("Reached:        %s" % str(reached_sorted))
     print("")
 
     _annotate_unreached(reached, unreached)
