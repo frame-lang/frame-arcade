@@ -46,17 +46,32 @@ const Topology = preload("res://scripts/topology.gd")
 # BearReleased is the moment when the most game-mechanic state
 # has been unlocked.
 const DEEP_MILESTONE: String = "BearReleased"
-const PER_SEED_CAP: int = 5000   # high enough to exhaust from
-                                  # BearReleased; ~2-3 min runtime
+# Cap chosen to fit the 600s per-test timeout with margin. The BFS
+# is asymptotic: cap=10000 reaches 121 rooms, 15000 reaches 122,
+# 25000 reaches 123. Marginal +1 room past 15000 isn't worth the
+# 50% wall-clock penalty. Phase 2's PlantUnlock extension will
+# pick up additional rooms via the journey-tree, not by bumping
+# this cap further.
+const PER_SEED_CAP: int = 15000  # ~4-5 min runtime
 
 # Coverage threshold for pass/fail. Baseline history:
-#   • 32 rooms — pre-fix; revive-prompt state leak in the BFS driver
-#     was eating every non-yes/no verb once any branch died (see
-#     state_space.gd _reset_driver_session_state docstring).
-#   • 104 rooms — post-fix at cap=5000 (BFS hit cap). Big jump
-#     because the leak had been masking most of the cave graph.
-# As Phases 2-3 land more journey extensions, this floor rises.
-const FLOOR_ROOMS: int = 95
+#   • 32 rooms — cap=5000, pre-prompts-fix. The revive-prompt state
+#     leak was eating every non-yes/no verb once any branch died.
+#   • 104 rooms — cap=5000, post-prompts-fix. Most prereq-chain
+#     rooms were just queued-but-not-popped before cap hit (probe
+#     at cap=30000 dequeued room 4 ×468 times, reaching room 7
+#     ×433 times — all the "prerequisite-chain" rooms in the
+#     classifier were pure cap-budget, not real BFS blockers).
+#   • 122 rooms — cap=15000, post-prompts-fix. Most surface +
+#     deep-cave clusters resolved. Remaining 18 gaps:
+#       1 — plant_huge (room 26; needs Phase 2 PlantUnlock journey;
+#           ~4 rooms downstream of 26 also gated)
+#       2 — dragon-redirects (119/121; unreachable from this seed
+#           by design — would need a pre-dragon-kill seed)
+#      ~15 — endgame/teleport-only (Repository + magic-word
+#           destinations; would need an InRepository seed and/or
+#           journeys through xyzzy/plugh)
+const FLOOR_ROOMS: int = 115
 
 func _init():
     print("=== Journey-tree gap audit (Phase 1) ===")
@@ -90,7 +105,7 @@ func _init():
     print("Reached:        %s" % str(reached_sorted))
     print("")
 
-    _annotate_unreached(reached, unreached)
+    _annotate_unreached(reached, unreached, registry)
 
     if reached.size() >= FLOOR_ROOMS:
         print("")
@@ -138,64 +153,119 @@ func _locations_in(s) -> Dictionary:
     return rooms
 
 # For each unreached room, classify why it wasn't visited and
-# print a structured report.
-func _annotate_unreached(reached: Dictionary, unreached: Array) -> void:
+# print a structured report. The classification looks at the
+# seeded FSM state (BearReleased) and evaluates each gate's
+# runtime status — so a `dragon_killed`-checked gate that
+# redirects to canon 120 (when dragon dead) doesn't get lumped
+# with a `plant_huge` gate that genuinely needs an unlock walk.
+#
+# Buckets (within "gate-blocked"):
+#   • gate-closed-need-unlock — at least one reached-source gate
+#     to this room currently fires with a deterministic block
+#     (msg only). Phase 2 extension candidates: the player needs
+#     to perform an unlock action (pour water, kill dragon, etc.)
+#     before the gate falls through.
+#   • gate-redirects-elsewhere — every reached-source gate to
+#     this room currently fires AND walks the player to a
+#     different `dest`. The room is unreachable from this seed
+#     (typically post-state mirrored rooms: 119/121 reachable
+#     only before dragon kill).
+#   • gate-passable-but-unreached — the gate currently falls
+#     through to topology AND the topology dest IS this room.
+#     BFS should have walked it but didn't. Causes: probabilistic
+#     gate (50% miss), cap-budget exhaustion, action-enumeration
+#     issue, intermediate dark-room hazard.
+func _annotate_unreached(reached: Dictionary, unreached: Array, registry) -> void:
+    # Restore the seed FSM to evaluate gate predicates against it.
+    var seed_driver = _make_driver_for_gate_eval(registry)
+    var fsm = seed_driver.fsm
+
     var by_category: Dictionary = {
-        "gate-blocked":       [],
-        "prerequisite-chain": [],
-        "unreachable":        [],
+        "gate-closed-need-unlock":   [],
+        "gate-redirects-elsewhere":  [],
+        "gate-passable-but-unreached": [],
+        "prerequisite-chain":        [],
+        "unreachable":               [],
     }
     var details: Dictionary = {}     # room → "explanation"
 
     for room in unreached:
         var category: String = "unreachable"
         var why: String = ""
-        # Find all canon-topology sources for this room.
+        # Per-source classification flags: did any reached source
+        # have a passable / closed / redirecting gate to this
+        # exact room?
+        var any_passable: bool = false
+        var any_no_gate: bool = false
+        var any_closed: bool = false
+        var any_redirects: bool = false
         var sources_reached: Array = []
         var sources_unreached: Array = []
-        var gates_to_here: Array = []
+        var gate_status_strs: Array = []  # short-form per gate
+
         for source in range(1, 141):
             var exits: Dictionary = Topology.ROOMS.get(source, {})
             for direction in exits.keys():
-                if exits[direction] == room:
-                    var key: String = "%d:%s" % [source, direction]
-                    var has_gate: bool = Topology.GATES.has(key)
-                    if reached.has(source):
-                        sources_reached.append("%d:%s" % [source, direction])
-                        if has_gate:
-                            gates_to_here.append("%d:%s" % [source, direction])
-                    else:
-                        sources_unreached.append("%d:%s" % [source, direction])
+                if exits[direction] != room:
+                    continue
+                var key: String = "%d:%s" % [source, direction]
+                if not reached.has(source):
+                    sources_unreached.append(key)
+                    continue
+                sources_reached.append(key)
+                if not Topology.GATES.has(key):
+                    any_no_gate = true
+                    continue
+                var gate = Topology.GATES[key]
+                var status: String = _gate_runtime_status(fsm, gate, room)
+                gate_status_strs.append("%s=%s" % [key, status])
+                if status == "closed":
+                    any_closed = true
+                elif status == "redirects":
+                    any_redirects = true
+                elif status == "passable":
+                    any_passable = true
+                # "probabilistic" doesn't set any flag — handled
+                # separately below.
+
         if sources_reached.is_empty() and sources_unreached.is_empty():
-            # No canon source — probably reachable only via magic
-            # word or via FSM-driven teleport (e.g. repository).
             category = "unreachable"
             why = "no canon-topology source"
         elif sources_reached.is_empty():
-            # Sources exist but none are reached.
             category = "unreachable"
             why = "%d source(s), none reached: %s" % [
                 sources_unreached.size(), str(sources_unreached.slice(0, 3))]
-        elif not gates_to_here.is_empty():
-            category = "gate-blocked"
-            why = "gates: %s" % str(gates_to_here)
-        else:
-            # Sources reached, no gates — the BFS should have
-            # walked through but didn't. Means action wasn't in
-            # list_actions_here() at the source, or the move was
-            # consumed by a non-topology dispatch (e.g. probabilistic
-            # bumper, intercept). Mark prerequisite-chain.
-            category = "prerequisite-chain"
+        elif any_no_gate or any_passable:
+            # A direct topology path is available right now; BFS
+            # should have walked it. Real cause is action-enum,
+            # probabilistic miss, or cap-budget.
+            category = "prerequisite-chain" if any_no_gate else "gate-passable-but-unreached"
             why = "reached sources: %s" % str(sources_reached.slice(0, 3))
+            if not gate_status_strs.is_empty():
+                why += " | gates: %s" % str(gate_status_strs.slice(0, 3))
+        elif any_closed:
+            category = "gate-closed-need-unlock"
+            why = "gates: %s" % str(gate_status_strs.slice(0, 3))
+        elif any_redirects:
+            category = "gate-redirects-elsewhere"
+            why = "gates: %s" % str(gate_status_strs.slice(0, 3))
+        else:
+            # All gates probabilistic; player may reach with more
+            # tries / different RNG.
+            category = "gate-passable-but-unreached"
+            why = "probabilistic gates: %s" % str(gate_status_strs.slice(0, 3))
         by_category[category].append(room)
         details[room] = why
 
     print("--- Unreached by category ---")
-    print("  gate-blocked        %3d rooms" % by_category["gate-blocked"].size())
-    print("  prerequisite-chain  %3d rooms" % by_category["prerequisite-chain"].size())
-    print("  unreachable         %3d rooms" % by_category["unreachable"].size())
+    for cat in ["gate-closed-need-unlock", "gate-redirects-elsewhere",
+                "gate-passable-but-unreached", "prerequisite-chain",
+                "unreachable"]:
+        print("  %-30s %3d rooms" % [cat, by_category[cat].size()])
     print("")
-    for cat in ["gate-blocked", "prerequisite-chain", "unreachable"]:
+    for cat in ["gate-closed-need-unlock", "gate-redirects-elsewhere",
+                "gate-passable-but-unreached", "prerequisite-chain",
+                "unreachable"]:
         if by_category[cat].is_empty():
             continue
         print("--- %s (sample) ---" % cat)
@@ -204,3 +274,79 @@ func _annotate_unreached(reached: Dictionary, unreached: Array) -> void:
         if by_category[cat].size() > 8:
             print("  ...(+%d more)" % (by_category[cat].size() - 8))
         print("")
+
+# Build a driver and restore it to the seeded BearReleased state.
+# Used purely to evaluate gate predicates (snake.is_blocking(),
+# plant_is_huge(), dragon_alive(), etc.) — we never call
+# _process_input on it, so RNG/lamp/etc. state doesn't matter.
+func _make_driver_for_gate_eval(registry):
+    var d = Driver.new()
+    d.fsm = Cca.new()
+    d.fsm.setup_default_aspects()
+    d.fsm.dwarves_auto_woken = true
+    d.prompts = Cca.PromptDispatcher.new()
+    d.output = RichTextLabel.new()
+    d.output.bbcode_enabled = true
+    d.input = LineEdit.new()
+    d.rng = RandomNumberGenerator.new()
+    d.rng.seed = 42
+    d._build_verb_synonyms_5()
+    d.fsm.restore_state(registry.get_snapshot("canonical_journey", DEEP_MILESTONE))
+    return d
+
+# Returns one of:
+#   "closed"        — gate fires (blocks player at source) and has
+#                      no `dest` field; player can't leave via this
+#                      direction.
+#   "redirects"     — gate fires and walks player to a `dest`
+#                      different from `target_room`. Player ends
+#                      up somewhere else, not at target_room.
+#   "passable"      — gate doesn't fire; topology resolves and
+#                      walks player to target_room.
+#   "probabilistic" — gate is a probability roll; player may or
+#                      may not reach target_room depending on RNG.
+#
+# Multi-rule chains (Array): walk each rule until one fires
+# deterministically; chain-level result is that rule's status.
+# If all rules are probabilistic-or-fall-through, status is
+# "probabilistic" if any was a probability check, else "passable".
+func _gate_runtime_status(fsm, gate, target_room: int) -> String:
+    if gate is Array:
+        var saw_probability: bool = false
+        for rule in gate:
+            var s: String = _rule_runtime_status(fsm, rule, target_room)
+            if s == "closed" or s == "redirects":
+                return s
+            if s == "probabilistic":
+                saw_probability = true
+            # "passable" → continue to next rule (this rule didn't fire)
+        return "probabilistic" if saw_probability else "passable"
+    return _rule_runtime_status(fsm, gate, target_room)
+
+func _rule_runtime_status(fsm, rule: Dictionary, target_room: int) -> String:
+    var check: String = rule.get("check", "")
+    var fires: bool = false
+    match check:
+        "always":           fires = true
+        "snake":            fires = fsm.snake.is_blocking()
+        "troll":            fires = fsm.troll.is_blocking_bridge()
+        "bridge":           fires = not fsm.bridge_built()
+        "grate":            fires = fsm.grate_locked()
+        "plant_huge":       fires = not fsm.plant_is_huge()
+        "plant_tall":       fires = not fsm.plant_is_tall()
+        "plover_squeeze":   fires = fsm.plover_squeeze_blocked()
+        "rusty":            fires = not fsm.rusty_door_oiled()
+        "dragon_killed":    fires = not fsm.dragon_alive()
+        "chasm_collapsed":  fires = true if "chasm_collapsed_now" in fsm and fsm.chasm_collapsed_now() else false
+        "probability":      return "probabilistic"
+        "carrying":
+            var obj_name: String = rule.get("obj", "")
+            if obj_name != "" and obj_name in fsm:
+                fires = fsm.player.carrying(int(fsm.get(obj_name)))
+        _:                  fires = false   # unknown check → assume passes
+    if not fires:
+        return "passable"
+    # Rule fires. Does it redirect, or just block?
+    if "dest" in rule:
+        return "redirects" if int(rule["dest"]) != target_room else "passable"
+    return "closed"
