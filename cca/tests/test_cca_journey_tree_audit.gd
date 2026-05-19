@@ -52,7 +52,15 @@ const DEEP_MILESTONE: String = "BearReleased"
 # 50% wall-clock penalty. Phase 2's PlantUnlock extension will
 # pick up additional rooms via the journey-tree, not by bumping
 # this cap further.
-const PER_SEED_CAP: int = 15000  # ~4-5 min runtime
+#
+# Smoke mode (CCA_SMOKE=1) drops the cap to 2000 for the
+# pre-commit hook. The audit still exercises every code path
+# but hits cap fast — pre-commit catches regressions in the
+# journey/BFS/classifier wiring without paying the asymptotic
+# runtime. The full cap runs on demand (./run_tests.sh) and in
+# CI. Coverage floor scales the same way.
+static func _per_seed_cap() -> int:
+    return 2000 if OS.get_environment("CCA_SMOKE") == "1" else 15000
 
 # Coverage threshold for pass/fail. Baseline history:
 #   • 32 rooms — cap=5000, pre-prompts-fix. The revive-prompt state
@@ -71,7 +79,10 @@ const PER_SEED_CAP: int = 15000  # ~4-5 min runtime
 #      ~15 — endgame/teleport-only (Repository + magic-word
 #           destinations; would need an InRepository seed and/or
 #           journeys through xyzzy/plugh)
-const FLOOR_ROOMS: int = 115
+static func _floor_rooms() -> int:
+    # Smoke-mode (cap=2000) reaches ~60 rooms; full-cap (15000)
+    # reaches 122. Floor scales with cap.
+    return 50 if OS.get_environment("CCA_SMOKE") == "1" else 115
 
 func _init():
     print("=== Journey-tree gap audit (Phase 1) ===")
@@ -83,9 +94,12 @@ func _init():
         quit(1)
         return
 
+    var cap: int = _per_seed_cap()
+    var floor_rooms: int = _floor_rooms()
+
     var s = StateSpace.new()
     s.seed = 42
-    s.max_states = PER_SEED_CAP
+    s.max_states = cap
     s.seed_bytes = registry.get_snapshot("canonical_journey", DEEP_MILESTONE)
     s.seed_label = "canonical_journey:%s" % DEEP_MILESTONE
     s.run()
@@ -98,7 +112,7 @@ func _init():
 
     print("Seed milestone: %s" % DEEP_MILESTONE)
     print("BFS:            %d states, %d locations (cap %d%s)" % [
-        s.states_visited, reached.size(), PER_SEED_CAP,
+        s.states_visited, reached.size(), cap,
         " — HIT" if s.hit_cap else ""])
     var reached_sorted: Array = reached.keys()
     reached_sorted.sort()
@@ -107,14 +121,14 @@ func _init():
 
     _annotate_unreached(reached, unreached, registry)
 
-    if reached.size() >= FLOOR_ROOMS:
+    if reached.size() >= floor_rooms:
         print("")
-        print("PASS — %d rooms reached (floor %d)" % [reached.size(), FLOOR_ROOMS])
+        print("PASS — %d rooms reached (floor %d)" % [reached.size(), floor_rooms])
         quit(0)
         return
     print("")
     print("FAIL — %d rooms reached, below floor of %d" % [
-        reached.size(), FLOOR_ROOMS])
+        reached.size(), floor_rooms])
     quit(1)
 
 # Walk to the named milestone via JourneyTree, which captures

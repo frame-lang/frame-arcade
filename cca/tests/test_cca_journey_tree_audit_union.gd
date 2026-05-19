@@ -35,12 +35,15 @@ const MilestoneRegistry = preload("res://scripts/milestone_registry.gd")
 const JourneyTreeC = preload("res://scripts/journey_tree.gd")
 const ExtensionJourneyC = preload("res://scripts/extension_journey.gd")
 
-# Seed list: [journey:milestone, cap]. Caps sized to each seed's
-# coverage curve — past these values the per-seed gain is flat.
+# Seed list: [journey:milestone, full_cap, smoke_cap]. The full
+# caps are sized to each seed's coverage curve (flat past these
+# values). The smoke caps (CCA_SMOKE=1) drop to roughly 15% of
+# full — exercises every BFS code path in pre-commit without
+# paying the asymptotic runtime.
 const SEEDS: Array = [
-    ["canonical_journey:SnakeGone",   7500],
-    ["canonical_journey:BearReleased", 7500],
-    ["PlantUnlock:PlantHugeGrown",    1000],
+    ["canonical_journey:SnakeGone",   7500, 1000],
+    ["canonical_journey:BearReleased", 7500, 1000],
+    ["PlantUnlock:PlantHugeGrown",    1000,  300],
 ]
 
 # PlantUnlock journey definition. Identical to the one in
@@ -66,16 +69,22 @@ const PLANT_UNLOCK_STEPS: Array = [
          "slab", "south", "down", "pour"]},
 ]
 
-# Floor for UNION coverage. SnakeGone + BearReleased + PlantUnlock
-# baseline (2026-05-19): 130 rooms. As more extension journeys
-# land, this rises.
-const UNION_FLOOR: int = 128
+# Floor for UNION coverage. Full-cap baseline (2026-05-19):
+# 130 rooms across the 3 seeds. Smoke-mode baseline: ~100.
+# As more extension journeys land, the full floor rises.
+static func _union_floor() -> int:
+    return 85 if OS.get_environment("CCA_SMOKE") == "1" else 128
+
+# Select per-seed cap based on smoke vs full mode. Smoke-mode is
+# the 3rd column of each SEEDS entry, full-mode is the 2nd.
+static func _cap_for(entry) -> int:
+    return int(entry[2]) if OS.get_environment("CCA_SMOKE") == "1" else int(entry[1])
 
 func _init():
     print("=== Multi-seed UNION coverage audit ===")
     print("Seeds:")
     for entry in SEEDS:
-        print("  %-35s cap=%d" % [entry[0], entry[1]])
+        print("  %-35s cap=%d" % [entry[0], _cap_for(entry)])
     print("")
 
     var registry = MilestoneRegistry.new()
@@ -98,7 +107,7 @@ func _init():
     var per_seed_reached: Dictionary = {}
     for entry in SEEDS:
         var full_path: String = entry[0]
-        var cap: int = entry[1]
+        var cap: int = _cap_for(entry)
         var parts = full_path.split(":")
         if not registry.has(parts[0], parts[1]):
             print("SKIP %s — not captured" % full_path)
@@ -149,12 +158,13 @@ func _init():
             full_path, u.size(), str(u.slice(0, 12))])
     print("")
 
-    if union_count >= UNION_FLOOR:
-        print("PASS — %d / 140 union coverage (floor %d)" % [union_count, UNION_FLOOR])
+    var floor_v: int = _union_floor()
+    if union_count >= floor_v:
+        print("PASS — %d / 140 union coverage (floor %d)" % [union_count, floor_v])
         quit(0)
         return
     print("FAIL — %d / 140 union coverage, below floor %d" % [
-        union_count, UNION_FLOOR])
+        union_count, floor_v])
     quit(1)
 
 func _make_driver():

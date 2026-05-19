@@ -8,7 +8,12 @@
 #
 # Usage:
 #     ./run_tests.sh                   # run all tests
+#     ./run_tests.sh --fast            # skip slow BFS tests (~3 min total)
 #     ./run_tests.sh tests/test_cca_lamp.gd ...  # run subset
+#
+# --fast mode skips the long-running BFS / fuzzer tests listed in
+# SLOW_TESTS below. Pre-commit runs in this mode by default so the
+# hook stays under ~3 min; full coverage runs on demand or in CI.
 #
 # Exit code: 0 if every test passed, otherwise the number of
 # failed tests.
@@ -33,7 +38,31 @@ if [[ ! -f godot/scripts/cca.gd ]]; then
     exit 1
 fi
 
-# Tests to run: argv if given, otherwise all tests/*.gd
+# Tests skipped in --fast mode. These are the long-running BFS
+# state-space tests (2-4 min each) and the fuzzer. They catch
+# coverage / state-graph regressions; the structural tests
+# (verb effects, canon conformance, etc.) catch most behavioral
+# regressions at low cost. Pre-commit runs --fast; full coverage
+# runs on demand and in CI.
+SLOW_TESTS=(
+    "tests/test_cca_state_space.gd"
+    "tests/test_cca_state_space_seeded.gd"
+    "tests/test_cca_state_space_seeded_progression.gd"
+    "tests/test_cca_state_space_seeded_post_bridge.gd"
+    "tests/test_cca_state_space_seeded_endgame.gd"
+    "tests/test_cca_state_space_seeded_multiseed.gd"
+    "tests/test_cca_monkey.gd"
+    "tests/test_cca_probe.gd"
+)
+
+FAST_MODE=0
+if [[ $# -gt 0 && "$1" == "--fast" ]]; then
+    FAST_MODE=1
+    shift
+fi
+
+# Tests to run: argv if given (after --fast), otherwise all
+# tests/*.gd minus the slow set (when --fast).
 if [[ $# -gt 0 ]]; then
     TESTS=("$@")
 else
@@ -41,6 +70,13 @@ else
     # produces a sorted list naturally.
     TESTS=()
     for f in tests/test_cca_*.gd; do
+        if [[ $FAST_MODE -eq 1 ]]; then
+            skip=0
+            for s in "${SLOW_TESTS[@]}"; do
+                if [[ "$f" == "$s" ]]; then skip=1; break; fi
+            done
+            [[ $skip -eq 1 ]] && continue
+        fi
         TESTS+=("$f")
     done
 fi

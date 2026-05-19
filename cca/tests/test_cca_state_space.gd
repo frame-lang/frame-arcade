@@ -36,6 +36,11 @@ func _init():
 
     var s = StateSpace.new()
     s.seed = 42
+    # Canonical-start BFS is the one test that opts back into the
+    # save/restore round-trip soundness check — this test cares
+    # whether the FSM's persistence layer is round-trip clean, not
+    # just whether BFS reaches enough rooms.
+    s.check_save_restore = true
     # Cap raised from 2000 (legacy three-sweep total) — canonical-
     # start BFS reaches more states from one seed because frontier
     # expansion crosses gates the teleport sweeps had to skip via

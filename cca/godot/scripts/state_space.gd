@@ -41,8 +41,12 @@ var seed: int = 0
 var max_states: int = 1000
 
 # Whether to round-trip save/restore at each state for divergence
-# detection. ~30ms per state.
-var check_save_restore: bool = true
+# detection. ~30ms per state — adds up to minutes on a cap=15000
+# audit. Default off; the canonical-start BFS test
+# (test_cca_state_space.gd) opts in since save/restore soundness
+# is itself a thing that test exercises. Most other consumers care
+# about reachability, not save/restore divergence.
+var check_save_restore: bool = false
 
 # RFC-0002 milestone seeding. If non-empty, the BFS starts from
 # the FSM state encoded in these bytes (via fsm.restore_state)

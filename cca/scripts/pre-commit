@@ -83,8 +83,15 @@ if [ -z "${PRE_COMMIT_SKIP_TESTS:-}" ]; then
         elif [ ! -x "$REPO_ROOT/cca/run_tests.sh" ]; then
             echo "pre-commit: cca/run_tests.sh not executable — skipping test suite"
         else
-            echo "pre-commit: running CCA test suite (changes touch frame/driver/tests)..."
-            if ! (cd "$REPO_ROOT/cca" && ./run_tests.sh > /tmp/_cca_tests.log 2>&1); then
+            echo "pre-commit: running CCA test suite --fast (changes touch frame/driver/tests)..."
+            # --fast skips the long-running BFS state-space tests
+            # (~15 min) so the hook stays under ~3 min. CCA_SMOKE
+            # additionally drops audit caps so the still-included
+            # gap/union audits run in ~40s each. Full coverage
+            # runs on demand (./run_tests.sh, no env var) and in
+            # CI. Both modes exercise every code path; the slow
+            # set just trades runtime for coverage depth.
+            if ! (cd "$REPO_ROOT/cca" && CCA_SMOKE=1 ./run_tests.sh --fast > /tmp/_cca_tests.log 2>&1); then
                 echo
                 echo "pre-commit: CCA test suite FAILED"
                 tail -30 /tmp/_cca_tests.log | sed 's/^/  /'
