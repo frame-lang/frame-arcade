@@ -36,7 +36,7 @@ const Cca = preload("res://scripts/cca.gd")
 const Driver = preload("res://scripts/driver.gd")
 const StateSpace = preload("res://scripts/state_space.gd")
 const MilestoneRegistry = preload("res://scripts/milestone_registry.gd")
-const CanonicalJourney = preload("res://scripts/canonical_journey.gd")
+const JourneyTreeC = preload("res://scripts/journey_tree.gd")
 const Topology = preload("res://scripts/topology.gd")
 
 # Deepest pre-endgame milestone the canonical journey reaches via
@@ -102,9 +102,14 @@ func _init():
         reached.size(), FLOOR_ROOMS])
     quit(1)
 
-# Walk canonical_journey to the named milestone, capturing
-# snapshots along the way. Mirrors the harness in other seeded
-# tests.
+# Walk to the named milestone via JourneyTree, which captures
+# every milestone snapshot along the way into `registry`. This
+# is the first test migrated to the JourneyTree API (Phase 4a);
+# the other seeded tests still use hand-rolled walks but produce
+# identical results since the underlying primitives match. The
+# tree's create_default() registers canonical_journey only —
+# Phase 2/3 extension journeys are added by their respective
+# tests as those land.
 func _walk_journey_to(registry, target: String) -> bool:
     var driver = Driver.new()
     driver.fsm = Cca.new()
@@ -120,16 +125,9 @@ func _walk_journey_to(registry, target: String) -> bool:
     driver._print_welcome()
     driver._print_room()
 
-    var journey = CanonicalJourney._create()
-    while not journey.is_done():
-        var state_name: String = journey.state_name()
-        for cmd in journey.commands_from_previous():
-            driver._process_input(String(cmd).to_lower())
-        if state_name == target:
-            registry.record("canonical_journey", state_name, driver.fsm.save_state())
-            return true
-        journey.advance()
-    return false
+    var tree = JourneyTreeC.new()
+    tree.register_default()
+    return tree.walk_to(driver, registry, "canonical_journey:" + target)
 
 # Parse room numbers out of state hashes.
 func _locations_in(s) -> Dictionary:
