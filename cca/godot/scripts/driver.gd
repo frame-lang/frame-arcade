@@ -2255,11 +2255,15 @@ func list_actions_here() -> Array:
             # Empty — fill at canon liquid sources. Water sources
             # per Adventure._at_water_source() (advent.for LIQLOC +
             # WATER bit in section 7): canon 1, 3, 4, 7, 38, 83, 84,
-            # 95, 113. Oil source per OIL_SOURCE_ROOM constant: 79.
-            # Keep this list in sync with the FSM-side predicate —
-            # an earlier mismatch (audit-flagged) advertised 23 as a
-            # water source when the FSM disagreed, wasting BFS turns.
-            if room in [1, 3, 4, 7, 38, 79, 83, 84, 95, 113]:
+            # 95, 113. Oil source per OIL_SOURCE_ROOM constant: 24
+            # (Pool of Oil at the bottom of East Pit). The combined
+            # list MUST match `(water_sources ∪ oil_source)` on the
+            # FSM side — test_cca_affordance_fsm_agree enforces this
+            # bidirectionally. An earlier list had 23 (mistake — not
+            # a source) and 79 (also wrong — that's just a room in
+            # the well-house cluster). Both flagged by the agreement
+            # test once we wrote it.
+            if room in [1, 3, 4, 7, 24, 38, 83, 84, 95, 113]:
                 actions.append({"input": "fill bottle", "key": "fill:bottle", "kind": "verb"})
 
     # Clam + rod → break into oyster (canon mechanic at the

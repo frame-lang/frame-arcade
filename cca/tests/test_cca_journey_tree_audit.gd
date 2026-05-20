@@ -121,6 +121,41 @@ func _init():
 
     _annotate_unreached(reached, unreached, registry)
 
+    # Test-infrastructure invariant: when BFS exhausts its
+    # frontier (didn't hit the cap), it must reach every canon
+    # room the canonical_journey itself visits up to
+    # BearReleased. If frontier-exhausted BFS drops a
+    # canonical-journey room, the BFS harness is corrupting its
+    # own state — same class of bug as the prompts-state-leak
+    # (aadf097), where driver-side state leaked across BFS
+    # branches and silently dropped reachable rooms. The
+    # invariant only runs when BFS truly couldn't have reached
+    # the room (cap not hit) — at the smoke-mode cap=2000 BFS
+    # legitimately hits cap before walking back to surface
+    # rooms, so the invariant skips with an INFO line.
+    var canon_visited: Array = _canonical_journey_rooms_up_to(DEEP_MILESTONE)
+    print("")
+    print("--- Invariant: canonical-journey rooms ⊆ BFS-reached ---")
+    print("  canonical_journey visits %d rooms up to %s" % [
+        canon_visited.size(), DEEP_MILESTONE])
+    if s.hit_cap:
+        print("  INFO — BFS hit cap; can't distinguish state-leak from cap-budget.")
+        print("         Run at full cap (no CCA_SMOKE) to enforce the invariant.")
+    else:
+        var canon_dropped: Array = []
+        for r in canon_visited:
+            if not reached.has(r):
+                canon_dropped.append(r)
+        if canon_dropped.is_empty():
+            print("  OK — every canonical-journey room is in BFS-reached")
+        else:
+            print("  FAIL — BFS dropped canonical-journey rooms: %s" % str(canon_dropped))
+            print("         (suspect a test-infrastructure state leak)")
+            print("")
+            print("FAIL — invariant violation")
+            quit(1)
+            return
+
     if reached.size() >= floor_rooms:
         print("")
         print("PASS — %d rooms reached (floor %d)" % [reached.size(), floor_rooms])
@@ -130,6 +165,26 @@ func _init():
     print("FAIL — %d rooms reached, below floor of %d" % [
         reached.size(), floor_rooms])
     quit(1)
+
+# Walks canonical_journey from $AtRoad through `stop_at` and
+# returns the sorted list of every distinct canon room the
+# journey passes through. Used as the test-infrastructure
+# invariant cross-check: BFS from `stop_at`'s snapshot MUST
+# reach every one of these rooms.
+func _canonical_journey_rooms_up_to(stop_at: String) -> Array:
+    var CanonicalJourney = preload("res://scripts/canonical_journey.gd")
+    var seen: Dictionary = {}
+    var j = CanonicalJourney._create()
+    while not j.is_done():
+        var r: int = j.expected_room()
+        if r >= 1 and r <= 140:
+            seen[r] = true
+        if j.state_name() == stop_at:
+            break
+        j.advance()
+    var rooms: Array = seen.keys()
+    rooms.sort()
+    return rooms
 
 # Walk to the named milestone via JourneyTree, which captures
 # every milestone snapshot along the way into `registry`. This

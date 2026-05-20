@@ -1800,7 +1800,7 @@ func list_actions_here() -> Array:
             # Keep this list in sync with the FSM-side predicate —
             # an earlier mismatch (audit-flagged) advertised 23 as a
             # water source when the FSM disagreed, wasting BFS turns.
-            if room in [1, 3, 4, 7, 38, 79, 83, 84, 95, 113]:
+            if room in [1, 3, 4, 7, 24, 38, 83, 84, 95, 113]:
                 actions.append({"input": "fill bottle", "key": "fill:bottle", "kind": "verb"})
 
     if fsm.player.carrying(CLAM_ID) and fsm.player.carrying(ROD_ID):
