@@ -1,322 +1,316 @@
-# Every Tool We Built to Measure the Game Found a Bug
+# The Model-Extraction Gap, and a Program Born Without It
 
-*Draft — an engineering write-up on testing a port of the 1977
-Colossal Cave Adventure to completion.*
-
----
-
-## The setup
-
-Colossal Cave Adventure — Crowther and Woods, 1977 — is 140 rooms,
-15 treasures, a handful of NPCs (a snake, a dragon, a bear, a
-troll, five dwarves, a pirate), and a fistful of cruel little
-puzzles. We ported it to a Frame-generated state-machine
-architecture running under Godot. The port had a test suite that
-was, by any normal standard, thorough: ~65 tests, all green,
-covering every puzzle, every NPC state transition, every canon
-message.
-
-It was also quietly broken in ways no green test could see.
-
-This is the story of the layers of test infrastructure we built
-on top of that suite, and a pattern that held with uncomfortable
-consistency: **every time we built a new tool to measure the
-system, the tool found a bug the existing suite was tolerating.**
-Until, eventually, they didn't — and learning to recognize *that*
-inflection turned out to be as important as any single bug.
+*Draft — on what you get for nearly free when your program is
+already a labeled transition system. Worked example: a port of
+the 1977 Colossal Cave Adventure, built from composable Frame
+state machines.*
 
 ---
 
-## Three kinds of question
+## The gap nobody talks about
 
-You can ask three fundamentally different questions about a
-finite adventure game:
+Model checking is one of the genuine triumphs of computer
+science. Give a model checker a finite-state system and a
+temporal-logic property, and it will either prove the property
+holds on every execution or hand you a concrete counterexample
+trace. Clarke, Emerson, and Sifakis shared the 2007 Turing Award
+for it. SPIN has been verifying protocols since the late '80s.
+The theory — Lamport's safety and liveness (1977), Clarke and
+Emerson's CTL (1981), Milner's and Park's bisimulation (1980-81)
+— is settled and beautiful.
 
-1. **Reachability** — can the player get to room X / state X?
-2. **Safety** — does any reachable state violate an invariant
-   (negative score, room out of range, an item in two places at
-   once)?
-3. **Liveness** — from state X, can the player still *win*?
+And almost nobody runs it on their application code.
 
-The original 65-test suite answered none of these at the level of
-the *whole reachable state space*. It answered "does this specific
-mechanic behave correctly when I set it up by hand," which is
-valuable but local. It walked exactly one path through the game —
-the canonical happy path — and checked specific puzzles from
-teleported start states. Neither asks "is there *any* sequence of
-commands from the start that breaks an invariant?"
+The reason isn't ignorance. It's that the hard part of software
+model checking isn't the checking — it's getting from a pile of
+imperative code to the **finite-state model** the checker needs.
+That step is *model extraction*, and it is brutal. SLAM, BLAST,
+and CBMC are entire research programs built around extracting
+checkable models from C, using predicate abstraction (Ball &
+Rajamani), lazy abstraction (Henzinger et al.), bounded unrolling
+(Clarke, Kroening, Lerda), and counterexample-guided abstraction
+refinement (Clarke, Grumberg, Jha, Lu, Veith, 2000) to claw a
+tractable Kripke structure out of code that was never written to
+expose one. Abstract interpretation (Cousot & Cousot, 1977) is
+the foundation, and it is *the* cost center. The checking is
+cheap once you have the model. You almost never have the model.
 
-That gap is where the work began.
-
----
-
-## Arc 1 — Reachability and safety: state-space BFS
-
-The first idea was a breadth-first search over the reachable state
-graph. Start at the canonical opening, enumerate every reachable
-state by feeding real commands through the real parser and
-dispatcher, and assert invariants at each one: room in [1,140],
-score above a sanity floor, lamp battery in range, deposit count
-consistent, every "carried" item agreeing between the player's
-inventory and the item's own state machine.
-
-The first run found a bug immediately — an inventory inconsistency
-on death, where the player's carried-items list and the item state
-machines disagreed after a fatal pit-fall. The BFS had proved the
-gap was real on its first outing.
-
-But the cold-start BFS hit a wall: it could only reach **16 of 140
-rooms**. Most of the cave sits behind a chain of prerequisites —
-unlock the grate, light the lamp, navigate a nontrivial maze — that
-breadth-first action ordering can't punch through within any
-reasonable state cap. The search was sound but shallow.
+This is a story about a class of program that **hands you the
+model for free** — because it was written as a transition system
+in the first place — and what becomes possible once the
+extraction gap is gone.
 
 ---
 
-## Arc 2 — Seeding the search: milestone snapshots
+## A Frame program is a Kripke structure
 
-If BFS can't *reach* the deep cave from a cold start, give it a
-running start. Walk the canonical journey to a milestone — "lamp
-lit, past the grate" — snapshot the full FSM state, and run the
-BFS *from that snapshot*. Coverage at the LampLit milestone jumped
-to 30 rooms; at deeper milestones (snake gone, dragon dead, bear
-released) it kept climbing.
+The system under test is a port of Colossal Cave Adventure: 140
+rooms, 15 treasures, a snake, a dragon, a bear, a troll, five
+dwarves, a pirate, and the original's catalogue of cruel little
+puzzles. It is built in [Frame], a notation for explicit state
+machines that compile to (in our case) GDScript. The whole game
+is a bus of priority-ordered FSM "aspects" — Snake, Bear, Troll,
+Bottle, CrystalBridge, Endgame, and so on — composed under one
+persistence envelope.
 
-This arc is also where the test infrastructure started biting
-*itself*. Six of the milestone-seeded test harnesses called
-`wake_dwarves()` during setup — which woke the dwarves from turn
-one, so they actively blocked the very commands the journey was
-trying to execute. The snapshots were captured at the wrong
-states. The fix was a one-line flag (`dwarves_auto_woken = true`,
-which short-circuits the auto-wake counter rather than triggering
-it). The bug was in the *measurement*, not the game — a theme that
-would recur.
+Here is the observation the whole effort turns on. A Kripke
+structure (Kripke, 1963), the object a model checker consumes, is
+a tuple: a set of states, a transition relation, and a labeling
+of states with atomic propositions. A Frame program already *is*
+that tuple, concretely, at runtime:
 
----
+| Kripke structure | Frame program |
+|---|---|
+| state | the composed FSM configuration |
+| state vector | `save_state()` → `PackedByteArray` |
+| transition relation | `process_input(command)` |
+| enabled actions | the affordance enumerator the game already has |
+| atomic propositions | the FSMs' own query methods (`player_room()`, `endgame_state()`, `snake.is_blocking()`) |
 
-## Arc 3 — The convergence loop
+There is no extraction step. `save_state()` is not an
+*abstraction* of the state — it is the state, serialized,
+because the Frame framework already needs serialization for
+save/load. The transition relation isn't recovered by static
+analysis — it's the dispatcher you ship. The atomic propositions
+aren't invented by the verification engineer — they're the query
+methods the game already exposes.
 
-The deep insight of the third arc: BFS coverage is *asymptotic*.
-A single seed, no matter how deep, can't penetrate every gated
-region within a sane cap — the search fans out and exhausts its
-budget before threading every needle. Raising the cap is
-exponentially expensive for linear coverage gains.
-
-So instead of pushing one search harder, we built a **tree of
-journeys**. A journey is a named, fixed sequence of player
-commands — a DFA path — that bridges from a parent milestone *to*
-a new milestone, deliberately threading a specific barrier. From
-each milestone's snapshot, a cheap local BFS explores the
-newly-opened region. The *union* across all snapshots is the
-coverage measurement.
-
-```
-canonical_journey (the original linear playthrough)
-    ├─ PlantUnlock      (branches off "bear released")
-    │     grows the beanstalk → opens the chamber above
-    └─ RustyDoorUnlock  (branches off PlantUnlock)
-          oils the rusty door → opens the magnificent cavern
-```
-
-Each journey is ~15-40 commands. Adding one to bridge a barrier is
-*dramatically* cheaper than raising the global BFS cap to brute-
-force through it. This is the convergence loop: identify an
-unreached region, write a short journey that bridges to it, let
-local BFS fan out, repeat.
-
-Building the first extension journey (PlantUnlock) immediately
-surfaced another bug — and this one was a real canon-fidelity
-defect, not a test artifact. The affordance enumerator (the code
-that tells the search "here's what you can do in this room")
-advertised that you could fill your bottle at room 23. The game's
-own water-source predicate disagreed: room 23 isn't a water
-source. So the search wasted turns trying to fill the bottle
-where it couldn't, and — worse — *never tried* to fill it at the
-eight rooms that actually are water sources, because they weren't
-advertised. The journey to grow the plant failed silently until
-we traced it.
+That collapses the model-extraction gap to nearly nothing. What's
+left is a small, *domain-agnostic* engine and a thin per-domain
+adapter.
 
 ---
 
-## The big one: a bug hiding inside the test harness
+## What falls out
 
-The journey-tree audit reported it could reach **53 of 140
-rooms** and called it a pass. The number was a lie.
+We built `FrameStateChecker`: about 150 lines, no knowledge of
+adventure games. It talks to any Frame domain through a
+ten-method adapter (`make_root`, `save`, `restore`,
+`enumerate_actions`, `apply`, `state_hash`, `invariants`,
+`observe`, plus two optional). Bind a domain and the classical
+properties drop out, each a direct instance of a named result:
 
-The BFS reuses a single driver object across thousands of search
-branches, rolling the game's FSM back to each branch point with a
-save/restore. But the driver has state that lives *outside* the
-FSM's save-state: a modal prompt dispatcher — the little state
-machine that handles "are you sure? (y/n)" interactions, including
-the death-and-revive prompt.
+**Reachability + safety.** `explore()` is breadth-first
+explicit-state search — the SPIN/Holzmann technique, bounded in
+the manner of Biere et al.'s bounded model checking (1999) via a
+state cap. At every reached state it evaluates the domain's
+invariants. An invariant is a **safety property** in the precise
+Lamport (1977) / Alpern–Schneider (1985) sense: refutable by a
+finite prefix. A violation comes back as a concrete
+counterexample path. (Ours: a player carrying an item the item's
+own state machine thinks is on the floor — caught on the first
+run.)
 
-When any branch of the search killed the player, that dispatcher
-entered its "awaiting revive answer" state. The save/restore rolled
-the *FSM* back — but not the dispatcher. So every subsequent
-branch inherited a stuck revive prompt, and the modal handler ate
-every command that wasn't "yes" or "no." The search couldn't move.
-It reported 53 rooms not because 53 was the truth, but because a
-leaked prompt had silently broken navigation across most of the
-search tree.
+**Liveness.** `reachable_satisfying(φ)` answers the CTL query
+**EF φ** — "does some reachable state satisfy φ?" — and returns a
+witness path. Point it at φ = *won* and it answers "can the
+player still win from here?", which is the game-design property
+of **softlock-freedom**. From every reachable save-point, the
+strengthening **AG EF won** ("from anywhere reachable, victory is
+still reachable") is the textbook non-deadlock / reset-reachable
+formula. We compute bounded approximations of both.
 
-We found it by instrumenting a single suspicious transition — at
-the Hall of Mountain King, with the snake gone, going south
-bounced the player back instead of advancing. The snake was gone.
-The lamp was lit. The player was alive. And yet: `prompts.current
-== "revive"`, inherited from some sibling branch that had died
-turns ago.
+**Bisimulation.** `restore_soundness()` checks observational
+equivalence (Milner 1980, Park 1981): restoring to a state must
+produce behavior indistinguishable from a fresh instance at that
+state. If a reused checker instance, deliberately corrupted and
+then restored, observes differently from a clean one, the restore
+(or the state vector) is incomplete. This is the check that
+guards the soundness of the whole enterprise — more on why below.
 
-The fix was one line — reset the dispatcher after each restore,
-mirroring the architect's documented contract that modal state
-doesn't survive a save/restore boundary. Coverage jumped from **53
-to 104 rooms** instantly. The bug had been masking nearly half the
-cave.
+The adapter for CCA is the punchline: ten methods, every one a
+thin delegate. `save` is the FSM's own `save_state`.
+`enumerate_actions` is the affordance list the game already
+computes for its prober. `state_hash` reads query methods.
+Binding a 140-room adventure to a model checker took an afternoon,
+not a thesis — because the game was born as the structure the
+checker wanted.
 
-This is the bug that reframed the whole effort. It wasn't a bug in
-the game. It was a bug in the *tool we built to measure the game*,
-and it had been confidently reporting a false number. A test that
-says "PASS — 53 of 140 rooms" with no second opinion is worse than
-no test: it's a number you trust that's wrong.
-
----
-
-## Closing the gap to 140
-
-With the leak fixed, the convergence loop did its job. A handful of
-moves got us to full coverage:
-
-- Raising the BFS cap from 5,000 to 15,000 states reached 122
-  rooms. A probe at 30,000 proved the remaining "blocked" rooms
-  weren't blocked at all — they were just queued and never
-  popped before the cap. (The audit's gap classifier had been
-  too coarse, flagging cap-budget as if it were a real barrier.
-  Refining it to evaluate each gate's *runtime* status — is the
-  snake actually here right now? — fixed the misdiagnosis.)
-- The PlantUnlock and RustyDoorUnlock journeys bridged the two
-  genuinely-gated clusters (+7 rooms).
-- A multi-seed union audit combined snapshots from before the
-  dragon kill (which opens canyon rooms the post-kill state
-  redirects away from) and from the endgame repository.
-- Six rooms turned out to have no topology source at all —
-  they're transient message rooms ("the dome is unclimbable,"
-  "you can't get by the snake") that the engine uses as prose
-  targets, never as places you stand. A separate test verifies
-  each fires its canon prose from its canon trigger.
-
-The tally: **134 rooms reached as state-graph nodes, 6 verified by
-canon-prose trigger, 140 total.**
+We cross-validated the generic engine against the hand-written,
+CCA-specific search it replaced: identical reachable-room count,
+identical zero violations, at the same bound and seed. The
+generality cost nothing in fidelity.
 
 ---
 
-## The third question: can you still win?
+## Two bugs, and the theory that names them
 
-Reachability and safety were now nailed. But we'd never asked the
-third question — **liveness**. Every proof that the game was
-winnable used the single scripted happy path. Could you save
-mid-game and still finish? Was any reachable state a *softlock* — a
-point from which victory has quietly become impossible (a treasure
-lost past a one-way gate, the lamp dead before the endgame, a
-required item consumed)?
+The interesting part of building a verifier is the moments it
+lies to you. Both of ours map exactly onto known failure modes.
 
-So we built a completability check: restore the snapshot at each of
-the 32 canonical milestones, replay the remaining journey, assert
-it reaches the won state. **All 32 resumed to victory.** Save
-anywhere on the canonical path, reload, and you can still win.
+### The incomplete state vector
 
-Then the sharpest version of the question. Everything we'd proven
-about winning used one RNG seed — and the canonical journey
-deliberately routes *around* the probabilistic hazards. CCA has
-randomness with teeth: the pirate steals a treasure and stashes it
-elsewhere. Under a bad seed, could the pirate grab a treasure at a
-moment or place that strands it — making the game unwinnable
-through no fault of the player?
+The reachability search reported it could reach **53 of 140
+rooms** and called that a pass. The number was false.
 
-We ran the full winning playthrough under seven distinct RNG seeds.
-Same fixed commands, seven different realizations of pirate
-movement, probabilistic dispatch, and dark-pit rolls. **All seven
-reached the won state.** The game is RNG-robust to completion — not
-merely winnable on a lucky seed. The one mechanic that can
-permanently relocate a treasure never, across seven distinct
-pirate walks, strands a treasure you need.
+The search reuses one driver object across thousands of branches,
+rolling the FSM back at each branch point with save/restore. But
+the driver carries one piece of state *outside* the FSM's
+save-state: a modal prompt dispatcher — the little machine that
+handles "are you sure? (y/n)", including the death-and-revive
+prompt. It was deliberately not composed onto the game's
+persistence envelope (a documented design choice: modal
+interaction state shouldn't survive a save/load boundary).
 
----
+So when any branch killed the player, the dispatcher entered
+"awaiting revive answer." Save/restore rolled the *FSM* back — but
+not the dispatcher. Every subsequent branch inherited a stuck
+prompt, and the modal handler ate every command that wasn't "yes"
+or "no." Navigation silently broke across most of the search
+tree. The "53" was an artifact of a leaked prompt, not a fact
+about the game.
 
-## The pattern, and knowing when it ends
+This is, precisely, the **incomplete-state-vector** failure that
+model-checking theory warns about: *a search is only sound if its
+state vector captures all transition-relevant state.* The
+dispatcher influenced transitions (it intercepted commands) but
+wasn't in the vector. In abstraction terms, the state abstraction
+wasn't a bisimulation — it didn't preserve the transition
+relation — so the explored graph was a fiction.
 
-Count the bugs by how they were found:
+The remedy is the standard one: re-derive the out-of-vector state
+from the world after every restore, exactly as a fresh session
+would. One method (`reset_session`). Coverage jumped from 53 to
+104 instantly. And the lesson became a *test*: the bisimulation
+check above exists specifically so this class of bug fails loudly
+the moment it appears, instead of hiding behind a confident wrong
+number.
 
-- Inventory-on-death — found by the first state-space BFS.
-- Dwarf-wake harness bug — found building milestone seeding.
-- Affordance/water-source mismatch — found building PlantUnlock.
-- The prompts-state-leak — found instrumenting a suspicious BFS
-  transition.
-- An oil-source list error (a room that wasn't any liquid source
-  listed as one; the actual Pool of Oil missing) — found the
-  *instant* we wrote a test that checks the affordance list against
-  the game's own predicate.
+### The abstraction that didn't preserve the proposition
 
-Five bugs. Every one surfaced not by running the existing tests,
-but by building a *new instrument* — and the new instrument found
-something the green suite had been tolerating. The lesson isn't
-"write more tests." It's that **measurement infrastructure needs
-invariants on itself**, and that a passing number with no second
-opinion is a liability. The prompts-leak hid behind "PASS — 53/140"
-for who knows how long.
+The liveness query failed the first time we ran it — and the
+failure is a small classic.
 
-So we hardened the instruments. Three tests that check the harness,
-not the game:
+`state_hash` — the dedup key, our state vector — was room +
+inventory + NPC states. Deliberately *not* including score, lamp
+battery, turn count: those are invariant-checked, and folding
+them in would explode the graph without adding reachable rooms.
+A good engineering call for reachability.
 
-1. **Canonical-journey ⊆ BFS-reached** — when the search exhausts
-   its frontier, it must reach every room the scripted journey
-   visits. If it drops one, the harness is corrupting its own
-   state. This is the cross-check that would have caught the
-   prompts-leak the moment it appeared.
-2. **Affordance/FSM agreement** — for every action the search is
-   told it can take, the game must actually handle it. This caught
-   the oil-source bug on its first run.
-3. **Restore-path property** — a reused driver restored to a state
-   must produce the identical observable behavior as a fresh driver
-   restored to that state, regardless of what it did before. This
-   pins the prompts-leak fix: disable the reset and all six test
-   pairs fail.
+But winning is the transition `in_repository → won`, fired by
+BLAST in the repository. It changes no room, no inventory, no NPC
+state. So the *won* state hashed **identically** to the
+pre-BLAST state. Breadth-first dedup saw the hash, declared the
+state already visited, and never enqueued it. The goal was
+invisible. `EF won` returned false not because you can't win, but
+because the search couldn't *see* winning.
 
-And then the pattern broke. The completability checks found
-nothing. The seed sweep found nothing. The full suite at full caps
-— every BFS test at its real cap, the fuzzer at full length — ran
-35 minutes and surfaced **zero violations across 88 tests**.
+The principle: **a state abstraction adequate for one property is
+not automatically adequate for another.** Our vector distinguished
+the states that matter for *reachability* (where can you stand?)
+but collapsed the states that matter for *liveness* (have you
+won?). The fix is to make the vector distinguish the proposition
+you're checking — add endgame phase to the hash. Crucially, that
+*doesn't* change the reachability result (endgame is uniformly
+"active" during normal play, so no new states appear), which the
+cross-validation confirms. One abstraction, refined just enough to
+preserve both propositions.
 
-That silence is itself a result. Early waves hit a rich pool of
-bugs because the prompts-leak had been masking so much. The last
-several waves crossed from *discovery* into *confirmation* — they
-asked genuinely new questions (liveness, RNG-robustness) and got
-clean answers. Recognizing that inflection matters: past it,
-building more measurement infrastructure is volume without signal.
-The bug pool, at this fidelity, is drained — across reachability,
-safety, *and* liveness.
+After the fix: `EF won` returns in six states with the witness
+path `["blast"]` — the model checker handing back the winning
+move.
 
 ---
 
-## Takeaways
+## What we can and can't claim
 
-- **A green test suite measures what it measures.** Ours was
-  thorough and local; it had no opinion on whole-state-space
-  soundness, and a real inventory bug lived comfortably underneath
-  it.
-- **The three questions are different instruments.** Reachability,
-  safety, and liveness need different machinery. We had to build
-  all three; coverage tools say nothing about whether you can win.
-- **Distrust a number with no second opinion.** "PASS — 53/140"
-  was wrong for a long time. The cross-check that flags a
-  suspicious drop is worth more than the primary number.
-- **Test infrastructure is code, and it has bugs.** Two of our five
-  finds were bugs in the harness, not the game. Instrument your
-  instruments.
-- **Know when you've crossed from finding to confirming.** The
-  value is in the questions you haven't asked yet, not in re-asking
-  the ones you've answered. When new instruments stop finding
-  things, that's the signal to stop building instruments.
+Intellectual honesty is the price of citing this lineage, so:
+this is **bounded, directed, RNG-sampled testing, not exhaustive
+verification.** We approximate the formulas; we do not discharge
+them.
 
-The game, it turns out, is sound: every room reachable, every
-reachable state invariant-clean, and winnable from every save-point
-under every roll of the dice. We can say that now with evidence. We
-couldn't, forty-some commits ago, with a suite that was all green.
+- **Bounded.** A state cap means the search can stop short of the
+  full frontier. We never enumerate the entire reachable set; we
+  enumerate a large bounded prefix. This is bounded model checking
+  (Biere et al.), with the usual caveat: absence of a
+  counterexample within the bound is evidence, not proof.
+- **Directed.** Breadth-first from a cold start reached only 16
+  rooms — most of the cave sits behind a prerequisite chain the
+  search can't thread within budget. We seed the search from deep
+  milestone snapshots reached by scripted play, then explore
+  locally. That's directed model checking (Edelkamp) and, in the
+  RL idiom, exactly Go-Explore (Ecoffet et al., *Nature* 2021):
+  archive interesting states, return, explore. We did not invent
+  this; we applied it.
+- **RNG-sampled.** The game has probabilistic transitions — a
+  pirate that steals and relocates treasure, dark-pit rolls,
+  probabilistic dispatch. We handle this two ways, both honest
+  approximations: fix a seed (explore one resolution), or sweep
+  seeds (sample the space). Proving completability under *all*
+  luck would mean treating RNG as demonic nondeterminism and
+  quantifying universally, or moving to a probabilistic model
+  checker (PRISM; Kwiatkowska et al.). We swept seven seeds and
+  the game stayed winnable under each — strong evidence,
+  not a theorem.
+
+And one structural honesty: a Frame program is not finite-state
+in general — it carries data (inventories, counters). The
+reachable space can be large. We get away with *concrete*
+exploration (no abstraction at all) precisely because the game's
+reachable space is modest and we direct the search. A system with
+a genuinely enormous concrete state space would still need the
+abstraction machinery we were lucky enough to skip. The Frame
+dividend is real but it is not magic: it removes the
+*extraction* cost, not the *state-explosion* cost.
+
+---
+
+## The dividend, and what it costs
+
+Strip away the adventure game and the claim generalizes to any
+Frame-native system:
+
+> If your domain is composed of persistable Frame state machines,
+> you get a model checker almost for free. The framework already
+> provides the state vector (`save_state`), the transition
+> relation (the dispatcher), and the atomic propositions (query
+> methods). A ~150-line generic engine plus a ~10-method adapter
+> gives you bounded reachability, safety-invariant checking,
+> CTL goal-reachability with witnesses, and bisimulation-based
+> restore-soundness — the apparatus that, on ordinary code, costs
+> a research program to even set up.
+
+The price is paid up front, in architecture: you have to write
+your program as explicit, composable, persistable state machines.
+Most code isn't written that way, which is exactly why the
+extraction gap exists. Frame's bet is that paying that cost buys
+you more than testability — it buys you a program that *is* its
+own formal model. The verification dividend is one consequence.
+
+The result we can stand behind: across this cave, every room is
+reachable, every reachable state is invariant-clean, and the game
+is winnable from every save-point under every roll of the dice we
+sampled. We can say that with evidence and witnesses. Forty-some
+commits ago, with a suite that was merely all-green, we couldn't
+say it at all — and one of the things hiding under the green was a
+verifier confidently reporting a number that a leaked prompt had
+made a lie.
+
+---
+
+## References (for the real write-up)
+
+- Kripke, *Semantical Considerations on Modal Logic*, 1963.
+- Lamport, *Proving the Correctness of Multiprocess Programs*,
+  1977.
+- Cousot & Cousot, *Abstract Interpretation*, 1977.
+- Milner, *A Calculus of Communicating Systems*, 1980; Park,
+  *Concurrency and Automata on Infinite Sequences*, 1981
+  (bisimulation).
+- Clarke & Emerson, *Design and Synthesis of Synchronization
+  Skeletons Using Branching-Time Temporal Logic*, 1981 (CTL).
+- Alpern & Schneider, *Defining Liveness*, 1985.
+- Clarke, Grumberg, Jha, Lu, Veith, *Counterexample-Guided
+  Abstraction Refinement*, 2000.
+- Biere, Cimatti, Clarke, Zhu, *Symbolic Model Checking without
+  BDDs* (bounded model checking), 1999.
+- Holzmann, *The SPIN Model Checker*, 2003.
+- Ball & Rajamani (SLAM); Henzinger et al. (BLAST); Clarke,
+  Kroening, Lerda (CBMC) — software model checking via model
+  extraction.
+- Kwiatkowska, Norman, Parker, *PRISM* (probabilistic model
+  checking).
+- Ecoffet, Huizinga, Lehman, Stanley, Clune, *First Return, Then
+  Explore* (Go-Explore), *Nature*, 2021.
+
+[Frame]: the state-machine notation the game is written in.
