@@ -7,12 +7,12 @@ evolved, and how to run the suite.
 ## At a glance
 
 ```
-86 tests in cca/tests/test_cca_*.gd, runnable in two modes:
+89 tests in cca/tests/test_cca_*.gd, runnable in two modes:
 
   Pre-commit / dev iteration (~5 min, 78 tests):
     CCA_SMOKE=1 ./run_tests.sh --fast
 
-  Full coverage (~22 min, all 86 tests):
+  Full coverage (~35 min, all 89 tests):
     ./run_tests.sh
 ```
 
@@ -39,9 +39,18 @@ canon-defining behavior, split into two complementary checks:
   walkable destinations; they're message-condition rooms the
   FSM uses as prose targets.
 
+Reachability is necessary but not sufficient. A separate
+**completability** check (`test_cca_journey_completable`)
+proves all **32 / 32** canonical milestones are resumable to
+victory: restore each milestone's save-state snapshot, replay
+the remaining journey, assert it reaches `$Won`. This is the
+"save mid-game, reload, still finish" property and a softlock
+detector — it asks "can you still WIN from here?" where the
+coverage audits only ask "can you GET here?".
+
 ## Test categories
 
-The 86 tests split into four methodology layers, ordered by
+The 89 tests split into four methodology layers, ordered by
 proximity to the player experience:
 
 ### Layer 1 — FSM-direct unit tests (~70 tests)
@@ -317,6 +326,9 @@ The session-arc covered in commits `aadf097` through
 | Affordance/FSM divergence (advertised but not handled) | Layer 4 — surfaced PlantUnlock fill-bottle bug |
 | Driver-side state leaks across BFS branches | Layer 4 — surfaced prompts-state-leak |
 | Canon room unreachable via known journeys | Layer 4 (union audit gap classifier) |
+| Softlock — victory unreachable from a save-point | Completability (`test_cca_journey_completable`) |
+| Affordance/FSM list drift (oil/water sources) | `test_cca_affordance_fsm_agree` — surfaced the 79-vs-24 oil-source bug |
+| BFS restore-path state leak (regression) | `test_cca_bfs_restore_property` — pins the prompts-leak fix |
 
 The audit's *classification* output is itself a documentation
 artifact: when a room is unreached, the report says whether
