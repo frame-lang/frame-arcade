@@ -53,6 +53,50 @@ is a bus of priority-ordered FSM "aspects" — Snake, Bear, Troll,
 Bottle, CrystalBridge, Endgame, and so on — composed under one
 persistence envelope.
 
+Every player command is dispatched down that bus. Each aspect, in
+priority order, returns one of three verdicts: **consume** (handle
+it, stop the chain), **transform** (rewrite the event, keep
+going), or pass. Only if nothing consumes does the command reach
+the base verb handling:
+
+```text
+ player types:  "xyzzy"
+                   │
+                   ▼
+   ┌──────────────────────────────────────────────────┐
+   │ Adventure.do_command(verb, noun)                  │
+   │ event = {verb, noun, room, is_dark, lamp_lit, …}  │
+   └──────────────────────────────────────────────────┘
+                   │  bus.begin_dispatch()
+   priority        ▼
+    700  ──►  ┌──────────┐  pass        gate info verbs in the dark;
+              │ darkness │ ───────┐     consume if you can't see
+              └──────────┘        │
+    500  ──►  ┌──────────┐  TRANSFORM   "xyzzy" → "move 33"
+              │  magic   │ ───────┤     (event rewritten, chain continues)
+              └──────────┘        │
+    400  ──►  ┌──────────┐  pass        consume "take" when the
+              │ backpack │ ───────┤     pack is full
+              └──────────┘        │
+    100  ──►  ┌──────────┐  observe     records "player moved"
+              │  score   │             (sees the post-transform event)
+              └──────────┘        │
+                   │  nothing consumed → fall through
+                   ▼
+   ┌──────────────────────────────────────────────────┐
+   │ base FSM verb handling (_verb_move, _verb_take…)  │
+   └──────────────────────────────────────────────────┘
+
+   verdicts:  consume   stop the chain, return its message
+              transform rewrite the event, continue downward
+              pass      hand to the next aspect
+```
+
+The priority order is load-bearing: `darkness` sits above `magic`
+so XYZZY can't silently teleport you in a room you can't see;
+`score` sits at the bottom so it records the *transformed* event
+("you moved") rather than the raw verb ("you typed XYZZY").
+
 Here is the observation the whole effort turns on. A Kripke
 structure (Kripke, 1963), the object a model checker consumes, is
 a tuple: a set of states, a transition relation, and a labeling
@@ -66,6 +110,27 @@ that tuple, concretely, at runtime:
 | transition relation | `process_input(command)` |
 | enabled actions | the affordance enumerator the game already has |
 | atomic propositions | the FSMs' own query methods (`player_room()`, `endgame_state()`, `snake.is_blocking()`) |
+
+Drawn as the gap it closes:
+
+```text
+  FORMAL OBJECT                RUNTIME ARTIFACT (already ships)
+  ─────────────                ───────────────────────────────
+  state  s ∈ S          ◄────  composed FSM configuration
+  state vector          ◄────  save_state() : PackedByteArray
+  transition  s ─a→ s'  ◄────  restore(s); process_input(a)
+  enabled(s)            ◄────  list_actions_here()
+  labeling  L(s)        ◄────  query methods: player_room(),
+                                endgame_state(), snake.is_blocking()
+
+  ORDINARY CODE                       FRAME-NATIVE CODE
+  ─────────────                       ─────────────────
+  source  ──extraction──►  model      source ════════►  model
+          (SLAM/BLAST/CBMC:           (the program already
+           predicate abstraction,     IS the transition system;
+           CEGAR, unrolling …)        save_state() is the vector)
+                ✗ the cost center            ✓ no extraction step
+```
 
 There is no extraction step. `save_state()` is not an
 *abstraction* of the state — it is the state, serialized,
@@ -160,6 +225,29 @@ or "no." Navigation silently broke across most of the search
 tree. The "53" was an artifact of a leaked prompt, not a fact
 about the game.
 
+```text
+  one reused driver, walking the search tree:
+
+  branch A ── kill player ──►  PromptDispatcher = "awaiting revive"
+                                     │
+                    save_state() ◄───┘   captures the FSM …
+                                         … NOT the dispatcher
+                                         (it lives on the host)
+
+  branch B ── restore(snap) ──►  FSM rolled back            ✓
+                                 PromptDispatcher STILL          ✗
+                                 "awaiting revive"  ◄─ leaked!
+
+  ⇒ every command in branch B is eaten by the y/n handler
+    → navigation dead → "53 / 140"   (a confident lie)
+
+  fix: reset_session() re-derives host state from the world
+       after every restore   →   "104 / 140"   (the truth)
+```
+
+The state vector was incomplete by exactly one machine, and the
+search believed a number that machine had quietly falsified.
+
 This is, precisely, the **incomplete-state-vector** failure that
 model-checking theory warns about: *a search is only sound if its
 state vector captures all transition-relevant state.* The
@@ -232,6 +320,30 @@ them.
   RL idiom, exactly Go-Explore (Ecoffet et al., *Nature* 2021):
   archive interesting states, return, explore. We did not invent
   this; we applied it.
+
+  ```text
+  canonical_journey  (the scripted winning line — itself a DFA)
+   AtRoad → LampLit → SnakeGone → … → BearReleased → … → Won
+                                           │
+                          ┌────────────────┘ extension journey
+                          ▼   (≈15 commands: grow the beanstalk)
+                     PlantHugeGrown ● ───► local BFS fan-out
+                          │                 ▒ 26 88 92 93 94 ▒
+                          │ extension journey
+                          ▼   (oil the rusty door)
+                     AtCanon91 ● ────────► local BFS fan-out
+                                            ▒ 91 95 ▒
+
+   ● a save_state() snapshot the search seeds from
+   ▒ rooms the local BFS reaches that the canonical line never visits
+
+   union of all fan-outs = the coverage measurement
+  ```
+
+  Each extension journey is a short bridge *through* a gate the
+  cold BFS can't thread; from its snapshot the local search fans
+  out cheaply. Adding a bridge is far cheaper than raising the
+  global bound to brute-force the gate.
 - **RNG-sampled.** The game has probabilistic transitions — a
   pirate that steals and relocates treasure, dark-pit rolls,
   probabilistic dispatch. We handle this two ways, both honest
