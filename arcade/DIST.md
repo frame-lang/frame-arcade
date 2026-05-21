@@ -56,9 +56,11 @@ under `arcade/godot/` IS committed (it's the build config).
 
 ## Local smoke-test before uploading
 
-The web export needs cross-origin isolation headers
-(SharedArrayBuffer requirement). itch.io provides those
-automatically; for local testing use the included server:
+This is a **single-threaded** web build (`GODOT_THREADS_ENABLED =
+false`), so it does **not** require SharedArrayBuffer / cross-origin
+isolation — which is exactly what lets it drop onto itch.io without
+special embed settings. The included server sends COOP/COEP headers
+anyway (harmless parity with a threaded build):
 
 ```sh
 python3 arcade/dist/serve_web.py
@@ -76,8 +78,9 @@ For the **web build**:
 3. Set viewport to **800 × 600** (matches `project.godot`'s
    `viewport_width` / `viewport_height`). Optionally enable
    "Click to launch in fullscreen" and "Mobile friendly" off.
-4. itch.io's HTML embed enables the COOP/COEP headers
-   automatically — no SharedArrayBuffer warnings.
+4. Leave **"SharedArrayBuffer support" unchecked** — this is a
+   single-threaded build and doesn't need cross-origin isolation,
+   so it boots without the COOP/COEP embed toggle.
 
 For the **macOS build**:
 

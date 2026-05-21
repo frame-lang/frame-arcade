@@ -342,11 +342,17 @@ func _draw_pacman() -> void:
     var mouth_open: float = (sin(Time.get_ticks_msec() / 120.0) + 1.0) * 0.5  # 0..1
     var angle: float = atan2(pacman_dir.y, pacman_dir.x)
     var opening: float = mouth_open * 0.6
-    var p1: Vector2 = pacman_pos
-    var p2: Vector2 = pacman_pos + Vector2(cos(angle + opening), sin(angle + opening)) * pacman_radius * 1.1
-    var p3: Vector2 = pacman_pos + Vector2(cos(angle - opening), sin(angle - opening)) * pacman_radius * 1.1
-    var pts := PackedVector2Array([p1, p2, p3])
-    draw_polygon(pts, PackedColorArray([Color(0, 0, 0), Color(0, 0, 0), Color(0, 0, 0)]))
+    # Skip the wedge when the mouth is essentially shut: a zero
+    # opening collapses p2/p3 into a degenerate triangle, which the
+    # GL-compatibility (web) renderer rejects with a per-frame
+    # "triangulation failed" log. A closed mouth draws nothing
+    # anyway, so guarding here is both correct and quieter.
+    if opening > 0.01:
+        var p1: Vector2 = pacman_pos
+        var p2: Vector2 = pacman_pos + Vector2(cos(angle + opening), sin(angle + opening)) * pacman_radius * 1.1
+        var p3: Vector2 = pacman_pos + Vector2(cos(angle - opening), sin(angle - opening)) * pacman_radius * 1.1
+        var pts := PackedVector2Array([p1, p2, p3])
+        draw_polygon(pts, PackedColorArray([Color(0, 0, 0), Color(0, 0, 0), Color(0, 0, 0)]))
 
 # ------------------------------------------------------------
 # Cabinet integration: Esc returns to the menu.

@@ -7,19 +7,20 @@
 #
 # Cabinet additions on top of the chapter version:
 #
-#   1. Pause menu. Esc (or P) opens an in-game menu with three
-#      options — Resume / Save & exit / Exit without saving —
-#      navigated with ↑/↓ and confirmed with Enter. Esc from
-#      inside the menu resumes (it's a natural cancel).
+#   1. Pause/quit overlay. Esc opens the cabinet-wide save-aware
+#      overlay (matches CCA): [Enter] Save and quit (the safe
+#      default), [Q] Quit without saving, [Esc] Resume. P is a
+#      separate plain pause-in-place; from a P pause, Esc
+#      escalates to the same save/quit overlay. Both freeze the
+#      action via the FSM's $Paused state.
 #
-#   2. Save & resume across cabinet sessions. The "Save &
-#      exit" option writes the FSM and driver-physics state
-#      to user://asteroids.save. On the next launch, if a
-#      save file is present, _ready() restores everything and
-#      drops the player back into $Paused — the same pause
-#      menu they left, with asteroids frozen in their last
-#      positions. Picking Resume returns control to the
-#      pushed sub-state via -> pop$.
+#   2. Save & resume across cabinet sessions. "Save and quit"
+#      writes the FSM and driver-physics state to
+#      user://asteroids.save. On the next launch, if a save file
+#      is present, _ready() restores everything and drops the
+#      player back into $Paused — showing the save/quit overlay,
+#      with asteroids frozen in their last positions. Resuming
+#      (Esc) returns control to the pushed sub-state via -> pop$.
 #
 #      The Frame side does the heavy lifting: a single call
 #      to fsm.save_state() round-trips the entire FSM tree
@@ -106,31 +107,34 @@ var _last_ship_state: String = "alive"
 # game-over screen.
 var _last_top_state: String = ""
 
-# --- Pause menu ---
-# Selection cursor and the option labels. _pause_selection is a
-# UI concern — the FSM is in $Paused regardless of which option
-# is highlighted.
-const _PAUSE_OPTIONS: Array = [
-    "Resume",
-    "Save & exit to menu",
-    "Exit without saving",
-]
-var _pause_selection: int = 0
+# --- Pause ---
+# The FSM has a single $Paused state (push$/pop$) that freezes
+# the simulation. The driver distinguishes two ways of being
+# paused via _pause_mode, since both freeze the game but show
+# different overlays and accept different keys:
+#
+#   "menu"   — Esc opened the save/quit overlay. This matches the
+#              cabinet-wide save-aware convention (CCA): Enter =
+#              Save and quit (the safe default), Q = quit without
+#              saving, Esc = resume.
+#   "freeze" — P pressed for a plain pause-in-place (action-game
+#              convention). P resumes; Esc escalates to the "menu"
+#              overlay (the game is already frozen).
+var _pause_mode: String = ""
 
 # Pause-state rising edge: when we transition from not-paused
-# to paused, we (re)seed the menu defaults. This fires both for
-# fresh pauses (player hit Esc/P during play) and for restored-
-# from-disk launches (where the FSM is already in $Paused on
-# the first frame).
+# to paused, we (re)seed the overlay key edge detectors. This
+# fires both for fresh pauses (player hit Esc/P during play) and
+# for restored-from-disk launches (where the FSM is already in
+# $Paused on the first frame).
 var _was_paused: bool = false
 
-# Edge-detected pause-menu navigation keys. Separate from the
-# in-game key edge detectors because in-game and pause-menu use
-# the same keys for different actions, and we want clean edges
-# at the moment of transition.
-var _pause_up_was_down: bool = false
-var _pause_down_was_down: bool = false
+# Edge-detected overlay keys. Separate from the in-game key edge
+# detectors because in-game and the overlay use the same keys for
+# different actions, and we want clean edges at the moment of
+# transition.
 var _pause_enter_was_down: bool = false
+var _q_was_down: bool = false
 
 # --- UI ---
 # Two labels stacked on the same canvas:
@@ -138,19 +142,19 @@ var _pause_enter_was_down: bool = false
 #   label_hud    — top bar, always visible (score/lives/wave/diff)
 #   label_center — short messages: "PAUSED", "WAVE CLEAR",
 #                  "GAME OVER", attract-screen blurb. One line.
-#   label_pause  — multi-line pause menu, only visible while
+#   label_pause  — the pause/quit overlay, only visible while
 #                  fsm.is_paused().
 #
-# Splitting the brief center text from the multi-line pause menu
-# keeps each label's font size, position, and alignment tuned for
-# its purpose without conditional resizing.
+# Splitting the brief center text from the pause overlay keeps
+# each label's font size, position, and alignment tuned for its
+# purpose without conditional resizing.
 var label_hud: Label
 var label_center: Label
 var label_pause: Label
 
 # ============================================================
 func _ready() -> void:
-    fsm = AsteroidsFSM.new(difficulty)
+    fsm = AsteroidsFSM._create(difficulty)
     _build_ui()
     _reset_ship()
 
@@ -254,11 +258,12 @@ func _handle_input(delta: float) -> void:
         _handle_pause_menu_input()
         return
 
-    # Pause toggle (edge-detected). When pressed during play,
-    # transitions the FSM to $Paused and the next frame's
-    # rising-edge detector will seed the pause menu defaults.
+    # Pause toggle (edge-detected). P is a plain pause-in-place:
+    # freeze the FSM and tag the pause "freeze" so the overlay
+    # shows the minimal hint, not the save/quit options.
     if Input.is_key_pressed(KEY_P) and not _p_was_down:
         _p_was_down = true
+        _pause_mode = "freeze"
         fsm.pause()
         return
     elif not Input.is_key_pressed(KEY_P):
@@ -297,66 +302,53 @@ func _handle_input(delta: float) -> void:
         _h_was_down = false
 
 # ------------------------------------------------------------
-# Pause menu navigation
+# Pause overlay
 # ------------------------------------------------------------
 func _enter_pause_menu() -> void:
-    # Reset the cursor to "Resume" — that's the friendly default;
-    # players are unlikely to want to discard their run by reflex.
-    _pause_selection = 0
+    # A restored-from-disk launch arrives here already in $Paused
+    # with no mode set (the save was written from the "menu"
+    # overlay, so default to it).
+    if _pause_mode == "":
+        _pause_mode = "menu"
 
-    # Seed the edge detectors from the current key state so a
-    # held key from the moment of pause doesn't immediately move
-    # the selection. Specifically: if the player held Down to dive
-    # away from an asteroid and slammed Esc on the same frame,
-    # we don't want the menu's first frame to interpret that
-    # held Down as "move selection".
-    _pause_up_was_down = Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W)
-    _pause_down_was_down = Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S)
-    _pause_enter_was_down = Input.is_key_pressed(KEY_ENTER) or Input.is_key_pressed(KEY_SPACE)
-    # _p_was_down is shared with in-game pause toggle and seeded
-    # whenever P state changes; no special handling needed here.
+    # Seed the overlay key edge detectors from the current key
+    # state so a key held at the moment of pause doesn't fire on
+    # the overlay's first frame — e.g. the player slammed Esc to
+    # pause and is still holding it.
+    _pause_enter_was_down = Input.is_key_pressed(KEY_ENTER) or Input.is_key_pressed(KEY_KP_ENTER) or Input.is_key_pressed(KEY_SPACE)
+    _q_was_down = Input.is_key_pressed(KEY_Q)
+    # _p_was_down is shared with the in-game pause toggle and is
+    # seeded whenever P state changes; no special handling here.
 
 func _handle_pause_menu_input() -> void:
-    var up: bool = Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W)
-    var down: bool = Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S)
-    var enter: bool = Input.is_key_pressed(KEY_ENTER) or Input.is_key_pressed(KEY_SPACE)
+    var enter: bool = Input.is_key_pressed(KEY_ENTER) or Input.is_key_pressed(KEY_KP_ENTER) or Input.is_key_pressed(KEY_SPACE)
+    var q: bool = Input.is_key_pressed(KEY_Q)
     var p: bool = Input.is_key_pressed(KEY_P)
 
-    if up and not _pause_up_was_down:
-        _pause_selection = (_pause_selection - 1 + _PAUSE_OPTIONS.size()) % _PAUSE_OPTIONS.size()
-    if down and not _pause_down_was_down:
-        _pause_selection = (_pause_selection + 1) % _PAUSE_OPTIONS.size()
-    if enter and not _pause_enter_was_down:
-        _confirm_pause_selection()
-    if p and not _p_was_down:
-        # P toggles pause both ways for symmetry with the in-game
-        # behavior — the player's muscle memory says "P = the
-        # pause key", whether currently paused or not.
-        fsm.resume()
-
-    _pause_up_was_down = up
-    _pause_down_was_down = down
-    _pause_enter_was_down = enter
-    _p_was_down = p
-
-func _confirm_pause_selection() -> void:
-    match _pause_selection:
-        0:
-            # Resume — the FSM's pop$ takes us back to the pushed
-            # compartment ($Playing, $ShipDying, or $WaveClear)
-            # with every state variable restored.
-            fsm.resume()
-        1:
-            # Save the entire run, then leave the scene. The save
-            # write is synchronous and small (few KB), so doing it
-            # before the scene change keeps the flow simple.
+    if _pause_mode == "menu":
+        # Cabinet save-aware convention (matches CCA): Enter is the
+        # safe default (save + leave), Q discards. Esc (handled in
+        # _input) cancels back to the game.
+        if enter and not _pause_enter_was_down:
+            # Save the entire run, then leave. The write is
+            # synchronous and small (few KB), so doing it before
+            # the scene change keeps the flow simple.
             _save_run()
             Arcade.return_to_menu()
-        2:
-            # Exit without touching the save file. If a previous
-            # save exists, it survives unchanged; the player can
-            # re-launch and continue from that older point.
+        elif q and not _q_was_down:
+            # Leave without touching the save file: any previous
+            # save survives unchanged for a later continue.
             Arcade.return_to_menu()
+    else:
+        # "freeze" — a plain P pause. P resumes; Esc (in _input)
+        # escalates to the save/quit overlay.
+        if p and not _p_was_down:
+            fsm.resume()
+            _pause_mode = ""
+
+    _pause_enter_was_down = enter
+    _q_was_down = q
+    _p_was_down = p
 
 # ============================================================
 func _update_ship(delta: float) -> void:
@@ -464,17 +456,12 @@ func _update_labels() -> void:
         fsm.get_score(), fsm.get_lives(), fsm.get_wave(), fsm.get_difficulty()]
 
     if fsm.is_paused():
-        # Multi-line pause menu via label_pause. label_center is
-        # hidden so we don't render a second "PAUSED" on top.
-        var lines := PackedStringArray()
-        lines.append("PAUSED")
-        lines.append("")
-        for i in range(_PAUSE_OPTIONS.size()):
-            var prefix: String = ">  " if i == _pause_selection else "    "
-            lines.append(prefix + _PAUSE_OPTIONS[i])
-        lines.append("")
-        lines.append("↑/↓ select    Enter confirm    Esc resume")
-        label_pause.text = "\n".join(lines)
+        # Pause overlay via label_pause. label_center is hidden so
+        # we don't render a second "PAUSED" on top.
+        if _pause_mode == "freeze":
+            label_pause.text = "PAUSED\n\n[P] Resume    [Esc] Save / quit options"
+        else:
+            label_pause.text = "PAUSED\n\n[Enter] Save and quit (default)    [Q] Quit without saving\n[Esc] Resume"
         label_pause.visible = true
         label_center.visible = false
         return
@@ -664,10 +651,9 @@ func _load_run() -> void:
     _last_ship_state = d.get("last_ship_state", "alive")
 
     # Force the next _physics_process to detect a pause rising
-    # edge so the menu defaults get seeded. Without this, a
-    # restored-into-$Paused launch would leave the cursor at
-    # whatever value _pause_selection had at startup (which is
-    # 0 anyway, but the edge-detector seeding matters too).
+    # edge so _enter_pause_menu() runs — it seeds the overlay key
+    # edge detectors and defaults a restored pause to "menu" mode
+    # (the save was written from that overlay).
     _was_paused = false
 
 func _delete_save() -> void:
@@ -679,10 +665,12 @@ func _delete_save() -> void:
 # ============================================================
 # Esc means different things in different states:
 #
-#   attract     — no run in progress; treat Esc as "back to menu"
-#   playing/etc — open the pause menu
-#   paused      — resume (Esc as a natural cancel)
-#   game_over   — back to menu
+#   attract / game_over — no run to preserve; back to the menu
+#   playing/etc         — open the save/quit overlay (freeze)
+#   paused, "menu"      — cancel the overlay, resume the game
+#   paused, "freeze"    — escalate the plain P pause to the
+#                         save/quit overlay (the game's already
+#                         frozen)
 #
 # Handled in _input rather than _handle_input so we can call
 # set_input_as_handled() and stop the event from cascading.
@@ -692,9 +680,18 @@ func _input(event: InputEvent) -> void:
         get_viewport().set_input_as_handled()
         var state: String = fsm.get_state()
         if state == "paused":
-            fsm.resume()
+            if _pause_mode == "freeze":
+                # Already frozen by P — surface the save/quit options.
+                _pause_mode = "menu"
+                _enter_pause_menu()
+            else:
+                # "menu" overlay open — Esc cancels back to the game.
+                fsm.resume()
+                _pause_mode = ""
         elif state == "attract" or state == "game_over":
             Arcade.return_to_menu()
         else:
-            # In-game (playing, ship_dying, wave_clear) — pause.
+            # In-game (playing, ship_dying, wave_clear) — open the
+            # save/quit overlay, freezing the action via $Paused.
+            _pause_mode = "menu"
             fsm.pause()

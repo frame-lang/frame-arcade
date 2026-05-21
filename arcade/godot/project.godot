@@ -17,6 +17,17 @@ config/features=PackedStringArray("4.2")
 
 Arcade="*res://scripts/arcade.gd"
 
+[gui]
+
+; Default UI font for the whole cabinet. Godot's built-in font
+; (Open Sans) has no arrow glyphs, so on-screen hints like
+; "↑/↓ select" rendered as missing-glyph boxes in the web export.
+; DejaVu Sans is visually near-identical to Open Sans but covers
+; the Arrows Unicode block. Bundled (Bitstream Vera + Arev
+; license, redistributable) so the web/itch build is self-
+; contained — see fonts/DejaVuSans-LICENSE.txt.
+theme/custom_font="res://fonts/DejaVuSans.ttf"
+
 [display]
 
 window/size/viewport_width=800
