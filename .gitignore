@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# Claude Code local config (machine-local: permissions, locks)
+.claude/
+
 # Godot
 .godot/
 *.import
