@@ -28,7 +28,7 @@ const ScoreboardScript = preload("res://scripts/scoreboard.gd")
 # `name` is the stable identifier passed to the Scoreboard;
 # don't change it once scores have been written under that
 # key, or persisted entries become orphaned. `scored = false`
-# games (Pac-Man, Platformer) are demos of their respective
+# games (Ghost Maze, Platformer) are demos of their respective
 # Frame patterns rather than scoring games — they don't appear
 # in the high-score column.
 const GAMES: Array = [
@@ -61,7 +61,7 @@ const GAMES: Array = [
         "blurb": "State stack (push$/pop$), parameterized systems",
     },
     {
-        "title": "5. Pac-Man Ghost AI",
+        "title": "5. Ghost Maze",
         "name": "pacman",
         "scored": false,
         "scene": "res://scenes/games/pacman.tscn",

@@ -261,5 +261,19 @@ scripts need to be rewritten. If you build one, open a PR.
 
 ## License
 
-MIT for the code. CC-BY-4.0 for the prose. Attribute to the
-`frame-arcade` repo.
+Copyright (c) 2026 Frame Language.
+
+- **Code** (Frame `.fgd` sources, GDScript drivers, build tooling) is
+  dual-licensed under either [Apache-2.0](LICENSE-APACHE) or
+  [MIT](LICENSE-MIT), at your option.
+- **Prose** (the book text and documentation) is licensed
+  [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) — attribute
+  to the `frame-arcade` repo.
+
+## Trademarks
+
+These games are independent, educational reimplementations written from
+scratch in Frame — no original game code or assets are used. Names like
+*Pong*, *Breakout*, *Space Invaders*, and *Asteroids* are trademarks of
+their respective owners; this project is unaffiliated and unendorsed. See
+[NOTICE.md](NOTICE.md) for the full disclaimer.

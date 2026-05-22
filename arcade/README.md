@@ -22,7 +22,7 @@ game's FSM plus an annotated walkthrough of its `.fgd` source.
 | 2 | Breakout | Multi-system composition, state variables | [ch02-breakout](../ch02-breakout/README.md) |
 | 3 | Space Invaders | Hierarchical state machines, parent inheritance | [ch03-invaders](../ch03-invaders/README.md) |
 | 4 | Asteroids | State stack (`push$` / `-> pop$`), parameterized systems | [ch04-asteroids](../ch04-asteroids/README.md) |
-| 5 | Pac-Man Ghost AI | Deep HSM, two-stack coordination | [ch05-pacman](../ch05-pacman/README.md) |
+| 5 | Ghost Maze | Deep HSM, two-stack coordination — maze-chase ghost AI | [ch05-pacman](../ch05-pacman/README.md) |
 | 6 | Platformer | Orthogonal-state problem — HSM vs composition | [ch06-platformer](../ch06-platformer/README.md) |
 | 7 | Side-Scrolling Shooter | Capstone — boss HSM, parameterized enemies | [ch07-shooter](../ch07-shooter/README.md) |
 | 8 | Stealth | Agent AI — Frame as an alternative to behaviour trees | [ch08-stealth](../ch08-stealth/README.md) |
