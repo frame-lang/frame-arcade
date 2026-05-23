@@ -53,6 +53,8 @@ SLOW_TESTS=(
     "tests/test_cca_state_space_seeded_multiseed.gd"
     "tests/test_cca_monkey.gd"
     "tests/test_cca_probe.gd"
+    "tests/test_cca_area_explorer.gd"
+    "tests/test_cca_dag_coverage.gd"
 )
 
 FAST_MODE=0

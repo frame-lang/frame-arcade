@@ -62,6 +62,16 @@ var seed_bytes: PackedByteArray = PackedByteArray()
 # functional effect.
 var seed_label: String = ""
 
+# Waypoint-seeded exploration knobs (the area-explorer pattern):
+#   reseed_chance_after_restore — after restoring the waypoint
+#     snapshot, reseed the model's Chance system to `seed` so a
+#     sweep of seeds samples the area's probabilistic branches.
+#   area_rooms — if non-empty, the BFS only EXPANDS from rooms in
+#     this set (boundary rooms are still recorded as covered, but
+#     not expanded), keeping the local bloom bounded to the area.
+var reseed_chance_after_restore: bool = false
+var area_rooms: Dictionary = {}
+
 # How often (in states-visited count) to emit a one-line BFS
 # progress print. Set to 0 to disable. Long BFS runs at high caps
 # can take several minutes; the progress line lets a watching
@@ -137,7 +147,21 @@ func run() -> void:
     if not seed_bytes.is_empty():
         driver.fsm.restore_state(seed_bytes)
         _reset_driver_session_state(driver)
+        # Waypoint-seeded exploration: restore_state() also restored
+        # the snapshot's Chance state, so probabilistic gates would
+        # resolve identically every run. Reseed Chance to THIS run's
+        # seed so a sweep of seeds samples the area's random branches
+        # (the rail pinned Chance to *arrive*; we unpin to *explore*).
+        if reseed_chance_after_restore:
+            driver.fsm.chance.reseed(seed)
     run_from(driver)
+
+# Distinct rooms touched this run (from the visited-state hashes).
+func covered_rooms() -> Dictionary:
+    var rooms: Dictionary = {}
+    for h in visited.keys():
+        rooms[int(h.substr(2).get_slice("|", 0))] = true
+    return rooms
 
 # PromptDispatcher state lives on the driver, not in fsm.save_state.
 # The architect's documented contract (cca.fgd PromptDispatcher block)
@@ -239,12 +263,17 @@ func run_from(driver) -> void:
                 var new_path: Array = node_path.duplicate()
                 new_path.append(action.key)
                 reproducer[new_hash] = new_path
-                queue.append({
-                    "state": driver.fsm.save_state(),
-                    "path": new_path,
-                    "hash": new_hash,
-                })
-                states_visited += 1
+                # Area bound: a state outside the area is still
+                # recorded as covered (it's in `visited`), but we
+                # don't expand it — the bloom stays inside the area.
+                var new_room: int = int(new_hash.substr(2).get_slice("|", 0))
+                if area_rooms.is_empty() or area_rooms.has(new_room):
+                    queue.append({
+                        "state": driver.fsm.save_state(),
+                        "path": new_path,
+                        "hash": new_hash,
+                    })
+                    states_visited += 1
                 if states_visited >= max_states:
                     hit_cap = true
                     break
