@@ -207,6 +207,7 @@ func _make_driver():
     d.input = LineEdit.new()
     d.rng = RandomNumberGenerator.new()
     d.rng.seed = 42
+    d.fsm.chance.reseed(42)    # probabilistic rolls now live in the model
     d._build_verb_synonyms_5()
     d._print_welcome()
     d._print_room()

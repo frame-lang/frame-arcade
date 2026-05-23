@@ -860,3 +860,87 @@
         pick_step: int = 0
 }
 
+
+# ------------------------------------------------------------
+# Chance
+# ------------------------------------------------------------
+# The game's loose probabilistic mechanics — dark-room pit-falls,
+# the Y2 "PLUGH" whisper, the pirate-rustling cue, canon
+# section-3 probabilistic travel, and the unknown-verb response
+# mix — were hand-rolled in the driver against a raw
+# RandomNumberGenerator: live randomness OUTSIDE the model,
+# invisible to save_state. That's the same "logic outside the
+# FSM" leak as the old prompts-dispatcher bug.
+#
+# Chance pulls them into the model. It's a one-state service:
+# every decision goes through a named call that advances a
+# deterministic seed+step LCG (the same scheme Dwarf/Pirate use),
+# so outcomes are reproducible and round-trip through save_state.
+#
+# The `forced` map is the test seam: force(name, value) pins a
+# decision's outcome regardless of the roll, so a test can steer
+# the path through any branch (or, by varying the pins, enumerate
+# them). Empty in normal play, where reseed() supplies entropy.
+@@[persist(PackedByteArray)]
+@@[save(save_state)]
+@@[load(restore_state)]
+@@system Chance(seed: int) : RefCounted {
+
+    interface:
+        # Bernoulli decision: true with probability pct/100.
+        decide(name: String, pct: int): bool
+        # Uniform pick in [0, n).
+        decide_range(name: String, n: int): int
+        # Test seam: pin / unpin a named decision's outcome.
+        force(name: String, value: int)
+        clear_forced(name: String)
+        # Production entropy: the driver reseeds at game start
+        # (mirrors the old rng.randomize()); tests leave it fixed.
+        reseed(new_seed: int)
+        get_seed(): int
+        get_step(): int
+
+    machine:
+
+        $Rolling {
+            decide(name: String, pct: int): bool {
+                if self.forced.has(name):
+                    @@:return(self.forced[name] != 0)
+                self.step = self.step + 1
+                var x: int = self.seed * 1664525 + self.step * 1013904223
+                x = ((x >> 16) ^ x) * 22695477
+                x = x & 0xffffffff
+                var roll: int = x % 100
+                @@:(roll < pct)
+            }
+            decide_range(name: String, n: int): int {
+                if self.forced.has(name):
+                    @@:return(self.forced[name])
+                self.step = self.step + 1
+                var x: int = self.seed * 1664525 + self.step * 1013904223
+                x = ((x >> 16) ^ x) * 22695477
+                x = x & 0xffffffff
+                @@:(x % n)
+            }
+            force(name: String, value: int) {
+                self.forced[name] = value
+            }
+            clear_forced(name: String) {
+                self.forced.erase(name)
+            }
+            reseed(new_seed: int) {
+                self.seed = new_seed
+                self.step = 0
+            }
+            get_seed(): int { @@:(self.seed) }
+            get_step(): int { @@:(self.step) }
+        }
+
+    domain:
+        seed: int = seed
+        step: int = 0
+        # Test-only overrides: decision-name -> pinned value (bool
+        # decisions read nonzero as true). Empty in normal play.
+        forced: Dictionary = {}
+}
+

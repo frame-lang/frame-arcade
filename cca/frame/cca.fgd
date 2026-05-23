@@ -48,6 +48,7 @@ const Troll = preload("res://scripts/npcs.gd").Troll
 const Dwarf = preload("res://scripts/npcs.gd").Dwarf
 const Dragon = preload("res://scripts/npcs.gd").Dragon
 const Pirate = preload("res://scripts/npcs.gd").Pirate
+const Chance = preload("res://scripts/npcs.gd").Chance
 const Lamp = preload("res://scripts/puzzles.gd")
 const Treasure = preload("res://scripts/puzzles.gd").Treasure
 const Item = preload("res://scripts/puzzles.gd").Item
@@ -4206,6 +4207,14 @@ const AspectBus = preload("res://scripts/aspects.gd").AspectBus
         # Pirate — probabilistic encounter once player is
         # carrying multiple treasures.
         pirate = @@Pirate(99)
+
+        # Chance — the game's loose probability rolls (pit-falls,
+        # the Y2 whisper, the rustling cue, probabilistic travel,
+        # the unknown-verb mix). Owned here so the randomness lives
+        # IN the model (deterministic seed+step, round-trips through
+        # save_state) instead of in the driver. Seed 1 by default;
+        # the driver reseeds for production entropy, tests pin it.
+        chance = @@Chance(1)
 
         # Eggs incantation — 4-state sequence parser. Said
         # anywhere; on completion, summons the eggs back to

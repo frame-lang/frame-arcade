@@ -50,6 +50,20 @@ echo "==> $FRAMEC compile frame/canonical_journey.fgd"
 echo "==> copying generated/canonical_journey.gd -> godot/scripts/canonical_journey.gd"
 cp "generated/canonical_journey.gd" "godot/scripts/canonical_journey.gd"
 
+# win_journey.fgd — the deterministic full-win rail (test scaffold,
+# like canonical_journey but plays the real treasure economy to a
+# genuine BLAST). Not mirrored to the arcade.
+echo "==> $FRAMEC compile frame/win_journey.fgd"
+"$FRAMEC" compile "frame/win_journey.fgd" --language gdscript -o generated/
+echo "==> copying generated/win_journey.gd -> godot/scripts/win_journey.gd"
+cp "generated/win_journey.gd" "godot/scripts/win_journey.gd"
+
+# death_journeys.fgd — deterministic death rails (test scaffold).
+echo "==> $FRAMEC compile frame/death_journeys.fgd"
+"$FRAMEC" compile "frame/death_journeys.fgd" --language gdscript -o generated/
+echo "==> copying generated/death_journeys.gd -> godot/scripts/death_journeys.gd"
+cp "generated/death_journeys.gd" "godot/scripts/death_journeys.gd"
+
 # topology.gd is hand-written canon data (140 rooms + 75 gates),
 # not framec-generated, but it MUST also stay in sync between
 # the standalone and arcade copies — both `driver.gd` and

@@ -1,0 +1,237 @@
+# ============================================================
+# win_journey.fgd — the deterministic full-win rail
+# ============================================================
+# A Frame journey FSM (same shape as canonical_journey) encoding
+# a VERIFIED, fully-organic win: 228 typed commands, no FSM
+# pokes, real navigation, real mechanics. The 10th deposit arms
+# the cave-closing naturally; 30 LOOK turns ride the timer to the
+# Repository; a real BLAST wins.
+#
+# Unlike canonical_journey (which shortcuts the treasure economy
+# via treasure_deposited()/tick() pokes), this rail collects and
+# deposits ten treasures by playing: rug, gold, silver, jewelry,
+# coins, diamonds, vase, pyramid, pearl, and the pirate's chest.
+# The emerald is deliberately let go — the pirate steals it mid-
+# trip (deterministic, seed 99), which spawns the chest at canon
+# 18; recovering the chest is the canonical tenth treasure.
+#
+# Determinism: the runner fixes rng.seed = 42 AND chance.reseed(42)
+# (the model-native Chance system). With dwarves dormant and the
+# pirate on its fixed seed, the whole 228-step run is reproducible
+# and fast (no BFS, no state-space search).
+# ============================================================
+
+@@[target("gdscript")]
+
+@@system WinJourney : RefCounted {
+
+    interface:
+        advance()
+        is_done(): bool
+        state_name(): String
+        commands_from_previous(): Array
+        expected_room(): int
+
+    machine:
+
+        $Start {
+            advance() { -> $WellHouse }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("Start") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(1) }
+        }
+
+        $WellHouse {
+            advance() { -> $BelowGrate }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("WellHouse") }
+            commands_from_previous(): Array {
+                @@:(["east", "take keys", "take lamp", "take food", "take bottle", "west"])
+            }
+            expected_room(): int { @@:(1) }
+        }
+
+        $BelowGrate {
+            advance() { -> $SnakeCleared }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("BelowGrate") }
+            commands_from_previous(): Array {
+                @@:(["depression", "unlock grate", "down", "light lamp"])
+            }
+            expected_room(): int { @@:(9) }
+        }
+
+        $SnakeCleared {
+            advance() { -> $BridgeBuilt }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("SnakeCleared") }
+            commands_from_previous(): Array {
+                @@:(["w", "take cage", "w", "w", "w", "take bird", "w", "down", "n",
+                     "release bird", "drop keys", "drop food", "drop cage"])
+            }
+            expected_room(): int { @@:(19) }
+        }
+
+        $BridgeBuilt {
+            advance() { -> $RugBanked }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("BridgeBuilt") }
+            commands_from_previous(): Array {
+                @@:(["east", "up", "debris", "take rod", "pit", "down", "west", "wave rod"])
+            }
+            expected_room(): int { @@:(17) }
+        }
+
+        $RugBanked {
+            advance() { -> $GoldBanked }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("RugBanked") }
+            commands_from_previous(): Array {
+                @@:(["east", "north", "north", "down", "bedquilt", "slab", "up", "south",
+                     "attack dragon", "yes", "take rug", "north", "down", "north", "up",
+                     "east", "up", "east", "up", "north", "plugh", "drop rug"])
+            }
+            expected_room(): int { @@:(3) }
+        }
+
+        $GoldBanked {
+            advance() { -> $SilverBanked }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("GoldBanked") }
+            commands_from_previous(): Array {
+                @@:(["west", "depression", "down", "pit", "down", "south", "take gold",
+                     "north", "y2", "down", "plugh", "drop gold"])
+            }
+            expected_room(): int { @@:(3) }
+        }
+
+        $SilverBanked {
+            advance() { -> $JewelryBanked }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("SilverBanked") }
+            commands_from_previous(): Array {
+                @@:(["west", "depression", "down", "pit", "down", "north", "north",
+                     "take silver", "north", "plugh", "drop silver"])
+            }
+            expected_room(): int { @@:(3) }
+        }
+
+        $JewelryBanked {
+            advance() { -> $CoinsBanked }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("JewelryBanked") }
+            commands_from_previous(): Array {
+                @@:(["west", "depression", "down", "pit", "down", "north", "south",
+                     "take jewelry", "north", "north", "north", "plugh", "drop jewelry"])
+            }
+            expected_room(): int { @@:(3) }
+        }
+
+        $CoinsBanked {
+            advance() { -> $DiamondsBanked }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("CoinsBanked") }
+            commands_from_previous(): Array {
+                @@:(["west", "depression", "down", "pit", "down", "north", "west",
+                     "take coins", "east", "north", "north", "plugh", "drop coins"])
+            }
+            expected_room(): int { @@:(3) }
+        }
+
+        $DiamondsBanked {
+            advance() { -> $VaseBanked }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("DiamondsBanked") }
+            commands_from_previous(): Array {
+                @@:(["west", "depression", "down", "pit", "down", "west", "over",
+                     "take diamonds", "over", "east", "y2", "down", "plugh", "drop diamonds"])
+            }
+            expected_room(): int { @@:(3) }
+        }
+
+        $VaseBanked {
+            advance() { -> $EmeraldStolen }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("VaseBanked") }
+            commands_from_previous(): Array {
+                @@:(["west", "depression", "down", "pit", "down", "north", "north", "down",
+                     "bedquilt", "west", "oriental", "take vase", "up", "west", "east", "nw",
+                     "south", "se", "ne", "up", "east", "up", "north", "plugh", "drop vase"])
+            }
+            expected_room(): int { @@:(3) }
+        }
+
+        # Emerald taken in the Plover Room, but the pirate snatches
+        # it on the way out (deterministic) — no drop. This is what
+        # spawns the chest at canon 18.
+        $EmeraldStolen {
+            advance() { -> $PyramidBanked }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("EmeraldStolen") }
+            commands_from_previous(): Array {
+                @@:(["west", "depression", "down", "pit", "down", "y2", "down", "plover",
+                     "take emerald", "plover", "plugh"])
+            }
+            expected_room(): int { @@:(3) }
+        }
+
+        $PyramidBanked {
+            advance() { -> $PearlBanked }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("PyramidBanked") }
+            commands_from_previous(): Array {
+                @@:(["west", "depression", "down", "pit", "down", "y2", "down", "plover",
+                     "ne", "take pyramid", "south", "plover", "plugh", "drop pyramid"])
+            }
+            expected_room(): int { @@:(3) }
+        }
+
+        $PearlBanked {
+            advance() { -> $ChestBanked }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("PearlBanked") }
+            commands_from_previous(): Array {
+                @@:(["west", "depression", "down", "pit", "down", "north", "north", "down",
+                     "west", "down", "north", "break clam", "take pearl", "south", "up",
+                     "east", "up", "north", "plugh", "drop pearl"])
+            }
+            expected_room(): int { @@:(3) }
+        }
+
+        # Tenth treasure — recover the pirate's chest at canon 18.
+        # The drop arms the cave-closing (TREASURES_TO_TRIGGER = 10).
+        $ChestBanked {
+            advance() { -> $Won }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("ChestBanked") }
+            commands_from_previous(): Array {
+                @@:(["west", "depression", "down", "pit", "down", "south", "take chest",
+                     "north", "y2", "down", "plugh", "drop chest"])
+            }
+            expected_room(): int { @@:(3) }
+        }
+
+        # Ride the closing timer to the Repository (canon 116), then
+        # BLAST. 30 LOOK turns drain CLOSING_DURATION.
+        $Won {
+            advance() { -> $Done }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("Won") }
+            commands_from_previous(): Array {
+                @@:(["look", "look", "look", "look", "look", "look", "look", "look", "look",
+                     "look", "look", "look", "look", "look", "look", "look", "look", "look",
+                     "look", "look", "look", "look", "look", "look", "look", "look", "look",
+                     "look", "look", "look", "blast"])
+            }
+            expected_room(): int { @@:(116) }
+        }
+
+        $Done {
+            advance() { }
+            is_done(): bool { @@:(true) }
+            state_name(): String { @@:("Done") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(116) }
+        }
+}

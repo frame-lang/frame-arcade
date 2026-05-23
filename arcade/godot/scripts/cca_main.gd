@@ -266,8 +266,11 @@ func _ready() -> void:
     fsm.setup_default_aspects()
     fsm.wake_dwarves()
     # `prompts` is initialized at var-declaration time (see top).
-    # Seed the driver-side RNG from system time for production play.
+    # Seed the model's Chance system from system entropy for
+    # production play (mirrors the standalone driver). Tests bypass
+    # _ready() and leave Chance at its fixed default seed.
     rng.randomize()
+    fsm.chance.reseed(rng.randi())
     exit_dialog = ExitDialogScript.new()
     _build_verb_synonyms_5()
     _build_ui()
@@ -821,11 +824,11 @@ func _dispatch_bumper(verb: String) -> bool:
 func _dispatch_to_fsm(verb: String, noun: String) -> void:
     var response: String = fsm.do_command(verb, noun)
     if response.begins_with("I don't know how to '"):
-        var roll1: int = rng.randi() % 100
-        var roll2: int = rng.randi() % 100
-        if roll2 < 20:
+        # Canon STMT 3000 unknown-verb mix. Rolls routed through the
+        # model's Chance system (deterministic, save_state-visible).
+        if fsm.chance.decide("dispatch_13", 20):
             response = "I don't understand that!"   # canon msg #13
-        elif roll1 < 20:
+        elif fsm.chance.decide("dispatch_61", 20):
             response = "What?"                       # canon msg #61
         else:
             response = "I don't know that word."     # canon msg #60
@@ -1358,8 +1361,13 @@ func _handle_movement(direction: String) -> void:
     # canon 103, msg #118); (b) player moved and died (canon
     # death rooms 20/21, msg #58 / msg #59). Successful normal
     # moves use _print_room below for atmospheric display.
+    # `dest != current` guards forest self-loops (canon rooms 5/6,
+    # WEST/SOUTH → same room): those are successful moves landing
+    # at `current`, so without it the mixed-case response prints
+    # on top of _print_room — a doubled room description. A real
+    # rebuff always has dest != current.
     # Mirrors the fix in cca/godot/scripts/driver.gd.
-    if response != "" and (fsm.player_room() == current or
+    if response != "" and dest != current and (fsm.player_room() == current or
                             fsm.player_state() == "dead"):
         _println(response)
     fsm.tick()
@@ -1396,7 +1404,7 @@ func _try_bumper_rule(bg: Dictionary) -> bool:
             return true
         return false
     if bg.check == "probability":
-        if (rng.randi() % 100) < bg.pct:
+        if fsm.chance.decide("travel_gate", bg.pct):
             if "dest" in bg:
                 _walk_to_dest(int(bg.dest))
             else:
@@ -1484,7 +1492,7 @@ func _check_dark_pit_hazard() -> bool:
         _println("It is now pitch dark. If you proceed you will likely fall into a pit.")
         fsm.set_dark_warned_room(current)
         return true
-    if (rng.randi() % 100) < DARK_PIT_PCT:
+    if fsm.chance.decide("dark_pit_fall", DARK_PIT_PCT):
         _println("You fell into a pit and broke every bone in your body!")
         fsm.player.die()
         return true
@@ -1530,7 +1538,7 @@ func _check_pirate_rustle() -> void:
         return
     if fsm.player_room() < 15:
         return
-    if (rng.randi() % 100) < 20:
+    if fsm.chance.decide("pirate_rustle", 20):
         _println("[color=#cc8855][i]There are faint rustling noises from the darkness behind you.[/i][/color]")
 
 func _check_lamp_warnings() -> void:
@@ -1706,7 +1714,7 @@ func _print_room() -> void:
     _println("[color=#aabbcc][b]%s[/b][/color]" % desc)
     # Canon Y2 whisper (advent.for line 808): 25% chance per
     # visit to room 33 prints msg #8.
-    if _last_room == 33 and not fsm.endgame_closing() and (rng.randi() % 100) < 25:
+    if _last_room == 33 and not fsm.endgame_closing() and fsm.chance.decide("y2_whisper", 25):
         _println("A hollow voice says \"PLUGH\".")
     # Canon msg #3 first-dwarf-encounter (advent.for STMT 6000).
     if not fsm.is_dwarf_first_encounter_done() and _dwarf_at_room(_last_room):

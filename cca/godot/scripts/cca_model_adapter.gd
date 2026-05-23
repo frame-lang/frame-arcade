@@ -57,6 +57,7 @@ func make_root():
     d.input = LineEdit.new()
     d.rng = RandomNumberGenerator.new()
     d.rng.seed = rng_seed
+    d.fsm.chance.reseed(rng_seed)
     d._build_verb_synonyms_5()
     if not seed_bytes.is_empty():
         d.fsm.restore_state(seed_bytes)

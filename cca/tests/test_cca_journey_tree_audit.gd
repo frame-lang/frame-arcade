@@ -205,6 +205,7 @@ func _walk_journey_to(registry, target: String) -> bool:
     driver.input = LineEdit.new()
     driver.rng = RandomNumberGenerator.new()
     driver.rng.seed = 42
+    driver.fsm.chance.reseed(42)    # probabilistic rolls now live in the model
     driver._build_verb_synonyms_5()
     driver._print_welcome()
     driver._print_room()

@@ -313,10 +313,13 @@ func _ready() -> void:
     # `prompts` is initialized at var-declaration time so headless
     # tests get a live FSM without going through _ready(); see
     # var prompts above.
-    # Seed the driver-side RNG from system time for production
-    # play. Tests bypass _ready() entirely and set `rng.seed` to
-    # a known value before issuing commands.
+    # Seed the model's Chance system from system entropy for
+    # production play (the NPCs already carry fixed seeds; this
+    # gives the loose probability rolls per-game variation, as the
+    # old driver-side rng.randomize() did). Tests bypass _ready()
+    # entirely and leave Chance at its fixed default seed.
     rng.randomize()
+    fsm.chance.reseed(rng.randi())
     _build_verb_synonyms_5()
     _build_ui()
     _print_welcome()
@@ -718,11 +721,11 @@ func _dispatch_bumper(verb: String) -> bool:
 func _dispatch_to_fsm(verb: String, noun: String) -> void:
     var response: String = fsm.do_command(verb, noun)
     if response.begins_with("I don't know how to '"):
-        var roll1: int = rng.randi() % 100
-        var roll2: int = rng.randi() % 100
-        if roll2 < 20:
+        # Canon STMT 3000 unknown-verb mix. Rolls routed through the
+        # model's Chance system (deterministic, save_state-visible).
+        if fsm.chance.decide("dispatch_13", 20):
             response = "I don't understand that!"   # canon msg #13
-        elif roll1 < 20:
+        elif fsm.chance.decide("dispatch_61", 20):
             response = "What?"                       # canon msg #61
         else:
             response = "I don't know that word."     # canon msg #60
@@ -1612,7 +1615,15 @@ func _handle_movement(direction: String) -> void:
     # "You are <description>") is intentionally suppressed —
     # _print_room below produces the atmospheric version.
     # Surfaced 2026-05-18 by Phase-C death-path systematic tests.
-    if response != "" and (fsm.player_room() == current or
+    #
+    # `dest != current` is the load-bearing guard: a forest
+    # self-loop (canon rooms 5/6 where WEST/SOUTH lead back to the
+    # same room) is a *successful* move that lands at `current`,
+    # so `player_room() == current` alone would misfire and print
+    # the mixed-case response on top of _print_room — a doubled
+    # room description. A genuine rebuff always has dest != current
+    # (the player tried to leave and was bounced back).
+    if response != "" and dest != current and (fsm.player_room() == current or
                             fsm.player_state() == "dead"):
         _println(response)
     fsm.tick()
@@ -1674,7 +1685,7 @@ func _try_bumper_rule(bg: Dictionary) -> bool:
     # Witt's End (msg-only) and the 19:sw 35% dragon-canyon
     # shortcut (dest=74).
     if bg.check == "probability":
-        if (rng.randi() % 100) < bg.pct:
+        if fsm.chance.decide("travel_gate", bg.pct):
             if "dest" in bg:
                 _walk_to_dest(int(bg.dest))
             else:
@@ -1802,7 +1813,7 @@ func _check_dark_pit_hazard() -> bool:
         fsm.set_dark_warned_room(current)
         return true
     # Already warned in this room — pit-fall roll.
-    if (rng.randi() % 100) < DARK_PIT_PCT:
+    if fsm.chance.decide("dark_pit_fall", DARK_PIT_PCT):
         _println("You fell into a pit and broke every bone in your body!")
         fsm.player.die()
         return true
@@ -1859,7 +1870,7 @@ func _check_pirate_rustle() -> void:
         return
     if fsm.player_room() < 15:
         return
-    if (rng.randi() % 100) < 20:
+    if fsm.chance.decide("pirate_rustle", 20):
         _println("[color=#cc8855][i]There are faint rustling noises from the darkness behind you.[/i][/color]")
 
 func _check_lamp_warnings() -> void:
@@ -2098,7 +2109,7 @@ func _print_room() -> void:
     # Canon Y2 whisper (advent.for line 808): at canon room 33,
     # 25% chance per visit to print msg #8 ("a hollow voice
     # says 'PLUGH'"). Doesn't fire during closing.
-    if _last_room == 33 and not fsm.endgame_closing() and (rng.randi() % 100) < 25:
+    if _last_room == 33 and not fsm.endgame_closing() and fsm.chance.decide("y2_whisper", 25):
         _println("A hollow voice says \"PLUGH\".")
     # Canon msg #3 first-dwarf-encounter (advent.for STMT 6000).
     # Fires once when the player first arrives in a room with a

@@ -118,6 +118,12 @@ func prepare_driver():
     driver.input = LineEdit.new()
     driver.rng = RandomNumberGenerator.new()
     driver.rng.seed = seed
+    # The model's Chance system carries the probabilistic-travel /
+    # pit-fall / etc. rolls now (they used to be driver-side rng).
+    # Reseed it to the run seed so per-seed exploration still varies
+    # those outcomes — otherwise every seed shares Chance's default
+    # and union coverage collapses.
+    driver.fsm.chance.reseed(seed)
     return driver
 
 # Convenience: build + run. If `seed_bytes` is non-empty, the

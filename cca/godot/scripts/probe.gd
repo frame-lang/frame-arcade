@@ -646,6 +646,10 @@ func _make_driver(walk_idx: int) -> H.CapturedDriver:
     d.input = LineEdit.new()
     d.rng = RandomNumberGenerator.new()
     d.rng.seed = (master_seed + walk_idx) & 0x7fffffff
+    # Reseed the model's Chance system to match this walk's seed so
+    # probabilistic travel / pit-falls vary per walk (those rolls
+    # moved from driver-side rng into the model).
+    d.fsm.chance.reseed(d.rng.seed)
     d._build_verb_synonyms_5()
     return d
 
