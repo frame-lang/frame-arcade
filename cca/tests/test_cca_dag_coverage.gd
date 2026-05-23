@@ -18,6 +18,8 @@ extends SceneTree
 const Cca = preload("res://scripts/cca.gd")
 const Driver = preload("res://scripts/driver.gd")
 const WinJourney = preload("res://scripts/win_journey.gd")
+const PlantJourney = preload("res://scripts/plant_journey.gd")
+const TrollJourney = preload("res://scripts/troll_journey.gd")
 const StateSpace = preload("res://scripts/state_space.gd")
 
 const SEEDS: Array = [42, 7]
@@ -36,24 +38,41 @@ func _init():
     var waypoints: Array = []          # [{bytes, room}]
     var captured: Dictionary = {}
 
-    # Win rail (walked via its FSM, command by command).
+    # Win rail (walked via its FSM, command by command). Capture the
+    # completed-BridgeBuilt state to branch the plant/troll rails off.
     var d = _make_driver()
+    var bridge_bytes: PackedByteArray = PackedByteArray()
     var j = WinJourney._create()
     while not j.is_done():
+        var nm: String = j.state_name()
         for cmd in j.commands_from_previous():
             d._process_input(String(cmd).to_lower())
-            var r: int = d.fsm.player_room()
-            if not captured.has(r):
-                captured[r] = true
-                waypoints.append({"bytes": d.fsm.save_state(), "room": r})
+            _snap(d, captured, waypoints)
+        if nm == "BridgeBuilt":
+            bridge_bytes = d.fsm.save_state()
         j.advance()
     print("Win rail: %d distinct-room waypoints" % waypoints.size())
 
-    # NOTE: this engine currently blooms only along the win rail.
-    # Reaching the full 140 needs gate-pinned rails into the areas
-    # the win rail never enters — plant/upper-complex, troll
-    # far-side, and the two mazes — each contributing its own
-    # distinct-room waypoints. Tracked as follow-up.
+    # Plant rail (off completed BridgeBuilt) → upper complex.
+    var pd = _make_driver()
+    pd.fsm.restore_state(bridge_bytes)
+    pd.prompts = Cca.PromptDispatcher.new()
+    var pj = PlantJourney._create()
+    while not pj.is_done():
+        for cmd in pj.commands_from_previous():
+            pd._process_input(String(cmd).to_lower())
+            _snap(pd, captured, waypoints)
+        pj.advance()
+    print("After plant rail: %d waypoints (room %d)" % [waypoints.size(), pd.fsm.player_room()])
+
+    # Troll rail (chains off the plant rail's Giant Room) → far side.
+    var tj = TrollJourney._create()
+    while not tj.is_done():
+        for cmd in tj.commands_from_previous():
+            pd._process_input(String(cmd).to_lower())
+            _snap(pd, captured, waypoints)
+        tj.advance()
+    print("After troll rail: %d waypoints (room %d)" % [waypoints.size(), pd.fsm.player_room()])
 
     # Small random BFS from each waypoint; union the rooms.
     var union: Dictionary = {}
@@ -87,6 +106,12 @@ func _init():
     # the number is the signal.
     print("PASS — coverage report (informational)")
     quit(0)
+
+func _snap(drv, captured: Dictionary, waypoints: Array) -> void:
+    var r: int = drv.fsm.player_room()
+    if not captured.has(r):
+        captured[r] = true
+        waypoints.append({"bytes": drv.fsm.save_state(), "room": r})
 
 func _make_driver():
     var d = Driver.new()
