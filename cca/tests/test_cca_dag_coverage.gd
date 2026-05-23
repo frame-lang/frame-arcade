@@ -22,38 +22,46 @@ const StateSpace = preload("res://scripts/state_space.gd")
 
 const SEEDS: Array = [42, 7]
 
-# Deep, distinct-area "hub" rooms to snapshot as waypoints when the
-# rail first reaches them (the milestone snapshots all land at the
-# room-3 deposit point, which are useless waypoints).
-const HUBS: Array = [9, 19, 17, 97, 100, 103, 18, 116]
+# Small per-state bloom: from EVERY distinct room the rail passes
+# through, run a tiny random BFS (this cap) to sample that room's
+# local neighborhood. The rail is a dense line of micro-waypoints;
+# the union of all the little neighborhoods covers everything the
+# rail comes near — no hub-guessing.
+const BLOOM_CAP: int = 80
 
 func _init():
     print("=== CCA journey-DAG room coverage (waypoint-seeded BFS) ===")
 
-    # Walk the win rail command-by-command; snapshot the first time
-    # the player reaches each deep hub room (distinct-area waypoints).
-    var waypoints: Array = []          # [{name, bytes, room}]
+    # Collect a snapshot at EVERY distinct room the rails pass through.
+    var waypoints: Array = []          # [{bytes, room}]
     var captured: Dictionary = {}
+
+    # Win rail (walked via its FSM, command by command).
     var d = _make_driver()
     var j = WinJourney._create()
     while not j.is_done():
         for cmd in j.commands_from_previous():
             d._process_input(String(cmd).to_lower())
             var r: int = d.fsm.player_room()
-            if r in HUBS and not captured.has(r):
+            if not captured.has(r):
                 captured[r] = true
-                waypoints.append({"name": "hub-%d" % r, "bytes": d.fsm.save_state(), "room": r})
+                waypoints.append({"bytes": d.fsm.save_state(), "room": r})
         j.advance()
-    print("Collected %d hub waypoints from the win rail" % waypoints.size())
+    print("Win rail: %d distinct-room waypoints" % waypoints.size())
 
-    # Bloom a seeded BFS from each waypoint; union the rooms.
+    # NOTE: this engine currently blooms only along the win rail.
+    # Reaching the full 140 needs gate-pinned rails into the areas
+    # the win rail never enters — plant/upper-complex, troll
+    # far-side, and the two mazes — each contributing its own
+    # distinct-room waypoints. Tracked as follow-up.
+
+    # Small random BFS from each waypoint; union the rooms.
     var union: Dictionary = {}
     for wp in waypoints:
-        var before: int = union.size()
         for seed in SEEDS:
             var s = StateSpace.new()
             s.seed = seed
-            s.max_states = 500
+            s.max_states = BLOOM_CAP
             s.seed_bytes = wp["bytes"]
             s.reseed_chance_after_restore = true
             s.progress_every = 0
@@ -61,8 +69,6 @@ func _init():
             s.run()
             for r in s.covered_rooms().keys():
                 union[r] = true
-        print("  %-16s @ %-3d → union now %d rooms (+%d)" % [
-            wp["name"], wp["room"], union.size(), union.size() - before])
 
     print("")
     print("DAG room coverage: %d distinct rooms from %d waypoints × %d seeds" % [
