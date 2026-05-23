@@ -1,0 +1,63 @@
+# ============================================================
+# plant_journey.fgd — the plant/beanstalk branch rail
+# ============================================================
+# A Frame branch rail off the win rail's BridgeBuilt waypoint
+# (post-"wave rod", bridge up, carrying lamp + rod + bottle). It
+# fills the bottle at the water source (canon 84), pours on the
+# west-pit plant (canon 25) twice to grow it huge, climbs the
+# beanstalk to the upper complex (canon 26), and reaches the
+# Giant Room (canon 92) to take the eggs.
+#
+# This is the rail into the plant / upper-complex area the win
+# rail never enters. The runner restores a post-BridgeBuilt
+# state, then walks this rail; coverage blooms from its rooms.
+#
+# Verified deterministic under seed 42 + chance.reseed(42). The
+# command list is the navigator's route (it shuttles twice to
+# the water source) — long but gate-clean from BridgeBuilt.
+# ============================================================
+
+@@[target("gdscript")]
+
+@@system PlantJourney : RefCounted {
+
+    interface:
+        advance()
+        is_done(): bool
+        state_name(): String
+        commands_from_previous(): Array
+        expected_room(): int
+
+    machine:
+
+        $Start {
+            advance() { -> $GiantRoom }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("Start") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(17) }
+        }
+
+        $GiantRoom {
+            advance() { -> $Done }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("GiantRoom") }
+            commands_from_previous(): Array {
+                @@:(["over","west","south","east","south","south","south","north","east","east",
+                     "fill bottle","north","down","west","down","north","north","down","bedquilt",
+                     "slab","south","down","pour","up","west","north","north","up","east","up","east",
+                     "up","south","east","west","over","west","south","east","south","south","south",
+                     "north","east","east","fill bottle","north","down","west","down","north","north",
+                     "down","bedquilt","slab","south","down","pour","climb","east","west","take eggs"])
+            }
+            expected_room(): int { @@:(92) }
+        }
+
+        $Done {
+            advance() { }
+            is_done(): bool { @@:(true) }
+            state_name(): String { @@:("Done") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(92) }
+        }
+}
