@@ -1,0 +1,55 @@
+# ============================================================
+# maze_journey.fgd — the all-alike maze branch rail
+# ============================================================
+# A Frame branch rail off the win rail's completed BridgeBuilt
+# waypoint. It steps into the all-alike maze (the cyclic twisty-
+# little-passages cluster: canon 112, 131-140) via the maze edge
+# at canon 107. Reaching one maze room is enough — the coverage
+# bloom (a BFS that dedups by state) explores the whole cyclic
+# cluster from there, which is exactly why a bloom beats trying
+# to enumerate a memorized maze path.
+#
+# Verified deterministic under seed 42 + chance.reseed(42), run
+# after win→BridgeBuilt: lands in maze room 131, from which a
+# bloom covers all 11 maze rooms.
+# ============================================================
+
+@@[target("gdscript")]
+
+@@system MazeJourney : RefCounted {
+
+    interface:
+        advance()
+        is_done(): bool
+        state_name(): String
+        commands_from_previous(): Array
+        expected_room(): int
+
+    machine:
+
+        $Start {
+            advance() { -> $InMaze }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("Start") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(17) }
+        }
+
+        $InMaze {
+            advance() { -> $Done }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("InMaze") }
+            commands_from_previous(): Array {
+                @@:(["over","west","west","west","south","south"])
+            }
+            expected_room(): int { @@:(131) }
+        }
+
+        $Done {
+            advance() { }
+            is_done(): bool { @@:(true) }
+            state_name(): String { @@:("Done") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(131) }
+        }
+}

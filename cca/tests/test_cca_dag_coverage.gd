@@ -20,9 +20,16 @@ const Driver = preload("res://scripts/driver.gd")
 const WinJourney = preload("res://scripts/win_journey.gd")
 const PlantJourney = preload("res://scripts/plant_journey.gd")
 const TrollJourney = preload("res://scripts/troll_journey.gd")
+const MazeJourney = preload("res://scripts/maze_journey.gd")
 const StateSpace = preload("res://scripts/state_space.gd")
 
 const SEEDS: Array = [42, 7]
+
+# The all-alike maze (cyclic cluster) needs a deeper bloom than the
+# default to spread across all its interconnected rooms.
+const MAZE_ROOMS := {107: true, 112: true, 131: true, 132: true, 133: true,
+    134: true, 135: true, 136: true, 137: true, 138: true, 139: true, 140: true}
+const MAZE_CAP: int = 220
 
 # Small per-state bloom: from EVERY distinct room the rail passes
 # through, run a tiny random BFS (this cap) to sample that room's
@@ -74,13 +81,28 @@ func _init():
         tj.advance()
     print("After troll rail: %d waypoints (room %d)" % [waypoints.size(), pd.fsm.player_room()])
 
-    # Small random BFS from each waypoint; union the rooms.
+    # Maze rail (off completed BridgeBuilt) → steps into the all-alike
+    # maze; its bloom (deeper cap) spreads across the cyclic cluster.
+    var md = _make_driver()
+    md.fsm.restore_state(bridge_bytes)
+    md.prompts = Cca.PromptDispatcher.new()
+    var mj = MazeJourney._create()
+    while not mj.is_done():
+        for cmd in mj.commands_from_previous():
+            md._process_input(String(cmd).to_lower())
+            _snap(md, captured, waypoints)
+        mj.advance()
+    print("After maze rail: %d waypoints (room %d)" % [waypoints.size(), md.fsm.player_room()])
+
+    # Small random BFS from each waypoint; union the rooms. Maze
+    # rooms get a deeper bloom to spread across the cyclic cluster.
     var union: Dictionary = {}
     for wp in waypoints:
+        var cap: int = MAZE_CAP if MAZE_ROOMS.has(wp["room"]) else BLOOM_CAP
         for seed in SEEDS:
             var s = StateSpace.new()
             s.seed = seed
-            s.max_states = BLOOM_CAP
+            s.max_states = cap
             s.seed_bytes = wp["bytes"]
             s.reseed_chance_after_restore = true
             s.progress_every = 0

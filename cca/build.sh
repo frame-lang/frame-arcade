@@ -76,6 +76,12 @@ echo "==> $FRAMEC compile frame/troll_journey.fgd"
 echo "==> copying generated/troll_journey.gd -> godot/scripts/troll_journey.gd"
 cp "generated/troll_journey.gd" "godot/scripts/troll_journey.gd"
 
+# maze_journey.fgd — the all-alike maze branch rail (test scaffold).
+echo "==> $FRAMEC compile frame/maze_journey.fgd"
+"$FRAMEC" compile "frame/maze_journey.fgd" --language gdscript -o generated/
+echo "==> copying generated/maze_journey.gd -> godot/scripts/maze_journey.gd"
+cp "generated/maze_journey.gd" "godot/scripts/maze_journey.gd"
+
 # topology.gd is hand-written canon data (140 rooms + 75 gates),
 # not framec-generated, but it MUST also stay in sync between
 # the standalone and arcade copies — both `driver.gd` and

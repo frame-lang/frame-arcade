@@ -57,6 +57,7 @@ cca/godot/scripts/win_journey.gd
 cca/godot/scripts/death_journeys.gd
 cca/godot/scripts/plant_journey.gd
 cca/godot/scripts/troll_journey.gd
+cca/godot/scripts/maze_journey.gd
 cca/godot/scripts/npcs.gd
 cca/godot/scripts/puzzles.gd
 arcade/godot/scripts/npcs.gd
