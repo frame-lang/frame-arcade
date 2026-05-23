@@ -1,0 +1,59 @@
+# ============================================================
+# troll_journey.fgd — the troll-cross branch rail
+# ============================================================
+# A Frame branch rail that chains off the plant rail's Giant Room
+# state (carrying the eggs). It navigates to the troll bridge
+# (canon 117), throws the eggs to pay the toll (the troll catches
+# them and vanishes), and crosses to the far side (canon 122) —
+# the volcano / breath-taking-view / bear-chamber cluster the win
+# and plant rails never reach.
+#
+# Eggs are the toll: a treasure the plant rail already has in
+# hand. (Canon lets you recover them later with FEE FIE FOE FOO;
+# for coverage we just need the far side opened.)
+#
+# Verified deterministic under seed 42 + chance.reseed(42), run
+# after win→BridgeBuilt→PlantJourney. Coverage blooms from the
+# far-side rooms it reaches.
+# ============================================================
+
+@@[target("gdscript")]
+
+@@system TrollJourney : RefCounted {
+
+    interface:
+        advance()
+        is_done(): bool
+        state_name(): String
+        commands_from_previous(): Array
+        expected_room(): int
+
+    machine:
+
+        $Start {
+            advance() { -> $FarSide }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("Start") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(92) }
+        }
+
+        $FarSide {
+            advance() { -> $Done }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("FarSide") }
+            commands_from_previous(): Array {
+                @@:(["north","north","enter","cavern","south","south","down","up","east","east",
+                     "oriental","west","sw","up","throw eggs","over"])
+            }
+            expected_room(): int { @@:(122) }
+        }
+
+        $Done {
+            advance() { }
+            is_done(): bool { @@:(true) }
+            state_name(): String { @@:("Done") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(122) }
+        }
+}

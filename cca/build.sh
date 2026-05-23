@@ -70,6 +70,12 @@ echo "==> $FRAMEC compile frame/plant_journey.fgd"
 echo "==> copying generated/plant_journey.gd -> godot/scripts/plant_journey.gd"
 cp "generated/plant_journey.gd" "godot/scripts/plant_journey.gd"
 
+# troll_journey.fgd — the troll-cross branch rail (test scaffold).
+echo "==> $FRAMEC compile frame/troll_journey.fgd"
+"$FRAMEC" compile "frame/troll_journey.fgd" --language gdscript -o generated/
+echo "==> copying generated/troll_journey.gd -> godot/scripts/troll_journey.gd"
+cp "generated/troll_journey.gd" "godot/scripts/troll_journey.gd"
+
 # topology.gd is hand-written canon data (140 rooms + 75 gates),
 # not framec-generated, but it MUST also stay in sync between
 # the standalone and arcade copies — both `driver.gd` and
