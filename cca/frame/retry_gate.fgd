@@ -1,0 +1,92 @@
+# ============================================================
+# retry_gate.fgd — retry-until-success loop over a random gate
+# ============================================================
+# The third loop shape. maze_sweep loops to MAP an area;
+# stochastic_probe loops to SAMPLE a gate's distribution; this
+# one loops to PUSH THROUGH a probabilistic gate organically —
+# no chance.force, just keep trying until the roll goes your way.
+#
+# Target: reach canon room 110, which sits behind the 65:north
+# probability gate (60% bounce-back to 65 / 30% divert to 72 /
+# 10% fall through to 71, then 71→110). The room110_journey rail
+# PINS that gate with force:travel_gate=0 for a one-shot
+# deterministic hop. This is the honest alternative: play the
+# odds. The loop reacts to wherever each attempt lands —
+#
+#   • at 65  → NORTH      (attempt the gate again)
+#   • at 72  → BEDQUILT   (diverted; crawl back to 65 and retry)
+#   • at 71  → NORTH      (through! 71→110)
+#   • at 110 → done       (success exit → $Reached)
+#
+# Deterministic exit two ways, exactly like the other loops:
+#   • SUCCESS — landed on the target room (→ $Reached),
+#   • BOUND   — a hard step cap so a cold streak can't hang it.
+# Under the game seed it succeeds in 8 steps (3 bounces, one
+# divert-and-return, then through); the cap is generous slack.
+#
+# Only the three relevant rooms live here (the retry/return
+# policy), not the topology — same spirit as maze_sweep carrying
+# just a direction order.
+# ============================================================
+
+@@[target("gdscript")]
+
+@@system RetryGate : RefCounted {
+
+    interface:
+        # Feed back the room the latest command landed in (also the
+        # entry room on the first call). Transitions to $Reached on
+        # arrival at the target.
+        arrive(room: int)
+        # The next command to issue from the current room.
+        next_cmd(): String
+        # Deterministic exit predicate: reached target OR cap hit.
+        is_done(): bool
+        reached(): bool
+        steps_taken(): int
+
+    machine:
+
+        # The retry loop. Reacts to the current room until the
+        # target is reached (→ $Reached) or the cap is hit.
+        $Retrying {
+            arrive(room: int) {
+                self.current = room
+                if room == self.target:
+                    -> $Reached
+            }
+            next_cmd(): String {
+                self.steps = self.steps + 1
+                # NB: mid-handler returns MUST use @@:return(...);
+                # @@:(...) only assigns the return value and falls
+                # through (so the last one would always win).
+                if self.current == 72:
+                    @@:return("bedquilt")
+                if self.current == 65:
+                    @@:return("north")
+                if self.current == 71:
+                    @@:return("north")
+                @@:("bedquilt")
+            }
+            is_done(): bool { @@:(self.steps >= self.cap) }
+            reached(): bool { @@:(self.current == self.target) }
+            steps_taken(): int { @@:(self.steps) }
+        }
+
+        # Target reached — the loop's success exit.
+        $Reached {
+            arrive(room: int) { }
+            next_cmd(): String { @@:("") }
+            is_done(): bool { @@:(true) }
+            reached(): bool { @@:(true) }
+            steps_taken(): int { @@:(self.steps) }
+        }
+
+    domain:
+        target: int = 110
+        current: int = 0
+        steps: int = 0
+        # Termination bound. 60 ≫ the ~8 steps the game seed needs;
+        # slack for unluckier seeds without ever hanging.
+        cap: int = 60
+}

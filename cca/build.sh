@@ -106,6 +106,12 @@ echo "==> $FRAMEC compile frame/stochastic_probe.fgd"
 echo "==> copying generated/stochastic_probe.gd -> godot/scripts/stochastic_probe.gd"
 cp "generated/stochastic_probe.gd" "godot/scripts/stochastic_probe.gd"
 
+# retry_gate.fgd — the retry-until-success LOOP over a random gate (test scaffold).
+echo "==> $FRAMEC compile frame/retry_gate.fgd"
+"$FRAMEC" compile "frame/retry_gate.fgd" --language gdscript -o generated/
+echo "==> copying generated/retry_gate.gd -> godot/scripts/retry_gate.gd"
+cp "generated/retry_gate.gd" "godot/scripts/retry_gate.gd"
+
 # topology.gd is hand-written canon data (140 rooms + 75 gates),
 # not framec-generated, but it MUST also stay in sync between
 # the standalone and arcade copies — both `driver.gd` and
