@@ -1,18 +1,28 @@
 # ============================================================
 # death_journeys.fgd — deterministic death rails
 # ============================================================
-# A Frame journey FSM enumerating canon death paths. Unlike a
-# success rail (one cumulative path), each state here is an
-# INDEPENDENT scenario played from a fresh start — the runner
-# resets the driver per scenario. So commands() is the full
-# typed sequence from the canonical start, not "from previous".
+# A Frame journey FSM enumerating canon death paths. Each state
+# is an INDEPENDENT scenario; the runner plays each from its own
+# driver. commands() is the typed death sequence — no FSM-direct
+# kill pokes, ever.
 #
-# Probabilistic deaths (the dark-room pit-fall) are made
-# deterministic with the model-native Chance seam: a command of
-# the form "force:NAME=VALUE" tells the runner to call
-# chance.force(NAME, VALUE) before continuing — pinning the roll
-# so the death fires every run. That's the "steering wheel" the
-# Chance refactor unlocked, now driving the death rails.
+# A scenario is played one of two ways, selected by
+# seed_milestone():
+#
+#   • "" (empty)  — fresh canonical start. commands() is the full
+#     typed sequence from the building (e.g. DarkPit's xyzzy hop).
+#
+#   • a milestone name ("BridgeBuilt" / "TrollFarSide" / "Room110")
+#     — the runner restores that saved success-rail waypoint first,
+#     then plays commands() as the death TAIL. This is the death
+#     analogue of the success branch-rails (rusty/room110): deaths
+#     branch off the same journey-DAG chokepoints rather than
+#     re-walking the deep cave from scratch every time.
+#
+# Probabilistic deaths (the dark-room pit-fall) are pinned with
+# the model-native Chance seam: a command "force:NAME=VALUE" tells
+# the runner to call chance.force(NAME, VALUE) before continuing
+# (and "clear:NAME" to unpin), so the death fires every run.
 # ============================================================
 
 @@[target("gdscript")]
@@ -23,6 +33,7 @@
         advance()
         is_done(): bool
         scenario_name(): String
+        seed_milestone(): String
         commands(): Array
         expect_dead(): bool
         expect_msg(): String
@@ -35,9 +46,10 @@
         # the second move rolls the pit. force:dark_pit_fall=1 pins
         # that roll, so the second move kills (canon msg #58).
         $DarkPit {
-            advance() { -> $Done }
+            advance() { -> $JumpPit }
             is_done(): bool { @@:(false) }
             scenario_name(): String { @@:("DarkPit") }
+            seed_milestone(): String { @@:("") }
             commands(): Array {
                 @@:(["east", "xyzzy", "force:dark_pit_fall=1", "west", "west"])
             }
@@ -45,10 +57,41 @@
             expect_msg(): String { @@:("fell into a pit") }
         }
 
+        # Surface-pit plunge. Off the Room110 chokepoint (player in
+        # the low crawl at canon 110), JUMP routes to the death-msg
+        # room (canon 110→20, advent.dat `110 20 39`): msg #58,
+        # "you fell into a pit and broke every bone in your body".
+        $JumpPit {
+            advance() { -> $BearLunge }
+            is_done(): bool { @@:(false) }
+            scenario_name(): String { @@:("JumpPit") }
+            seed_milestone(): String { @@:("Room110") }
+            commands(): Array { @@:(["jump"]) }
+            expect_dead(): bool { @@:(true) }
+            expect_msg(): String { @@:("broke every bone") }
+        }
+
+        # Bear lunge. Off the TrollFarSide chokepoint (player across
+        # the troll bridge at canon 122, bear still $Hungry), crawl
+        # to the bear's barren chamber (122→129→130) and TAKE CHAIN.
+        # The unfed bear lunges (cca.fgd Bear $Hungry → $Attacking +
+        # player.die): "With a roar the bear lunges at you. You
+        # should have fed it first."
+        $BearLunge {
+            advance() { -> $Done }
+            is_done(): bool { @@:(false) }
+            scenario_name(): String { @@:("BearLunge") }
+            seed_milestone(): String { @@:("TrollFarSide") }
+            commands(): Array { @@:(["barren", "barren", "take chain"]) }
+            expect_dead(): bool { @@:(true) }
+            expect_msg(): String { @@:("the bear lunges at you") }
+        }
+
         $Done {
             advance() { }
             is_done(): bool { @@:(true) }
             scenario_name(): String { @@:("Done") }
+            seed_milestone(): String { @@:("") }
             commands(): Array { @@:([]) }
             expect_dead(): bool { @@:(false) }
             expect_msg(): String { @@:("") }
