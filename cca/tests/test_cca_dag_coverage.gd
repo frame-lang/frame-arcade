@@ -3,16 +3,19 @@ extends SceneTree
 # ============================================================
 # test_cca_dag_coverage.gd
 # ============================================================
-# Room coverage via the journey-DAG, the fast bounded-seeded-BFS
-# way: walk the win rail, snapshot at every milestone (each a
-# chokepoint waypoint), and bloom a seeded BFS from each —
-# reseeding Chance per seed to sample the area's branches. Union
-# the rooms across every waypoint × seed.
+# Room coverage via the journey-DAG: walk the success/branch rails,
+# snapshot at every distinct room (each a chokepoint waypoint), and
+# bloom a small seeded BFS from each — reseeding Chance per seed to
+# sample the area's branches. Union the rooms across every waypoint
+# × seed. The one cyclic area, the all-alike maze, is covered not by
+# a bloom but by the deterministic maze_sweep LOOP (trail-marking,
+# exits when the cluster is fully mapped) — so the only randomness
+# left in this measurement is the small local blooms.
 #
-# This is the bounded replacement for the one slow global BFS the
-# journey-tree audits used. Reports how many of the 140 canon
-# rooms the win-rail waypoints reach (the remaining transient-
-# prose rooms are covered by test_cca_transient_prose).
+# The bounded, deterministic replacement for the slow global BFS the
+# retired journey-tree audits used. Asserts all 134 walkable rooms
+# are reached; the 6 transient-prose rooms (FSM-direct teleports)
+# are covered by test_cca_transient_prose → 140 canon.
 # ============================================================
 
 const Cca = preload("res://scripts/cca.gd")
@@ -23,15 +26,10 @@ const TrollJourney = preload("res://scripts/troll_journey.gd")
 const MazeJourney = preload("res://scripts/maze_journey.gd")
 const RustyJourney = preload("res://scripts/rusty_journey.gd")
 const Room110Journey = preload("res://scripts/room110_journey.gd")
+const MazeSweep = preload("res://scripts/maze_sweep.gd")
 const StateSpace = preload("res://scripts/state_space.gd")
 
 const SEEDS: Array = [42, 7]
-
-# The all-alike maze (cyclic cluster) needs a deeper bloom than the
-# default to spread across all its interconnected rooms.
-const MAZE_ROOMS := {107: true, 112: true, 131: true, 132: true, 133: true,
-    134: true, 135: true, 136: true, 137: true, 138: true, 139: true, 140: true}
-const MAZE_CAP: int = 220
 
 # Small per-state bloom: from EVERY distinct room the rail passes
 # through, run a tiny random BFS (this cap) to sample that room's
@@ -85,7 +83,10 @@ func _init():
     print("After troll rail: %d waypoints (room %d)" % [waypoints.size(), pd.fsm.player_room()])
 
     # Maze rail (off completed BridgeBuilt) → steps into the all-alike
-    # maze; its bloom (deeper cap) spreads across the cyclic cluster.
+    # maze. Rather than a deep BFS bloom, drive the deterministic
+    # maze_sweep LOOP from the entry to MAP the whole cyclic cluster
+    # (canon 107/112/131-140) — trail-marking, exits when every maze
+    # room is seen. The rooms it visits go straight into the union.
     var md = _make_driver()
     md.fsm.restore_state(bridge_bytes)
     md.prompts = Cca.PromptDispatcher.new()
@@ -95,7 +96,17 @@ func _init():
             md._process_input(String(cmd).to_lower())
             _snap(md, captured, waypoints)
         mj.advance()
-    print("After maze rail: %d waypoints (room %d)" % [waypoints.size(), md.fsm.player_room()])
+    var maze_rooms: Dictionary = {}
+    var sweep = MazeSweep._create()
+    sweep.arrive(md.fsm.player_room())
+    maze_rooms[md.fsm.player_room()] = true
+    while not sweep.is_done():
+        var dir: String = sweep.next_dir()
+        md._process_input(dir)
+        sweep.arrive(md.fsm.player_room())
+        maze_rooms[md.fsm.player_room()] = true
+    print("After maze rail + sweep: %d maze rooms mapped in %d steps" % [
+        maze_rooms.size(), sweep.steps_taken()])
 
     # Rusty-door rail (off the plant rail's Giant Room) → oil the door,
     # reach canon 95 and 91.
@@ -124,15 +135,13 @@ func _init():
         qj.advance()
     print("After room110 rail: %d waypoints (room %d)" % [waypoints.size(), qd.fsm.player_room()])
 
-    # Small random BFS from each waypoint; union the rooms. Maze
-    # rooms get a deeper bloom to spread across the cyclic cluster.
+    # Small random BFS from each waypoint; union the rooms.
     var union: Dictionary = {}
     for wp in waypoints:
-        var cap: int = MAZE_CAP if MAZE_ROOMS.has(wp["room"]) else BLOOM_CAP
         for seed in SEEDS:
             var s = StateSpace.new()
             s.seed = seed
-            s.max_states = cap
+            s.max_states = BLOOM_CAP
             s.seed_bytes = wp["bytes"]
             s.reseed_chance_after_restore = true
             s.progress_every = 0
@@ -140,6 +149,11 @@ func _init():
             s.run()
             for r in s.covered_rooms().keys():
                 union[r] = true
+
+    # Fold in the all-alike maze, mapped deterministically by the
+    # maze_sweep loop above (no blind BFS needed for the cluster).
+    for r in maze_rooms:
+        union[r] = true
 
     print("")
     print("DAG room coverage: %d distinct rooms from %d waypoints × %d seeds" % [
