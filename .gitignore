@@ -60,6 +60,7 @@ cca/godot/scripts/troll_journey.gd
 cca/godot/scripts/maze_journey.gd
 cca/godot/scripts/rusty_journey.gd
 cca/godot/scripts/room110_journey.gd
+cca/godot/scripts/maze_sweep.gd
 cca/godot/scripts/npcs.gd
 cca/godot/scripts/puzzles.gd
 arcade/godot/scripts/npcs.gd

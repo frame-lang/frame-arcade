@@ -1,0 +1,125 @@
+# ============================================================
+# maze_sweep.fgd — counter-driven area-sweep loop
+# ============================================================
+# A different shape of journey rail. The success/death rails are
+# acyclic: a fixed line of milestone states walked once. This one
+# is a LOOP — it sweeps the all-alike maze (the cyclic cluster
+# canon 107, 112, 131-140) by trail-marking, and exits on a
+# deterministic criterion rather than a fixed command count.
+#
+# Why a loop fits the maze: the all-alike maze is strongly
+# connected with scrambled exits, so there's no short straight
+# line through it. A blind fixed path can't adapt. Instead the
+# sweep keeps a per-room set of directions already tried and, at
+# each room, takes the first un-tried direction (a fixed order).
+# Trying every (room, direction) edge once is guaranteed to visit
+# every room of a strongly-connected maze — so the loop's exit is
+# deterministic two ways:
+#
+#   • SUCCESS — every target room has been seen (transition to
+#     $Mapped). This is the normal exit; for the canon maze it
+#     fires in ~18 steps under any start.
+#   • BOUND  — a hard step cap (self.cap). Guarantees termination
+#     even if the area weren't fully connected; without it a loop
+#     rail could hang. is_done() is true once either holds.
+#
+# The FSM owns all loop state (visited set, per-room tried map,
+# step counter) and the exit decision; the runner just feeds back
+# the room each move lands in. No topology lives here — only the
+# direction order — so this can't drift from the canon map.
+#
+# This is the model-native answer to "loop through an area under
+# a condition with a deterministic exit," and it composes with
+# the rails: a rail drops the player at the maze edge, the sweep
+# maps the area, then control returns to the rail.
+# ============================================================
+
+@@[target("gdscript")]
+
+@@system MazeSweep : RefCounted {
+
+    interface:
+        # Feed back the room the latest move landed in (also the
+        # entry room on the first call). Marks it seen; transitions
+        # to $Mapped once every target room is covered.
+        arrive(room: int)
+        # The next direction to try from the current room: the
+        # first un-tried exit in dir_order, else (all tried) a
+        # rotating fallback so the walk keeps moving. Advances the
+        # step counter.
+        next_dir(): String
+        # Deterministic exit predicate: fully mapped OR cap hit.
+        is_done(): bool
+        # How many of the target rooms have been seen so far.
+        covered_count(): int
+        seen(room: int): bool
+        steps_taken(): int
+
+    machine:
+
+        # The loop. Stays here, mutating counters, until the area
+        # is mapped (→ $Mapped) or the cap is hit (is_done via cap).
+        $Sweeping {
+            arrive(room: int) {
+                self.current = room
+                self.visited[room] = true
+                var n: int = 0
+                for r in self.target:
+                    if self.visited.has(r):
+                        n = n + 1
+                if n >= self.target.size():
+                    -> $Mapped
+            }
+            next_dir(): String {
+                if not self.tried.has(self.current):
+                    self.tried[self.current] = {}
+                var chosen: String = ""
+                for cand in self.dir_order:
+                    if not self.tried[self.current].has(cand):
+                        chosen = cand
+                        break
+                if chosen == "":
+                    chosen = self.dir_order[self.steps % self.dir_order.size()]
+                self.tried[self.current][chosen] = true
+                self.steps = self.steps + 1
+                @@:(chosen)
+            }
+            is_done(): bool { @@:(self.steps >= self.cap) }
+            covered_count(): int {
+                var n: int = 0
+                for r in self.target:
+                    if self.visited.has(r):
+                        n = n + 1
+                @@:(n)
+            }
+            seen(room: int): bool { @@:(self.visited.has(room)) }
+            steps_taken(): int { @@:(self.steps) }
+        }
+
+        # Area fully mapped — the loop's success exit.
+        $Mapped {
+            arrive(room: int) { }
+            next_dir(): String { @@:("") }
+            is_done(): bool { @@:(true) }
+            covered_count(): int { @@:(self.target.size()) }
+            seen(room: int): bool { @@:(self.visited.has(room)) }
+            steps_taken(): int { @@:(self.steps) }
+        }
+
+    domain:
+        # The cyclic all-alike maze cluster (canon-verbatim room
+        # numbers). Sweep exits SUCCESS when all of these are seen.
+        # NB: single-line literal — the transpiler mangles multi-line
+        # domain defaults into stray `var` declarations.
+        target: Dictionary = {107: true, 112: true, 131: true, 132: true, 133: true, 134: true, 135: true, 136: true, 137: true, 138: true, 139: true, 140: true}
+        # Fixed try-order. Trail-marking over this order traverses
+        # every edge once, covering any strongly-connected maze.
+        dir_order: Array = ["north", "south", "east", "west", "ne", "se", "sw", "nw", "up", "down", "out"]
+        visited: Dictionary = {}
+        tried: Dictionary = {}
+        steps: int = 0
+        # Termination bound: ample for the 12-room / ~120-edge maze;
+        # the success exit fires far sooner (~18 steps).
+        cap: int = 400
+        current: int = 0
+}

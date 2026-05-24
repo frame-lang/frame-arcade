@@ -94,6 +94,12 @@ echo "==> $FRAMEC compile frame/room110_journey.fgd"
 echo "==> copying generated/room110_journey.gd -> godot/scripts/room110_journey.gd"
 cp "generated/room110_journey.gd" "godot/scripts/room110_journey.gd"
 
+# maze_sweep.fgd — the counter-driven area-sweep LOOP (test scaffold).
+echo "==> $FRAMEC compile frame/maze_sweep.fgd"
+"$FRAMEC" compile "frame/maze_sweep.fgd" --language gdscript -o generated/
+echo "==> copying generated/maze_sweep.gd -> godot/scripts/maze_sweep.gd"
+cp "generated/maze_sweep.gd" "godot/scripts/maze_sweep.gd"
+
 # topology.gd is hand-written canon data (140 rooms + 75 gates),
 # not framec-generated, but it MUST also stay in sync between
 # the standalone and arcade copies — both `driver.gd` and
