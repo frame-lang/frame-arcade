@@ -1,0 +1,80 @@
+# ============================================================
+# room110_journey.fgd — the bedquilt → room-110 branch rail
+# ============================================================
+# The last hand-authored hop to close the canon-140 set. Room
+# 110 (a low-ceilinged crawl off the Bedquilt complex) is reached
+# by crawling NORTH from Bedquilt (canon 65) to 71, then NORTH
+# again to 110.
+#
+# Why this needs its own rail (the navigator can't route it):
+# every exit out of Bedquilt is a *probability* gate (canon's
+# `65 …` rows — see topology.gd GATES "65:north"). NORTH bounces
+# back to 65 with 60% odds, diverts to 72 with 75% of the
+# remainder, and only falls through to the topology exit (71) on a
+# double-miss. A blind walker just rattles around the holes.
+#
+# The deterministic seam is `chance.force("travel_gate", 0)`:
+# pin every travel roll to MISS so both probability rules in the
+# 65:north chain fall through to the topology exit. The rail emits
+# the inline "force:NAME=VALUE" / "clear:NAME" tokens the DAG
+# runner understands (same convention as death_journeys.fgd).
+#
+# Chains off the win rail's completed BridgeBuilt state. The
+# approach hops (east,north,north,down,bedquilt) are the
+# deterministic BFS-found route from BridgeBuilt to Bedquilt under
+# seed 42 + chance.reseed(42); replayed verbatim they reproduce
+# exactly because restore_state round-trips the Chance seed+step.
+# ============================================================
+
+@@[target("gdscript")]
+
+@@system Room110Journey : RefCounted {
+
+    interface:
+        advance()
+        is_done(): bool
+        state_name(): String
+        commands_from_previous(): Array
+        expected_room(): int
+
+    machine:
+
+        $Start {
+            advance() { -> $AtBedquilt }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("Start") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(0) }
+        }
+
+        # Deterministic BFS route from BridgeBuilt to Bedquilt (65).
+        $AtBedquilt {
+            advance() { -> $At110 }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("AtBedquilt") }
+            commands_from_previous(): Array {
+                @@:(["east","north","north","down","bedquilt"])
+            }
+            expected_room(): int { @@:(65) }
+        }
+
+        # Pin travel rolls to MISS so 65:north falls through to the
+        # topology exit (71), then north again to 110. Unpin after.
+        $At110 {
+            advance() { -> $Done }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("At110") }
+            commands_from_previous(): Array {
+                @@:(["force:travel_gate=0","north","north","clear:travel_gate"])
+            }
+            expected_room(): int { @@:(110) }
+        }
+
+        $Done {
+            advance() { }
+            is_done(): bool { @@:(true) }
+            state_name(): String { @@:("Done") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(110) }
+        }
+}

@@ -55,6 +55,18 @@ SLOW_TESTS=(
     "tests/test_cca_probe.gd"
     "tests/test_cca_area_explorer.gd"
     "tests/test_cca_dag_coverage.gd"
+    # Retired BFS coverage audits. Superseded by the deterministic
+    # journey-DAG (test_cca_dag_coverage), which now reaches all 134
+    # graph rooms + 6 transient-prose = 140/140 canon in seconds.
+    # These four are the old global-BFS / JourneyTree convergence
+    # measurements (slow + seed-sensitive). Kept for history and the
+    # gap-annotation tooling, but skipped by default — run explicitly
+    # (`./run_tests.sh tests/test_cca_journey_tree_audit.gd`) if you
+    # ever need the BFS gap report again.
+    "tests/test_cca_journey_tree_audit.gd"
+    "tests/test_cca_journey_tree_audit_union.gd"
+    "tests/test_cca_journey_tree_plant_unlock.gd"
+    "tests/test_cca_journey_tree_rusty_door.gd"
 )
 
 FAST_MODE=0

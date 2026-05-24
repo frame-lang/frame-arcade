@@ -1,0 +1,62 @@
+# ============================================================
+# rusty_journey.fgd — the rusty-door branch rail
+# ============================================================
+# A Frame branch rail chaining off the plant rail's Giant Room
+# (canon 92). The rusty iron door at canon 94→95 is sealed shut
+# until oiled. So: climb back DOWN the beanstalk to the Pool of
+# Oil (canon 24, the eastern twopit pit), fill the bottle with
+# oil, climb back UP to the rusty door (94), POUR the oil to free
+# it, and pass through to canon 95 and 91.
+#
+# The bottle carried water for the plant; emptied by the pours,
+# it now takes oil. The liquid is whatever the SOURCE room holds
+# ("fill bottle" at canon 24 = oil).
+#
+# Hand-authored (the BFS navigator couldn't route the long
+# down-for-oil / back-up-to-door loop). Verified deterministic
+# under seed 42 + chance.reseed(42), run after win→BridgeBuilt→
+# PlantJourney: oils the door and reaches canon 91 via 95.
+# ============================================================
+
+@@[target("gdscript")]
+
+@@system RustyJourney : RefCounted {
+
+    interface:
+        advance()
+        is_done(): bool
+        state_name(): String
+        commands_from_previous(): Array
+        expected_room(): int
+
+    machine:
+
+        $Start {
+            advance() { -> $Oiled }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("Start") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(92) }
+        }
+
+        # Down to the oil pool, fill, back up to the door, pour,
+        # through to 95 then 91.
+        $Oiled {
+            advance() { -> $Done }
+            is_done(): bool { @@:(false) }
+            state_name(): String { @@:("Oiled") }
+            commands_from_previous(): Array {
+                @@:(["south","down","up","east","down","fill bottle","up","west","down",
+                     "climb","east","west","north","pour","north","west"])
+            }
+            expected_room(): int { @@:(91) }
+        }
+
+        $Done {
+            advance() { }
+            is_done(): bool { @@:(true) }
+            state_name(): String { @@:("Done") }
+            commands_from_previous(): Array { @@:([]) }
+            expected_room(): int { @@:(91) }
+        }
+}

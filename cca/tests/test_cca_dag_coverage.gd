@@ -21,6 +21,8 @@ const WinJourney = preload("res://scripts/win_journey.gd")
 const PlantJourney = preload("res://scripts/plant_journey.gd")
 const TrollJourney = preload("res://scripts/troll_journey.gd")
 const MazeJourney = preload("res://scripts/maze_journey.gd")
+const RustyJourney = preload("res://scripts/rusty_journey.gd")
+const Room110Journey = preload("res://scripts/room110_journey.gd")
 const StateSpace = preload("res://scripts/state_space.gd")
 
 const SEEDS: Array = [42, 7]
@@ -71,6 +73,7 @@ func _init():
             _snap(pd, captured, waypoints)
         pj.advance()
     print("After plant rail: %d waypoints (room %d)" % [waypoints.size(), pd.fsm.player_room()])
+    var giant_bytes: PackedByteArray = pd.fsm.save_state()   # Giant Room, for the rusty branch
 
     # Troll rail (chains off the plant rail's Giant Room) → far side.
     var tj = TrollJourney._create()
@@ -93,6 +96,33 @@ func _init():
             _snap(md, captured, waypoints)
         mj.advance()
     print("After maze rail: %d waypoints (room %d)" % [waypoints.size(), md.fsm.player_room()])
+
+    # Rusty-door rail (off the plant rail's Giant Room) → oil the door,
+    # reach canon 95 and 91.
+    var rd = _make_driver()
+    rd.fsm.restore_state(giant_bytes)
+    rd.prompts = Cca.PromptDispatcher.new()
+    var rj = RustyJourney._create()
+    while not rj.is_done():
+        for cmd in rj.commands_from_previous():
+            rd._process_input(String(cmd).to_lower())
+            _snap(rd, captured, waypoints)
+        rj.advance()
+    print("After rusty rail: %d waypoints (room %d)" % [waypoints.size(), rd.fsm.player_room()])
+
+    # Room-110 rail (off completed BridgeBuilt) → crawls through
+    # Bedquilt (65) to 110. Uses force:/clear: tokens to pin the
+    # probability gate; _feed honours them so the snapshot still
+    # captures each room the rail lands in.
+    var qd = _make_driver()
+    qd.fsm.restore_state(bridge_bytes)
+    qd.prompts = Cca.PromptDispatcher.new()
+    var qj = Room110Journey._create()
+    while not qj.is_done():
+        for cmd in qj.commands_from_previous():
+            _feed(qd, String(cmd), captured, waypoints)
+        qj.advance()
+    print("After room110 rail: %d waypoints (room %d)" % [waypoints.size(), qd.fsm.player_room()])
 
     # Small random BFS from each waypoint; union the rooms. Maze
     # rooms get a deeper bloom to spread across the cyclic cluster.
@@ -123,11 +153,39 @@ func _init():
             missing.append(r)
     print("Unreached canon rooms (%d): %s" % [missing.size(), str(missing)])
 
-    # Informational coverage report for now (floor TBD once the
-    # troll far-side / plant waypoints are wired). Always passes;
-    # the number is the signal.
-    print("PASS — coverage report (informational)")
-    quit(0)
+    # The 6 transient-prose rooms are unreachable by walking (no port
+    # exit routes there — they're FSM-direct teleports asserted by
+    # test_cca_transient_prose). Every OTHER canon room must be
+    # covered by the journey-DAG. So the only acceptable misses are
+    # exactly that set; anything else is a coverage regression.
+    var PROSE := {21: true, 22: true, 31: true, 32: true, 89: true, 90: true}
+    var regressions: Array = []
+    for r in missing:
+        if not PROSE.has(r):
+            regressions.append(r)
+
+    if regressions.is_empty() and union.size() >= 134:
+        print("PASS — 134 graph rooms + 6 transient-prose = 140/140 canon")
+        quit(0)
+        return
+    print("FAIL — DAG coverage regressed: %d graph rooms, unexpected misses %s" % [
+        union.size(), str(regressions)])
+    quit(1)
+
+# Feed one rail command to the driver, honouring the inline
+# steering tokens "force:NAME=VALUE" and "clear:NAME" (the
+# Chance seam — same convention as death_journeys.fgd), then
+# snapshot the room. Plain commands are dispatched as input.
+func _feed(drv, raw: String, captured: Dictionary, waypoints: Array) -> void:
+    if raw.begins_with("force:"):
+        var parts := raw.substr(6).split("=")
+        drv.fsm.chance.force(parts[0], int(parts[1]))
+        return
+    if raw.begins_with("clear:"):
+        drv.fsm.chance.clear_forced(raw.substr(6))
+        return
+    drv._process_input(raw.to_lower())
+    _snap(drv, captured, waypoints)
 
 func _snap(drv, captured: Dictionary, waypoints: Array) -> void:
     var r: int = drv.fsm.player_room()
