@@ -1,0 +1,90 @@
+# ============================================================
+# stochastic_probe.fgd — a section that TESTS the randomness
+# ============================================================
+# The success/death rails SUPPRESS randomness (chance.force pins a
+# gate to one outcome so a path is reproducible). This section does
+# the opposite: it EXERCISES a probabilistic gate across a fixed
+# seed set and tallies which canonical branch each trial took, so a
+# test can assert the random model is canon-faithful.
+#
+# Shape: a counted loop (like maze_sweep) whose counter is the
+# trial index over a fixed, contiguous seed set [seed_base,
+# seed_base + seed_count). next_seed() dispenses the next seed; the
+# runner restores the gate's start state, reseeds Chance to that
+# seed, fires the gated command, and feeds the resulting outcome
+# back via record(). When every seed has been spent the loop
+# transitions to $Report — a deterministic exit by trial count.
+#
+# The FSM is domain-agnostic: it knows nothing about *which* gate
+# or what the outcomes mean. It only dispenses seeds and tallies
+# outcomes. The test supplies the gate (e.g. 65:north) and asserts
+# two canon properties against the tally:
+#   • branch coverage — every canonical outcome occurs at least
+#     once across the seed set (count(branch) > 0), and
+#   • golden exact counts — under this fixed seed set the tally is
+#     an exact, pinned number per branch.
+# Both are deterministic because Chance is a pure function of
+# (seed, step); reseeding per trial samples the distribution
+# without any wall-clock entropy.
+# ============================================================
+
+@@[target("gdscript")]
+
+@@system StochasticProbe : RefCounted {
+
+    interface:
+        # Dispense the next trial's seed (advances the counter).
+        next_seed(): int
+        # Record the outcome the runner observed for that seed.
+        record(outcome: int)
+        # Deterministic exit: every seed in the set has been spent.
+        is_done(): bool
+        # Tally queries (the verdict the test asserts against).
+        count(outcome: int): int
+        distinct_outcomes(): int
+        trials_done(): int
+
+    machine:
+
+        # The trial loop. Dispenses seeds and tallies outcomes
+        # until the seed set is exhausted, then → $Report.
+        $Sampling {
+            next_seed(): int {
+                var s: int = self.seed_base + self.trial
+                self.trial = self.trial + 1
+                @@:(s)
+            }
+            record(outcome: int) {
+                self.tally[outcome] = self.tally.get(outcome, 0) + 1
+                self.recorded = self.recorded + 1
+                if self.recorded >= self.seed_count:
+                    -> $Report
+            }
+            is_done(): bool { @@:(self.trial >= self.seed_count) }
+            count(outcome: int): int { @@:(self.tally.get(outcome, 0)) }
+            distinct_outcomes(): int { @@:(self.tally.size()) }
+            trials_done(): int { @@:(self.recorded) }
+        }
+
+        # All trials recorded — the loop's deterministic exit. The
+        # tally is now final; the test reads it through count().
+        $Report {
+            next_seed(): int { @@:(-1) }
+            record(outcome: int) { }
+            is_done(): bool { @@:(true) }
+            count(outcome: int): int { @@:(self.tally.get(outcome, 0)) }
+            distinct_outcomes(): int { @@:(self.tally.size()) }
+            trials_done(): int { @@:(self.recorded) }
+        }
+
+    domain:
+        # Fixed, contiguous seed set [seed_base, seed_base+seed_count).
+        # Contiguous (not a literal list) keeps the domain default a
+        # single scalar — and framec mangles multi-line literals.
+        seed_base: int = 1
+        seed_count: int = 50
+        trial: int = 0
+        recorded: int = 0
+        # outcome -> times observed across the seed set.
+        tally: Dictionary = {}
+}

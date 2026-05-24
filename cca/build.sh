@@ -100,6 +100,12 @@ echo "==> $FRAMEC compile frame/maze_sweep.fgd"
 echo "==> copying generated/maze_sweep.gd -> godot/scripts/maze_sweep.gd"
 cp "generated/maze_sweep.gd" "godot/scripts/maze_sweep.gd"
 
+# stochastic_probe.fgd — the randomness-conformance probe (test scaffold).
+echo "==> $FRAMEC compile frame/stochastic_probe.fgd"
+"$FRAMEC" compile "frame/stochastic_probe.fgd" --language gdscript -o generated/
+echo "==> copying generated/stochastic_probe.gd -> godot/scripts/stochastic_probe.gd"
+cp "generated/stochastic_probe.gd" "godot/scripts/stochastic_probe.gd"
+
 # topology.gd is hand-written canon data (140 rooms + 75 gates),
 # not framec-generated, but it MUST also stay in sync between
 # the standalone and arcade copies — both `driver.gd` and
