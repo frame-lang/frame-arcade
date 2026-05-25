@@ -78,6 +78,14 @@ func _init():
     bo.launch_ball(100.0, -100.0)
     _expect("ball in flight",    bo.ball_state(),      "in_flight")
 
+    # pause()/resume() via push$/pop$: must pop back to $Playing
+    # with the ball still in flight (state preserved across pause).
+    bo.pause()
+    _expect("paused",            bo.get_state(),       "paused")
+    bo.resume()
+    _expect("resume → playing",  bo.get_state(),       "playing")
+    _expect("ball still flying", bo.ball_state(),      "in_flight")
+
     # Hit a few bricks (default field is 40)
     bo.brick_hit(0)
     bo.brick_hit(1)

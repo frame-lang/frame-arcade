@@ -190,6 +190,8 @@
         wall_bounce_x()                 # ball hit left/right wall
         wall_bounce_y()                 # ball hit top wall
         ball_fell_off()                 # ball went below paddle
+        pause()                         # playing -> paused (push$)
+        resume()                        # paused -> back to playing (-> pop$)
         restart()
 
         get_state(): String
@@ -270,6 +272,10 @@
                     self.ball.attach()
             }
 
+            pause() {
+                push$ -> $Paused
+            }
+
             get_state(): String         { @@:("playing") }
             get_score(): int            { @@:(self.score) }
             get_lives(): int            { @@:(self.lives) }
@@ -296,6 +302,26 @@
             }
 
             get_state(): String         { @@:("level_clear") }
+            get_score(): int            { @@:(self.score) }
+            get_lives(): int            { @@:(self.lives) }
+            get_level(): int            { @@:(self.level) }
+            bricks_remaining(): int     { @@:(self.bricks.remaining()) }
+            is_brick_broken(index: int): bool { @@:(self.bricks.is_broken(index)) }
+            ball_state(): String        { @@:(self.ball.get_state()) }
+            ball_vx(): float            { @@:(self.ball.get_vx()) }
+            ball_vy(): float            { @@:(self.ball.get_vy()) }
+        }
+
+        # ------------------------------------------------------------
+        # $Paused — halted mid-round. resume() pops back to $Playing
+        # with the ball, bricks, score, and lives exactly as left.
+        # ------------------------------------------------------------
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            get_state(): String         { @@:("paused") }
             get_score(): int            { @@:(self.score) }
             get_lives(): int            { @@:(self.lives) }
             get_level(): int            { @@:(self.level) }

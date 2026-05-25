@@ -27,6 +27,7 @@ const BreakoutFSM = preload("res://scripts/breakout.gd")
 
 # --- Runtime ---
 var fsm
+var _pause_down: bool = false                 # rising-edge latch for the P key
 var paddle_x: float
 var ball_pos: Vector2
 var ball_speed_current: float
@@ -91,6 +92,18 @@ func _physics_process(delta: float) -> void:
 # ============================================================
 func _handle_input() -> void:
     var state: String = fsm.get_state()
+
+    # P toggles pause (rising-edge). pause() from playing pushes the
+    # current state; resume() from paused pops back to it.
+    var p_now: bool = Input.is_key_pressed(KEY_P)
+    if p_now and not _pause_down:
+        if state == "playing":
+            fsm.pause()
+        elif state == "paused":
+            fsm.resume()
+    _pause_down = p_now
+    if fsm.get_state() == "paused":
+        return
 
     if state == "attract":
         if Input.is_anything_pressed():
