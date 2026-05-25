@@ -102,6 +102,10 @@ var guard_facing: Array = [0.0, 0.0, 0.0]
 # Edge-detected restart key
 var _r_was_down: bool = false
 
+# Edge-detected pause key. P toggles the FSM pause()/resume()
+# (push$/pop$); edge detection stops a held key flipping it every frame.
+var _p_was_down: bool = false
+
 # Player rendering state. Kept driver-side because they're
 # purely visual concerns — direction the figure is facing for
 # rendering, the leg-swing phase for the running animation, and
@@ -226,6 +230,19 @@ func _patrol_for(guard_index: int) -> Array:
 func _physics_process(delta: float) -> void:
     var state: String = fsm.get_state()
 
+    # Pause toggle (P). Only $Playing can pause; $Paused resumes via
+    # -> pop$. Edge-detected so a held key doesn't flip every frame.
+    var p_now: bool = Input.is_key_pressed(KEY_P)
+    var p_edge: bool = p_now and not _p_was_down
+    _p_was_down = p_now
+
+    if state == "paused":
+        if p_edge:
+            fsm.resume()
+        _update_labels()
+        queue_redraw()
+        return
+
     if state == "attract":
         if Input.is_anything_pressed():
             _start_run()
@@ -245,6 +262,12 @@ func _physics_process(delta: float) -> void:
         return
 
     # --- $Playing ---
+
+    if p_edge:
+        fsm.pause()
+        _update_labels()
+        queue_redraw()
+        return
 
     _move_player(delta)
 
@@ -426,12 +449,14 @@ func _los_clear(from: Vector2, to: Vector2) -> bool:
 # ============================================================
 func _update_labels() -> void:
     var elapsed: float = fsm.get_elapsed()
-    label_hud.text = "TIME  %5.1fs    Reach the exit (E) without being seen" % elapsed
+    label_hud.text = "TIME  %5.1fs    Reach the exit (E) without being seen    P pause" % elapsed
     match fsm.get_state():
         "attract":
             label_center.text = "S T E A L T H\n\nReach E without entering a guard's vision cone\n\n↑↓←→ move    Press any key to start"
         "playing":
             label_center.text = ""
+        "paused":
+            label_center.text = "PAUSED\n\nPress P to resume"
         "caught":
             label_center.text = "CAUGHT BY GUARD %d\n\n%5.1fs survived    Press R to restart" % [
                 fsm.get_caught_by() + 1, elapsed]
