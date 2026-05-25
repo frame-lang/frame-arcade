@@ -438,8 +438,12 @@
         # $InGame — HSM parent for active-gameplay states
         # ------------------------------------------------------------
         $InGame {
+            # push$ saves the active sub-state ($Playing/$ShipDying/
+            # $WaveClear, which forward pause() up here via => $^) so
+            # $Paused.resume()'s -> pop$ returns to it — pausing mid
+            # ship-death or wave-break resumes there, not in $Playing.
             pause() {
-                -> $Paused
+                push$ -> $Paused
             }
 
             get_state(): String     { @@:("in_game") }
@@ -529,7 +533,7 @@
         # ------------------------------------------------------------
         $Paused {
             resume() {
-                -> $Playing
+                -> pop$
             }
 
             get_state(): String     { @@:("paused") }

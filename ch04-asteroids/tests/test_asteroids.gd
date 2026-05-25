@@ -107,7 +107,7 @@ func _init():
     _expect("bad split = false",   bad_split,        false)
 
     # --- Asteroids HSM with default difficulty (2) ---
-    var ast = Asteroids.new()
+    var ast = Asteroids._create()
     _expect("default difficulty", ast.get_difficulty(), 2)
     _expect("attract",            ast.get_state(),     "attract")
     _expect("score 0",            ast.get_score(),     0)
@@ -134,9 +134,9 @@ func _init():
     # Ship should now be back to alive
 
     # --- Parameterized difficulty test ---
-    var hard = Asteroids.new(3)
+    var hard = Asteroids._create(3)
     _expect("hard difficulty",    hard.get_difficulty(), 3)
-    var easy = Asteroids.new(1)
+    var easy = Asteroids._create(1)
     _expect("easy difficulty",    easy.get_difficulty(), 1)
 
     # --- Restart from game over ---
