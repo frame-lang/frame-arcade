@@ -21,6 +21,8 @@
         start()         # attract mode -> first serve
         restart()       # game over -> attract mode
         launch()        # serving -> in play
+        pause()         # serving/in play -> paused (push$)
+        resume()        # paused -> back to prior state (-> pop$)
 
         # --- Per-frame tick (unused in Pong but shown for consistency) ---
         tick()
@@ -71,6 +73,13 @@
                 -> $InPlay
             }
 
+            # push$ saves $Serving so resume()'s -> pop$ returns here
+            # (not a hardcoded state) — pausing on the serve resumes
+            # on the serve.
+            pause() {
+                push$ -> $Paused
+            }
+
             get_state(): String             { @@:("serving") }
             get_score_left(): int           { @@:(self.score_left) }
             get_score_right(): int          { @@:(self.score_right) }
@@ -94,6 +103,10 @@
                 self.score_left = self.score_left + 1
                 self.last_scorer = "left"
                 -> $PointScored
+            }
+
+            pause() {
+                push$ -> $Paused
             }
 
             get_state(): String             { @@:("in_play") }
@@ -126,6 +139,25 @@
             }
 
             get_state(): String             { @@:("point_scored") }
+            get_score_left(): int           { @@:(self.score_left) }
+            get_score_right(): int          { @@:(self.score_right) }
+            get_serve_direction(): int      { @@:(self.serving_to) }
+            get_winner(): String            { @@:(self.winner) }
+            is_playing(): bool              { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $Paused — halted mid-game. resume() pops back to whichever
+        # state pushed (Serving or InPlay), so play continues exactly
+        # where it left off. is_playing() is false so the driver
+        # freezes ball + paddle integration.
+        # ------------------------------------------------------------
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            get_state(): String             { @@:("paused") }
             get_score_left(): int           { @@:(self.score_left) }
             get_score_right(): int          { @@:(self.score_right) }
             get_serve_direction(): int      { @@:(self.serving_to) }

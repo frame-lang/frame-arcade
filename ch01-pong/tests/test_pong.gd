@@ -31,10 +31,25 @@ func _init():
     _expect("after start",       p.get_state(),       "serving")
     _expect("not playing yet",   p.is_playing(),      false)
 
+    # --- pause from Serving pops back to Serving ---
+    p.pause()
+    _expect("paused from serving", p.get_state(),     "paused")
+    p.resume()
+    _expect("resume → serving",    p.get_state(),     "serving")
+
     # --- launch() → InPlay ---
     p.launch()
     _expect("after launch",      p.get_state(),       "in_play")
     _expect("playing",           p.is_playing(),      true)
+
+    # --- pause()/resume() via push$/pop$: must pop back to the
+    #     state that paused (InPlay here), not a hardcoded state ---
+    p.pause()
+    _expect("paused from in_play", p.get_state(),     "paused")
+    _expect("paused not playing",  p.is_playing(),    false)
+    p.resume()
+    _expect("resume → in_play",    p.get_state(),     "in_play")
+    _expect("playing again",       p.is_playing(),    true)
 
     # --- Right scores: ball_out_left ---
     p.ball_out_left()

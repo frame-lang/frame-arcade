@@ -31,6 +31,7 @@ var paddle_left_y: float
 var paddle_right_y: float
 var ball_speed_current: float
 var flash_timer: float = 0.0
+var _pause_down: bool = false                 # rising-edge latch for the P key
 var _serve_armed: bool = false                # becomes true one frame after
                                                # entering Serving, so the keypress
                                                # that started the game doesn't
@@ -70,9 +71,9 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
     _handle_input()
 
-    # Paddle motion is allowed in every state except attract.
+    # Paddle motion is allowed in every state except attract and paused.
     var state: String = fsm.get_state()
-    if state != "attract":
+    if state != "attract" and state != "paused":
         _update_paddles(delta)
 
     # Ball physics only integrates when the machine says we're playing.
@@ -90,6 +91,18 @@ func _physics_process(delta: float) -> void:
 # ------------------------------------------------------------
 func _handle_input() -> void:
     var state: String = fsm.get_state()
+
+    # P toggles pause (rising-edge). pause() from serving/in_play
+    # pushes the current state; resume() from paused pops back to it.
+    var p_now: bool = Input.is_key_pressed(KEY_P)
+    if p_now and not _pause_down:
+        if state == "serving" or state == "in_play":
+            fsm.pause()
+        elif state == "paused":
+            fsm.resume()
+    _pause_down = p_now
+    if fsm.get_state() == "paused":
+        return
 
     # Any key starts the game from attract mode.
     if state == "attract":
