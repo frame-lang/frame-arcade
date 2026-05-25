@@ -126,6 +126,16 @@ func _init():
     _expect("wave complete",       inv.get_state(),     "wave_complete")
     _expect("score 55*10",         inv.get_score(),     550)
 
+    # Regression (push$/pop$): pausing mid wave-break must resume to
+    # $WaveComplete, not $Playing. A hardcoded `resume() -> $Playing`
+    # soft-locks here — you'd resume into $Playing with an already-
+    # cleared fleet and the wave-advance logic (which lives in
+    # $WaveComplete.tick) would be skipped forever.
+    inv.pause()
+    _expect("paused from wave_complete", inv.get_state(), "paused")
+    inv.resume()
+    _expect("resume → wave_complete",    inv.get_state(), "wave_complete")
+
     # Tick past the 2.0s wave pause → $Playing wave 2
     inv.tick(1.1)
     inv.tick(1.1)
@@ -135,6 +145,14 @@ func _init():
     # Player hit triggers $PlayerDying via HSM child
     inv.player_hit()
     _expect("player dying",        inv.get_state(),     "player_dying")
+
+    # Regression (push$/pop$): pausing mid-explosion must resume to
+    # $PlayerDying, not $Playing — otherwise the player resumes in
+    # normal play while their own FSM is still exploding.
+    inv.pause()
+    _expect("paused from player_dying", inv.get_state(), "paused")
+    inv.resume()
+    _expect("resume → player_dying",    inv.get_state(), "player_dying")
 
     # Restart from game over
     inv.fleet_reached_bottom()

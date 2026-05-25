@@ -405,8 +405,15 @@
         # used as an HSM parent.
         # ------------------------------------------------------------
         $InGame {
+            # push$ saves the CURRENT sub-state (whichever child —
+            # $Playing / $PlayerDying / $WaveComplete — forwarded
+            # pause() up here via => $^) onto the state stack, so
+            # $Paused.resume()'s -> pop$ returns to exactly that
+            # state. A plain -> $Paused + hardcoded -> $Playing
+            # resume would lose the prior sub-state (e.g. pausing
+            # mid-wave-break would soft-lock on resume).
             pause() {
-                -> $Paused
+                push$ -> $Paused
             }
 
             get_state(): String { @@:("in_game") }
@@ -504,11 +511,14 @@
         }
 
         # ------------------------------------------------------------
-        # $Paused — halted. Resume returns to Playing.
+        # $Paused — halted. Resume pops back to the sub-state that
+        # was active when pause() fired (saved by push$ in
+        # $InGame.pause), so pausing mid-$PlayerDying or
+        # mid-$WaveComplete resumes there, not in $Playing.
         # ------------------------------------------------------------
         $Paused {
             resume() {
-                -> $Playing
+                -> pop$
             }
 
             get_state(): String { @@:("paused") }
