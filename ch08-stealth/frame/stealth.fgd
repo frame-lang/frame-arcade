@@ -465,7 +465,6 @@
         start(p1: Array, p2: Array, p3: Array)
 
         restart()           # game over -> attract
-        give_up()           # caught/escaped -> attract (like restart)
 
         # Pause / resume. pause() is only meaningful during
         # $Playing; it push$-es the play state onto the stack and
