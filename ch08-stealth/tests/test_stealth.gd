@@ -118,6 +118,20 @@ func _init():
     s2.restart()
     _expect("after restart",        s2.get_state(),      "attract")
 
+    # --- Pause round-trip (push$/pop$) ---
+    # pause() during $Playing pushes the play state and parks in
+    # $Paused; resume()'s -> pop$ returns to $Playing with the
+    # elapsed clock preserved (nothing was ticked while paused).
+    var sp = Stealth.new()
+    sp.start(p1, p2, p3)
+    sp.tick(0.5, Vector2(0, 0), Vector2(0, 0), Vector2(0, 0))
+    sp.pause()
+    _expect("paused state",         sp.get_state(),      "paused")
+    _expect("paused keeps elapsed", sp.get_elapsed(),    0.5)
+    sp.resume()
+    _expect("resume -> playing",    sp.get_state(),      "playing")
+    _expect("resume keeps elapsed", sp.get_elapsed(),    0.5)
+
     # --- Save/restore (Stealth has @@[persist]) ---
     var s3 = Stealth.new()
     s3.start(p1, p2, p3)

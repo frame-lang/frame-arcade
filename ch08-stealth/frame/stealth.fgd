@@ -467,6 +467,17 @@
         restart()           # game over -> attract
         give_up()           # caught/escaped -> attract (like restart)
 
+        # Pause / resume. pause() is only meaningful during
+        # $Playing; it push$-es the play state onto the stack and
+        # parks in $Paused, and resume()'s -> pop$ returns to the
+        # exact play state (with elapsed clock and all three guard
+        # sub-machines frozen mid-stride). push$/pop$ — rather than
+        # a hardcoded resume() -> $Playing — is the same idiom the
+        # other chapters use so a future $Playing sub-state would
+        # resume correctly too.
+        pause()
+        resume()
+
         # Per-frame; passes through to each guard's tick.
         tick(dt: float, pos1: Vector2, pos2: Vector2, pos3: Vector2)
 
@@ -532,7 +543,34 @@
                 -> $Escaped
             }
 
+            # Push the play state and park in $Paused. The guards
+            # and the elapsed clock simply stop advancing because
+            # the driver stops calling tick() while paused; nothing
+            # about their Frame state changes, so -> pop$ resumes
+            # the run exactly where it left off.
+            pause() {
+                push$ -> $Paused
+            }
+
             get_state(): String     { @@:("playing") }
+            get_elapsed(): float    { @@:(self.elapsed) }
+            get_caught_by(): int    { @@:(self.caught_by) }
+        }
+
+        # ------------------------------------------------------------
+        # $Paused — frozen mid-run. Reached only from $Playing via
+        # push$, so -> pop$ always returns to $Playing with the
+        # elapsed clock and the three guard sub-machines intact.
+        # The driver renders the frozen frame and gates movement +
+        # tick() on this state; the queries keep reporting the
+        # paused-over values so the HUD reads correctly.
+        # ------------------------------------------------------------
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            get_state(): String     { @@:("paused") }
             get_elapsed(): float    { @@:(self.elapsed) }
             get_caught_by(): int    { @@:(self.caught_by) }
         }
