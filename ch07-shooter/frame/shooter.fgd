@@ -582,6 +582,13 @@
         should_spawn_boss(): bool
         consume_boss_spawn()
 
+        # Pause (push$/pop$). pause() is meaningful in $Playing and
+        # $BossFight; each push$-es so resume()'s -> pop$ returns to
+        # whichever was active. The driver gates tick()/spawning/input
+        # on get_state() == "paused".
+        pause()
+        resume()
+
     machine:
 
         # ------------------------------------------------------------
@@ -668,6 +675,10 @@
             should_spawn_boss(): bool { @@:(false) }
             consume_boss_spawn()      { }
 
+            pause() {
+                push$ -> $Paused
+            }
+
             get_state(): String { @@:("playing") }
             get_score(): int    { @@:(self.score) }
             get_lives(): int    { @@:(self.player.get_lives()) }
@@ -732,10 +743,35 @@
             should_spawn_boss(): bool   { @@:(self.boss_spawn_pending) }
             consume_boss_spawn()        { self.boss_spawn_pending = false }
 
+            pause() {
+                push$ -> $Paused
+            }
+
             get_state(): String { @@:("boss_fight") }
             get_score(): int    { @@:(self.score) }
             get_lives(): int    { @@:(self.player.get_lives()) }
             enemy_count(): int  { @@:(self.enemies.size()) }
+        }
+
+        # ------------------------------------------------------------
+        # $Paused — frozen mid-game. Reached via push$ from $Playing or
+        # $BossFight, so resume()'s -> pop$ returns to whichever was
+        # active. The driver gates tick()/spawning/input on
+        # get_state() == "paused"; the queries report frozen values.
+        # ------------------------------------------------------------
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            get_state(): String         { @@:("paused") }
+            get_score(): int            { @@:(self.score) }
+            get_lives(): int            { @@:(self.player.get_lives()) }
+            enemy_count(): int          { @@:(self.enemies.size()) }
+            should_spawn_wave(): bool   { @@:(false) }
+            consume_wave()              { }
+            should_spawn_boss(): bool   { @@:(false) }
+            consume_boss_spawn()        { }
         }
 
         # ------------------------------------------------------------

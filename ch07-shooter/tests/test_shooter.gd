@@ -50,8 +50,8 @@ func _init():
 
     # --- Enemy parameterized ---
     var Enemy = load("res://scripts/shooter.gd").Enemy
-    var e1 = Enemy.new(1, 2, 1.5, 100)        # kind 1, 2 hp, fires every 1.5s, 100 pts
-    var e2 = Enemy.new(2, 5, 0.8, 250)        # tougher
+    var e1 = Enemy._create(1, 2, 1.5, 100)        # kind 1, 2 hp, fires every 1.5s, 100 pts
+    var e2 = Enemy._create(2, 5, 0.8, 250)        # tougher
     _expect("e1 kind",              e1.get_kind(),       1)
     _expect("e1 hp",                e1.get_hp(),         2)
     _expect("e1 points",            e1.get_points(),     100)
@@ -106,8 +106,14 @@ func _init():
     sh.start()
     _expect("playing",              sh.get_state(),      "playing")
 
+    # Pause round-trip (push$/pop$): pause from $Playing, pop back.
+    sh.pause()
+    _expect("paused",               sh.get_state(),      "paused")
+    sh.resume()
+    _expect("resumed to playing",   sh.get_state(),      "playing")
+
     # Add an enemy and verify enemy_hit returns proper bool
-    var e = Enemy.new(1, 1, 1.0, 50)
+    var e = Enemy._create(1, 1, 1.0, 50)
     sh.add_enemy(e)
     _expect("1 enemy",              sh.enemy_count(),    1)
 

@@ -32,6 +32,7 @@ const ShooterFSM = preload("res://scripts/shooter.gd")
 var fsm
 var player_pos: Vector2
 var player_shot_timer: float = 0.0
+var _p_was_down: bool = false   # edge-detect for the P pause toggle
 
 # Per-enemy rendering data, keyed by the Enemy instance itself.
 # Using the instance as a dict key is safe because Enemy extends
@@ -92,6 +93,11 @@ func _reset_player() -> void:
 
 # ============================================================
 func _physics_process(delta: float) -> void:
+    # Pause toggle (P), edge-detected on the state BEFORE input so the
+    # any-key start can't double-fire a pause the same frame. While
+    # paused, fsm.get_state() == "paused", so the gameplay block below
+    # is skipped — tick, spawning, physics and input all freeze.
+    _handle_pause(fsm.get_state())
     _handle_input()
 
     var state: String = fsm.get_state()
@@ -128,6 +134,16 @@ func _handle_input() -> void:
         if Input.is_key_pressed(KEY_R):
             fsm.restart()
         return
+
+# ============================================================
+func _handle_pause(state: String) -> void:
+    var p_now: bool = Input.is_key_pressed(KEY_P)
+    if p_now and not _p_was_down:
+        if state == "paused":
+            fsm.resume()
+        elif state == "playing" or state == "boss_fight":
+            fsm.pause()
+    _p_was_down = p_now
 
 # ============================================================
 func _update_player(delta: float) -> void:
@@ -409,6 +425,8 @@ func _update_labels() -> void:
     match fsm.get_state():
         "attract":
             label_center.text = "S H O O T E R\n\nPress any key to start"
+        "paused":
+            label_center.text = "PAUSED\n\nPress P to resume"
         "boss_fight":
             if fsm.boss.is_dying():
                 label_center.text = "B O S S   D E F E A T E D"
