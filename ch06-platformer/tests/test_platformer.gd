@@ -128,6 +128,18 @@ func _init():
     _expect("damage returns true",  alive,                true)
     _expect("decayed to small",     p.form(),             "small")
 
+    # --- Pause round-trip (push$/pop$) on the orchestrator ---
+    # p is walking (press_right above, never released). pause() parks
+    # in $Paused; resume()'s -> pop$ returns to $Playing with both
+    # sub-FSMs frozen (locomotion still "walking").
+    _expect("not paused while playing", p.is_paused(),    false)
+    p.pause()
+    _expect("paused",               p.is_paused(),        true)
+    _expect("paused keeps loco",    p.locomotion_state(), "walking")
+    p.resume()
+    _expect("resumed",              p.is_paused(),        false)
+    _expect("resume keeps loco",    p.locomotion_state(), "walking")
+
     print()
     if failures == 0:
         print("PASS — Platformer two-FSM smoke complete")

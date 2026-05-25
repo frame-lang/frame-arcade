@@ -456,6 +456,14 @@
         pickup_flower()
         take_damage(): bool
 
+        # Pause (push$/pop$). pause() parks the orchestrator in
+        # $Paused; resume()'s -> pop$ returns to $Playing with both
+        # sub-FSMs frozen (the driver stops calling tick()/input
+        # while is_paused() is true, so neither sub-FSM advances).
+        pause()
+        resume()
+        is_paused(): bool
+
         # Queries (the driver reads these)
         locomotion_state(): String
         form(): String
@@ -492,6 +500,10 @@
                 @@:(self.power.take_damage())
             }
 
+            pause() {
+                push$ -> $Paused
+            }
+
             locomotion_state(): String  { @@:(self.loco.get_state()) }
             form(): String              { @@:(self.power.get_form()) }
             wants_velocity_x(): float   { @@:(self.loco.wants_velocity_x()) }
@@ -502,6 +514,31 @@
             is_in_air(): bool           { @@:(self.loco.is_in_air()) }
             hit_box_height(): int       { @@:(self.power.hit_box_height()) }
             can_shoot(): bool           { @@:(self.power.can_shoot()) }
+            is_paused(): bool           { @@:(false) }
+        }
+
+        # ------------------------------------------------------------
+        # $Paused — orchestrator parked. Reached only from $Playing via
+        # push$, so resume()'s -> pop$ always returns to $Playing. The
+        # driver gates tick()/input on is_paused(), so neither sub-FSM
+        # advances; the read-only queries keep forwarding the frozen
+        # sub-FSM values so the driver can still render the held frame.
+        # ------------------------------------------------------------
+        $Paused {
+            resume() {
+                -> pop$
+            }
+
+            locomotion_state(): String  { @@:(self.loco.get_state()) }
+            form(): String              { @@:(self.power.get_form()) }
+            wants_velocity_x(): float   { @@:(self.loco.wants_velocity_x()) }
+            wants_jump_impulse(): bool  { @@:(self.loco.wants_jump_impulse()) }
+            facing(): int               { @@:(self.loco.facing()) }
+            is_grounded(): bool         { @@:(self.loco.is_grounded()) }
+            is_in_air(): bool           { @@:(self.loco.is_in_air()) }
+            hit_box_height(): int       { @@:(self.power.hit_box_height()) }
+            can_shoot(): bool           { @@:(self.power.can_shoot()) }
+            is_paused(): bool           { @@:(true) }
         }
 
     domain:

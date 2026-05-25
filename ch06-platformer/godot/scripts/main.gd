@@ -38,6 +38,7 @@ var _left_down: bool = false
 var _right_down: bool = false
 var _sprint_down: bool = false
 var _jump_down: bool = false
+var _p_was_down: bool = false
 
 # --- UI ---
 var label_hud: Label
@@ -82,7 +83,7 @@ func _build_ui() -> void:
     label_help.position = Vector2(10, court_size.y - 28)
     label_help.size = Vector2(court_size.x - 20, 24)
     canvas.add_child(label_help)
-    label_help.text = "Arrows/WASD = move, Shift = run, Space = jump, R = reset pickups"
+    label_help.text = "Arrows/WASD = move, Shift = run, Space = jump, P = pause, R = reset pickups"
 
 func _spawn_player() -> void:
     player_pos = Vector2(60, court_size.y - 80)
@@ -91,6 +92,22 @@ func _spawn_player() -> void:
 
 # ============================================================
 func _physics_process(delta: float) -> void:
+    # Pause toggle (P), edge-detected. While paused the FSM sits in
+    # $Paused; we skip input, tick, and physics entirely so both
+    # sub-FSMs and the body freeze, and just render the held frame.
+    var p_now: bool = Input.is_key_pressed(KEY_P)
+    if p_now and not _p_was_down:
+        if fsm.is_paused():
+            fsm.resume()
+        else:
+            fsm.pause()
+    _p_was_down = p_now
+
+    if fsm.is_paused():
+        _update_labels()
+        queue_redraw()
+        return
+
     _handle_input()
 
     # Tick the FSM so jumping's $.jump_held_time advances,
@@ -256,10 +273,12 @@ func _check_pickups() -> void:
 
 # ============================================================
 func _update_labels() -> void:
-    label_hud.text = "STATE  %s     FORM  %s     GROUNDED  %s" % [
+    var pause_tag: String = "     [PAUSED]" if fsm.is_paused() else ""
+    label_hud.text = "STATE  %s     FORM  %s     GROUNDED  %s%s" % [
         fsm.locomotion_state(),
         fsm.form(),
-        "yes" if fsm.is_grounded() else "no"]
+        "yes" if fsm.is_grounded() else "no",
+        pause_tag]
 
 # ============================================================
 func _draw() -> void:
