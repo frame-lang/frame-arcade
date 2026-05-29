@@ -93,14 +93,12 @@ func _init():
     _expect("score 30",          bo.get_score(),       30)
     _expect("37 remaining",      bo.bricks_remaining(), 37)
 
-    # Ball falls off, lives decrements. The FSM's ball_fell_off
-    # decrements lives and calls ball.attach() — but attach is
-    # only valid from $Lost; the ball is currently $InFlight.
-    # The driver layer calls ball.lose() outside the FSM to
-    # park the ball on the paddle. We test the FSM contract
-    # only: lives drops by 1.
+    # Ball falls off: lives decrements and the FSM recycles the ball
+    # through $Lost back to $AttachedToPaddle (ball_fell_off calls
+    # ball.lose() then ball.attach()), so it's parked ready to re-serve.
     bo.ball_fell_off()
     _expect("lives 2",           bo.get_lives(),       2)
+    _expect("ball re-attached",  bo.ball_state(),      "attached")
 
     # Clear all remaining bricks → $LevelClear
     bo.launch_ball(100.0, -100.0)
