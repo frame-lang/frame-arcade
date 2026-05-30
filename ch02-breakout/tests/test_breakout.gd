@@ -127,6 +127,7 @@ func _init():
     _expect("score reset",       bo.get_score(),       0)
     _expect("lives reset",       bo.get_lives(),       3)
     _expect("level reset",       bo.get_level(),       1)
+    _expect("wall restored",     bo.bricks_remaining(), 40)
 
     print()
     if failures == 0:

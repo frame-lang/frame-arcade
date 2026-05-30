@@ -214,6 +214,9 @@
                 self.score = 0
                 self.lives = 3
                 self.level = 1
+                # Reset the wall so $Attract always shows a clean field — whether
+                # we just booted or just returned here from $GameOver.restart().
+                self.bricks.reset(self.brick_count)
             }
 
             start() {
