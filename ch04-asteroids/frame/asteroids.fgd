@@ -3,15 +3,25 @@
 # ============================================================
 # Three systems. Two new Frame features demonstrated:
 #
-#   1. The STATE STACK (push$ / -> pop$) — for the hyperspace
-#      mechanic on the ship. Hyperspace is literally a
-#      subroutine state: push current state, enter hyperspace
-#      briefly, pop back where we were.
+#   1. The STATE STACK (push$ / -> pop$) — pause from any
+#      $InGame child. $Playing / $ShipDying / $WaveClear all
+#      inherit pause() on the $InGame parent; push$ stashes
+#      whichever child was active, -> pop$ from $Paused returns
+#      to exactly that child. The state stack earns its weight
+#      when there are MULTIPLE callers (the three in-game
+#      children) and the pop target genuinely varies.
 #
 #   2. PARAMETERIZED SYSTEMS — the top-level Asteroids system
 #      takes a `difficulty: int` parameter that configures
 #      starting asteroid counts, respawn times, and invuln
 #      durations.
+#
+# Bonus: the Ship's $InHyperspace state shows STATE-LOCAL
+# variables ($.timer, $.duration on the state itself) — they
+# exist only while the compartment is active and are recreated
+# fresh on each entry. Hyperspace is a plain ->$InHyperspace
+# -> $Alive cycle, not a subroutine — there's only one caller,
+# so a state stack would be ceremony.
 #
 # Systems:
 #   Ship           — modes of the player ship
@@ -34,9 +44,10 @@
 # Ship
 # ------------------------------------------------------------
 # $Alive          — normal play, can shoot, rotate, thrust
-# $InHyperspace   — teleport animation; pushed from $Alive,
-#                   pops back after timer. State stack makes
-#                   this a true subroutine.
+# $InHyperspace   — teleport blink; timer counts down on a
+#                   state-local $.timer, then → $Alive. The
+#                   $.timer / $.duration are STATE variables —
+#                   they live only inside this compartment.
 # $Exploding      — hit by asteroid; timer; → $Respawning
 # $Respawning     — brief invuln at spawn point; → $Alive
 # $Dead           — out of lives
@@ -67,13 +78,12 @@
             }
 
             hyperspace() {
-                # THE STATE STACK IN ACTION.
-                # push$ saves the current state (including all its
-                # state variables) onto the stack. -> $InHyperspace
-                # then transitions normally. When $InHyperspace
-                # finishes with -> pop$, we come back HERE, with
-                # state variables intact.
-                push$
+                # Plain transition. The "state stack as subroutine"
+                # idiom is overkill here — $Alive is the ONLY caller
+                # of hyperspace, so pop$ would always land here
+                # anyway. See the top-of-file note + the orchestrator's
+                # pause() for where push$/pop$ actually earns its keep
+                # (three in-game children, pop target varies).
                 -> $InHyperspace
             }
 
@@ -86,8 +96,11 @@
         }
 
         # ------------------------------------------------------------
-        # $InHyperspace — the subroutine. Timer counts down.
-        # When it expires, pop back to whatever called us.
+        # $InHyperspace — temporary mode with state-local timer.
+        # The $. prefix marks variables that belong to THIS compartment
+        # only — they're created on entry and discarded on exit, so the
+        # next hyperspace begins with $.timer = 0 even though the ship
+        # has been through this state many times before.
         # ------------------------------------------------------------
         $InHyperspace {
             $.timer: float = 0.0
@@ -96,7 +109,7 @@
             tick(dt: float) {
                 $.timer = $.timer + dt
                 if $.timer >= $.duration:
-                    -> pop$
+                    -> $Alive
             }
 
             # Hyperspace is supposed to be dangerous — there's a
