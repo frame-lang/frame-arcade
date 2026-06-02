@@ -45,7 +45,12 @@ var label_center: Label
 
 # ============================================================
 func _ready() -> void:
-    fsm = AsteroidsFSM.new(difficulty)
+    # Parameterized Frame systems pass args via the static _create factory —
+    # `_init` itself takes no args. Calling `.new(difficulty)` throws "too
+    # many args for '_init'" at scene load, crashes _ready silently, and the
+    # Godot web export then shows nothing but the canvas clear color (a
+    # grey box). Stick with _create.
+    fsm = AsteroidsFSM._create(difficulty)
     _build_ui()
     _reset_ship()
 
