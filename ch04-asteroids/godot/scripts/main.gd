@@ -152,6 +152,20 @@ func _handle_input(delta: float) -> void:
 
 # ============================================================
 func _update_ship(delta: float) -> void:
+    # Track ship state on EVERY frame, including invisible ones — the
+    # ship is_visible() returns false while in $InHyperspace, but the
+    # whole point of the post-hyperspace teleport check is to detect
+    # the InHyperspace -> Alive transition. If we skip tracking under
+    # invisibility, _last_ship_state never becomes "hyperspace" and
+    # the teleport never fires.
+    var current_state: String = fsm.ship.get_state()
+    var returned_from_hyperspace = _last_ship_state == "hyperspace" and current_state == "alive"
+    _last_ship_state = current_state
+
+    if returned_from_hyperspace:
+        ship_pos = Vector2(randf() * court_size.x, randf() * court_size.y)
+        ship_vel = Vector2.ZERO
+
     if not fsm.ship.is_visible():
         return
 
@@ -166,19 +180,6 @@ func _update_ship(delta: float) -> void:
     if ship_pos.x > court_size.x:  ship_pos.x -= court_size.x
     if ship_pos.y < 0.0:           ship_pos.y += court_size.y
     if ship_pos.y > court_size.y:  ship_pos.y -= court_size.y
-
-    # If we just came back from hyperspace, teleport to a random spot.
-    # We detect that by checking if the ship is $Alive but its previous
-    # state was InHyperspace. Since we don't expose "just popped" from
-    # the Frame system, we fake it: pushing hyperspace stashes current
-    # ship_pos; when ship is $Alive again and _last_ship_state ==
-    # hyperspace, we randomize. See notes in the chapter README about
-    # how this could be cleaner.
-    var current_state: String = fsm.ship.get_state()
-    if _last_ship_state == "hyperspace" and current_state == "alive":
-        ship_pos = Vector2(randf() * court_size.x, randf() * court_size.y)
-        ship_vel = Vector2.ZERO
-    _last_ship_state = current_state
 
 func _reset_ship() -> void:
     ship_pos = court_size * 0.5
