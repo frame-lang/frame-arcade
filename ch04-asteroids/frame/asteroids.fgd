@@ -396,7 +396,7 @@
 # standalone.
 # ------------------------------------------------------------
 @@[main]
-@@system Asteroids(difficulty: int = 2) : RefCounted {
+@@system AsteroidsGame(difficulty: int = 2) : RefCounted {
 
     interface:
         # Lifecycle
