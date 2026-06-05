@@ -39,41 +39,41 @@ func _init():
     # --- Ship FSM directly (state stack is the showpiece) ---
     var Ship = load("res://scripts/asteroids.gd").Ship
     var s = Ship.new()
-    _expect("ship initial",       s.get_state(),    "alive")
+    _expect("ship initial",       s.get_state(),    "Alive")
     _expect("can fire",           s.can_fire(),     true)
     _expect("can be hit",         s.can_be_hit(),   true)
     _expect("3 lives",            s.get_lives(),    3)
 
     # --- State stack: hyperspace and back ---
     s.hyperspace()
-    _expect("after hyperspace",   s.get_state(),    "hyperspace")
+    _expect("after hyperspace",   s.get_state(),    "InHyperspace")
     _expect("invisible in HS",    s.is_visible(),   false)
     _expect("can't be hit in HS", s.can_be_hit(),   false)
 
     # Tick past 0.4s duration — pop back to $Alive
     s.tick(0.5)
-    _expect("popped back to alive", s.get_state(),  "alive")
+    _expect("popped back to alive", s.get_state(),  "Alive")
     _expect("still 3 lives",      s.get_lives(),    3)
     _expect("visible again",      s.is_visible(),   true)
 
     # --- Hit cycle: $Alive → $Exploding (1.0s) → $Respawning (2.0s) → $Alive ---
     s.hit()
-    _expect("exploding",          s.get_state(),    "exploding")
+    _expect("Exploding",          s.get_state(),    "Exploding")
     s.tick(1.1)
-    _expect("respawning",         s.get_state(),    "respawning")
+    _expect("Respawning",         s.get_state(),    "Respawning")
     _expect("2 lives",            s.get_lives(),    2)
     _expect("can fire",           s.can_fire(),     true)
     _expect("can't be hit yet",   s.can_be_hit(),   false)
     s.tick(2.1)
-    _expect("alive again",        s.get_state(),    "alive")
+    _expect("alive again",        s.get_state(),    "Alive")
 
     # --- Drain to dead, respawn ---
     s.hit(); s.tick(1.1); s.tick(2.1)   # 1 life
     s.hit(); s.tick(1.1)                # 0 lives → dead
-    _expect("dead",               s.get_state(),    "dead")
+    _expect("dead",               s.get_state(),    "Dead")
     _expect("0 lives",            s.get_lives(),    0)
     s.respawn()
-    _expect("respawn → alive",    s.get_state(),    "alive")
+    _expect("respawn → alive",    s.get_state(),    "Alive")
     _expect("3 lives again",      s.get_lives(),    3)
 
     # --- AsteroidField directly ---
@@ -109,25 +109,25 @@ func _init():
     # --- Asteroids HSM with default difficulty (2) ---
     var ast = Asteroids._create()
     _expect("default difficulty", ast.get_difficulty(), 2)
-    _expect("attract",            ast.get_state(),     "attract")
+    _expect("Attract",            ast.get_state(),     "Attract")
     _expect("score 0",            ast.get_score(),     0)
     _expect("wave 1",             ast.get_wave(),      1)
 
     ast.start()
-    _expect("playing",            ast.get_state(),     "playing")
+    _expect("Playing",            ast.get_state(),     "Playing")
 
     # Pause/resume goes through $InGame parent
     ast.pause()
-    _expect("paused",             ast.get_state(),     "paused")
+    _expect("Paused",             ast.get_state(),     "Paused")
     _expect("is_paused",          ast.is_paused(),     true)
     ast.resume()
-    _expect("after resume",       ast.get_state(),     "playing")
+    _expect("after resume",       ast.get_state(),     "Playing")
 
     # Hyperspace forwards to ship
     ast.ship_hyperspace()
     # Ship is in hyperspace; Asteroids stays in $Playing (the
     # state stack lives inside Ship, not Asteroids).
-    _expect("playing after HS",   ast.get_state(),     "playing")
+    _expect("playing after HS",   ast.get_state(),     "Playing")
 
     # Tick to advance ship hyperspace to completion + game tick
     ast.tick(0.5, Vector2(640, 480))
@@ -152,9 +152,9 @@ func _init():
     # ship_hit_asteroid first to enter $ShipDying.
     # For this smoke test, exercise via direct restart from
     # whatever state we're in:
-    if ast.get_state() == "game_over":
+    if ast.get_state() == "GameOver":
         ast.restart()
-        _expect("restart → attract", ast.get_state(),  "attract")
+        _expect("restart → attract", ast.get_state(),  "Attract")
         _expect("score reset",       ast.get_score(),  0)
         _expect("wave reset",        ast.get_wave(),   1)
     else:

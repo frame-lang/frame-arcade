@@ -283,23 +283,26 @@ The driver has one small wart worth pointing out, because it
 exposes a tension the chapter doesn't fully resolve:
 
 ```gdscript
-var _last_ship_state: String = "alive"
+var _last_ship_state: String = "Alive"
 
 func _update_ship(delta: float) -> void:
     ...
     var current_state: String = fsm.ship.get_state()
-    if _last_ship_state == "hyperspace" and current_state == "alive":
+    if _last_ship_state == "InHyperspace" and current_state == "Alive":
         ship_pos = Vector2(randf() * court_size.x, randf() * court_size.y)
         ship_vel = Vector2.ZERO
     _last_ship_state = current_state
 ```
 
 When the ship finishes hyperspace, it should teleport to a random
-spot. The Frame system handles the *mode* transition (hyperspace →
-alive via pop), but the *effect* — setting a new position — lives in
-the driver. The driver detects "just popped from hyperspace" by
-watching for the state name to change from `"hyperspace"` to
-`"alive"`.
+spot. The Frame system handles the *mode* transition (`$InHyperspace`
+→ `$Alive` via the timer in `$InHyperspace.tick`), but the *effect* —
+setting a new position — lives in the driver. The driver detects
+"just left hyperspace" by watching `get_state()` flip from
+`"InHyperspace"` to `"Alive"`. Note that `get_state()` returns the
+Frame state name verbatim (PascalCase, matches the FSM-diagram
+labels) — defined once at the system level via `@@:system.state`,
+not duplicated per state.
 
 That's a little clumsy. A cleaner approach would be to use **exit
 handlers** on `$InHyperspace`. When `-> pop$` fires, the exit

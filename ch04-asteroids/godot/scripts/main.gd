@@ -9,6 +9,14 @@ extends Node2D
 
 const AsteroidsFSM = preload("res://scripts/asteroids.gd")
 
+# Palette matched to the JS (Phaser) build so both runtimes look the same.
+# JS hex values: bg #0b0e14, ship 0x8ab4f8, asteroid stroke 0x9aa4b8.
+const COL_BG     := Color(0x0b / 255.0, 0x0e / 255.0, 0x14 / 255.0)
+const COL_SHIP   := Color(0x8a / 255.0, 0xb4 / 255.0, 0xf8 / 255.0)
+const COL_ROCK   := Color(0x9a / 255.0, 0xa4 / 255.0, 0xb8 / 255.0)
+const COL_BULLET := Color(1, 1, 1)
+const COL_FLAME  := Color(1, 0.68, 0.26)
+
 # --- Court / display ---
 @export var court_size: Vector2 = Vector2(800, 600)
 
@@ -37,7 +45,6 @@ var ship_shot_timer: float = 0.0
 var bullets: Array = []                # each: { pos: Vector2, vel: Vector2, life: float }
 var _p_was_down: bool = false
 var _h_was_down: bool = false
-var _last_ship_state: String = "alive"
 
 # --- UI ---
 var label_hud: Label
@@ -50,9 +57,16 @@ func _ready() -> void:
     # many args for '_init'" at scene load, crashes _ready silently, and the
     # Godot web export then shows nothing but the canvas clear color (a
     # grey box). Stick with _create.
-    fsm = AsteroidsFSM._create(difficulty)
+    # `self` is the ship_host. Ship's $> / <$ handlers will call back into
+    # the public methods below (spawn_explosion / reset_ship / warp_out /
+    # warp_in). The .fjs and .fgd Ship bodies are identical; only the host
+    # implementations differ per renderer.
+    fsm = AsteroidsFSM._create(difficulty, self)
+    # Match the JS (Phaser) build's near-black background instead of Godot's
+    # default grey. RenderingServer applies it once for the whole project.
+    RenderingServer.set_default_clear_color(COL_BG)
     _build_ui()
-    _reset_ship()
+    reset_ship()
 
 func _build_ui() -> void:
     var canvas := CanvasLayer.new()
@@ -76,9 +90,9 @@ func _build_ui() -> void:
 func _physics_process(delta: float) -> void:
     _handle_input(delta)
 
-    var state: String = fsm.get_state()
+    var state: String = fsm.get_current_state_name()
 
-    if not fsm.is_paused() and state != "attract" and state != "game_over":
+    if not fsm.is_paused() and state != "Attract" and state != "GameOver":
         fsm.tick(delta, court_size)
 
         # Ship physics — integrate velocity, wrap screen
@@ -92,16 +106,20 @@ func _physics_process(delta: float) -> void:
 
 # ============================================================
 func _handle_input(delta: float) -> void:
-    var state: String = fsm.get_state()
+    var state: String = fsm.get_current_state_name()
 
-    if state == "attract":
+    if state == "Attract":
         if Input.is_anything_pressed():
+            # start() → $Playing → ship.respawn() → $Alive (or transitively
+            # via $Respawning). Whichever Ship state we land in, the FSM
+            # is now the authority for the sprite — bullets are still
+            # ours to clear because the orchestrator doesn't know about
+            # them.
             fsm.start()
-            _reset_ship()
             bullets.clear()
         return
 
-    if state == "game_over":
+    if state == "GameOver":
         if Input.is_key_pressed(KEY_R):
             fsm.restart()
         return
@@ -130,7 +148,7 @@ func _handle_input(delta: float) -> void:
         ship_angle += ship_rotation_speed * delta
 
     # Thrust
-    if fsm.ship.get_state() == "alive" or fsm.ship.get_state() == "respawning":
+    if fsm.ship.get_current_state_name() == "Alive" or fsm.ship.get_current_state_name() == "Respawning":
         if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W):
             ship_vel += Vector2(cos(ship_angle), sin(ship_angle)) * ship_thrust * delta
             # Cap speed
@@ -152,20 +170,10 @@ func _handle_input(delta: float) -> void:
 
 # ============================================================
 func _update_ship(delta: float) -> void:
-    # Track ship state on EVERY frame, including invisible ones — the
-    # ship is_visible() returns false while in $InHyperspace, but the
-    # whole point of the post-hyperspace teleport check is to detect
-    # the InHyperspace -> Alive transition. If we skip tracking under
-    # invisibility, _last_ship_state never becomes "hyperspace" and
-    # the teleport never fires.
-    var current_state: String = fsm.ship.get_state()
-    var returned_from_hyperspace = _last_ship_state == "hyperspace" and current_state == "alive"
-    _last_ship_state = current_state
-
-    if returned_from_hyperspace:
-        ship_pos = Vector2(randf() * court_size.x, randf() * court_size.y)
-        ship_vel = Vector2.ZERO
-
+    # Movement is pure pull: read is_visible(), drag, integrate, wrap. The
+    # InHyperspace -> Alive transition no longer needs detecting here —
+    # $InHyperspace.$>() in the Frame source calls warp_out() directly,
+    # which moves the sprite at the moment the FSM enters that state.
     if not fsm.ship.is_visible():
         return
 
@@ -181,12 +189,37 @@ func _update_ship(delta: float) -> void:
     if ship_pos.y < 0.0:           ship_pos.y += court_size.y
     if ship_pos.y > court_size.y:  ship_pos.y -= court_size.y
 
-func _reset_ship() -> void:
+# ============================================================
+# ShipHost surface — Frame's Ship system calls these from its $> / <$
+# handlers via the `host` parameter wired in _ready(). Each is a one-shot
+# moment at a state boundary, NOT a per-frame predicate.
+
+# Ship.$Respawning.$>() — centre the ship, zero its velocity, clear bullets.
+# Also the boot-time setup (called from _ready before any FSM event).
+func reset_ship() -> void:
     ship_pos = court_size * 0.5
     ship_vel = Vector2.ZERO
     ship_angle = -PI * 0.5
     ship_shot_timer = 0.0
-    _last_ship_state = "alive"
+    bullets.clear()
+
+# Ship.$InHyperspace.$>() — pick a fresh location for the re-emergence.
+func warp_out() -> void:
+    ship_pos = Vector2(randf() * court_size.x, randf() * court_size.y)
+    ship_vel = Vector2.ZERO
+
+# Ship.$InHyperspace.<$() — reserved hook for a re-entry flash. The
+# visible blink-in is already covered by is_visible() flipping true on
+# the next frame, so nothing to do here yet.
+func warp_in() -> void:
+    pass
+
+# Ship.$Exploding.$>() — the explosion burst is drawn from state
+# (state == "Exploding" → _draw_explosion), so this is just a hook for
+# audio / camera-shake if we add them later. Keeping the method so the
+# .fjs/.fgd handler always has a real target.
+func spawn_explosion() -> void:
+    pass
 
 # ============================================================
 func _try_fire() -> void:
@@ -259,27 +292,25 @@ func _update_labels() -> void:
     label_hud.text = "SCORE  %05d     LIVES  %d     WAVE  %d     DIFF  %d" % [
         fsm.get_score(), fsm.get_lives(), fsm.get_wave(), fsm.get_difficulty()]
 
-    match fsm.get_state():
-        "attract":
+    match fsm.get_current_state_name():
+        "Attract":
             label_center.text = "A S T E R O I D S\n\nPress any key to start\n(H = hyperspace, P = pause)"
-        "playing":
+        "Playing":
             label_center.text = ""
-        "ship_dying":
+        "ShipDying":
             label_center.text = ""
-        "wave_clear":
+        "WaveClear":
             label_center.text = "WAVE CLEAR"
-        "paused":
+        "Paused":
             label_center.text = "PAUSED"
-        "game_over":
+        "GameOver":
             label_center.text = "GAME OVER\n\nPress R to restart"
         _:
             label_center.text = ""
 
 # ============================================================
 func _draw() -> void:
-    var white := Color(1, 1, 1)
-    var dim := Color(0.7, 0.7, 0.7)
-    var state: String = fsm.get_state()
+    var state: String = fsm.get_current_state_name()
 
     # Asteroids
     var total: int = fsm.field.count()
@@ -293,74 +324,48 @@ func _draw() -> void:
 
     # Bullets
     for b in bullets:
-        draw_circle(b.pos, bullet_size, white)
+        draw_circle(b.pos, bullet_size, COL_BULLET)
 
     # Ship
-    if state != "attract" and state != "game_over" and fsm.ship.is_visible():
-        var ship_state: String = fsm.ship.get_state()
-        if ship_state == "exploding":
+    if state != "Attract" and state != "GameOver" and fsm.ship.is_visible():
+        var ship_state: String = fsm.ship.get_current_state_name()
+        if ship_state == "Exploding":
             _draw_explosion(ship_pos)
         else:
             # Blink while respawning to signal invuln
             var visible: bool = true
-            if ship_state == "respawning":
+            if ship_state == "Respawning":
                 visible = int(Time.get_ticks_msec() / 100) % 2 == 0
             if visible:
                 _draw_ship(ship_pos, ship_angle)
 
 func _draw_ship(at: Vector2, angle: float) -> void:
-    # Classic triangle ship
-    var white := Color(1, 1, 1)
+    # Classic triangle ship, filled in the accent blue used by Phaser
+    # (Phaser.GameObjects.Triangle is filled by default; matching that).
     var nose: Vector2 = at + Vector2(cos(angle), sin(angle)) * ship_size
     var left: Vector2 = at + Vector2(cos(angle + 2.5), sin(angle + 2.5)) * ship_size
     var right: Vector2 = at + Vector2(cos(angle - 2.5), sin(angle - 2.5)) * ship_size
-    draw_line(nose, left, white, 1.5)
-    draw_line(left, right, white, 1.5)
-    draw_line(right, nose, white, 1.5)
+    draw_colored_polygon(PackedVector2Array([nose, left, right]), COL_SHIP)
 
     # Thruster flame while thrusting
     if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W):
-        if fsm.ship.get_state() == "alive" or fsm.ship.get_state() == "respawning":
+        if fsm.ship.get_current_state_name() == "Alive" or fsm.ship.get_current_state_name() == "Respawning":
             var tail_base: Vector2 = (left + right) * 0.5
             var tail_tip: Vector2 = at - Vector2(cos(angle), sin(angle)) * ship_size * 1.4
-            draw_line(tail_base, tail_tip, Color(1, 0.6, 0.2), 1.5)
+            draw_line(tail_base, tail_tip, COL_FLAME, 1.5)
 
 func _draw_asteroid(at: Vector2, radius: float) -> void:
-    # Simple jagged polygon — 8 points with randomized radii
-    var white := Color(1, 1, 1)
-    var points := PackedVector2Array()
-    var n: int = 10
-    var i: int = 0
-    # Stable hash from position so the shape doesn't flicker
-    var seed_h: int = int(at.x * 100) + int(at.y * 100) * 31
-    while i < n:
-        var t: float = (float(i) / float(n)) * TAU
-        var jitter: float = 0.75 + _hash01(seed_h + i) * 0.35
-        var p: Vector2 = at + Vector2(cos(t), sin(t)) * radius * jitter
-        points.append(p)
-        i += 1
-    # Close the shape
-    i = 0
-    while i < n:
-        var p1: Vector2 = points[i]
-        var p2: Vector2 = points[(i + 1) % n]
-        draw_line(p1, p2, white, 1.5)
-        i += 1
-
-func _hash01(k: int) -> float:
-    # Cheap deterministic hash to [0, 1)
-    var x: int = (k * 2654435761) & 0xffffffff
-    x = ((x >> 16) ^ x) * 0x45d9f3b
-    x = x & 0xffffffff
-    return float(x & 0xffff) / 65536.0
+    # Plain outlined circle — matches the JS build (Phaser.Arc with
+    # setStrokeStyle(2, 0x9aa4b8)). draw_arc traces the full circumference
+    # without filling, leaving the dark background visible inside.
+    draw_arc(at, radius, 0.0, TAU, 32, COL_ROCK, 2.0)
 
 func _draw_explosion(at: Vector2) -> void:
-    var col := Color(1, 0.7, 0.3)
-    # Radiating lines
+    # Radiating lines in the ship color, matching the JS debris fragments.
     var i: int = 0
     while i < 8:
         var t: float = float(i) / 8.0 * TAU
         var p1: Vector2 = at + Vector2(cos(t), sin(t)) * 4.0
         var p2: Vector2 = at + Vector2(cos(t), sin(t)) * 14.0
-        draw_line(p1, p2, col, 2.0)
+        draw_line(p1, p2, COL_SHIP, 2.0)
         i += 1
