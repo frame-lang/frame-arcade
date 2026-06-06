@@ -72,7 +72,7 @@
 @@system Ship(host: Variant) : RefCounted {
 
     operations:
-        get_state(): String { @@:(@@:system.state) }
+        get_current_state_name(): String { @@:(@@:system.state.name) }
 
     interface:
         tick(dt: float)
@@ -432,8 +432,7 @@
 @@system AsteroidsGame(difficulty: int = 2, ship_host: Variant = null) : RefCounted {
 
     operations:
-        get_state(): String { @@:(@@:system.state) }
-        current_state(): String { @@:(@@:system.state) }
+        get_current_state_name(): String { @@:(@@:system.state.name) }
 
     interface:
         # Lifecycle
@@ -541,9 +540,9 @@
                 self.last_court_size = court_size
                 self.ship.tick(dt)
                 self.field.advance(dt, court_size)
-                if self.ship.get_state() == "Respawning":
+                if self.ship.get_current_state_name() == "Respawning":
                     -> "ship respawning" $Playing
-                elif self.ship.get_state() == "Dead":
+                elif self.ship.get_current_state_name() == "Dead":
                     -> "no lives left" $GameOver
             }
 
