@@ -186,14 +186,18 @@ func _check_scoring() -> void:
 
 # ------------------------------------------------------------
 func _park_ball_on_serve() -> void:
-    # Put the ball on the serving paddle.
+    # Park the ball just outside the serving paddle's outward edge so it
+    # visually sits next to the paddle (not overlapping it) and tracks
+    # the paddle's Y while the player lines up.
     var dir: int = fsm.get_serve_direction()
+    var left_x: float  = 20.0
+    var right_x: float = court_size.x - 20.0 - paddle_size.x
     if dir > 0:
-        # Serve from the left paddle toward the right.
-        ball_pos = Vector2(30.0, paddle_left_y + paddle_size.y * 0.5)
+        ball_pos = Vector2(left_x + paddle_size.x + ball_size * 0.5,
+                           paddle_left_y + paddle_size.y * 0.5)
     else:
-        # Serve from the right paddle toward the left.
-        ball_pos = Vector2(court_size.x - 30.0, paddle_right_y + paddle_size.y * 0.5)
+        ball_pos = Vector2(right_x - ball_size * 0.5,
+                           paddle_right_y + paddle_size.y * 0.5)
     ball_vel = Vector2.ZERO
     ball_speed_current = ball_speed_initial
 
