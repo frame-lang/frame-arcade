@@ -18,3 +18,7 @@ window/size/window_width_override=1280
 window/size/window_height_override=1200
 window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
+
+[rendering]
+
+environment/defaults/default_clear_color=Color(0.0431, 0.0549, 0.0784, 1)
