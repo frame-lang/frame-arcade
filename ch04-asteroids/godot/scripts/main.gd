@@ -25,7 +25,6 @@ const COL_FLAME  := Color(1, 0.68, 0.26)
 @export var ship_rotation_speed: float = 4.0  # radians per second
 @export var ship_max_speed: float = 320.0
 @export var ship_drag: float = 0.5            # fraction of velocity lost per second
-@export var ship_shot_cooldown: float = 0.25
 @export var ship_size: float = 14.0
 
 # --- Bullet tunables ---
@@ -41,7 +40,6 @@ var fsm
 var ship_pos: Vector2
 var ship_vel: Vector2
 var ship_angle: float = -PI * 0.5      # pointing up
-var ship_shot_timer: float = 0.0
 var bullets: Array = []                # each: { pos: Vector2, vel: Vector2, life: float }
 var _p_was_down: bool = false
 var _h_was_down: bool = false
@@ -155,8 +153,9 @@ func _handle_input(delta: float) -> void:
             if ship_vel.length() > ship_max_speed:
                 ship_vel = ship_vel.normalized() * ship_max_speed
 
-    # Fire
-    ship_shot_timer = max(0.0, ship_shot_timer - delta)
+    # Fire — the FSM owns the cooldown now (Ship.$Alive.$.cooldown).
+    # can_fire() already reflects whether the cooldown is ready, and
+    # ship.fire() below resets it when we actually spawn a bullet.
     if fsm.ship.can_fire():
         if Input.is_key_pressed(KEY_SPACE):
             _try_fire()
@@ -200,7 +199,6 @@ func reset_ship() -> void:
     ship_pos = court_size * 0.5
     ship_vel = Vector2.ZERO
     ship_angle = -PI * 0.5
-    ship_shot_timer = 0.0
     bullets.clear()
 
 # Ship.$InHyperspace.$>() — pick a fresh location for the re-emergence.
@@ -223,11 +221,14 @@ func spawn_explosion() -> void:
 
 # ============================================================
 func _try_fire() -> void:
-    if ship_shot_timer > 0.0:
-        return
-    # Classic Asteroids: 4 bullets max on screen
+    # Classic Asteroids: 4 bullets max on screen — a render-side
+    # concern (bullet pool size), not a state-machine rule.
     if bullets.size() >= 4:
         return
+    # FSM owns the cooldown — fire() resets Ship.$Alive's $.cooldown
+    # state-local; can_fire() above already gated us past the previous
+    # one. After this, can_fire() returns false until tick() drains it.
+    fsm.ship.fire()
     var dir := Vector2(cos(ship_angle), sin(ship_angle))
     var muzzle := ship_pos + dir * ship_size
     bullets.append({
@@ -235,7 +236,6 @@ func _try_fire() -> void:
         "vel": dir * bullet_speed + ship_vel,
         "life": 0.0,
     })
-    ship_shot_timer = ship_shot_cooldown
 
 func _update_bullets(delta: float) -> void:
     var i: int = bullets.size() - 1

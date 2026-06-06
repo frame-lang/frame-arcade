@@ -79,6 +79,7 @@
         hit()                       # asteroid collided with ship
         hyperspace()                # player pressed hyperspace
         respawn()                   # from $Dead to $Alive (new game)
+        fire()                      # scene spawned a bullet; start cooldown
 
         can_fire(): bool
         can_be_hit(): bool
@@ -92,6 +93,22 @@
         # $Alive — normal play state
         # ------------------------------------------------------------
         $Alive {
+            # Fire cooldown — state-local because it only ticks while
+            # Alive. Other states either can't fire or get a free shot
+            # (Respawning, the invuln respawn beat). The scene calls
+            # ship.fire() after spawning a bullet, which resets the
+            # timer; can_fire() returns false until tick() drains it.
+            $.cooldown: float = 0.0
+
+            tick(dt: float) {
+                if $.cooldown > 0.0:
+                    $.cooldown = $.cooldown - dt
+            }
+
+            fire() {
+                $.cooldown = 0.22
+            }
+
             hit() {
                 -> $Exploding
             }
@@ -106,7 +123,7 @@
                 -> $InHyperspace
             }
 
-            can_fire(): bool    { @@:(true) }
+            can_fire(): bool    { @@:($.cooldown <= 0.0) }
             can_be_hit(): bool  { @@:(true) }
             is_visible(): bool  { @@:(true) }
             is_alive(): bool    { @@:(true) }
