@@ -72,8 +72,8 @@ func _physics_process(delta: float) -> void:
     _handle_input()
 
     # Paddle motion is allowed in every state except attract and paused.
-    var state: String = fsm.get_state()
-    if state != "attract" and state != "paused":
+    var state: String = fsm.get_current_state_name()
+    if state != "AttractMode" and state != "Paused":
         _update_paddles(delta)
 
     # Ball physics only integrates when the machine says we're playing.
@@ -81,7 +81,7 @@ func _physics_process(delta: float) -> void:
         _update_ball(delta)
         _check_scoring()
 
-    if state == "serving":
+    if state == "Serving":
         _park_ball_on_serve()
 
     flash_timer += delta
@@ -90,22 +90,22 @@ func _physics_process(delta: float) -> void:
 
 # ------------------------------------------------------------
 func _handle_input() -> void:
-    var state: String = fsm.get_state()
+    var state: String = fsm.get_current_state_name()
 
     # P toggles pause (rising-edge). pause() from serving/in_play
     # pushes the current state; resume() from paused pops back to it.
     var p_now: bool = Input.is_key_pressed(KEY_P)
     if p_now and not _pause_down:
-        if state == "serving" or state == "in_play":
+        if state == "Serving" or state == "InPlay":
             fsm.pause()
-        elif state == "paused":
+        elif state == "Paused":
             fsm.resume()
     _pause_down = p_now
-    if fsm.get_state() == "paused":
+    if fsm.get_current_state_name() == "Paused":
         return
 
     # Any key starts the game from attract mode.
-    if state == "attract":
+    if state == "AttractMode":
         if Input.is_anything_pressed():
             fsm.start()
             _serve_armed = false
@@ -115,7 +115,7 @@ func _handle_input() -> void:
     # that started the game has been released once. _serve_armed becomes
     # true after a frame of no input, so the held start-keypress can't
     # also act as the serve.
-    if state == "serving":
+    if state == "Serving":
         if not _serve_armed:
             if not Input.is_anything_pressed():
                 _serve_armed = true
@@ -124,7 +124,7 @@ func _handle_input() -> void:
             fsm.launch()
 
     # R restarts from game over.
-    if state == "game_over":
+    if state == "GameOver":
         if Input.is_key_pressed(KEY_R):
             fsm.restart()
 
@@ -213,19 +213,19 @@ func _reset_paddles() -> void:
 
 # ------------------------------------------------------------
 func _update_labels() -> void:
-    var state: String = fsm.get_state()
+    var state: String = fsm.get_current_state_name()
     label_score.text = "%d   %d" % [fsm.get_score_left(), fsm.get_score_right()]
 
     match state:
-        "attract":
+        "AttractMode":
             label_center.text = "P O N G\nPress any key" if int(flash_timer * 2) % 2 == 0 else "P O N G"
-        "serving":
+        "Serving":
             label_center.text = "Press SPACE to serve"
-        "in_play":
+        "InPlay":
             label_center.text = ""
-        "point_scored":
+        "PointScored":
             label_center.text = ""
-        "game_over":
+        "GameOver":
             var w: String = fsm.get_winner().to_upper()
             label_center.text = "%s WINS\nPress R to play again" % w
         _:
@@ -249,8 +249,8 @@ func _draw() -> void:
         paddle_size), white)
 
     # Ball (draw only when it's on the court)
-    var state: String = fsm.get_state()
-    var show_ball: bool = state == "in_play" or state == "serving"
+    var state: String = fsm.get_current_state_name()
+    var show_ball: bool = state == "InPlay" or state == "Serving"
     if show_ball:
         draw_rect(Rect2(ball_pos - Vector2(ball_size, ball_size) * 0.5,
                         Vector2(ball_size, ball_size)), white)

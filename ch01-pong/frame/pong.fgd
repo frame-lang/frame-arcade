@@ -16,6 +16,13 @@
 
 @@system Pong : RefCounted {
 
+    operations:
+        # Single source of truth for the current state name. Replaces the
+        # per-state get_state() overrides that used to hardcode a
+        # snake_case string per state. Returns the Frame compartment
+        # name verbatim (PascalCase, matches the .dot diagram labels).
+        get_current_state_name(): String { @@:(@@:system.state.name) }
+
     interface:
         # --- Lifecycle events ---
         start()         # attract mode -> first serve
@@ -32,7 +39,6 @@
         ball_out_right()        # left player scored
 
         # --- Queries the driver reads each frame ---
-        get_state(): String
         get_score_left(): int
         get_score_right(): int
         get_serve_direction(): int      # +1 = serve right, -1 = serve left
@@ -55,7 +61,6 @@
                 -> $Serving
             }
 
-            get_state(): String             { @@:("attract") }
             get_score_left(): int           { @@:(self.score_left) }
             get_score_right(): int          { @@:(self.score_right) }
             get_serve_direction(): int      { @@:(self.serving_to) }
@@ -80,7 +85,6 @@
                 push$ -> $Paused
             }
 
-            get_state(): String             { @@:("serving") }
             get_score_left(): int           { @@:(self.score_left) }
             get_score_right(): int          { @@:(self.score_right) }
             get_serve_direction(): int      { @@:(self.serving_to) }
@@ -109,7 +113,6 @@
                 push$ -> $Paused
             }
 
-            get_state(): String             { @@:("in_play") }
             get_score_left(): int           { @@:(self.score_left) }
             get_score_right(): int          { @@:(self.score_right) }
             get_serve_direction(): int      { @@:(self.serving_to) }
@@ -130,15 +133,14 @@
 
                 if self.score_left >= self.winning_score:
                     self.winner = "left"
-                    -> $GameOver
+                    -> "left wins" $GameOver
                 elif self.score_right >= self.winning_score:
                     self.winner = "right"
-                    -> $GameOver
+                    -> "right wins" $GameOver
                 else:
-                    -> $Serving
+                    -> "next point" $Serving
             }
 
-            get_state(): String             { @@:("point_scored") }
             get_score_left(): int           { @@:(self.score_left) }
             get_score_right(): int          { @@:(self.score_right) }
             get_serve_direction(): int      { @@:(self.serving_to) }
@@ -157,7 +159,6 @@
                 -> pop$
             }
 
-            get_state(): String             { @@:("paused") }
             get_score_left(): int           { @@:(self.score_left) }
             get_score_right(): int          { @@:(self.score_right) }
             get_serve_direction(): int      { @@:(self.serving_to) }
@@ -173,7 +174,6 @@
                 -> $AttractMode
             }
 
-            get_state(): String             { @@:("game_over") }
             get_score_left(): int           { @@:(self.score_left) }
             get_score_right(): int          { @@:(self.score_right) }
             get_serve_direction(): int      { @@:(self.serving_to) }
