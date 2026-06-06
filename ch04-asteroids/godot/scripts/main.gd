@@ -11,7 +11,7 @@ const AsteroidsFSM = preload("res://scripts/asteroids.gd")
 
 # Palette matched to the JS (Phaser) build so both runtimes look the same.
 # JS hex values: bg #0b0e14, ship 0x8ab4f8, asteroid stroke 0x9aa4b8.
-const COL_BG     := Color(0x0b / 255.0, 0x0e / 255.0, 0x14 / 255.0)
+const COL_BG     := Color(0, 0, 0, 1)
 const COL_SHIP   := Color(0x8a / 255.0, 0xb4 / 255.0, 0xf8 / 255.0)
 const COL_ROCK   := Color(0x9a / 255.0, 0xa4 / 255.0, 0xb8 / 255.0)
 const COL_BULLET := Color(1, 1, 1)
